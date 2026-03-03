@@ -1,40 +1,51 @@
 import { useState } from "react";
+import { useAuth } from "@/hooks/use-auth";
 import { useMonths, useTeamMembers, useMonthlyGoals, useWeeklyGoals, useDailyMetrics, useAiReports } from "@/hooks/use-metrics";
 import { sumMetrics, METRIC_LABELS, METRIC_KEYS } from "@/lib/db";
-import { KpiGrid } from "@/components/dashboard/KpiGrid";
-import { WeeklyComparisonChart } from "@/components/dashboard/WeeklyComparisonChart";
-import { PersonPerformanceChart } from "@/components/dashboard/PersonPerformanceChart";
-import { DailyTable } from "@/components/dashboard/DailyTable";
-import { AiReportPanel } from "@/components/dashboard/AiReportPanel";
+import AdminDashboard from "@/pages/AdminDashboard";
+import CloserEntry from "@/pages/CloserEntry";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, BarChart3, Loader2 } from "lucide-react";
-
-const CHART_METRICS = ["follow_up", "conexoes", "reuniao_realizada", "lig_realizada"];
+import { ChevronDown, BarChart3, Loader2, LogOut, User, ClipboardList, LayoutDashboard } from "lucide-react";
+import { Navigate } from "react-router-dom";
 
 export default function Index() {
+  const { user, role, profile, loading, signOut, isAdmin } = useAuth();
   const queryClient = useQueryClient();
-  const { data: months, isLoading: monthsLoading } = useMonths();
+  const { data: months } = useMonths();
   const { data: members } = useTeamMembers();
   const [selectedMonthId, setSelectedMonthId] = useState<string | undefined>();
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
-  const [selectedChartMetric, setSelectedChartMetric] = useState("follow_up");
+  const [closerView, setCloserView] = useState<"entry" | "dashboard">("entry");
 
   const activeMonthId = selectedMonthId || months?.[0]?.id;
-  const activeMonth = months?.find(m => m.id === activeMonthId);
 
-  const { data: goals } = useMonthlyGoals(activeMonthId);
-  const { data: weeklyGoals } = useWeeklyGoals(activeMonthId);
-  const { data: dailyMetrics } = useDailyMetrics(activeMonthId);
-  const { data: aiReports } = useAiReports(activeMonthId);
-
-  const totals = dailyMetrics ? sumMetrics(dailyMetrics, selectedMemberId || undefined) : {};
-
-  const isLoading = monthsLoading;
-
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <Loader2 className="animate-spin text-primary" size={32} />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  // If no role assigned yet, show pending message
+  if (!role) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <div className="text-center space-y-4 max-w-sm">
+          <BarChart3 size={32} className="text-primary mx-auto" />
+          <h2 className="text-lg font-bold text-foreground">Conta Pendente</h2>
+          <p className="text-sm text-muted-foreground">
+            Sua conta foi criada mas ainda não foi vinculada a um perfil. 
+            Peça ao gestor para aprovar seu acesso.
+          </p>
+          <button onClick={signOut} className="text-xs text-primary hover:text-primary/80">
+            Sair
+          </button>
+        </div>
       </div>
     );
   }
@@ -62,81 +73,91 @@ export default function Index() {
               </select>
               <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             </div>
+
+            {/* Closer: toggle between entry and dashboard */}
+            {!isAdmin && (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setCloserView("entry")}
+                  className={`px-3 py-1.5 text-[10px] rounded-lg font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 ${
+                    closerView === "entry" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                  }`}
+                >
+                  <ClipboardList size={12} /> Inserir Dados
+                </button>
+                <button
+                  onClick={() => setCloserView("dashboard")}
+                  className={`px-3 py-1.5 text-[10px] rounded-lg font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 ${
+                    closerView === "dashboard" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                  }`}
+                >
+                  <LayoutDashboard size={12} /> Dashboard
+                </button>
+              </div>
+            )}
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => setSelectedMemberId(null)}
-              className={`px-3 py-1.5 text-[10px] rounded-lg font-semibold uppercase tracking-wider transition-colors ${
-                !selectedMemberId ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-              }`}
-            >
-              Todos
-            </button>
-            {members?.map(m => (
-              <button
-                key={m.id}
-                onClick={() => setSelectedMemberId(m.id)}
-                className={`px-3 py-1.5 text-[10px] rounded-lg font-semibold uppercase tracking-wider transition-colors ${
-                  selectedMemberId === m.id ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                }`}
-              >
-                {m.name}
+          <div className="flex items-center gap-3">
+            {/* Member filter (admin only) */}
+            {isAdmin && (
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setSelectedMemberId(null)}
+                  className={`px-3 py-1.5 text-[10px] rounded-lg font-semibold uppercase tracking-wider transition-colors ${
+                    !selectedMemberId ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                  }`}
+                >
+                  Todos
+                </button>
+                {members?.map(m => (
+                  <button
+                    key={m.id}
+                    onClick={() => setSelectedMemberId(m.id)}
+                    className={`px-3 py-1.5 text-[10px] rounded-lg font-semibold uppercase tracking-wider transition-colors ${
+                      selectedMemberId === m.id ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                    }`}
+                  >
+                    {m.name}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* User info */}
+            <div className="h-5 w-px bg-border" />
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center">
+                <User size={14} className="text-primary" />
+              </div>
+              <div className="hidden sm:block">
+                <p className="text-[10px] font-semibold text-foreground leading-tight">{profile?.full_name || user.email}</p>
+                <p className="text-[9px] text-muted-foreground uppercase">{role}</p>
+              </div>
+              <button onClick={signOut} className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors" title="Sair">
+                <LogOut size={14} />
               </button>
-            ))}
+            </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-[1600px] mx-auto p-6 space-y-5">
-        <KpiGrid totals={totals} goals={goals ? { ...goals } as Record<string, number> : null} />
-
-        {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2">
-            <div className="flex items-center gap-1 mb-3">
-              {CHART_METRICS.map(m => (
-                <button
-                  key={m}
-                  onClick={() => setSelectedChartMetric(m)}
-                  className={`px-2.5 py-1 text-[10px] rounded-md font-semibold uppercase tracking-wider transition-colors ${
-                    selectedChartMetric === m ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {METRIC_LABELS[m]}
-                </button>
-              ))}
+      {/* Content */}
+      {isAdmin ? (
+        <AdminDashboard onSignOut={signOut} userName={profile?.full_name || ""} />
+      ) : (
+        <div className="py-6 px-4">
+          {closerView === "entry" && profile?.team_member_id ? (
+            <CloserEntry teamMemberId={profile.team_member_id} memberName={profile.full_name || ""} />
+          ) : closerView === "entry" && !profile?.team_member_id ? (
+            <div className="text-center py-12 space-y-3">
+              <p className="text-sm text-muted-foreground">Seu perfil ainda não foi vinculado a um membro da equipe.</p>
+              <p className="text-xs text-muted-foreground">Peça ao gestor para vincular sua conta.</p>
             </div>
-            {weeklyGoals && <WeeklyComparisonChart weeklyGoals={weeklyGoals} metric={selectedChartMetric} />}
-          </div>
-          {dailyMetrics && members && (
-            <PersonPerformanceChart dailyMetrics={dailyMetrics} members={members} />
+          ) : (
+            <AdminDashboard onSignOut={signOut} userName={profile?.full_name || ""} />
           )}
         </div>
-
-        {/* AI Report */}
-        {activeMonthId && activeMonth && (
-          <AiReportPanel
-            monthId={activeMonthId}
-            monthLabel={activeMonth.label}
-            metrics={totals}
-            goals={goals ? { ...goals } as Record<string, number> : null}
-            members={members?.map(m => m.name) || []}
-            existingReports={aiReports || []}
-            onReportGenerated={() => queryClient.invalidateQueries({ queryKey: ["ai-reports", activeMonthId] })}
-          />
-        )}
-
-        {/* Table */}
-        <div>
-          <h3 className="text-xs font-semibold text-foreground mb-3 uppercase tracking-wider">
-            Detalhamento Diário {selectedMemberId && members ? `— ${members.find(m => m.id === selectedMemberId)?.name}` : ""}
-          </h3>
-          {dailyMetrics && members && (
-            <DailyTable dailyMetrics={dailyMetrics} members={members} selectedMemberId={selectedMemberId} />
-          )}
-        </div>
-      </main>
+      )}
     </div>
   );
 }
