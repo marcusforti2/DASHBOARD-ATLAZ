@@ -6,7 +6,7 @@ import { DbTeamMember } from "@/lib/db";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  User, Save, Loader2, Camera, Link2, Users, ChevronDown
+  User, Save, Loader2, Camera, Link2, Users, ChevronDown, ShieldCheck, Trash2, Plus, Mail
 } from "lucide-react";
 
 export default function SettingsPage() {
@@ -144,6 +144,184 @@ export default function SettingsPage() {
                 </div>
               ))}
             </div>
+          )}
+        </div>
+      )}
+
+      {/* Admin: Manage Admins */}
+      {isAdmin && <AdminManagementSection />}
+    </div>
+  );
+}
+
+// --- Admin Management Section ---
+function AdminManagementSection() {
+  const [admins, setAdmins] = useState<{ user_id: string; email: string; full_name: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [newEmail, setNewEmail] = useState("");
+  const [newName, setNewName] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const { user } = useAuth();
+
+  const loadAdmins = async () => {
+    setLoading(true);
+    // Get all admin roles
+    const { data: roles } = await supabase.from("user_roles").select("user_id").eq("role", "admin");
+    if (!roles || roles.length === 0) { setAdmins([]); setLoading(false); return; }
+    
+    const userIds = roles.map(r => r.user_id);
+    const { data: profiles } = await supabase.from("profiles").select("id, full_name").in("id", userIds);
+    
+    const result = userIds.map(uid => {
+      const p = profiles?.find(pr => pr.id === uid);
+      return { user_id: uid, email: "", full_name: p?.full_name || "Admin" };
+    });
+    setAdmins(result);
+    setLoading(false);
+  };
+
+  useEffect(() => { loadAdmins(); }, []);
+
+  const handleCreateAdmin = async () => {
+    if (!newEmail.trim() || !newPassword.trim()) {
+      toast.error("Email e senha são obrigatórios");
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.error("Senha deve ter no mínimo 6 caracteres");
+      return;
+    }
+    setCreating(true);
+
+    // Use edge function to create admin
+    const { data, error } = await supabase.functions.invoke("create-admin", {
+      body: { email: newEmail.trim(), password: newPassword, full_name: newName.trim() || newEmail.trim() },
+    });
+
+    if (error) {
+      toast.error(error.message || "Erro ao criar admin");
+    } else if (data?.error) {
+      toast.error(data.error);
+    } else {
+      toast.success("Admin criado com sucesso!");
+      setNewEmail("");
+      setNewName("");
+      setNewPassword("");
+      setShowForm(false);
+      loadAdmins();
+    }
+    setCreating(false);
+  };
+
+  const handleRemoveAdmin = async (userId: string) => {
+    if (userId === user?.id) { toast.error("Você não pode remover a si mesmo"); return; }
+    if (!confirm("Remover este admin? Ele perderá acesso administrativo.")) return;
+    
+    const { error } = await supabase.from("user_roles").delete().eq("user_id", userId).eq("role", "admin");
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Admin removido");
+      loadAdmins();
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <ShieldCheck size={14} className="text-primary" />
+          <h3 className="text-xs font-semibold text-card-foreground uppercase tracking-wider">Gerenciar Administradores</h3>
+        </div>
+        <button
+          onClick={() => setShowForm(!showForm)}
+          className="px-3 py-1.5 text-[10px] rounded-lg font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors flex items-center gap-1.5"
+        >
+          <Plus size={10} /> Novo Admin
+        </button>
+      </div>
+      <p className="text-[10px] text-muted-foreground">
+        Cadastre novos administradores que terão acesso total ao painel de gestão.
+      </p>
+
+      {/* Create admin form */}
+      {showForm && (
+        <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-3">
+          <h4 className="text-[10px] font-semibold text-primary uppercase tracking-wider">Cadastrar Novo Admin</h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Nome</label>
+              <input
+                type="text"
+                value={newName}
+                onChange={e => setNewName(e.target.value)}
+                placeholder="Nome completo"
+                className="mt-1 w-full rounded-lg border border-border bg-secondary px-3 py-2 text-xs text-secondary-foreground focus:ring-1 focus:ring-primary outline-none"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Email *</label>
+              <input
+                type="email"
+                value={newEmail}
+                onChange={e => setNewEmail(e.target.value)}
+                placeholder="admin@empresa.com"
+                className="mt-1 w-full rounded-lg border border-border bg-secondary px-3 py-2 text-xs text-secondary-foreground focus:ring-1 focus:ring-primary outline-none"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Senha *</label>
+            <input
+              type="password"
+              value={newPassword}
+              onChange={e => setNewPassword(e.target.value)}
+              placeholder="Mínimo 6 caracteres"
+              className="mt-1 w-full rounded-lg border border-border bg-secondary px-3 py-2 text-xs text-secondary-foreground focus:ring-1 focus:ring-primary outline-none"
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setShowForm(false)} className="px-3 py-1.5 text-[10px] rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80">
+              Cancelar
+            </button>
+            <button onClick={handleCreateAdmin} disabled={creating} className="px-4 py-1.5 text-[10px] rounded-lg font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 flex items-center gap-1.5">
+              {creating ? <Loader2 size={10} className="animate-spin" /> : <ShieldCheck size={10} />}
+              Criar Admin
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Admin list */}
+      {loading ? (
+        <div className="flex justify-center py-4"><Loader2 size={16} className="animate-spin text-primary" /></div>
+      ) : (
+        <div className="space-y-2">
+          {admins.map(a => (
+            <div key={a.user_id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/30 border border-border">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center">
+                  <ShieldCheck size={14} className="text-primary" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-card-foreground">{a.full_name}</p>
+                  <p className="text-[9px] text-muted-foreground">{a.user_id === user?.id ? "Você" : a.user_id.slice(0, 8) + "..."}</p>
+                </div>
+              </div>
+              {a.user_id !== user?.id && (
+                <button
+                  onClick={() => handleRemoveAdmin(a.user_id)}
+                  className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                  title="Remover admin"
+                >
+                  <Trash2 size={12} />
+                </button>
+              )}
+            </div>
+          ))}
+          {admins.length === 0 && (
+            <p className="text-xs text-muted-foreground text-center py-4">Nenhum admin encontrado</p>
           )}
         </div>
       )}
