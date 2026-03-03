@@ -47,7 +47,7 @@ export function KpiGrid({ totals, goals, previousTotals, onCardClick, compact = 
     const circumference = 2 * Math.PI * radius;
 
     return (
-      <div className="grid grid-cols-5 lg:grid-cols-10 gap-2">
+      <div className="grid grid-cols-5 lg:grid-cols-10 gap-1.5">
         {keys.map(key => {
           const val = totals[key] || 0;
           const goal = goals ? (goals as any)[key] || 0 : 0;
@@ -64,39 +64,39 @@ export function KpiGrid({ totals, goals, previousTotals, onCardClick, compact = 
               key={key}
               onClick={() => onCardClick?.(key)}
               className={cn(
-                "group rounded-lg border border-border bg-card p-2 flex flex-col items-center text-center gap-1 hover:border-primary/30 transition-all hover:shadow-[0_0_15px_-5px_hsl(var(--primary)/0.15)]",
+                "group aspect-square rounded-lg border border-border bg-card flex items-center justify-center hover:border-primary/30 transition-all hover:shadow-[0_0_15px_-5px_hsl(var(--primary)/0.15)] relative overflow-hidden",
                 onCardClick && "cursor-pointer",
                 isZero && "opacity-40"
               )}
             >
-              <span className="text-[8px] font-semibold text-muted-foreground uppercase tracking-wider leading-tight">
+              {/* Label on top */}
+              <span className="absolute top-1.5 left-0 right-0 text-[7px] font-semibold text-muted-foreground uppercase tracking-wider leading-tight text-center">
                 {SHORT_LABELS[key]}
               </span>
 
               {goal > 0 ? (
-                <>
-                  <div className="relative flex items-center justify-center" style={{ width: ringSize, height: ringSize }}>
-                    <svg width={ringSize} height={ringSize} className="-rotate-90">
-                      <circle cx={ringSize / 2} cy={ringSize / 2} r={radius} fill="none" stroke="hsl(var(--secondary))" strokeWidth={strokeWidth} />
-                      <circle cx={ringSize / 2} cy={ringSize / 2} r={radius} fill="none" stroke={strokeColor} strokeWidth={strokeWidth} strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={dashOffset} className="transition-all duration-700" />
-                    </svg>
-                    <span className={cn("absolute text-sm font-black tabular-nums", colorClass)}>
+                <div className="relative flex items-center justify-center w-[85%] h-[85%]">
+                  <svg viewBox={`0 0 ${ringSize} ${ringSize}`} className="-rotate-90 w-full h-full">
+                    <circle cx={ringSize / 2} cy={ringSize / 2} r={radius} fill="none" stroke="hsl(var(--secondary))" strokeWidth={strokeWidth} />
+                    <circle cx={ringSize / 2} cy={ringSize / 2} r={radius} fill="none" stroke={strokeColor} strokeWidth={strokeWidth} strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={dashOffset} className="transition-all duration-700" />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <div className="flex items-baseline gap-px">
+                      <span className="text-[15px] font-black tabular-nums text-card-foreground leading-none">
+                        {val.toLocaleString("pt-BR")}
+                      </span>
+                      <span className="text-[10px] font-medium text-muted-foreground leading-none">/{goal.toLocaleString("pt-BR")}</span>
+                    </div>
+                    <span className={cn("text-[9px] font-bold tabular-nums leading-none mt-0.5", colorClass)}>
                       {pct}%
                     </span>
                   </div>
-                  <div className="flex items-baseline gap-0.5">
-                    <span className="text-[13px] font-bold tabular-nums text-card-foreground leading-none">
-                      {val.toLocaleString("pt-BR")}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground leading-none">/{goal.toLocaleString("pt-BR")}</span>
-                  </div>
-                </>
+                </div>
               ) : (
-                <span className="text-xl font-black tabular-nums text-card-foreground leading-none my-2">
+                <span className="text-xl font-black tabular-nums text-card-foreground leading-none">
                   {val.toLocaleString("pt-BR")}
                 </span>
               )}
-
             </div>
           );
         })}
