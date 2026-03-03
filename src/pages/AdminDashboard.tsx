@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useMonths, useTeamMembers, useMonthlyGoals, useWeeklyGoals, useDailyMetrics, useAiReports } from "@/hooks/use-metrics";
 import { sumMetrics, goalToMetrics, METRIC_LABELS, METRIC_KEYS, DbDailyMetric, DbTeamMember } from "@/lib/db";
+import { getWeeksOfMonth } from "@/lib/calendar-utils";
 import { KpiGrid } from "@/components/dashboard/KpiGrid";
 import { WeeklyComparisonChart } from "@/components/dashboard/WeeklyComparisonChart";
 import { PersonPerformanceChart } from "@/components/dashboard/PersonPerformanceChart";
@@ -34,6 +35,11 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(externalMemberId || null);
   const [selectedChartMetric, setSelectedChartMetric] = useState("follow_up");
 
+  // Period filter: "month" | "week" | "day"
+  const [periodFilter, setPeriodFilter] = useState<"month" | "week" | "day">("month");
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedWeekIdx, setSelectedWeekIdx] = useState<number>(0);
+
   // Advanced filters
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -43,6 +49,12 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
 
   const activeMonthId = selectedMonthId || months?.[0]?.id;
   const activeMonth = months?.find(m => m.id === activeMonthId);
+
+  // Compute weeks for the active month
+  const weeksOfMonth = useMemo(() => {
+    if (!activeMonth) return [];
+    return getWeeksOfMonth(activeMonth.year, activeMonth.month);
+  }, [activeMonth]);
 
   // Previous month for trends
   const activeMonthIdx = months?.findIndex(m => m.id === activeMonthId) ?? -1;
@@ -54,17 +66,27 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
   const { data: previousMetrics } = useDailyMetrics(previousMonthId || undefined);
   const { data: aiReports } = useAiReports(activeMonthId);
 
-  // Apply filters
+  // Apply filters including period filter
   const filteredMetrics = useMemo(() => {
     if (!dailyMetrics) return [];
     let result = [...dailyMetrics];
     if (selectedMemberId) result = result.filter(d => d.member_id === selectedMemberId);
+
+    // Period-based filtering
+    if (periodFilter === "day") {
+      const dayStr = format(selectedDate, "yyyy-MM-dd");
+      result = result.filter(d => d.date === dayStr);
+    } else if (periodFilter === "week" && weeksOfMonth[selectedWeekIdx]) {
+      const week = weeksOfMonth[selectedWeekIdx];
+      result = result.filter(d => d.date >= week.startDate && d.date <= week.endDate);
+    }
+
     if (dateFrom) result = result.filter(d => d.date >= dateFrom);
     if (dateTo) result = result.filter(d => d.date <= dateTo);
     if (selectedDayOfWeek) result = result.filter(d => d.day_of_week === selectedDayOfWeek);
     if (minMetricFilter) result = result.filter(d => (d as any)[minMetricFilter.key] >= minMetricFilter.value);
     return result;
-  }, [dailyMetrics, selectedMemberId, dateFrom, dateTo, selectedDayOfWeek, minMetricFilter]);
+  }, [dailyMetrics, selectedMemberId, dateFrom, dateTo, selectedDayOfWeek, minMetricFilter, periodFilter, selectedDate, selectedWeekIdx, weeksOfMonth]);
 
   const totals = filteredMetrics.length > 0 ? sumMetrics(filteredMetrics) : {};
   const previousTotals = previousMetrics && previousMetrics.length > 0 ? sumMetrics(previousMetrics) : undefined;
@@ -125,6 +147,78 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
             </button>
           ))}
         </div>
+
+        <div className="h-5 w-px bg-border" />
+
+        {/* Period filter */}
+        <div className="flex items-center gap-1.5">
+          {(["month", "week", "day"] as const).map(p => (
+            <button
+              key={p}
+              onClick={() => setPeriodFilter(p)}
+              className={cn(
+                "px-3 py-1.5 text-[10px] rounded-lg font-semibold uppercase tracking-wider transition-colors",
+                periodFilter === p ? "bg-accent text-accent-foreground" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+              )}
+            >
+              {p === "month" ? "Mês" : p === "week" ? "Semana" : "Dia"}
+            </button>
+          ))}
+        </div>
+
+        {/* Week selector */}
+        {periodFilter === "week" && weeksOfMonth.length > 0 && (
+          <>
+            <div className="h-5 w-px bg-border" />
+            <div className="relative">
+              <select
+                value={selectedWeekIdx}
+                onChange={e => setSelectedWeekIdx(Number(e.target.value))}
+                className="appearance-none bg-secondary text-secondary-foreground text-xs font-medium px-3 py-2 pr-7 rounded-lg border border-border cursor-pointer focus:ring-1 focus:ring-primary outline-none"
+              >
+                {weeksOfMonth.map((w, i) => (
+                  <option key={i} value={i}>Sem {w.weekNumber} — {w.label}</option>
+                ))}
+              </select>
+              <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            </div>
+          </>
+        )}
+
+        {/* Day picker */}
+        {periodFilter === "day" && (
+          <>
+            <div className="h-5 w-px bg-border" />
+            <button
+              onClick={() => setSelectedDate(new Date())}
+              className={cn(
+                "px-3 py-1.5 text-[10px] rounded-lg font-semibold uppercase tracking-wider transition-colors flex items-center gap-1",
+                format(selectedDate, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd")
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+              )}
+            >
+              <CalendarDays size={12} /> Hoje
+            </button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="px-3 py-1.5 text-[10px] rounded-lg font-semibold tracking-wider transition-colors bg-secondary text-secondary-foreground hover:bg-secondary/80 flex items-center gap-1">
+                  <CalendarDays size={12} />
+                  {format(selectedDate, "dd/MM/yyyy", { locale: ptBR })}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(d) => d && setSelectedDate(d)}
+                  initialFocus
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
+          </>
+        )}
       </div>
 
       {/* KPIs */}
