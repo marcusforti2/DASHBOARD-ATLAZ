@@ -41,6 +41,11 @@ export function KpiGrid({ totals, goals, previousTotals, onCardClick, compact = 
   const keys = Object.keys(METRIC_LABELS);
 
   if (compact) {
+    const ringSize = 38;
+    const strokeWidth = 3;
+    const radius = (ringSize - strokeWidth) / 2;
+    const circumference = 2 * Math.PI * radius;
+
     return (
       <div className="grid grid-cols-5 lg:grid-cols-10 gap-1.5">
         {keys.map(key => {
@@ -49,6 +54,9 @@ export function KpiGrid({ totals, goals, previousTotals, onCardClick, compact = 
           const pct = goal > 0 ? Math.round((val / goal) * 100) : 0;
           const isGood = pct >= 80;
           const isMid = pct >= 40;
+          const colorClass = isGood ? "text-accent" : isMid ? "text-[hsl(38,92%,50%)]" : "text-destructive";
+          const strokeColor = isGood ? "hsl(var(--accent))" : isMid ? "hsl(38,92%,50%)" : "hsl(var(--destructive))";
+          const dashOffset = circumference - (Math.min(pct, 100) / 100) * circumference;
 
           const prevVal = previousTotals?.[key] || 0;
           const trendPct = prevVal > 0 ? Math.round(((val - prevVal) / prevVal) * 100) : 0;
@@ -60,24 +68,41 @@ export function KpiGrid({ totals, goals, previousTotals, onCardClick, compact = 
               key={key}
               onClick={() => onCardClick?.(key)}
               className={cn(
-                "group rounded-lg border border-border bg-card p-2 flex flex-col items-center text-center gap-1 hover:border-primary/30 transition-all hover:shadow-[0_0_15px_-5px_hsl(var(--primary)/0.15)]",
+                "group rounded-lg border border-border bg-card p-2 flex flex-col items-center text-center gap-0.5 hover:border-primary/30 transition-all hover:shadow-[0_0_15px_-5px_hsl(var(--primary)/0.15)]",
                 onCardClick && "cursor-pointer"
               )}
             >
-              <div className="flex items-center gap-1">
-                <span className="text-muted-foreground opacity-60 group-hover:opacity-100 transition-opacity">
-                  {ICONS[key]}
-                </span>
-              </div>
+              <span className="text-muted-foreground opacity-60 group-hover:opacity-100 transition-opacity">
+                {ICONS[key]}
+              </span>
               <span className="text-[7px] font-semibold text-muted-foreground uppercase tracking-wider leading-tight">
                 {SHORT_LABELS[key]}
               </span>
-              <span className="text-lg font-black tabular-nums text-card-foreground leading-none">
-                {val.toLocaleString("pt-BR")}
-              </span>
-              {goal > 0 && (
-                <span className="text-[8px] text-muted-foreground leading-none">/{goal.toLocaleString("pt-BR")}</span>
+
+              {goal > 0 ? (
+                <div className="relative flex items-center justify-center" style={{ width: ringSize, height: ringSize }}>
+                  <svg width={ringSize} height={ringSize} className="-rotate-90">
+                    <circle cx={ringSize / 2} cy={ringSize / 2} r={radius} fill="none" stroke="hsl(var(--secondary))" strokeWidth={strokeWidth} />
+                    <circle cx={ringSize / 2} cy={ringSize / 2} r={radius} fill="none" stroke={strokeColor} strokeWidth={strokeWidth} strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={dashOffset} className="transition-all duration-700" />
+                  </svg>
+                  <span className={cn("absolute text-[9px] font-bold tabular-nums", colorClass)}>
+                    {pct}%
+                  </span>
+                </div>
+              ) : (
+                <span className="text-lg font-black tabular-nums text-card-foreground leading-none my-1">
+                  {val.toLocaleString("pt-BR")}
+                </span>
               )}
+
+              <div className="flex items-baseline gap-0.5">
+                <span className="text-[11px] font-bold tabular-nums text-card-foreground leading-none">
+                  {val.toLocaleString("pt-BR")}
+                </span>
+                {goal > 0 && (
+                  <span className="text-[9px] text-muted-foreground leading-none">/ {goal.toLocaleString("pt-BR")}</span>
+                )}
+              </div>
 
               {previousTotals && prevVal > 0 && (
                 <div className={cn(
@@ -87,26 +112,6 @@ export function KpiGrid({ totals, goals, previousTotals, onCardClick, compact = 
                   {trendUp ? <TrendingUp size={8} /> : trendDown ? <TrendingDown size={8} /> : <Minus size={8} />}
                   <span>{trendUp ? "+" : ""}{trendPct}%</span>
                 </div>
-              )}
-
-              {goal > 0 && (
-                <>
-                  <div className="w-full h-1 rounded-full bg-secondary overflow-hidden">
-                    <div
-                      className={cn(
-                        "h-full rounded-full transition-all duration-700",
-                        isGood ? "bg-accent" : isMid ? "bg-[hsl(38,92%,50%)]" : "bg-destructive"
-                      )}
-                      style={{ width: `${Math.min(pct, 100)}%` }}
-                    />
-                  </div>
-                  <span className={cn(
-                    "text-[8px] font-bold tabular-nums leading-none",
-                    isGood ? "text-accent" : isMid ? "text-[hsl(38,92%,50%)]" : "text-destructive"
-                  )}>
-                    {pct}%
-                  </span>
-                </>
               )}
             </div>
           );
