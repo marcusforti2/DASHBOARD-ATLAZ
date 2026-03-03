@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useMonths, useTeamMembers } from "@/hooks/use-metrics";
 import AdminDashboard from "@/pages/AdminDashboard";
 import CloserEntry from "@/pages/CloserEntry";
+import TeamManagement from "@/pages/TeamManagement";
 import { AppSidebar, AdminView, CloserView } from "@/components/AppSidebar";
 import { AiReportPanel } from "@/components/dashboard/AiReportPanel";
 import { useMonthlyGoals, useAiReports, useDailyMetrics } from "@/hooks/use-metrics";
@@ -92,7 +93,7 @@ export default function Index() {
         case "dashboard":
           return <AdminDashboard onSignOut={signOut} userName={profile?.full_name || ""} />;
         case "team":
-          return <ComingSoonPanel title="Gestão de Equipe" icon={Users} />;
+          return <TeamManagement />;
         case "goals":
           return <ComingSoonPanel title="Gestão de Metas" icon={Target} />;
         case "reports":
