@@ -21,49 +21,32 @@ function hasWeekday(start: Date, end: Date): boolean {
 }
 
 /**
- * Get real calendar weeks (Seg–Dom) for a given month/year.
- * Partial weeks with only weekend days are merged with the adjacent week.
+ * Get real calendar weeks (Dom–Sáb) for a given month/year.
+ * Weeks start on Sunday. Partial weeks at month edges are kept as-is.
  */
 export function getWeeksOfMonth(year: number, month: number): CalendarWeek[] {
   const monthStart = startOfMonth(new Date(year, month - 1));
   const monthEnd = endOfMonth(new Date(year, month - 1));
 
+  // weekStartsOn: 0 = Sunday
   const weekStarts = eachWeekOfInterval(
     { start: monthStart, end: monthEnd },
-    { weekStartsOn: 1 }
+    { weekStartsOn: 0 }
   );
 
-  // Build raw weeks clipped to month
-  const raw: { start: Date; end: Date }[] = weekStarts.map((weekStart) => {
-    const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
+  // Build weeks clipped to month boundaries
+  return weekStarts.map((weekStart, idx) => {
+    const weekEnd = endOfWeek(weekStart, { weekStartsOn: 0 }); // Saturday
+    const clippedStart = isBefore(weekStart, monthStart) ? monthStart : weekStart;
+    const clippedEnd = isAfter(weekEnd, monthEnd) ? monthEnd : weekEnd;
+
     return {
-      start: isBefore(weekStart, monthStart) ? monthStart : weekStart,
-      end: isAfter(weekEnd, monthEnd) ? monthEnd : weekEnd,
+      weekNumber: idx + 1,
+      startDate: format(clippedStart, "yyyy-MM-dd"),
+      endDate: format(clippedEnd, "yyyy-MM-dd"),
+      label: `${format(clippedStart, "dd/MM")} — ${format(clippedEnd, "dd/MM")}`,
     };
   });
-
-  // Merge partial weeks (no weekdays) with adjacent week
-  const merged: { start: Date; end: Date }[] = [];
-  for (let i = 0; i < raw.length; i++) {
-    const w = raw[i];
-    if (!hasWeekday(w.start, w.end)) {
-      // Merge with next or previous
-      if (i === 0 && raw.length > 1) {
-        raw[1].start = w.start; // extend next week's start
-      } else if (merged.length > 0) {
-        merged[merged.length - 1].end = w.end; // extend previous week's end
-      }
-    } else {
-      merged.push({ ...w });
-    }
-  }
-
-  return merged.map((w, idx) => ({
-    weekNumber: idx + 1,
-    startDate: format(w.start, "yyyy-MM-dd"),
-    endDate: format(w.end, "yyyy-MM-dd"),
-    label: `${format(w.start, "dd/MM")} — ${format(w.end, "dd/MM")}`,
-  }));
 }
 
 /**
