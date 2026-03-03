@@ -75,7 +75,9 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
   const previousMonthId = activeMonthIdx >= 0 && months?.[activeMonthIdx + 1]?.id;
 
   const { data: goals } = useMonthlyGoals(activeMonthId, selectedMemberId);
+  const { data: teamGoals } = useMonthlyGoals(activeMonthId, null); // team-level goals for All SDRs panel
   const { data: weeklyGoals } = useWeeklyGoals(activeMonthId, selectedMemberId);
+  const { data: teamWeeklyGoals } = useWeeklyGoals(activeMonthId, null); // team-level weekly goals
   const { data: dailyMetrics } = useDailyMetrics(activeMonthId);
   const { data: previousMetrics } = useDailyMetrics(previousMonthId || undefined);
   const { data: aiReports } = useAiReports(activeMonthId);
@@ -97,13 +99,21 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
     return memberFilteredMetrics.length > 0 ? sumMetrics(memberFilteredMetrics) : {};
   }, [memberFilteredMetrics]);
 
-  // Panel 2: Week totals
+  // Panel 2: Week totals & goals
   const weekFilteredMetrics = useMemo(() => {
     if (!weeksOfMonth[effectiveWeekIdx]) return [];
     const week = weeksOfMonth[effectiveWeekIdx];
     return memberFilteredMetrics.filter(d => d.date >= week.startDate && d.date <= week.endDate);
   }, [memberFilteredMetrics, weeksOfMonth, effectiveWeekIdx]);
   const weekTotals = useMemo(() => weekFilteredMetrics.length > 0 ? sumMetrics(weekFilteredMetrics) : {}, [weekFilteredMetrics]);
+
+  // Weekly goals for selected week
+  const weekGoals = useMemo(() => {
+    if (!weeklyGoals || !weeksOfMonth[effectiveWeekIdx]) return null;
+    const weekNum = weeksOfMonth[effectiveWeekIdx].weekNumber;
+    const wg = weeklyGoals.find(w => w.week_number === weekNum);
+    return wg ? goalToMetrics(wg as any) : null;
+  }, [weeklyGoals, weeksOfMonth, effectiveWeekIdx]);
 
   // Panel 3: All SDRs (ignore member filter, apply own period)
   const allSdrMetrics = useMemo(() => {
@@ -129,6 +139,35 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
     })).sort((a, b) => b.grandTotal - a.grandTotal);
   }, [members, allSdrMetrics]);
   const allSdrTotals = useMemo(() => allSdrMetrics.length > 0 ? sumMetrics(allSdrMetrics) : {}, [allSdrMetrics]);
+
+  // All SDRs goals based on period
+  const allSdrGoals = useMemo((): Record<string, number> | null => {
+    if (allSdrPeriod === "month") {
+      return goalToMetrics(teamGoals);
+    }
+    if (allSdrPeriod === "week") {
+      if (!teamWeeklyGoals || !weeksOfMonth[allSdrWeekIdx]) return null;
+      const weekNum = weeksOfMonth[allSdrWeekIdx].weekNumber;
+      const wg = teamWeeklyGoals.find(w => w.week_number === weekNum);
+      return wg ? goalToMetrics(wg as any) : null;
+    }
+    if (allSdrPeriod === "day") {
+      // Daily goal = find the week that contains this day, then divide by 5
+      const dayStr = format(allSdrDate, "yyyy-MM-dd");
+      const weekIdx = weeksOfMonth.findIndex(w => dayStr >= w.startDate && dayStr <= w.endDate);
+      if (weekIdx < 0 || !teamWeeklyGoals) return null;
+      const weekNum = weeksOfMonth[weekIdx].weekNumber;
+      const wg = teamWeeklyGoals.find(w => w.week_number === weekNum);
+      if (!wg) return null;
+      const wgMetrics = goalToMetrics(wg as any);
+      if (!wgMetrics) return null;
+      return METRIC_KEYS.reduce((acc, k) => {
+        acc[k] = Math.round((wgMetrics[k] || 0) / 5);
+        return acc;
+      }, {} as Record<string, number>);
+    }
+    return null;
+  }, [allSdrPeriod, teamGoals, teamWeeklyGoals, weeksOfMonth, allSdrWeekIdx, allSdrDate]);
 
   const previousTotals = previousMetrics && previousMetrics.length > 0 ? sumMetrics(previousMetrics) : undefined;
   const hasActiveFilters = dateFrom || dateTo || selectedDayOfWeek || minMetricFilter;
@@ -242,7 +281,7 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
           ) : undefined
         }
       >
-        <KpiGrid totals={weekTotals} goals={goalToMetrics(goals)} />
+        <KpiGrid totals={weekTotals} goals={weekGoals} />
       </CollapsiblePanel>
 
       {/* Panel 3: Visão Geral — Todos os SDRs */}
@@ -270,7 +309,7 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
       >
         <div className="space-y-4">
           {/* Overall totals */}
-          <KpiGrid totals={allSdrTotals} goals={goalToMetrics(goals)} />
+          <KpiGrid totals={allSdrTotals} goals={allSdrGoals} />
 
           {/* Per-SDR breakdown */}
           <div className="overflow-x-auto">
