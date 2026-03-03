@@ -108,7 +108,7 @@ export default function SettingsPage() {
         <div className="rounded-xl border border-border bg-card p-5 space-y-4">
           <div className="flex items-center gap-2">
             <Link2 size={14} className="text-accent" />
-            <h3 className="text-xs font-semibold text-card-foreground uppercase tracking-wider">Vincular Usuários a Closers</h3>
+            <h3 className="text-xs font-semibold text-card-foreground uppercase tracking-wider">Vincular Usuários a SDRs</h3>
           </div>
           <p className="text-[10px] text-muted-foreground">
             Vincule contas de usuário aos membros da equipe para que possam inserir dados e ver seu dashboard.

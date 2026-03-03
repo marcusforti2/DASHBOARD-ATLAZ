@@ -277,7 +277,7 @@ function MonthGoalsEditor({
       {isViewingTeam && (
         <p className="text-[9px] text-muted-foreground italic flex items-center gap-1">
           <Users size={10} />
-          Soma automática das metas dos closers (somente leitura)
+          Soma automática das metas dos SDRs (somente leitura)
         </p>
       )}
 

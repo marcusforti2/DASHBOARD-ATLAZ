@@ -70,7 +70,7 @@ export function CloserRanking({ dailyMetrics, members }: CloserRankingProps) {
             <Trophy size={16} className="text-[hsl(45,93%,47%)]" />
           </div>
           <div>
-            <h3 className="text-xs font-bold text-card-foreground uppercase tracking-wider">Ranking Closers</h3>
+            <h3 className="text-xs font-bold text-card-foreground uppercase tracking-wider">Ranking SDRs</h3>
             <p className="text-[9px] text-muted-foreground mt-0.5">{METRIC_LABELS[metric]}</p>
           </div>
         </div>
@@ -154,7 +154,7 @@ export function CloserRanking({ dailyMetrics, members }: CloserRankingProps) {
           <table className="w-full text-[10px]">
             <thead>
               <tr className="border-b border-border">
-                <th className="text-left py-2 text-muted-foreground font-semibold uppercase tracking-wider">Closer</th>
+                <th className="text-left py-2 text-muted-foreground font-semibold uppercase tracking-wider">SDR</th>
                 {METRIC_KEYS.map(k => (
                   <th key={k} className="text-right py-2 text-muted-foreground font-semibold uppercase tracking-wider whitespace-nowrap px-1.5">
                     {METRIC_LABELS[k].substring(0, 6)}

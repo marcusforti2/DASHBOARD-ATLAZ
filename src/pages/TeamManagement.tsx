@@ -27,10 +27,10 @@ function CloserFormDialog({
     setSaving(true);
     if (member) {
       const { error } = await supabase.from("team_members").update({ name: name.trim() }).eq("id", member.id);
-      if (error) toast.error(error.message); else { toast.success("Closer atualizado!"); onSaved(); }
+      if (error) toast.error(error.message); else { toast.success("SDR atualizado!"); onSaved(); }
     } else {
       const { error } = await supabase.from("team_members").insert({ name: name.trim() });
-      if (error) toast.error(error.message); else { toast.success("Closer cadastrado!"); onSaved(); }
+      if (error) toast.error(error.message); else { toast.success("SDR cadastrado!"); onSaved(); }
     }
     setSaving(false);
     onClose();
@@ -40,7 +40,7 @@ function CloserFormDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm" onClick={onClose}>
       <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
         <h3 className="text-sm font-bold text-card-foreground mb-4 uppercase tracking-wider">
-          {member ? "Editar Closer" : "Novo Closer"}
+          {member ? "Editar SDR" : "Novo SDR"}
         </h3>
         <div className="space-y-3">
           <div>
@@ -49,7 +49,7 @@ function CloserFormDialog({
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
-              placeholder="Nome do closer"
+              placeholder="Nome do SDR"
               className="mt-1 w-full rounded-lg border border-border bg-secondary px-3 py-2.5 text-sm text-secondary-foreground focus:ring-1 focus:ring-primary outline-none"
               autoFocus
             />
@@ -399,7 +399,7 @@ export default function TeamManagement() {
     const { error } = await supabase.from("team_members").update({ active: !member.active }).eq("id", member.id);
     if (error) toast.error(error.message);
     else {
-      toast.success(member.active ? "Closer desativado" : "Closer ativado");
+      toast.success(member.active ? "SDR desativado" : "SDR ativado");
       queryClient.invalidateQueries({ queryKey: ["team-members"] });
     }
   };
@@ -409,7 +409,7 @@ export default function TeamManagement() {
     const { error } = await supabase.from("team_members").delete().eq("id", member.id);
     if (error) toast.error(error.message);
     else {
-      toast.success("Closer excluído");
+      toast.success("SDR excluído");
       queryClient.invalidateQueries({ queryKey: ["team-members"] });
     }
   };
@@ -428,7 +428,7 @@ export default function TeamManagement() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-bold text-foreground">Gestão de Equipe</h2>
-          <p className="text-xs text-muted-foreground mt-1">{members?.length || 0} closers cadastrados</p>
+          <p className="text-xs text-muted-foreground mt-1">{members?.length || 0} SDRs cadastrados</p>
         </div>
         <div className="flex items-center gap-3">
           {/* Month selector for analyses */}
@@ -449,7 +449,7 @@ export default function TeamManagement() {
             onClick={() => { setEditingMember(null); setShowForm(true); }}
             className="px-4 py-2 text-xs rounded-lg font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors flex items-center gap-1.5"
           >
-            <Plus size={14} /> Novo Closer
+            <Plus size={14} /> Novo SDR
           </button>
         </div>
       </div>

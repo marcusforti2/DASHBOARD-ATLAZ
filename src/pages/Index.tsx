@@ -175,7 +175,7 @@ export default function Index() {
                   adminView === "team" ? "Equipe" :
                   adminView === "goals" ? "Metas" :
                   adminView === "reports" ? "Relatórios IA" :
-                  adminView === "closer-preview" ? "Visualização Closer" :
+                   adminView === "closer-preview" ? "Visualização SDR" :
                   "Configurações"
                 ) : (
                   closerView === "daily-goals" ? "Meu Dia" : closerView === "entry" ? "Inserir Dados" : "Dashboard Geral"
@@ -222,11 +222,11 @@ export default function Index() {
             )}
           </header>
 
-          {/* Closer preview banner */}
+          {/* SDR preview banner */}
           {isCloserPreview && (
             <div className="bg-[hsl(38,92%,50%)]/10 border-b border-[hsl(38,92%,50%)]/30 px-4 py-2 flex items-center justify-between">
               <span className="text-[10px] font-semibold text-[hsl(38,92%,50%)] uppercase tracking-wider">
-                Modo visualização closer — {members?.find(m => m.id === previewMemberId)?.name}
+                Modo visualização SDR — {members?.find(m => m.id === previewMemberId)?.name}
               </span>
               <button
                 onClick={() => setAdminView("dashboard")}

@@ -17,12 +17,12 @@ serve(async (req) => {
     let userPrompt = "";
 
     if (type === "performance") {
-      systemPrompt = `Você é um analista de vendas especializado em prospecção B2B. Analise a performance do closer com base nas métricas fornecidas. Seja direto, use bullet points, identifique padrões, pontos fortes, fraquezas e dê recomendações acionáveis. Responda em português brasileiro.`;
+      systemPrompt = `Você é um analista de vendas especializado em prospecção B2B. Analise a performance do SDR com base nas métricas fornecidas. Seja direto, use bullet points, identifique padrões, pontos fortes, fraquezas e dê recomendações acionáveis. Responda em português brasileiro.`;
       
       const metricsStr = Object.entries(metrics || {}).map(([k, v]) => `${k}: ${v}`).join("\n");
       const goalsStr = goals ? Object.entries(goals).map(([k, v]) => `${k}: ${v}`).join("\n") : "Sem metas definidas";
       
-      userPrompt = `Analise a performance individual do closer "${member_name}" no mês "${month_label || 'atual'}":
+      userPrompt = `Analise a performance individual do SDR "${member_name}" no mês "${month_label || 'atual'}":
 
 MÉTRICAS REALIZADAS:
 ${metricsStr}
@@ -37,11 +37,11 @@ Forneça:
 4. **Padrões Identificados** - tendências nos dados
 5. **Plano de Ação** - 3-5 ações concretas para melhorar`;
     } else if (type === "behavioral") {
-      systemPrompt = `Você é um analista comportamental de vendas. Recebeu o conteúdo extraído de um PDF de análise comportamental/DISC/perfil de personalidade de um closer de vendas. Cruze essas informações com as métricas de performance para gerar insights acionáveis. Responda em português brasileiro.`;
+      systemPrompt = `Você é um analista comportamental de vendas. Recebeu o conteúdo extraído de um PDF de análise comportamental/DISC/perfil de personalidade de um SDR de vendas. Cruze essas informações com as métricas de performance para gerar insights acionáveis. Responda em português brasileiro.`;
       
       const metricsStr = metrics ? Object.entries(metrics).map(([k, v]) => `${k}: ${v}`).join("\n") : "Sem métricas disponíveis";
       
-      userPrompt = `Closer: "${member_name}"
+      userPrompt = `SDR: "${member_name}"
 
 CONTEÚDO DO PDF COMPORTAMENTAL:
 ${behavioral_text}
@@ -55,7 +55,7 @@ Analise:
 3. **Dificuldades Previstas** - baseado no perfil, onde terá mais dificuldade
 4. **Potenciais Não Explorados** - capacidades que não estão sendo usadas
 5. **Recomendações Personalizadas** - ações adaptadas ao perfil comportamental
-6. **Estilo de Gestão Ideal** - como o gestor deve abordar este closer`;
+6. **Estilo de Gestão Ideal** - como o gestor deve abordar este SDR`;
     } else {
       throw new Error("Invalid analysis type");
     }
