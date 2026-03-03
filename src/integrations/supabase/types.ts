@@ -322,6 +322,7 @@ export type Database = {
           conexoes: number
           conexoes_aceitas: number
           created_at: string
+          end_date: string | null
           follow_up: number
           id: string
           inmail: number
@@ -331,6 +332,7 @@ export type Database = {
           numero: number
           reuniao_agendada: number
           reuniao_realizada: number
+          start_date: string | null
           week_number: number
         }
         Insert: {
@@ -338,6 +340,7 @@ export type Database = {
           conexoes?: number
           conexoes_aceitas?: number
           created_at?: string
+          end_date?: string | null
           follow_up?: number
           id?: string
           inmail?: number
@@ -347,6 +350,7 @@ export type Database = {
           numero?: number
           reuniao_agendada?: number
           reuniao_realizada?: number
+          start_date?: string | null
           week_number: number
         }
         Update: {
@@ -354,6 +358,7 @@ export type Database = {
           conexoes?: number
           conexoes_aceitas?: number
           created_at?: string
+          end_date?: string | null
           follow_up?: number
           id?: string
           inmail?: number
@@ -363,6 +368,7 @@ export type Database = {
           numero?: number
           reuniao_agendada?: number
           reuniao_realizada?: number
+          start_date?: string | null
           week_number?: number
         }
         Relationships: [
