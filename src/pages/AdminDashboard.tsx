@@ -7,8 +7,10 @@ import { PersonPerformanceChart } from "@/components/dashboard/PersonPerformance
 import { CloserRanking } from "@/components/dashboard/CloserRanking";
 import { DailyTable } from "@/components/dashboard/DailyTable";
 import { AiReportPanel } from "@/components/dashboard/AiReportPanel";
+import { AlertsPanel } from "@/components/dashboard/AlertsPanel";
+import { ExportCsvButton } from "@/components/dashboard/ExportCsvButton";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Loader2, Filter, X, Calendar, Download } from "lucide-react";
+import { ChevronDown, Loader2, Filter, X } from "lucide-react";
 
 const CHART_METRICS = ["follow_up", "conexoes", "reuniao_realizada", "lig_realizada"];
 
@@ -229,13 +231,31 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
         />
       )}
 
+      {/* Alerts */}
+      {dailyMetrics && members && (
+        <AlertsPanel
+          dailyMetrics={filteredMetrics}
+          members={members}
+          goals={goals ? { ...goals } as Record<string, number> : null}
+        />
+      )}
+
       {/* Table */}
       <div>
-        <h3 className="text-xs font-semibold text-foreground mb-3 uppercase tracking-wider">
-          Detalhamento Diário
-          {selectedMemberId && members ? ` — ${members.find(m => m.id === selectedMemberId)?.name}` : ""}
-          {hasActiveFilters ? ` (${filteredMetrics.length} registros filtrados)` : ""}
-        </h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider">
+            Detalhamento Diário
+            {selectedMemberId && members ? ` — ${members.find(m => m.id === selectedMemberId)?.name}` : ""}
+            {hasActiveFilters ? ` (${filteredMetrics.length} registros filtrados)` : ""}
+          </h3>
+          {members && (
+            <ExportCsvButton
+              dailyMetrics={filteredMetrics}
+              members={members}
+              monthLabel={activeMonth?.label}
+            />
+          )}
+        </div>
         {members && (
           <DailyTable dailyMetrics={filteredMetrics} members={members} selectedMemberId={selectedMemberId} />
         )}

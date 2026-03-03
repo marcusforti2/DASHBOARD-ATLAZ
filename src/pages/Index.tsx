@@ -5,6 +5,7 @@ import AdminDashboard from "@/pages/AdminDashboard";
 import CloserEntry from "@/pages/CloserEntry";
 import TeamManagement from "@/pages/TeamManagement";
 import GoalsManagement from "@/pages/GoalsManagement";
+import SettingsPage from "@/pages/SettingsPage";
 import { AppSidebar, AdminView, CloserView } from "@/components/AppSidebar";
 import { AiReportPanel } from "@/components/dashboard/AiReportPanel";
 import { useMonthlyGoals, useAiReports, useDailyMetrics } from "@/hooks/use-metrics";
@@ -117,7 +118,7 @@ export default function Index() {
             />
           ) : null;
         case "settings":
-          return <ComingSoonPanel title="Configurações" icon={Settings} />;
+          return <SettingsPage />;
         default:
           return null;
       }
