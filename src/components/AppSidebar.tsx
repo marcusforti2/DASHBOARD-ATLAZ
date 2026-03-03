@@ -39,9 +39,9 @@ const adminSecondaryItems = [
 ];
 
 const closerItems = [
+  { id: "daily-goals", title: "Meu Dia", icon: Target },
   { id: "entry", title: "Inserir Dados", icon: ClipboardList },
-  { id: "daily-goals", title: "Metas do Dia", icon: Target },
-  { id: "dashboard", title: "Meu Dashboard", icon: LayoutDashboard },
+  { id: "dashboard", title: "Dashboard Geral", icon: LayoutDashboard },
 ];
 
 export function AppSidebar({ isAdmin, activeView, onViewChange, userName, userRole, onSignOut }: AppSidebarProps) {

@@ -38,7 +38,7 @@ export default function Index() {
   const queryClient = useQueryClient();
 
   const [adminView, setAdminView] = useState<AdminView>("dashboard");
-  const [closerView, setCloserView] = useState<CloserView>("entry");
+  const [closerView, setCloserView] = useState<CloserView>("daily-goals");
   const [previewMemberId, setPreviewMemberId] = useState<string | null>(null);
   const [previewCloserView, setPreviewCloserView] = useState<CloserView>("entry");
   const [selectedMonthId, setSelectedMonthId] = useState<string | undefined>();
@@ -178,7 +178,7 @@ export default function Index() {
                   adminView === "closer-preview" ? "Visualização Closer" :
                   "Configurações"
                 ) : (
-                  closerView === "entry" ? "Inserir Dados" : closerView === "daily-goals" ? "Metas do Dia" : "Meu Dashboard"
+                  closerView === "daily-goals" ? "Meu Dia" : closerView === "entry" ? "Inserir Dados" : "Dashboard Geral"
                 )}
               </h2>
             </div>
