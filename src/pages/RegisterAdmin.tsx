@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+
 import { toast } from "sonner";
 import { ShieldCheck, Loader2, Eye, EyeOff } from "lucide-react";
 
@@ -42,17 +42,29 @@ export default function RegisterAdmin() {
     }
 
     setLoading(true);
-    const { data, error } = await supabase.functions.invoke("register-admin", {
-      body: { token, email: email.trim(), password, full_name: fullName.trim() || email.trim() },
-    });
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      
+      const response = await fetch(`${supabaseUrl}/functions/v1/register-admin`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": anonKey,
+        },
+        body: JSON.stringify({ token, email: email.trim(), password, full_name: fullName.trim() || email.trim() }),
+      });
 
-    if (error) {
-      toast.error(error.message || "Erro ao cadastrar");
-    } else if (data?.error) {
-      toast.error(data.error);
-    } else {
-      toast.success("Conta criada com sucesso! Faça login.");
-      navigate("/login");
+      const data = await response.json();
+
+      if (!response.ok || data?.error) {
+        toast.error(data?.error || "Erro ao cadastrar");
+      } else {
+        toast.success("Conta criada com sucesso! Faça login.");
+        navigate("/login");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Erro inesperado");
     }
     setLoading(false);
   };
