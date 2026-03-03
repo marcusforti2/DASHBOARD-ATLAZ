@@ -19,9 +19,10 @@ interface KpiGridProps {
   totals: Record<string, number>;
   goals: Record<string, number> | null;
   previousTotals?: Record<string, number>;
+  onCardClick?: (metricKey: string) => void;
 }
 
-export function KpiGrid({ totals, goals, previousTotals }: KpiGridProps) {
+export function KpiGrid({ totals, goals, previousTotals, onCardClick }: KpiGridProps) {
   const keys = Object.keys(METRIC_LABELS);
 
   return (
@@ -40,7 +41,7 @@ export function KpiGrid({ totals, goals, previousTotals }: KpiGridProps) {
         const trendDown = trendPct < 0;
 
         return (
-          <div key={key} className="group rounded-xl border border-border bg-card p-4 flex flex-col gap-2 hover:border-primary/30 transition-all hover:shadow-[0_0_20px_-5px_hsl(var(--primary)/0.15)]">
+          <div key={key} onClick={() => onCardClick?.(key)} className={cn("group rounded-xl border border-border bg-card p-4 flex flex-col gap-2 hover:border-primary/30 transition-all hover:shadow-[0_0_20px_-5px_hsl(var(--primary)/0.15)]", onCardClick && "cursor-pointer")}>
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">
                 {METRIC_LABELS[key]}
