@@ -54,6 +54,7 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
   const [selectedDayOfWeek, setSelectedDayOfWeek] = useState<string | null>(null);
   const [minMetricFilter, setMinMetricFilter] = useState<{ key: string; value: number } | null>(null);
   const [metricModalKey, setMetricModalKey] = useState<string | null>(null);
+  const [metricModalSource, setMetricModalSource] = useState<"month" | "week" | "general">("general");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const dashRef = useRef<HTMLDivElement>(null);
 
@@ -267,7 +268,7 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
         accentColor="bg-primary/15"
         defaultOpen={true}
       >
-        <KpiGrid totals={monthTotals} goals={goalToMetrics(goals)} previousTotals={previousTotals} onCardClick={(key) => setMetricModalKey(key)} compact />
+        <KpiGrid totals={monthTotals} goals={goalToMetrics(goals)} previousTotals={previousTotals} onCardClick={(key) => { setMetricModalKey(key); setMetricModalSource("month"); }} compact />
       </CollapsiblePanel>
 
       {/* Panel 2: Visão Semanal */}
@@ -309,7 +310,7 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
           ) : undefined
         }
       >
-        <KpiGrid totals={weekTotals} goals={weekGoals} onCardClick={(key) => setMetricModalKey(key)} compact />
+        <KpiGrid totals={weekTotals} goals={weekGoals} onCardClick={(key) => { setMetricModalKey(key); setMetricModalSource("week"); }} compact />
       </CollapsiblePanel>
 
       {/* Panel 3: Visão Geral — Todos os SDRs */}
@@ -337,7 +338,7 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
       >
         <div className="space-y-4">
           {/* Overall totals */}
-          <KpiGrid totals={allSdrTotals} goals={allSdrGoals} onCardClick={(key) => setMetricModalKey(key)} compact />
+          <KpiGrid totals={allSdrTotals} goals={allSdrGoals} onCardClick={(key) => { setMetricModalKey(key); setMetricModalSource("general"); }} compact />
 
           {/* Per-SDR breakdown */}
           <div className="overflow-x-auto">
@@ -526,12 +527,23 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
         onOpenChange={(open) => !open && setMetricModalKey(null)}
         metricKey={metricModalKey}
         members={members || []}
-        metrics={allSdrMetrics}
-        goals={allSdrGoals}
+        metrics={
+          metricModalSource === "month" ? memberFilteredMetrics :
+          metricModalSource === "week" ? weekFilteredMetrics :
+          allSdrMetrics
+        }
+        goals={
+          metricModalSource === "month" ? goalToMetrics(goals) :
+          metricModalSource === "week" ? weekGoals :
+          allSdrGoals
+        }
         periodLabel={
-          allSdrPeriod === "month" ? activeMonth?.label :
-          allSdrPeriod === "week" && weeksOfMonth[allSdrWeekIdx] ? `Semana ${weeksOfMonth[allSdrWeekIdx].weekNumber}` :
-          format(allSdrDate, "dd/MM/yyyy", { locale: ptBR })
+          metricModalSource === "month" ? activeMonth?.label || "" :
+          metricModalSource === "week" && weeksOfMonth[effectiveWeekIdx]
+            ? `Semana ${weeksOfMonth[effectiveWeekIdx].weekNumber} — ${weeksOfMonth[effectiveWeekIdx].startDate} a ${weeksOfMonth[effectiveWeekIdx].endDate}`
+            : allSdrPeriod === "month" ? activeMonth?.label :
+              allSdrPeriod === "week" && weeksOfMonth[allSdrWeekIdx] ? `Semana ${weeksOfMonth[allSdrWeekIdx].weekNumber}` :
+              format(allSdrDate, "dd/MM/yyyy", { locale: ptBR })
         }
       />
     </div>
