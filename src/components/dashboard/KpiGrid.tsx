@@ -41,13 +41,13 @@ export function KpiGrid({ totals, goals, previousTotals, onCardClick, compact = 
   const keys = Object.keys(METRIC_LABELS);
 
   if (compact) {
-    const ringSize = 60;
-    const strokeWidth = 4;
+    const ringSize = 68;
+    const strokeWidth = 4.5;
     const radius = (ringSize - strokeWidth) / 2;
     const circumference = 2 * Math.PI * radius;
 
     return (
-      <div className="grid grid-cols-5 lg:grid-cols-10 gap-1.5">
+      <div className="grid grid-cols-5 lg:grid-cols-10 gap-2">
         {keys.map(key => {
           const val = totals[key] || 0;
           const goal = goals ? (goals as any)[key] || 0 : 0;
