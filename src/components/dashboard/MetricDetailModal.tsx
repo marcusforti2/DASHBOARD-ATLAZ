@@ -115,11 +115,12 @@ export function MetricDetailModal({ open, onOpenChange, metricKey, members, metr
               <div
                 key={member.id}
                 className={cn(
-                  "flex items-center gap-2.5 rounded-lg px-3 py-2.5 transition-all duration-200",
+                  "flex items-center gap-2.5 rounded-lg px-3 py-2.5 transition-all duration-200 animate-fade-in opacity-0 fill-mode-forwards",
                   idx === 0
                     ? "bg-[hsl(45,93%,47%)]/[0.06] ring-1 ring-[hsl(45,93%,47%)]/15"
                     : "hover:bg-secondary/40"
                 )}
+                style={{ animationDelay: `${idx * 80}ms` }}
               >
                 {/* Rank */}
                 <span className="text-sm w-5 text-center shrink-0 leading-none">
