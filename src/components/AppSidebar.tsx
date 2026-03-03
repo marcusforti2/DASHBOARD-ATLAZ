@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/sidebar";
 
 export type AdminView = "dashboard" | "team" | "goals" | "reports" | "closer-preview" | "settings";
-export type CloserView = "entry" | "dashboard";
+export type CloserView = "entry" | "dashboard" | "daily-goals";
 
 interface AppSidebarProps {
   isAdmin: boolean;
@@ -40,6 +40,7 @@ const adminSecondaryItems = [
 
 const closerItems = [
   { id: "entry", title: "Inserir Dados", icon: ClipboardList },
+  { id: "daily-goals", title: "Metas do Dia", icon: Target },
   { id: "dashboard", title: "Meu Dashboard", icon: LayoutDashboard },
 ];
 
