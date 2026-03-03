@@ -554,6 +554,7 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
         allMetrics={dailyMetrics || []}
         weeksOfMonth={weeksOfMonth}
         monthLabel={activeMonth?.label}
+        initialDate={format(allSdrDate, "yyyy-MM-dd")}
         getGoalsForPeriod={(period, wIdx, date) => {
           if (period === "month") {
             // Find member-specific monthly goal
