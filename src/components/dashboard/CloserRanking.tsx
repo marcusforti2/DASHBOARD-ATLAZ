@@ -8,7 +8,12 @@ interface CloserRankingProps {
   members: DbTeamMember[];
 }
 
-const RANKING_METRICS = ["follow_up", "conexoes", "reuniao_realizada", "lig_realizada", "abordagens", "conexoes_aceitas", "inmail", "numero", "lig_agendada", "reuniao_agendada"];
+const RANKING_METRICS = ["_all", "follow_up", "conexoes", "reuniao_realizada", "lig_realizada", "abordagens", "conexoes_aceitas", "inmail", "numero", "lig_agendada", "reuniao_agendada"];
+
+const RANKING_LABELS: Record<string, string> = {
+  _all: "Todas",
+  ...METRIC_LABELS,
+};
 
 const PODIUM_STYLES = [
   {
@@ -41,17 +46,19 @@ const PODIUM_STYLES = [
 ];
 
 export function CloserRanking({ dailyMetrics, members }: CloserRankingProps) {
-  const [metric, setMetric] = useState("follow_up");
+  const [metric, setMetric] = useState("_all");
   const [showAllMetrics, setShowAllMetrics] = useState(false);
 
   const ranked = useMemo(() => {
     return members
       .map(m => {
         const totals = sumMetrics(dailyMetrics, m.id);
+        const allTotal = METRIC_KEYS.reduce((s, k) => s + (totals[k] || 0), 0);
         return {
           ...m,
-          total: totals[metric] || 0,
+          total: metric === "_all" ? allTotal : (totals[metric] || 0),
           allTotals: totals,
+          allTotal,
         };
       })
       .sort((a, b) => b.total - a.total);
@@ -71,7 +78,7 @@ export function CloserRanking({ dailyMetrics, members }: CloserRankingProps) {
           </div>
           <div>
             <h3 className="text-xs font-bold text-card-foreground uppercase tracking-wider">Ranking SDRs</h3>
-            <p className="text-[9px] text-muted-foreground mt-0.5">{METRIC_LABELS[metric]}</p>
+            <p className="text-[9px] text-muted-foreground mt-0.5">{RANKING_LABELS[metric]}</p>
           </div>
         </div>
         <div className="relative">
@@ -81,7 +88,7 @@ export function CloserRanking({ dailyMetrics, members }: CloserRankingProps) {
             className="text-[10px] bg-secondary text-secondary-foreground rounded-lg px-2.5 py-1.5 border border-border outline-none appearance-none cursor-pointer pr-6 font-medium"
           >
             {RANKING_METRICS.map(m => (
-              <option key={m} value={m}>{METRIC_LABELS[m]}</option>
+              <option key={m} value={m}>{RANKING_LABELS[m]}</option>
             ))}
           </select>
           <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
