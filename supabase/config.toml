@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.register-admin]
 verify_jwt = false
+
+[functions.create-sdr]
+verify_jwt = false
