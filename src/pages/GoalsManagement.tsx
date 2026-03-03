@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMonths, useTeamMembers } from "@/hooks/use-metrics";
-import { METRIC_KEYS, METRIC_LABELS, DbMonth, DbWeeklyGoal, DbMonthlyGoal, DbTeamMember } from "@/lib/db";
+import { METRIC_KEYS, METRIC_LABELS, DbMonth, DbWeeklyGoal, DbMonthlyGoal, DbTeamMember, ALL_WEEKDAYS, DEFAULT_WORKING_DAYS, getWorkingDaysCount } from "@/lib/db";
 import { getWeeksOfMonth, getNextMonth, CalendarWeek } from "@/lib/calendar-utils";
 import { MiniCalendar } from "@/components/dashboard/MiniCalendar";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -17,7 +17,7 @@ const MONTH_NAMES = [
 ];
 
 type MetricValues = Record<string, number>;
-type CloserGoals = { monthly: MetricValues; weeks: MetricValues[] };
+type CloserGoals = { monthly: MetricValues; weeks: MetricValues[]; workingDays: string[] };
 type AllGoals = Record<string, CloserGoals>;
 
 function zeroMetrics(): MetricValues {
@@ -105,6 +105,10 @@ function MonthGoalsEditor({
           const w = wgs.find((wk: any) => wk.week_number === wi + 1);
           return w ? getMetrics(w) : zeroMetrics();
         }),
+        workingDays: Array.from({ length: weekCount }, (_, wi) => {
+          const w = wgs.find((wk: any) => wk.week_number === wi + 1);
+          return (w as any)?.working_days || DEFAULT_WORKING_DAYS;
+        }),
       };
     });
 
@@ -151,10 +155,21 @@ function MonthGoalsEditor({
   const updateWeek = (memberId: string, weekIdx: number, key: string, value: number) => {
     setLocalGoals(prev => {
       if (!prev) return prev;
-      const weeks = [...prev[memberId].weeks];
+      const g = prev[memberId];
+      const weeks = [...g.weeks];
       weeks[weekIdx] = { ...weeks[weekIdx], [key]: value };
       const newMonthly = sumMetricsList(weeks);
-      return { ...prev, [memberId]: { monthly: newMonthly, weeks } };
+      return { ...prev, [memberId]: { ...g, monthly: newMonthly, weeks } };
+    });
+  };
+
+  const updateWorkingDays = (memberId: string, weekIdx: number, days: string) => {
+    setLocalGoals(prev => {
+      if (!prev) return prev;
+      const g = prev[memberId];
+      const wd = [...g.workingDays];
+      wd[weekIdx] = days;
+      return { ...prev, [memberId]: { ...g, workingDays: wd } };
     });
   };
 
@@ -195,13 +210,17 @@ function MonthGoalsEditor({
           const existingWG = existingWeekly.find((w: any) =>
             w.week_number === wi + 1 && (isTeam ? w.member_id === null : w.member_id === memberId)
           );
+          const weekData = {
+            ...weeks[wi],
+            working_days: isTeam ? DEFAULT_WORKING_DAYS : (localGoals[memberId!]?.workingDays?.[wi] || DEFAULT_WORKING_DAYS),
+          };
           if (existingWG) {
-            await supabase.from("weekly_goals").update(weeks[wi]).eq("id", existingWG.id);
+            await supabase.from("weekly_goals").update(weekData).eq("id", existingWG.id);
           } else {
             const p: any = {
               month_id: month.id, week_number: wi + 1,
               start_date: calendarWeeks[wi].startDate, end_date: calendarWeeks[wi].endDate,
-              ...weeks[wi],
+              ...weekData,
             };
             if (memberId) p.member_id = memberId;
             await supabase.from("weekly_goals").insert(p);
@@ -232,6 +251,9 @@ function MonthGoalsEditor({
   const isViewingTeam = activeTab === "team";
   const currentMonthly = isViewingTeam ? teamMonthly : (localGoals[activeTab]?.monthly || zeroMetrics());
   const currentWeeks = isViewingTeam ? teamWeeks : (localGoals[activeTab]?.weeks || []);
+  const currentWorkingDays = isViewingTeam
+    ? Array.from({ length: weekCount }, () => DEFAULT_WORKING_DAYS)
+    : (localGoals[activeTab]?.workingDays || Array.from({ length: weekCount }, () => DEFAULT_WORKING_DAYS));
 
   return (
     <div className="space-y-4">
@@ -322,14 +344,47 @@ function MonthGoalsEditor({
             const cw = calendarWeeks[wi];
             if (!cw) return null;
             const dateLabel = `${formatDateShort(cw.startDate)} — ${formatDateShort(cw.endDate)}`;
-            const daily = METRIC_KEYS.reduce((a, k) => ({ ...a, [k]: Math.round((wm[k] || 0) / 5) }), {} as MetricValues);
+            const wd = currentWorkingDays[wi] || DEFAULT_WORKING_DAYS;
+            const wdCount = getWorkingDaysCount(wd);
+            const wdSet = new Set(wd.split(",").map(d => d.trim()));
+            const daily = METRIC_KEYS.reduce((a, k) => ({ ...a, [k]: wdCount > 0 ? Math.round((wm[k] || 0) / wdCount) : 0 }), {} as MetricValues);
+
+            const toggleDay = (day: string) => {
+              const newSet = new Set(wdSet);
+              if (newSet.has(day)) newSet.delete(day); else newSet.add(day);
+              if (newSet.size === 0) return; // must have at least 1 day
+              const ordered = ALL_WEEKDAYS.filter(d => newSet.has(d));
+              updateWorkingDays(activeTab, wi, ordered.join(","));
+            };
 
             return (
               <div key={wi} className="rounded-lg border border-border bg-secondary/20 p-3 space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-primary/20 text-primary text-[10px] font-bold flex items-center justify-center shrink-0">{wi + 1}</span>
-                  <span className="text-xs font-semibold text-card-foreground">Semana {wi + 1}</span>
-                  <span className="text-[10px] text-muted-foreground font-mono">{dateLabel}</span>
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-primary/20 text-primary text-[10px] font-bold flex items-center justify-center shrink-0">{wi + 1}</span>
+                    <span className="text-xs font-semibold text-card-foreground">Semana {wi + 1}</span>
+                    <span className="text-[10px] text-muted-foreground font-mono">{dateLabel}</span>
+                  </div>
+                  {/* Working days selector */}
+                  {!isViewingTeam && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-[8px] font-semibold text-muted-foreground uppercase mr-1">Dias:</span>
+                      {ALL_WEEKDAYS.map(day => (
+                        <button
+                          key={day}
+                          onClick={() => toggleDay(day)}
+                          className={`w-6 h-6 rounded text-[8px] font-bold transition-colors ${
+                            wdSet.has(day)
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+                          }`}
+                        >
+                          {day.charAt(0)}
+                        </button>
+                      ))}
+                      <span className="text-[8px] text-muted-foreground ml-1">({wdCount}d)</span>
+                    </div>
+                  )}
                 </div>
 
                 {!isViewingTeam ? (
@@ -348,7 +403,7 @@ function MonthGoalsEditor({
                     </div>
                     {METRIC_KEYS.some(k => daily[k] > 0) && (
                       <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1 border-t border-border/50">
-                        <span className="text-[8px] font-semibold text-muted-foreground uppercase">Meta/dia:</span>
+                        <span className="text-[8px] font-semibold text-muted-foreground uppercase">Meta/dia ({wdCount}d):</span>
                         {METRIC_KEYS.map(k => daily[k] > 0 ? (
                           <span key={k} className="text-[8px] text-muted-foreground"><span className="text-primary font-semibold">{daily[k]}</span> {METRIC_LABELS[k]}</span>
                         ) : null)}

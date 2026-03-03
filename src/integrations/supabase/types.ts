@@ -375,6 +375,7 @@ export type Database = {
           reuniao_realizada: number
           start_date: string | null
           week_number: number
+          working_days: string
         }
         Insert: {
           abordagens?: number
@@ -394,6 +395,7 @@ export type Database = {
           reuniao_realizada?: number
           start_date?: string | null
           week_number: number
+          working_days?: string
         }
         Update: {
           abordagens?: number
@@ -413,6 +415,7 @@ export type Database = {
           reuniao_realizada?: number
           start_date?: string | null
           week_number?: number
+          working_days?: string
         }
         Relationships: [
           {

@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useMonths, useDailyMetrics, useWeeklyGoals } from "@/hooks/use-metrics";
-import { METRIC_KEYS, METRIC_LABELS, sumMetrics } from "@/lib/db";
+import { METRIC_KEYS, METRIC_LABELS, sumMetrics, getWorkingDaysCount } from "@/lib/db";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -46,11 +46,12 @@ export function CloserDailyDashboard({ teamMemberId, memberName }: CloserDailyDa
     }) || weeklyGoals[0];
   }, [weeklyGoals, todayStr]);
 
-  // Daily goal = weekly / 5
+  // Daily goal = weekly / working days
   const dailyGoals = useMemo(() => {
     if (!currentWeekGoal) return null;
+    const wdCount = getWorkingDaysCount((currentWeekGoal as any).working_days);
     return METRIC_KEYS.reduce((acc, k) => {
-      acc[k] = Math.ceil((currentWeekGoal as any)[k] / 5);
+      acc[k] = Math.ceil((currentWeekGoal as any)[k] / wdCount);
       return acc;
     }, {} as Record<string, number>);
   }, [currentWeekGoal]);

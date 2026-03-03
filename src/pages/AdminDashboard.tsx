@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useMonths, useTeamMembers, useMonthlyGoals, useWeeklyGoals, useDailyMetrics, useAiReports } from "@/hooks/use-metrics";
-import { sumMetrics, goalToMetrics, METRIC_LABELS, METRIC_KEYS, DbDailyMetric, DbTeamMember } from "@/lib/db";
+import { sumMetrics, goalToMetrics, METRIC_LABELS, METRIC_KEYS, DbDailyMetric, DbTeamMember, getWorkingDaysCount } from "@/lib/db";
 import { getWeeksOfMonth } from "@/lib/calendar-utils";
 import { KpiGrid } from "@/components/dashboard/KpiGrid";
 import { WeeklyComparisonChart } from "@/components/dashboard/WeeklyComparisonChart";
@@ -152,7 +152,7 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
       return wg ? goalToMetrics(wg as any) : null;
     }
     if (allSdrPeriod === "day") {
-      // Daily goal = find the week that contains this day, then divide by 5
+      // Daily goal = find the week that contains this day, then divide by working days
       const dayStr = format(allSdrDate, "yyyy-MM-dd");
       const weekIdx = weeksOfMonth.findIndex(w => dayStr >= w.startDate && dayStr <= w.endDate);
       if (weekIdx < 0 || !teamWeeklyGoals) return null;
@@ -161,8 +161,9 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
       if (!wg) return null;
       const wgMetrics = goalToMetrics(wg as any);
       if (!wgMetrics) return null;
+      const wdCount = getWorkingDaysCount((wg as any).working_days);
       return METRIC_KEYS.reduce((acc, k) => {
-        acc[k] = Math.round((wgMetrics[k] || 0) / 5);
+        acc[k] = Math.round((wgMetrics[k] || 0) / wdCount);
         return acc;
       }, {} as Record<string, number>);
     }

@@ -1,0 +1,1 @@
+ALTER TABLE public.weekly_goals ADD COLUMN working_days text NOT NULL DEFAULT 'Seg,Ter,Qua,Qui,Sex';
