@@ -43,7 +43,7 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
   const [weekPanelWeekIdx, setWeekPanelWeekIdx] = useState<number>(-1); // -1 = not yet initialized
   
   // Panel 3 - All SDRs states
-  const [allSdrPeriod, setAllSdrPeriod] = useState<"month" | "week" | "day">("month");
+  const [allSdrPeriod, setAllSdrPeriod] = useState<"month" | "week" | "day">("day");
   const [allSdrDate, setAllSdrDate] = useState<Date>(new Date());
   const [allSdrWeekIdx, setAllSdrWeekIdx] = useState<number>(0);
 
