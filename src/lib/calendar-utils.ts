@@ -97,7 +97,7 @@ export function getCalendarGrid(year: number, month: number) {
   
   // Fill leading days from previous month
   const prevMonthEnd = new Date(year, month - 1, 0);
-  const leadingDays = firstDow === 0 ? 6 : firstDow - 1; // Monday-based
+  const leadingDays = firstDow; // Sunday-based (0=Sun means 0 leading days)
   for (let i = leadingDays - 1; i >= 0; i--) {
     const d = prevMonthEnd.getDate() - i;
     const dt = new Date(year, month - 2, d);

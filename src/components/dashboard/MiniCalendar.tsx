@@ -51,9 +51,9 @@ export function MiniCalendar({ year, month, weeks }: MiniCalendarProps) {
         {MONTH_NAMES[month - 1]} {year}
       </h4>
 
-      {/* Header */}
+      {/* Header - Domingo first */}
       <div className="grid grid-cols-7 gap-0 mb-1">
-        {["S", "T", "Q", "Q", "S", "S", "D"].map((d, i) => (
+        {["D", "S", "T", "Q", "Q", "S", "S"].map((d, i) => (
           <div key={i} className="text-center text-[9px] font-semibold text-muted-foreground py-1">
             {d}
           </div>
