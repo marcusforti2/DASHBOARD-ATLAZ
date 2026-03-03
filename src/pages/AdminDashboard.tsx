@@ -48,8 +48,8 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
   const activeMonthIdx = months?.findIndex(m => m.id === activeMonthId) ?? -1;
   const previousMonthId = activeMonthIdx >= 0 && months?.[activeMonthIdx + 1]?.id;
 
-  const { data: goals } = useMonthlyGoals(activeMonthId);
-  const { data: weeklyGoals } = useWeeklyGoals(activeMonthId);
+  const { data: goals } = useMonthlyGoals(activeMonthId, selectedMemberId);
+  const { data: weeklyGoals } = useWeeklyGoals(activeMonthId, selectedMemberId);
   const { data: dailyMetrics } = useDailyMetrics(activeMonthId);
   const { data: previousMetrics } = useDailyMetrics(previousMonthId || undefined);
   const { data: aiReports } = useAiReports(activeMonthId);
