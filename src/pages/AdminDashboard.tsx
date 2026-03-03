@@ -9,6 +9,7 @@ import { CloserRanking } from "@/components/dashboard/CloserRanking";
 import { DailyTable } from "@/components/dashboard/DailyTable";
 import { AiReportPanel } from "@/components/dashboard/AiReportPanel";
 import { AlertsPanel } from "@/components/dashboard/AlertsPanel";
+import { MetricDetailModal } from "@/components/dashboard/MetricDetailModal";
 import { ExportCsvButton } from "@/components/dashboard/ExportCsvButton";
 import { CollapsiblePanel } from "@/components/dashboard/CollapsiblePanel";
 import { KpiPanelFilters } from "@/components/dashboard/KpiPanelFilters";
@@ -52,6 +53,7 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
   const [showFilters, setShowFilters] = useState(false);
   const [selectedDayOfWeek, setSelectedDayOfWeek] = useState<string | null>(null);
   const [minMetricFilter, setMinMetricFilter] = useState<{ key: string; value: number } | null>(null);
+  const [metricModalKey, setMetricModalKey] = useState<string | null>(null);
 
   const activeMonthId = selectedMonthId || months?.[0]?.id;
   const activeMonth = months?.find(m => m.id === activeMonthId);
@@ -310,7 +312,7 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
       >
         <div className="space-y-4">
           {/* Overall totals */}
-          <KpiGrid totals={allSdrTotals} goals={allSdrGoals} />
+          <KpiGrid totals={allSdrTotals} goals={allSdrGoals} onCardClick={(key) => setMetricModalKey(key)} />
 
           {/* Per-SDR breakdown */}
           <div className="overflow-x-auto">
@@ -492,6 +494,21 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
           goals={goalToMetrics(goals)}
         />
       )}
+
+      {/* Metric Detail Modal */}
+      <MetricDetailModal
+        open={!!metricModalKey}
+        onOpenChange={(open) => !open && setMetricModalKey(null)}
+        metricKey={metricModalKey}
+        members={members || []}
+        metrics={allSdrMetrics}
+        goals={allSdrGoals}
+        periodLabel={
+          allSdrPeriod === "month" ? activeMonth?.label :
+          allSdrPeriod === "week" && weeksOfMonth[allSdrWeekIdx] ? `Semana ${weeksOfMonth[allSdrWeekIdx].weekNumber}` :
+          format(allSdrDate, "dd/MM/yyyy", { locale: ptBR })
+        }
+      />
     </div>
   );
 }
