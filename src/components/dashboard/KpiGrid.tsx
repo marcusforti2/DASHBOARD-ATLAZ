@@ -65,7 +65,7 @@ export function KpiGrid({ totals, goals, previousTotals, onCardClick, compact = 
               <span className="text-[7px] font-semibold text-muted-foreground uppercase tracking-wider leading-tight text-center truncate w-full">
                 {SHORT_LABELS[key]}
               </span>
-              <div className="aspect-square w-full rounded-lg border border-border bg-card flex items-center justify-center hover:border-primary/30 transition-all hover:shadow-[0_0_15px_-5px_hsl(var(--primary)/0.15)] relative overflow-hidden">
+              <div className="aspect-square w-full rounded-lg border border-border bg-card flex items-center justify-center hover:border-primary/30 transition-all duration-300 hover:shadow-[0_0_15px_-5px_hsl(var(--primary)/0.15)] hover:scale-110 hover:z-10 relative overflow-hidden" style={{ transitionDelay: '70ms' }}>
                 {goal > 0 ? (
                   <div className="relative flex items-center justify-center w-[90%] h-[90%]">
                     <svg viewBox={`0 0 ${ringSize} ${ringSize}`} className="-rotate-90 w-full h-full">
@@ -113,7 +113,7 @@ export function KpiGrid({ totals, goals, previousTotals, onCardClick, compact = 
         const trendDown = trendPct < 0;
 
         return (
-          <div key={key} onClick={() => onCardClick?.(key)} className={cn("group rounded-xl border border-border bg-card p-4 flex flex-col gap-2 hover:border-primary/30 transition-all hover:shadow-[0_0_20px_-5px_hsl(var(--primary)/0.15)]", onCardClick && "cursor-pointer")}>
+          <div key={key} onClick={() => onCardClick?.(key)} className={cn("group rounded-xl border border-border bg-card p-4 flex flex-col gap-2 hover:border-primary/30 transition-all duration-300 hover:shadow-[0_0_20px_-5px_hsl(var(--primary)/0.15)] hover:scale-105 hover:z-10", onCardClick && "cursor-pointer")} style={{ transitionDelay: '70ms' }}>
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">
                 {METRIC_LABELS[key]}
