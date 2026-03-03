@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMonths, useMonthlyGoals, useWeeklyGoals, useTeamMembers } from "@/hooks/use-metrics";
-import { METRIC_KEYS, METRIC_LABELS, DbMonth, DbWeeklyGoal, DbMonthlyGoal } from "@/lib/db";
+import { METRIC_KEYS, METRIC_LABELS, DbMonth, DbWeeklyGoal, DbMonthlyGoal, DbTeamMember, fetchMonthlyGoals, fetchWeeklyGoals } from "@/lib/db";
 import { getWeeksOfMonth, getNextMonth, CalendarWeek } from "@/lib/calendar-utils";
 import { MiniCalendar } from "@/components/dashboard/MiniCalendar";
 import { useQueryClient } from "@tanstack/react-query";
@@ -16,7 +16,6 @@ const MONTH_NAMES = [
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 ];
 
-// --- Helpers ---
 function sumWeeklyToMonthly(weeks: DbWeeklyGoal[]): Record<string, number> {
   return METRIC_KEYS.reduce((acc, k) => {
     acc[k] = weeks.reduce((sum, w) => sum + ((w as any)[k] || 0), 0);
@@ -46,13 +45,64 @@ function getMetricValues(obj: any): Record<string, number> {
   return METRIC_KEYS.reduce((acc, k) => ({ ...acc, [k]: (obj as any)?.[k] || 0 }), {} as Record<string, number>);
 }
 
-// --- Synced Goals Editor (works for team or individual member) ---
+/** Recalculate team monthly & weekly goals as sum of all closers */
+async function syncTeamFromClosers(monthId: string, members: DbTeamMember[], queryClient: any) {
+  // Sum monthly goals from all closers
+  const closerMonthlyGoals = await Promise.all(
+    members.map(m => fetchMonthlyGoals(monthId, m.id))
+  );
+  
+  const teamMonthlyTotals = METRIC_KEYS.reduce((acc, k) => {
+    acc[k] = closerMonthlyGoals.reduce((sum, g) => sum + ((g as any)?.[k] || 0), 0);
+    return acc;
+  }, {} as Record<string, number>);
+
+  // Upsert team monthly goal
+  const teamGoal = await fetchMonthlyGoals(monthId, null);
+  if (teamGoal) {
+    await supabase.from("monthly_goals").update(teamMonthlyTotals).eq("id", teamGoal.id);
+  } else {
+    await supabase.from("monthly_goals").insert({ month_id: monthId, ...teamMonthlyTotals });
+  }
+
+  // Sum weekly goals from all closers per week_number
+  const closerWeeklyGoals = await Promise.all(
+    members.map(m => fetchWeeklyGoals(monthId, m.id))
+  );
+  const teamWeeklyGoals = await fetchWeeklyGoals(monthId, null);
+
+  // Build a map: week_number -> sum of all closers
+  const weekNumbers = new Set<number>();
+  closerWeeklyGoals.forEach(cw => cw.forEach(w => weekNumbers.add(w.week_number)));
+
+  for (const wn of weekNumbers) {
+    const weekTotal = METRIC_KEYS.reduce((acc, k) => {
+      acc[k] = closerWeeklyGoals.reduce((sum, closerWeeks) => {
+        const w = closerWeeks.find(cw => cw.week_number === wn);
+        return sum + ((w as any)?.[k] || 0);
+      }, 0);
+      return acc;
+    }, {} as Record<string, number>);
+
+    const teamWeek = teamWeeklyGoals.find(tw => tw.week_number === wn);
+    if (teamWeek) {
+      await supabase.from("weekly_goals").update(weekTotal).eq("id", teamWeek.id);
+    }
+  }
+
+  // Invalidate all team queries
+  queryClient.invalidateQueries({ queryKey: ["monthly-goals", monthId, "team"] });
+  queryClient.invalidateQueries({ queryKey: ["weekly-goals", monthId, "team"] });
+}
+
+// --- Synced Goals Editor ---
 function SyncedGoalsEditor({
-  monthId, year, month, memberId, memberName, calendarWeeks
+  monthId, year, month, memberId, memberName, calendarWeeks, members
 }: {
   monthId: string; year: number; month: number;
   memberId: string | null; memberName: string;
   calendarWeeks: CalendarWeek[];
+  members: DbTeamMember[];
 }) {
   const { data: goals, isLoading: goalsLoading } = useMonthlyGoals(monthId, memberId);
   const { data: weeklyGoals, isLoading: weeksLoading } = useWeeklyGoals(monthId, memberId);
@@ -68,6 +118,7 @@ function SyncedGoalsEditor({
   const currentMonthly = monthlyValues ?? getMetricValues(goals);
   const qkMonthly = ["monthly-goals", monthId, memberId ?? "team"];
   const qkWeekly = ["weekly-goals", monthId, memberId ?? "team"];
+  const isTeam = !memberId;
 
   const handleGenerateWeeks = async () => {
     setGeneratingWeeks(true);
@@ -115,6 +166,11 @@ function SyncedGoalsEditor({
       }
     }
 
+    // If saving individual closer, sync team totals
+    if (!isTeam) {
+      await syncTeamFromClosers(monthId, members, queryClient);
+    }
+
     toast.success(`Metas de ${memberName} salvas e distribuídas!`);
     queryClient.invalidateQueries({ queryKey: qkMonthly });
     queryClient.invalidateQueries({ queryKey: qkWeekly });
@@ -134,6 +190,11 @@ function SyncedGoalsEditor({
     }
     queryClient.invalidateQueries({ queryKey: qkMonthly });
     setMonthlyValues(null);
+
+    // Sync team if individual closer
+    if (!isTeam) {
+      await syncTeamFromClosers(monthId, members, queryClient);
+    }
   };
 
   const startEditWeek = (week: DbWeeklyGoal) => {
@@ -152,7 +213,7 @@ function SyncedGoalsEditor({
     const updatedWeeks = weeklyGoals!.map(w => w.week_number === editingWeek ? { ...w, ...weekValues } as DbWeeklyGoal : w);
     await recalcMonthlyFromWeeks(updatedWeeks);
 
-    toast.success(`Semana ${editingWeek} salva — meta mensal atualizada!`);
+    toast.success(`Semana ${editingWeek} salva — metas sincronizadas!`);
     queryClient.invalidateQueries({ queryKey: qkWeekly });
     setEditingWeek(null);
     setSyncing(false);
@@ -163,9 +224,6 @@ function SyncedGoalsEditor({
   const weeklySum = weeklyGoals ? sumWeeklyToMonthly(weeklyGoals) : null;
   const isInSync = weeklySum && METRIC_KEYS.every(k => (weeklySum[k] || 0) === (currentMonthly[k] || 0));
   const hasWeeks = weeklyGoals && weeklyGoals.length > 0;
-
-  // Daily goal info
-  const weeklyAvg = hasWeeks && weeklyGoals.length > 0 ? getMetricValues(weeklyGoals[0]) : null;
 
   return (
     <div className="space-y-5">
@@ -188,15 +246,23 @@ function SyncedGoalsEditor({
           <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
             Meta Mensal — {memberName}
           </span>
-          <button
-            onClick={handleSaveMonthlyAndDistribute}
-            disabled={saving}
-            className="px-3 py-1.5 text-[10px] rounded-lg font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-1.5"
-          >
-            {saving ? <Loader2 size={10} className="animate-spin" /> : <Save size={10} />}
-            Salvar & Distribuir
-          </button>
+          {!isTeam && (
+            <button
+              onClick={handleSaveMonthlyAndDistribute}
+              disabled={saving}
+              className="px-3 py-1.5 text-[10px] rounded-lg font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+            >
+              {saving ? <Loader2 size={10} className="animate-spin" /> : <Save size={10} />}
+              Salvar & Distribuir
+            </button>
+          )}
         </div>
+        {isTeam && (
+          <p className="text-[9px] text-muted-foreground italic flex items-center gap-1">
+            <Users size={10} />
+            Meta do time = soma das metas individuais dos closers (somente leitura)
+          </p>
+        )}
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
           {METRIC_KEYS.map(k => (
             <div key={k}>
@@ -206,16 +272,21 @@ function SyncedGoalsEditor({
               <input
                 type="number" min={0}
                 value={currentMonthly[k]}
-                onChange={e => setMonthlyValues({ ...currentMonthly, [k]: parseInt(e.target.value) || 0 })}
-                className="mt-1 w-full rounded-lg border border-border bg-secondary px-2 py-1.5 text-xs text-secondary-foreground tabular-nums focus:ring-1 focus:ring-primary outline-none"
+                onChange={e => !isTeam && setMonthlyValues({ ...currentMonthly, [k]: parseInt(e.target.value) || 0 })}
+                readOnly={isTeam}
+                className={`mt-1 w-full rounded-lg border border-border px-2 py-1.5 text-xs tabular-nums focus:ring-1 focus:ring-primary outline-none ${
+                  isTeam
+                    ? "bg-muted text-muted-foreground cursor-not-allowed"
+                    : "bg-secondary text-secondary-foreground"
+                }`}
               />
             </div>
           ))}
         </div>
-        {hasWeeks && (
+        {!isTeam && hasWeeks && (
           <p className="text-[9px] text-muted-foreground flex items-center gap-1">
             <RefreshCw size={9} />
-            Ao salvar, distribui igualmente entre as {weeklyGoals.length} semanas • Meta diária = semanal ÷ 5 dias úteis
+            Ao salvar, distribui entre as {weeklyGoals.length} semanas • Meta diária = semanal ÷ 5
           </p>
         )}
       </div>
@@ -238,24 +309,23 @@ function SyncedGoalsEditor({
             </span>
           </div>
 
-          {!hasWeeks && (
+          {!hasWeeks && !isTeam && (
             <button
               onClick={handleGenerateWeeks}
               disabled={generatingWeeks}
               className="w-full py-4 rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 text-primary text-xs font-semibold hover:bg-primary/10 transition-colors flex flex-col items-center gap-2"
             >
               {generatingWeeks ? <Loader2 size={16} className="animate-spin" /> : <Calendar size={16} />}
-              Gerar {calendarWeeks.length} semanas
+              Gerar {calendarWeeks.length} semanas para {memberName}
             </button>
           )}
 
           <div className="space-y-2">
-            {weeklyGoals?.map(week => {
-              const isEditing = editingWeek === week.week_number;
+            {(hasWeeks ? weeklyGoals : [])?.map(week => {
+              const isEditing = editingWeek === week.week_number && !isTeam;
               const dateLabel = week.start_date && week.end_date
                 ? `${formatDateShort(week.start_date)} — ${formatDateShort(week.end_date)}`
                 : "";
-              // Daily = weekly / 5
               const dailyGoals = METRIC_KEYS.reduce((acc, k) => {
                 acc[k] = Math.round(((week as any)[k] || 0) / 5);
                 return acc;
@@ -273,20 +343,22 @@ function SyncedGoalsEditor({
                         <span className="text-[10px] text-muted-foreground font-mono">{dateLabel}</span>
                       )}
                     </div>
-                    <div className="flex items-center gap-1">
-                      {isEditing ? (
-                        <>
-                          <button onClick={() => setEditingWeek(null)} className="p-1 rounded text-muted-foreground hover:text-foreground"><X size={12} /></button>
-                          <button onClick={handleSaveWeek} disabled={syncing} className="px-2 py-1 text-[10px] rounded bg-primary text-primary-foreground flex items-center gap-1">
-                            {syncing && <Loader2 size={10} className="animate-spin" />} Salvar
-                          </button>
-                        </>
-                      ) : (
-                        <button onClick={() => startEditWeek(week)} className="p-1 rounded text-muted-foreground hover:text-foreground"><Edit2 size={12} /></button>
-                      )}
-                    </div>
+                    {!isTeam && (
+                      <div className="flex items-center gap-1">
+                        {editingWeek === week.week_number ? (
+                          <>
+                            <button onClick={() => setEditingWeek(null)} className="p-1 rounded text-muted-foreground hover:text-foreground"><X size={12} /></button>
+                            <button onClick={handleSaveWeek} disabled={syncing} className="px-2 py-1 text-[10px] rounded bg-primary text-primary-foreground flex items-center gap-1">
+                              {syncing && <Loader2 size={10} className="animate-spin" />} Salvar
+                            </button>
+                          </>
+                        ) : (
+                          <button onClick={() => startEditWeek(week)} className="p-1 rounded text-muted-foreground hover:text-foreground"><Edit2 size={12} /></button>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  {isEditing ? (
+                  {editingWeek === week.week_number && !isTeam ? (
                     <div className="grid grid-cols-5 gap-1.5">
                       {METRIC_KEYS.map(k => (
                         <div key={k}>
@@ -315,7 +387,6 @@ function SyncedGoalsEditor({
                           );
                         })}
                       </div>
-                      {/* Daily breakdown */}
                       {METRIC_KEYS.some(k => dailyGoals[k] > 0) && (
                         <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1 border-t border-border/50">
                           <span className="text-[8px] font-semibold text-muted-foreground uppercase">Diário:</span>
@@ -342,16 +413,15 @@ function SyncedGoalsEditor({
 }
 
 // --- Month Card with Tabs ---
-function MonthGoalsCard({ month, isExpanded, onToggle, onDelete }: {
-  month: DbMonth; isExpanded: boolean; onToggle: () => void; onDelete: () => void;
+function MonthGoalsCard({ month, members, isExpanded, onToggle, onDelete }: {
+  month: DbMonth; members: DbTeamMember[]; isExpanded: boolean; onToggle: () => void; onDelete: () => void;
 }) {
-  const { data: members } = useTeamMembers();
-  const [activeTab, setActiveTab] = useState<string | null>(null); // null = team
+  const [activeTab, setActiveTab] = useState<string | null>(null);
   const calendarWeeks = getWeeksOfMonth(month.year, month.month);
 
   const tabs = [
     { id: null, label: "Time", icon: Users },
-    ...(members || []).map(m => ({ id: m.id, label: m.name, icon: User })),
+    ...members.map(m => ({ id: m.id, label: m.name, icon: User })),
   ];
 
   return (
@@ -385,7 +455,6 @@ function MonthGoalsCard({ month, isExpanded, onToggle, onDelete }: {
 
       {isExpanded && (
         <div className="border-t border-border">
-          {/* Tabs: Time | Alex | Aline | Maíza */}
           <div className="flex items-center gap-1 p-3 pb-0 overflow-x-auto">
             {tabs.map(tab => {
               const isActive = activeTab === tab.id;
@@ -416,6 +485,7 @@ function MonthGoalsCard({ month, isExpanded, onToggle, onDelete }: {
               memberId={activeTab}
               memberName={activeTab ? tabs.find(t => t.id === activeTab)?.label || "" : "Time"}
               calendarWeeks={calendarWeeks}
+              members={members}
             />
           </div>
         </div>
@@ -427,6 +497,7 @@ function MonthGoalsCard({ month, isExpanded, onToggle, onDelete }: {
 // --- Main Page ---
 export default function GoalsManagement() {
   const { data: months, isLoading } = useMonths();
+  const { data: members, isLoading: membersLoading } = useTeamMembers();
   const queryClient = useQueryClient();
   const [expandedMonthId, setExpandedMonthId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -454,7 +525,7 @@ export default function GoalsManagement() {
     const weeks = getWeeksOfMonth(next.year, next.month);
     const zeroMetrics = METRIC_KEYS.reduce((acc, k) => ({ ...acc, [k]: 0 }), {} as Record<string, number>);
     
-    // Create team weekly goals
+    // Create team weekly & monthly goals
     for (const w of weeks) {
       await supabase.from("weekly_goals").insert({
         month_id: newMonth.id,
@@ -464,17 +535,32 @@ export default function GoalsManagement() {
         ...zeroMetrics,
       });
     }
-
-    // Create team monthly goals
     await supabase.from("monthly_goals").insert({ month_id: newMonth.id, ...zeroMetrics });
 
-    toast.success(`${label} criado com ${weeks.length} semanas!`);
+    // Also create individual closer goals
+    if (members) {
+      for (const member of members) {
+        for (const w of weeks) {
+          await supabase.from("weekly_goals").insert({
+            month_id: newMonth.id,
+            member_id: member.id,
+            week_number: w.weekNumber,
+            start_date: w.startDate,
+            end_date: w.endDate,
+            ...zeroMetrics,
+          });
+        }
+        await supabase.from("monthly_goals").insert({ month_id: newMonth.id, member_id: member.id, ...zeroMetrics });
+      }
+    }
+
+    toast.success(`${label} criado com ${weeks.length} semanas para time + ${members?.length || 0} closers!`);
     queryClient.invalidateQueries({ queryKey: ["months"] });
     setExpandedMonthId(newMonth.id);
     setCreating(false);
   };
 
-  if (isLoading) {
+  if (isLoading || membersLoading) {
     return (
       <div className="flex items-center justify-center py-24">
         <Loader2 className="animate-spin text-primary" size={24} />
@@ -487,7 +573,7 @@ export default function GoalsManagement() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-bold text-foreground">Gestão de Metas</h2>
-          <p className="text-xs text-muted-foreground mt-1">Defina metas do time e individuais por closer</p>
+          <p className="text-xs text-muted-foreground mt-1">Meta do Time = soma das metas individuais dos closers</p>
         </div>
         <button
           onClick={handleCreateNextMonth}
@@ -504,6 +590,7 @@ export default function GoalsManagement() {
           <MonthGoalsCard
             key={month.id}
             month={month}
+            members={members || []}
             isExpanded={expandedMonthId === month.id}
             onToggle={() => setExpandedMonthId(expandedMonthId === month.id ? null : month.id)}
             onDelete={() => handleDeleteMonth(month)}
