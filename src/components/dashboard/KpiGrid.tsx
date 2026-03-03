@@ -80,29 +80,28 @@ export function KpiGrid({ totals, goals, previousTotals, onCardClick, compact = 
               </span>
 
               {goal > 0 ? (
-                <div className="relative flex items-center justify-center" style={{ width: ringSize, height: ringSize }}>
-                  <svg width={ringSize} height={ringSize} className="-rotate-90">
-                    <circle cx={ringSize / 2} cy={ringSize / 2} r={radius} fill="none" stroke="hsl(var(--secondary))" strokeWidth={strokeWidth} />
-                    <circle cx={ringSize / 2} cy={ringSize / 2} r={radius} fill="none" stroke={strokeColor} strokeWidth={strokeWidth} strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={dashOffset} className="transition-all duration-700" />
-                  </svg>
-                  <span className={cn("absolute text-[9px] font-bold tabular-nums", colorClass)}>
+                <>
+                  <div className="relative flex items-center justify-center" style={{ width: ringSize, height: ringSize }}>
+                    <svg width={ringSize} height={ringSize} className="-rotate-90">
+                      <circle cx={ringSize / 2} cy={ringSize / 2} r={radius} fill="none" stroke="hsl(var(--secondary))" strokeWidth={strokeWidth} />
+                      <circle cx={ringSize / 2} cy={ringSize / 2} r={radius} fill="none" stroke={strokeColor} strokeWidth={strokeWidth} strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={dashOffset} className="transition-all duration-700" />
+                    </svg>
+                    <div className="absolute flex items-baseline gap-px">
+                      <span className="text-[11px] font-black tabular-nums text-card-foreground leading-none">
+                        {val.toLocaleString("pt-BR")}
+                      </span>
+                      <span className="text-[7px] font-semibold text-muted-foreground leading-none">/{goal.toLocaleString("pt-BR")}</span>
+                    </div>
+                  </div>
+                  <span className={cn("text-[8px] font-bold tabular-nums leading-none", colorClass)}>
                     {pct}%
                   </span>
-                </div>
+                </>
               ) : (
                 <span className="text-lg font-black tabular-nums text-card-foreground leading-none my-1">
                   {val.toLocaleString("pt-BR")}
                 </span>
               )}
-
-              <div className="flex items-baseline gap-0.5">
-                <span className="text-[11px] font-bold tabular-nums text-card-foreground leading-none">
-                  {val.toLocaleString("pt-BR")}
-                </span>
-                {goal > 0 && (
-                  <span className="text-[9px] text-muted-foreground leading-none">/ {goal.toLocaleString("pt-BR")}</span>
-                )}
-              </div>
 
             </div>
           );
