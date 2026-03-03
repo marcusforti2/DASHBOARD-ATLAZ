@@ -60,43 +60,36 @@ export function KpiGrid({ totals, goals, previousTotals, onCardClick, compact = 
           const isZero = val === 0 && goal === 0;
 
           return (
-            <div
-              key={key}
-              onClick={() => onCardClick?.(key)}
-              className={cn(
-                "group aspect-square rounded-lg border border-border bg-card flex items-center justify-center hover:border-primary/30 transition-all hover:shadow-[0_0_15px_-5px_hsl(var(--primary)/0.15)] relative overflow-hidden",
-                onCardClick && "cursor-pointer",
-                isZero && "opacity-40"
-              )}
-            >
-              {/* Label on top */}
-              <span className="absolute top-1.5 left-0 right-0 text-[7px] font-semibold text-muted-foreground uppercase tracking-wider leading-tight text-center">
+            <div key={key} onClick={() => onCardClick?.(key)} className={cn("group flex flex-col items-center gap-0.5", onCardClick && "cursor-pointer", isZero && "opacity-40")}>
+              {/* Label above card */}
+              <span className="text-[7px] font-semibold text-muted-foreground uppercase tracking-wider leading-tight text-center truncate w-full">
                 {SHORT_LABELS[key]}
               </span>
-
-              {goal > 0 ? (
-                <div className="relative flex items-center justify-center w-[85%] h-[85%]">
-                  <svg viewBox={`0 0 ${ringSize} ${ringSize}`} className="-rotate-90 w-full h-full">
-                    <circle cx={ringSize / 2} cy={ringSize / 2} r={radius} fill="none" stroke="hsl(var(--secondary))" strokeWidth={strokeWidth} />
-                    <circle cx={ringSize / 2} cy={ringSize / 2} r={radius} fill="none" stroke={strokeColor} strokeWidth={strokeWidth} strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={dashOffset} className="transition-all duration-700" />
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <div className="flex items-baseline gap-px">
-                      <span className="text-[15px] font-black tabular-nums text-card-foreground leading-none">
-                        {val.toLocaleString("pt-BR")}
+              <div className="aspect-square w-full rounded-lg border border-border bg-card flex items-center justify-center hover:border-primary/30 transition-all hover:shadow-[0_0_15px_-5px_hsl(var(--primary)/0.15)] relative overflow-hidden">
+                {goal > 0 ? (
+                  <div className="relative flex items-center justify-center w-[90%] h-[90%]">
+                    <svg viewBox={`0 0 ${ringSize} ${ringSize}`} className="-rotate-90 w-full h-full">
+                      <circle cx={ringSize / 2} cy={ringSize / 2} r={radius} fill="none" stroke="hsl(var(--secondary))" strokeWidth={strokeWidth} />
+                      <circle cx={ringSize / 2} cy={ringSize / 2} r={radius} fill="none" stroke={strokeColor} strokeWidth={strokeWidth} strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={dashOffset} className="transition-all duration-700" />
+                    </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <div className="flex items-baseline gap-px">
+                        <span className="text-[15px] font-black tabular-nums text-card-foreground leading-none">
+                          {val.toLocaleString("pt-BR")}
+                        </span>
+                        <span className="text-[10px] font-medium text-muted-foreground leading-none">/{goal.toLocaleString("pt-BR")}</span>
+                      </div>
+                      <span className={cn("text-[9px] font-bold tabular-nums leading-none mt-0.5", colorClass)}>
+                        {pct}%
                       </span>
-                      <span className="text-[10px] font-medium text-muted-foreground leading-none">/{goal.toLocaleString("pt-BR")}</span>
                     </div>
-                    <span className={cn("text-[9px] font-bold tabular-nums leading-none mt-0.5", colorClass)}>
-                      {pct}%
-                    </span>
                   </div>
-                </div>
-              ) : (
-                <span className="text-xl font-black tabular-nums text-card-foreground leading-none">
-                  {val.toLocaleString("pt-BR")}
-                </span>
-              )}
+                ) : (
+                  <span className="text-xl font-black tabular-nums text-card-foreground leading-none">
+                    {val.toLocaleString("pt-BR")}
+                  </span>
+                )}
+              </div>
             </div>
           );
         })}
