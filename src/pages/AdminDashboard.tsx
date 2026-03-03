@@ -10,6 +10,7 @@ import { DailyTable } from "@/components/dashboard/DailyTable";
 import { AiReportPanel } from "@/components/dashboard/AiReportPanel";
 import { AlertsPanel } from "@/components/dashboard/AlertsPanel";
 import { MetricDetailModal } from "@/components/dashboard/MetricDetailModal";
+import { SdrDetailModal } from "@/components/dashboard/SdrDetailModal";
 import { ExportCsvButton } from "@/components/dashboard/ExportCsvButton";
 import { CollapsiblePanel } from "@/components/dashboard/CollapsiblePanel";
 import { KpiPanelFilters } from "@/components/dashboard/KpiPanelFilters";
@@ -55,6 +56,7 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
   const [minMetricFilter, setMinMetricFilter] = useState<{ key: string; value: number } | null>(null);
   const [metricModalKey, setMetricModalKey] = useState<string | null>(null);
   const [metricModalSource, setMetricModalSource] = useState<"month" | "week" | "general">("general");
+  const [sdrModalMemberId, setSdrModalMemberId] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const dashRef = useRef<HTMLDivElement>(null);
 
@@ -356,8 +358,8 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
               </thead>
               <tbody>
                 {allSdrByMember.map((member, idx) => (
-                  <tr key={member.id} className={cn(
-                    "border-b border-border/50 hover:bg-secondary/30 transition-colors",
+                  <tr key={member.id} onClick={() => setSdrModalMemberId(member.id)} className={cn(
+                    "border-b border-border/50 hover:bg-secondary/30 transition-colors cursor-pointer",
                     idx === 0 && "bg-[hsl(45,93%,47%)]/5"
                   )}>
                     <td className="py-2.5 text-card-foreground whitespace-nowrap font-semibold">
@@ -541,6 +543,52 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
               allSdrPeriod === "week" && weeksOfMonth[allSdrWeekIdx] ? `Semana ${weeksOfMonth[allSdrWeekIdx].weekNumber}` :
               format(allSdrDate, "dd/MM/yyyy", { locale: ptBR })
         }
+      />
+
+      {/* SDR Detail Modal */}
+      <SdrDetailModal
+        open={!!sdrModalMemberId}
+        onOpenChange={(open) => !open && setSdrModalMemberId(null)}
+        member={members?.find(m => m.id === sdrModalMemberId) || null}
+        memberIndex={members?.findIndex(m => m.id === sdrModalMemberId) ?? 0}
+        allMetrics={dailyMetrics || []}
+        weeksOfMonth={weeksOfMonth}
+        monthLabel={activeMonth?.label}
+        getGoalsForPeriod={(period, wIdx, date) => {
+          if (period === "month") {
+            // Find member-specific monthly goal
+            return goalToMetrics(teamGoals);
+          }
+          if (period === "week") {
+            if (!teamWeeklyGoals || !weeksOfMonth[wIdx]) return null;
+            const weekNum = weeksOfMonth[wIdx].weekNumber;
+            const wg = teamWeeklyGoals.find(w => w.week_number === weekNum);
+            if (!wg) return null;
+            const wgMetrics = goalToMetrics(wg as any);
+            // Divide team goal by number of members for per-member goal
+            if (!wgMetrics || !members) return wgMetrics;
+            return METRIC_KEYS.reduce((acc, k) => {
+              acc[k] = Math.round((wgMetrics[k] || 0) / members.length);
+              return acc;
+            }, {} as Record<string, number>);
+          }
+          if (period === "day") {
+            const dayStr = format(date, "yyyy-MM-dd");
+            const weekIndex = weeksOfMonth.findIndex(w => dayStr >= w.startDate && dayStr <= w.endDate);
+            if (weekIndex < 0 || !teamWeeklyGoals) return null;
+            const weekNum = weeksOfMonth[weekIndex].weekNumber;
+            const wg = teamWeeklyGoals.find(w => w.week_number === weekNum);
+            if (!wg) return null;
+            const wgMetrics = goalToMetrics(wg as any);
+            if (!wgMetrics || !members) return null;
+            const wdCount = getWorkingDaysCount((wg as any).working_days);
+            return METRIC_KEYS.reduce((acc, k) => {
+              acc[k] = Math.round((wgMetrics[k] || 0) / members.length / wdCount);
+              return acc;
+            }, {} as Record<string, number>);
+          }
+          return null;
+        }}
       />
     </div>
   );
