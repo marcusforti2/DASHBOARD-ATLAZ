@@ -1,0 +1,153 @@
+import { supabase } from "@/integrations/supabase/client";
+
+export interface DbMonth {
+  id: string;
+  year: number;
+  month: number;
+  label: string;
+}
+
+export interface DbTeamMember {
+  id: string;
+  name: string;
+  active: boolean;
+}
+
+export interface DbMonthlyGoal {
+  conexoes: number;
+  conexoes_aceitas: number;
+  abordagens: number;
+  inmail: number;
+  follow_up: number;
+  numero: number;
+  lig_agendada: number;
+  lig_realizada: number;
+  reuniao_agendada: number;
+  reuniao_realizada: number;
+}
+
+export interface DbDailyMetric {
+  id: string;
+  date: string;
+  day_of_week: string;
+  member_id: string;
+  member_name?: string;
+  conexoes: number;
+  conexoes_aceitas: number;
+  abordagens: number;
+  inmail: number;
+  follow_up: number;
+  numero: number;
+  lig_agendada: number;
+  lig_realizada: number;
+  reuniao_agendada: number;
+  reuniao_realizada: number;
+}
+
+export interface DbWeeklyGoal {
+  week_number: number;
+  conexoes: number;
+  conexoes_aceitas: number;
+  abordagens: number;
+  inmail: number;
+  follow_up: number;
+  numero: number;
+  lig_agendada: number;
+  lig_realizada: number;
+  reuniao_agendada: number;
+  reuniao_realizada: number;
+}
+
+export const METRIC_KEYS = [
+  "conexoes", "conexoes_aceitas", "abordagens", "inmail", "follow_up",
+  "numero", "lig_agendada", "lig_realizada", "reuniao_agendada", "reuniao_realizada"
+] as const;
+
+export const METRIC_LABELS: Record<string, string> = {
+  conexoes: "Conexões",
+  conexoes_aceitas: "Conexões Aceitas",
+  abordagens: "Abordagens",
+  inmail: "InMail",
+  follow_up: "Follow Up",
+  numero: "Número",
+  lig_agendada: "Lig. Agendada",
+  lig_realizada: "Lig. Realizada",
+  reuniao_agendada: "Reunião Agend.",
+  reuniao_realizada: "Reunião Realiz.",
+};
+
+export async function fetchMonths(): Promise<DbMonth[]> {
+  const { data, error } = await supabase
+    .from("months")
+    .select("*")
+    .order("year", { ascending: false })
+    .order("month", { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function fetchTeamMembers(): Promise<DbTeamMember[]> {
+  const { data, error } = await supabase
+    .from("team_members")
+    .select("*")
+    .eq("active", true)
+    .order("name");
+  if (error) throw error;
+  return data || [];
+}
+
+export async function fetchMonthlyGoals(monthId: string): Promise<DbMonthlyGoal | null> {
+  const { data, error } = await supabase
+    .from("monthly_goals")
+    .select("*")
+    .eq("month_id", monthId)
+    .single();
+  if (error && error.code !== "PGRST116") throw error;
+  return data || null;
+}
+
+export async function fetchWeeklyGoals(monthId: string): Promise<DbWeeklyGoal[]> {
+  const { data, error } = await supabase
+    .from("weekly_goals")
+    .select("*")
+    .eq("month_id", monthId)
+    .order("week_number");
+  if (error) throw error;
+  return data || [];
+}
+
+export async function fetchDailyMetrics(monthId: string): Promise<DbDailyMetric[]> {
+  const { data, error } = await supabase
+    .from("daily_metrics")
+    .select("*")
+    .eq("month_id", monthId)
+    .order("date")
+    .order("member_id");
+  if (error) throw error;
+  return data || [];
+}
+
+export async function fetchAiReports(monthId: string) {
+  const { data, error } = await supabase
+    .from("ai_reports")
+    .select("*")
+    .eq("month_id", monthId)
+    .order("generated_at", { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function saveAiReport(monthId: string, content: string, reportType = "monthly") {
+  const { error } = await supabase
+    .from("ai_reports")
+    .insert({ month_id: monthId, content, report_type: reportType });
+  if (error) throw error;
+}
+
+export function sumMetrics(metrics: DbDailyMetric[], filterMemberId?: string) {
+  const filtered = filterMemberId ? metrics.filter(m => m.member_id === filterMemberId) : metrics;
+  return METRIC_KEYS.reduce((acc, key) => {
+    acc[key] = filtered.reduce((sum, m) => sum + ((m as any)[key] || 0), 0);
+    return acc;
+  }, {} as Record<string, number>);
+}
