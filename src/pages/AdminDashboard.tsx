@@ -4,26 +4,27 @@ import { sumMetrics, METRIC_LABELS, METRIC_KEYS, DbDailyMetric } from "@/lib/db"
 import { KpiGrid } from "@/components/dashboard/KpiGrid";
 import { WeeklyComparisonChart } from "@/components/dashboard/WeeklyComparisonChart";
 import { PersonPerformanceChart } from "@/components/dashboard/PersonPerformanceChart";
+import { CloserRanking } from "@/components/dashboard/CloserRanking";
 import { DailyTable } from "@/components/dashboard/DailyTable";
 import { AiReportPanel } from "@/components/dashboard/AiReportPanel";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Loader2, Filter, Calendar, Users, X } from "lucide-react";
-import { format, parseISO, isWithinInterval, startOfWeek, endOfWeek } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { ChevronDown, Loader2, Filter, X, Calendar, Download } from "lucide-react";
 
 const CHART_METRICS = ["follow_up", "conexoes", "reuniao_realizada", "lig_realizada"];
 
 interface AdminDashboardProps {
   onSignOut: () => void;
   userName: string;
+  selectedMonthId?: string;
+  selectedMemberId?: string | null;
 }
 
-export default function AdminDashboard({ onSignOut, userName }: AdminDashboardProps) {
+export default function AdminDashboard({ onSignOut, userName, selectedMonthId: externalMonthId, selectedMemberId: externalMemberId }: AdminDashboardProps) {
   const queryClient = useQueryClient();
   const { data: months, isLoading: monthsLoading } = useMonths();
   const { data: members } = useTeamMembers();
-  const [selectedMonthId, setSelectedMonthId] = useState<string | undefined>();
-  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+  const [selectedMonthId, setSelectedMonthId] = useState<string | undefined>(externalMonthId);
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(externalMemberId || null);
   const [selectedChartMetric, setSelectedChartMetric] = useState("follow_up");
 
   // Advanced filters
@@ -36,35 +37,30 @@ export default function AdminDashboard({ onSignOut, userName }: AdminDashboardPr
   const activeMonthId = selectedMonthId || months?.[0]?.id;
   const activeMonth = months?.find(m => m.id === activeMonthId);
 
+  // Previous month for trends
+  const activeMonthIdx = months?.findIndex(m => m.id === activeMonthId) ?? -1;
+  const previousMonthId = activeMonthIdx >= 0 && months?.[activeMonthIdx + 1]?.id;
+
   const { data: goals } = useMonthlyGoals(activeMonthId);
   const { data: weeklyGoals } = useWeeklyGoals(activeMonthId);
   const { data: dailyMetrics } = useDailyMetrics(activeMonthId);
+  const { data: previousMetrics } = useDailyMetrics(previousMonthId || undefined);
   const { data: aiReports } = useAiReports(activeMonthId);
 
   // Apply filters
   const filteredMetrics = useMemo(() => {
     if (!dailyMetrics) return [];
     let result = [...dailyMetrics];
-
-    if (selectedMemberId) {
-      result = result.filter(d => d.member_id === selectedMemberId);
-    }
-    if (dateFrom) {
-      result = result.filter(d => d.date >= dateFrom);
-    }
-    if (dateTo) {
-      result = result.filter(d => d.date <= dateTo);
-    }
-    if (selectedDayOfWeek) {
-      result = result.filter(d => d.day_of_week === selectedDayOfWeek);
-    }
-    if (minMetricFilter) {
-      result = result.filter(d => (d as any)[minMetricFilter.key] >= minMetricFilter.value);
-    }
+    if (selectedMemberId) result = result.filter(d => d.member_id === selectedMemberId);
+    if (dateFrom) result = result.filter(d => d.date >= dateFrom);
+    if (dateTo) result = result.filter(d => d.date <= dateTo);
+    if (selectedDayOfWeek) result = result.filter(d => d.day_of_week === selectedDayOfWeek);
+    if (minMetricFilter) result = result.filter(d => (d as any)[minMetricFilter.key] >= minMetricFilter.value);
     return result;
   }, [dailyMetrics, selectedMemberId, dateFrom, dateTo, selectedDayOfWeek, minMetricFilter]);
 
   const totals = filteredMetrics.length > 0 ? sumMetrics(filteredMetrics) : {};
+  const previousTotals = previousMetrics && previousMetrics.length > 0 ? sumMetrics(previousMetrics) : undefined;
   const hasActiveFilters = dateFrom || dateTo || selectedDayOfWeek || minMetricFilter;
 
   const clearFilters = () => {
@@ -76,19 +72,60 @@ export default function AdminDashboard({ onSignOut, userName }: AdminDashboardPr
 
   if (monthsLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="flex min-h-[50vh] items-center justify-center">
         <Loader2 className="animate-spin text-primary" size={32} />
       </div>
     );
   }
 
   return (
-    <main className="max-w-[1600px] mx-auto p-6 space-y-5">
-      <KpiGrid totals={totals} goals={goals ? { ...goals } as Record<string, number> : null} />
+    <div className="space-y-5">
+      {/* Top bar with month & member selectors */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative">
+          <select
+            value={activeMonthId || ""}
+            onChange={e => setSelectedMonthId(e.target.value)}
+            className="appearance-none bg-secondary text-secondary-foreground text-xs font-medium px-3 py-2 pr-7 rounded-lg border border-border cursor-pointer focus:ring-1 focus:ring-primary outline-none"
+          >
+            {months?.map(m => (
+              <option key={m.id} value={m.id}>{m.label}</option>
+            ))}
+          </select>
+          <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+        </div>
+
+        <div className="h-5 w-px bg-border" />
+
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setSelectedMemberId(null)}
+            className={`px-3 py-1.5 text-[10px] rounded-lg font-semibold uppercase tracking-wider transition-colors ${
+              !selectedMemberId ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+            }`}
+          >
+            Todos
+          </button>
+          {members?.map(m => (
+            <button
+              key={m.id}
+              onClick={() => setSelectedMemberId(m.id)}
+              className={`px-3 py-1.5 text-[10px] rounded-lg font-semibold uppercase tracking-wider transition-colors ${
+                selectedMemberId === m.id ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+              }`}
+            >
+              {m.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* KPIs */}
+      <KpiGrid totals={totals} goals={goals ? { ...goals } as Record<string, number> : null} previousTotals={previousTotals} />
 
       {/* Filters Panel */}
       <div className="rounded-xl border border-border bg-card p-4">
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between">
           <button
             onClick={() => setShowFilters(!showFilters)}
             className="flex items-center gap-2 text-xs font-semibold text-card-foreground uppercase tracking-wider"
@@ -103,9 +140,8 @@ export default function AdminDashboard({ onSignOut, userName }: AdminDashboardPr
             </button>
           )}
         </div>
-
         {showFilters && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2 border-t border-border">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-3 mt-3 border-t border-border">
             <div>
               <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Data Início</label>
               <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
@@ -146,7 +182,7 @@ export default function AdminDashboard({ onSignOut, userName }: AdminDashboardPr
         )}
       </div>
 
-      {/* Charts */}
+      {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
           <div className="flex items-center gap-1 mb-3">
@@ -162,12 +198,23 @@ export default function AdminDashboard({ onSignOut, userName }: AdminDashboardPr
               </button>
             ))}
           </div>
-          {weeklyGoals && <WeeklyComparisonChart weeklyGoals={weeklyGoals} metric={selectedChartMetric} />}
+          {weeklyGoals && (
+            <WeeklyComparisonChart
+              weeklyGoals={weeklyGoals}
+              metric={selectedChartMetric}
+              dailyMetrics={filteredMetrics}
+            />
+          )}
         </div>
         {dailyMetrics && members && (
-          <PersonPerformanceChart dailyMetrics={dailyMetrics} members={members} />
+          <CloserRanking dailyMetrics={dailyMetrics} members={members} />
         )}
       </div>
+
+      {/* Person Performance */}
+      {dailyMetrics && members && (
+        <PersonPerformanceChart dailyMetrics={dailyMetrics} members={members} />
+      )}
 
       {/* AI Report */}
       {activeMonthId && activeMonth && (
@@ -193,6 +240,6 @@ export default function AdminDashboard({ onSignOut, userName }: AdminDashboardPr
           <DailyTable dailyMetrics={filteredMetrics} members={members} selectedMemberId={selectedMemberId} />
         )}
       </div>
-    </main>
+    </div>
   );
 }

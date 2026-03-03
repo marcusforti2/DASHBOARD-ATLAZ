@@ -3,25 +3,48 @@ import { useAuth } from "@/hooks/use-auth";
 import { useMonths, useTeamMembers } from "@/hooks/use-metrics";
 import AdminDashboard from "@/pages/AdminDashboard";
 import CloserEntry from "@/pages/CloserEntry";
-import { ChevronDown, BarChart3, Loader2, LogOut, User, ClipboardList, LayoutDashboard, Eye, Shield } from "lucide-react";
+import { AppSidebar, AdminView, CloserView } from "@/components/AppSidebar";
+import { AiReportPanel } from "@/components/dashboard/AiReportPanel";
+import { useMonthlyGoals, useAiReports, useDailyMetrics } from "@/hooks/use-metrics";
+import { sumMetrics } from "@/lib/db";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { BarChart3, Loader2, Eye, Shield, Menu, Users, Target, Settings, Construction } from "lucide-react";
 import { Navigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
+
+function ComingSoonPanel({ title, icon: Icon }: { title: string; icon: React.ElementType }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-24 gap-4">
+      <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
+        <Icon size={28} className="text-primary" />
+      </div>
+      <h2 className="text-lg font-bold text-foreground">{title}</h2>
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Construction size={14} />
+        <span>Em breve — esta seção está sendo construída</span>
+      </div>
+    </div>
+  );
+}
 
 export default function Index() {
   const { user, role, profile, loading, signOut, isAdmin } = useAuth();
   const { data: months } = useMonths();
   const { data: members } = useTeamMembers();
-  const [selectedMonthId, setSelectedMonthId] = useState<string | undefined>();
-  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  // Admin: "admin" (full dashboard) or "closer-preview" (see as closer)
-  // Closer: "entry" or "dashboard"
-  const [viewMode, setViewMode] = useState<"admin" | "closer-preview" | "entry" | "dashboard">(
-    "admin"
-  );
-  // When admin previews closer, which member to simulate
+  const [adminView, setAdminView] = useState<AdminView>("dashboard");
+  const [closerView, setCloserView] = useState<CloserView>("entry");
   const [previewMemberId, setPreviewMemberId] = useState<string | null>(null);
+  const [selectedMonthId, setSelectedMonthId] = useState<string | undefined>();
 
   const activeMonthId = selectedMonthId || months?.[0]?.id;
+  const activeMonth = months?.find(m => m.id === activeMonthId);
+
+  const { data: goals } = useMonthlyGoals(activeMonthId);
+  const { data: aiReports } = useAiReports(activeMonthId);
+  const { data: dailyMetrics } = useDailyMetrics(activeMonthId);
+  const totals = dailyMetrics && dailyMetrics.length > 0 ? sumMetrics(dailyMetrics) : {};
 
   if (loading) {
     return (
@@ -49,148 +72,114 @@ export default function Index() {
     );
   }
 
-  const isCloserPreview = isAdmin && viewMode === "closer-preview";
+  const activeView = isAdmin ? adminView : closerView;
+  const isCloserPreview = isAdmin && adminView === "closer-preview";
+
+  const handleViewChange = (view: string) => {
+    if (isAdmin) {
+      setAdminView(view as AdminView);
+      if (view === "closer-preview" && !previewMemberId && members?.[0]) {
+        setPreviewMemberId(members[0].id);
+      }
+    } else {
+      setCloserView(view as CloserView);
+    }
+  };
+
+  const renderContent = () => {
+    if (isAdmin) {
+      switch (adminView) {
+        case "dashboard":
+          return <AdminDashboard onSignOut={signOut} userName={profile?.full_name || ""} />;
+        case "team":
+          return <ComingSoonPanel title="Gestão de Equipe" icon={Users} />;
+        case "goals":
+          return <ComingSoonPanel title="Gestão de Metas" icon={Target} />;
+        case "reports":
+          return activeMonthId && activeMonth ? (
+            <AiReportPanel
+              monthId={activeMonthId}
+              monthLabel={activeMonth.label}
+              metrics={totals}
+              goals={goals ? { ...goals } as Record<string, number> : null}
+              members={members?.map(m => m.name) || []}
+              existingReports={aiReports || []}
+              onReportGenerated={() => queryClient.invalidateQueries({ queryKey: ["ai-reports", activeMonthId] })}
+            />
+          ) : null;
+        case "closer-preview":
+          return previewMemberId ? (
+            <CloserEntry
+              teamMemberId={previewMemberId}
+              memberName={members?.find(m => m.id === previewMemberId)?.name || ""}
+            />
+          ) : null;
+        case "settings":
+          return <ComingSoonPanel title="Configurações" icon={Settings} />;
+        default:
+          return null;
+      }
+    } else {
+      switch (closerView) {
+        case "entry":
+          return profile?.team_member_id ? (
+            <CloserEntry teamMemberId={profile.team_member_id} memberName={profile.full_name || ""} />
+          ) : (
+            <div className="text-center py-12 space-y-3">
+              <p className="text-sm text-muted-foreground">Seu perfil ainda não foi vinculado a um membro da equipe.</p>
+              <p className="text-xs text-muted-foreground">Peça ao gestor para vincular sua conta.</p>
+            </div>
+          );
+        case "dashboard":
+          return <AdminDashboard onSignOut={signOut} userName={profile?.full_name || ""} />;
+        default:
+          return null;
+      }
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Closer preview banner */}
-      {isCloserPreview && (
-        <div className="bg-[hsl(38,92%,50%)]/10 border-b border-[hsl(38,92%,50%)]/30 px-6 py-2 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Eye size={14} className="text-[hsl(38,92%,50%)]" />
-            <span className="text-xs font-semibold text-[hsl(38,92%,50%)]">
-              MODO VISUALIZAÇÃO CLOSER
-              {previewMemberId && members ? ` — ${members.find(m => m.id === previewMemberId)?.name}` : ""}
-            </span>
-          </div>
-          <button
-            onClick={() => setViewMode("admin")}
-            className="flex items-center gap-1.5 px-3 py-1 text-[10px] rounded-lg font-semibold bg-[hsl(38,92%,50%)] text-background hover:bg-[hsl(38,92%,55%)] transition-colors"
-          >
-            <Shield size={10} /> Voltar ao Admin
-          </button>
-        </div>
-      )}
+    <SidebarProvider>
+      <div className="min-h-screen flex w-full bg-background">
+        <AppSidebar
+          isAdmin={isAdmin}
+          activeView={activeView}
+          onViewChange={handleViewChange}
+          userName={profile?.full_name || user.email || ""}
+          userRole={isCloserPreview ? "Preview Mode" : role}
+          onSignOut={signOut}
+        />
 
-      {/* Header */}
-      <header className="border-b border-border sticky top-0 z-50 bg-background/80 backdrop-blur-xl">
-        <div className="max-w-[1600px] mx-auto px-6 py-3 flex items-center justify-between">
-          {/* Left side */}
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <BarChart3 size={20} className="text-primary" />
-              <h1 className="text-sm font-bold text-foreground tracking-tight">LEARNING BRAND</h1>
-            </div>
-            <div className="h-5 w-px bg-border" />
-
-            {/* Month selector */}
-            <div className="relative">
-              <select
-                value={activeMonthId || ""}
-                onChange={e => setSelectedMonthId(e.target.value)}
-                className="appearance-none bg-secondary text-secondary-foreground text-xs font-medium px-3 py-1.5 pr-7 rounded-lg border-none cursor-pointer focus:ring-1 focus:ring-primary outline-none"
-              >
-                {months?.map(m => (
-                  <option key={m.id} value={m.id}>{m.label}</option>
-                ))}
-              </select>
-              <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Top bar */}
+          <header className="h-12 flex items-center justify-between border-b border-border px-4 bg-background/80 backdrop-blur-xl sticky top-0 z-50">
+            <div className="flex items-center gap-3">
+              <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
+              <div className="h-5 w-px bg-border" />
+              <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider">
+                {isAdmin ? (
+                  adminView === "dashboard" ? "Dashboard" :
+                  adminView === "team" ? "Equipe" :
+                  adminView === "goals" ? "Metas" :
+                  adminView === "reports" ? "Relatórios IA" :
+                  adminView === "closer-preview" ? "Visualização Closer" :
+                  "Configurações"
+                ) : (
+                  closerView === "entry" ? "Inserir Dados" : "Meu Dashboard"
+                )}
+              </h2>
             </div>
 
-            <div className="h-5 w-px bg-border" />
-
-            {/* View mode tabs */}
-            {isAdmin && !isCloserPreview && (
-              <div className="flex items-center gap-1 bg-secondary/50 rounded-lg p-0.5">
-                <button
-                  onClick={() => setViewMode("admin")}
-                  className={`px-3 py-1.5 text-[10px] rounded-md font-semibold uppercase tracking-wider transition-all flex items-center gap-1.5 ${
-                    viewMode === "admin"
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <Shield size={11} /> Gestão
-                </button>
-                <button
-                  onClick={() => {
-                    setViewMode("closer-preview");
-                    if (!previewMemberId && members?.[0]) setPreviewMemberId(members[0].id);
-                  }}
-                  className={`px-3 py-1.5 text-[10px] rounded-md font-semibold uppercase tracking-wider transition-all flex items-center gap-1.5 ${
-                    viewMode === "closer-preview"
-                      ? "bg-[hsl(38,92%,50%)] text-background shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <Eye size={11} /> Ver como Closer
-                </button>
-              </div>
-            )}
-
-            {/* Closer view tabs */}
-            {!isAdmin && (
-              <div className="flex items-center gap-1 bg-secondary/50 rounded-lg p-0.5">
-                <button
-                  onClick={() => setViewMode("entry")}
-                  className={`px-3 py-1.5 text-[10px] rounded-md font-semibold uppercase tracking-wider transition-all flex items-center gap-1.5 ${
-                    viewMode === "entry"
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <ClipboardList size={11} /> Inserir Dados
-                </button>
-                <button
-                  onClick={() => setViewMode("dashboard")}
-                  className={`px-3 py-1.5 text-[10px] rounded-md font-semibold uppercase tracking-wider transition-all flex items-center gap-1.5 ${
-                    viewMode === "dashboard"
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <LayoutDashboard size={11} /> Dashboard
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Right side */}
-          <div className="flex items-center gap-3">
-            {/* Member filter — admin dashboard mode */}
-            {isAdmin && viewMode === "admin" && (
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => setSelectedMemberId(null)}
-                  className={`px-3 py-1.5 text-[10px] rounded-lg font-semibold uppercase tracking-wider transition-colors ${
-                    !selectedMemberId ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                  }`}
-                >
-                  Todos
-                </button>
-                {members?.map(m => (
-                  <button
-                    key={m.id}
-                    onClick={() => setSelectedMemberId(m.id)}
-                    className={`px-3 py-1.5 text-[10px] rounded-lg font-semibold uppercase tracking-wider transition-colors ${
-                      selectedMemberId === m.id ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                    }`}
-                  >
-                    {m.name}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Member selector — closer preview mode */}
+            {/* Closer preview member selector */}
             {isCloserPreview && members && (
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold mr-1">Simular:</span>
+              <div className="flex items-center gap-2">
+                <Eye size={12} className="text-[hsl(38,92%,50%)]" />
+                <span className="text-[10px] text-[hsl(38,92%,50%)] font-semibold uppercase tracking-wider mr-1">Simular:</span>
                 {members.map(m => (
                   <button
                     key={m.id}
                     onClick={() => setPreviewMemberId(m.id)}
-                    className={`px-3 py-1.5 text-[10px] rounded-lg font-semibold uppercase tracking-wider transition-colors ${
+                    className={`px-2.5 py-1 text-[10px] rounded-lg font-semibold uppercase tracking-wider transition-colors ${
                       previewMemberId === m.id
                         ? "bg-[hsl(38,92%,50%)] text-background"
                         : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
@@ -201,64 +190,29 @@ export default function Index() {
                 ))}
               </div>
             )}
+          </header>
 
-            <div className="h-5 w-px bg-border" />
-
-            {/* User badge */}
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center">
-                <User size={14} className="text-primary" />
-              </div>
-              <div className="hidden sm:block">
-                <p className="text-[10px] font-semibold text-foreground leading-tight">
-                  {profile?.full_name || user.email}
-                </p>
-                <p className={`text-[9px] uppercase font-semibold ${isAdmin ? "text-primary" : "text-accent"}`}>
-                  {isCloserPreview ? "Preview Mode" : role}
-                </p>
-              </div>
+          {/* Closer preview banner */}
+          {isCloserPreview && (
+            <div className="bg-[hsl(38,92%,50%)]/10 border-b border-[hsl(38,92%,50%)]/30 px-4 py-2 flex items-center justify-between">
+              <span className="text-[10px] font-semibold text-[hsl(38,92%,50%)] uppercase tracking-wider">
+                Modo visualização closer — {members?.find(m => m.id === previewMemberId)?.name}
+              </span>
               <button
-                onClick={signOut}
-                className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                title="Sair"
+                onClick={() => setAdminView("dashboard")}
+                className="flex items-center gap-1.5 px-3 py-1 text-[10px] rounded-lg font-semibold bg-[hsl(38,92%,50%)] text-background hover:bg-[hsl(38,92%,55%)] transition-colors"
               >
-                <LogOut size={14} />
+                <Shield size={10} /> Voltar ao Admin
               </button>
             </div>
-          </div>
+          )}
+
+          {/* Content */}
+          <main className="flex-1 p-6 max-w-[1600px] mx-auto w-full">
+            {renderContent()}
+          </main>
         </div>
-      </header>
-
-      {/* Content */}
-      {isAdmin && viewMode === "admin" && (
-        <AdminDashboard onSignOut={signOut} userName={profile?.full_name || ""} />
-      )}
-
-      {isCloserPreview && previewMemberId && (
-        <div className="py-6 px-4">
-          <CloserEntry
-            teamMemberId={previewMemberId}
-            memberName={members?.find(m => m.id === previewMemberId)?.name || ""}
-          />
-        </div>
-      )}
-
-      {!isAdmin && viewMode === "entry" && profile?.team_member_id && (
-        <div className="py-6 px-4">
-          <CloserEntry teamMemberId={profile.team_member_id} memberName={profile.full_name || ""} />
-        </div>
-      )}
-
-      {!isAdmin && viewMode === "entry" && !profile?.team_member_id && (
-        <div className="text-center py-12 space-y-3">
-          <p className="text-sm text-muted-foreground">Seu perfil ainda não foi vinculado a um membro da equipe.</p>
-          <p className="text-xs text-muted-foreground">Peça ao gestor para vincular sua conta.</p>
-        </div>
-      )}
-
-      {!isAdmin && viewMode === "dashboard" && (
-        <AdminDashboard onSignOut={signOut} userName={profile?.full_name || ""} />
-      )}
-    </div>
+      </div>
+    </SidebarProvider>
   );
 }
