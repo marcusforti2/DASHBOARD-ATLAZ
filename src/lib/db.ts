@@ -47,8 +47,8 @@ export interface DbDailyMetric {
   reuniao_realizada: number;
 }
 
-export const ALL_WEEKDAYS = ["Seg", "Ter", "Qua", "Qui", "Sex"] as const;
-export const DEFAULT_WORKING_DAYS = "Seg,Ter,Qua,Qui,Sex";
+export const ALL_WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"] as const;
+export const DEFAULT_WORKING_DAYS = "Dom,Seg,Ter,Qua,Qui,Sex,Sáb";
 
 export function getWorkingDaysCount(workingDays?: string | null): number {
   if (!workingDays) return 5;
