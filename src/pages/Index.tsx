@@ -4,6 +4,7 @@ import { useMonths, useTeamMembers } from "@/hooks/use-metrics";
 import AdminDashboard from "@/pages/AdminDashboard";
 import CloserEntry from "@/pages/CloserEntry";
 import TeamManagement from "@/pages/TeamManagement";
+import GoalsManagement from "@/pages/GoalsManagement";
 import { AppSidebar, AdminView, CloserView } from "@/components/AppSidebar";
 import { AiReportPanel } from "@/components/dashboard/AiReportPanel";
 import { useMonthlyGoals, useAiReports, useDailyMetrics } from "@/hooks/use-metrics";
@@ -95,7 +96,7 @@ export default function Index() {
         case "team":
           return <TeamManagement />;
         case "goals":
-          return <ComingSoonPanel title="Gestão de Metas" icon={Target} />;
+          return <GoalsManagement />;
         case "reports":
           return activeMonthId && activeMonth ? (
             <AiReportPanel
