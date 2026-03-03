@@ -20,27 +20,110 @@ function CloserFormDialog({
   onSaved: () => void;
 }) {
   const [name, setName] = useState(member?.name || "");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [saving, setSaving] = useState(false);
+  const [welcomeMsg, setWelcomeMsg] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const isEditing = !!member;
+
+  const generatePassword = () => {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$";
+    let pwd = "";
+    for (let i = 0; i < 10; i++) pwd += chars[Math.floor(Math.random() * chars.length)];
+    setPassword(pwd);
+  };
 
   const handleSave = async () => {
     if (!name.trim()) { toast.error("Nome é obrigatório"); return; }
     setSaving(true);
-    if (member) {
+
+    if (isEditing) {
       const { error } = await supabase.from("team_members").update({ name: name.trim() }).eq("id", member.id);
-      if (error) toast.error(error.message); else { toast.success("SDR atualizado!"); onSaved(); }
-    } else {
-      const { error } = await supabase.from("team_members").insert({ name: name.trim() });
-      if (error) toast.error(error.message); else { toast.success("SDR cadastrado!"); onSaved(); }
+      if (error) toast.error(error.message); else { toast.success("SDR atualizado!"); onSaved(); onClose(); }
+      setSaving(false);
+      return;
     }
-    setSaving(false);
-    onClose();
+
+    // New SDR — create account
+    if (!email.trim()) { toast.error("Email é obrigatório"); setSaving(false); return; }
+    if (!password || password.length < 6) { toast.error("Senha deve ter no mínimo 6 caracteres"); setSaving(false); return; }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-sdr`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ name: name.trim(), email: email.trim(), password }),
+      });
+      const result = await resp.json();
+      if (!resp.ok) throw new Error(result.error || "Erro ao criar SDR");
+
+      toast.success("SDR cadastrado com sucesso!");
+      onSaved();
+
+      const appUrl = window.location.origin;
+      const msg = `🎉 Bem-vindo(a) ao time, ${name.trim()}!\n\n` +
+        `Seu acesso ao sistema de prospecção foi criado.\n\n` +
+        `🔗 Link: ${appUrl}/login\n` +
+        `📧 Email: ${email.trim()}\n` +
+        `🔑 Senha: ${password}\n\n` +
+        `Acesse o link acima, faça login e comece a registrar suas métricas diárias. Bora pra cima! 🚀`;
+      setWelcomeMsg(msg);
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setSaving(false);
+    }
   };
+
+  const handleCopy = () => {
+    if (welcomeMsg) {
+      navigator.clipboard.writeText(welcomeMsg);
+      setCopied(true);
+      toast.success("Mensagem copiada!");
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  // Welcome message screen
+  if (welcomeMsg) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm" onClick={onClose}>
+        <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-lg shadow-2xl" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center gap-2 mb-4">
+            <Sparkles size={16} className="text-primary" />
+            <h3 className="text-sm font-bold text-card-foreground uppercase tracking-wider">SDR Cadastrado!</h3>
+          </div>
+          <p className="text-xs text-muted-foreground mb-3">
+            Copie a mensagem abaixo e envie para o novo SDR:
+          </p>
+          <div className="rounded-lg bg-secondary/50 border border-border p-4 max-h-60 overflow-y-auto">
+            <pre className="text-xs text-secondary-foreground whitespace-pre-wrap font-sans leading-relaxed">{welcomeMsg}</pre>
+          </div>
+          <div className="flex justify-end gap-2 mt-4">
+            <button onClick={onClose} className="px-4 py-2 text-xs rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors">
+              Fechar
+            </button>
+            <button onClick={handleCopy} className="px-4 py-2 text-xs rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors flex items-center gap-1.5">
+              {copied ? <UserCheck size={12} /> : <FileText size={12} />}
+              {copied ? "Copiado!" : "Copiar Mensagem"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm" onClick={onClose}>
       <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
         <h3 className="text-sm font-bold text-card-foreground mb-4 uppercase tracking-wider">
-          {member ? "Editar SDR" : "Novo SDR"}
+          {isEditing ? "Editar SDR" : "Novo SDR"}
         </h3>
         <div className="space-y-3">
           <div>
@@ -54,6 +137,39 @@ function CloserFormDialog({
               autoFocus
             />
           </div>
+          {!isEditing && (
+            <>
+              <div>
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Email</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="email@exemplo.com"
+                  className="mt-1 w-full rounded-lg border border-border bg-secondary px-3 py-2.5 text-sm text-secondary-foreground focus:ring-1 focus:ring-primary outline-none"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Senha</label>
+                <div className="flex gap-2 mt-1">
+                  <input
+                    type="text"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder="Mínimo 6 caracteres"
+                    className="flex-1 rounded-lg border border-border bg-secondary px-3 py-2.5 text-sm text-secondary-foreground focus:ring-1 focus:ring-primary outline-none font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={generatePassword}
+                    className="px-3 py-2 text-[10px] rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors border border-border whitespace-nowrap"
+                  >
+                    Gerar
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
         <div className="flex justify-end gap-2 mt-6">
           <button onClick={onClose} className="px-4 py-2 text-xs rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors">
@@ -61,7 +177,7 @@ function CloserFormDialog({
           </button>
           <button onClick={handleSave} disabled={saving} className="px-4 py-2 text-xs rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-1.5">
             {saving && <Loader2 size={12} className="animate-spin" />}
-            {member ? "Salvar" : "Cadastrar"}
+            {isEditing ? "Salvar" : "Cadastrar"}
           </button>
         </div>
       </div>
