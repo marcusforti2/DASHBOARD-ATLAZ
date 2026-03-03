@@ -1,4 +1,4 @@
-import { DbDailyMetric, DbTeamMember, sumMetrics, METRIC_LABELS, METRIC_KEYS } from "@/lib/db";
+import { DbDailyMetric, DbTeamMember, sumMetrics, METRIC_LABELS, METRIC_KEYS, getMemberAvatar } from "@/lib/db";
 import { Trophy, Medal, Crown, Flame, Star, ChevronDown } from "lucide-react";
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
@@ -124,11 +124,11 @@ export function CloserRanking({ dailyMetrics, members }: CloserRankingProps) {
                 <span className="w-5 text-center text-[10px] font-bold text-muted-foreground tabular-nums">
                   {position}º
                 </span>
-                <div className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center shrink-0">
-                  <span className="text-[10px] font-bold text-muted-foreground">
-                    {member.name.charAt(0).toUpperCase()}
-                  </span>
-                </div>
+                <img
+                  src={getMemberAvatar(member, idx + 3)}
+                  alt={member.name}
+                  className="w-7 h-7 rounded-full object-cover shrink-0 border border-border"
+                />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs font-semibold text-card-foreground truncate">{member.name}</span>
@@ -207,7 +207,7 @@ function PodiumCard({
   height,
   isFirst = false,
 }: {
-  member: { name: string; total: number };
+  member: { name: string; total: number; avatar_url?: string | null; id: string };
   rank: number;
   maxVal: number;
   style: typeof PODIUM_STYLES[0];
@@ -222,13 +222,15 @@ function PodiumCard({
           <Crown size={16} className="absolute -top-4 left-1/2 -translate-x-1/2 text-[hsl(45,93%,47%)] animate-pulse" />
         )}
         <div className={cn(
-          "w-12 h-12 rounded-full flex items-center justify-center shrink-0 transition-all",
-          style.bg, style.ring, style.glow,
-          isFirst && "w-14 h-14"
+          "rounded-full shrink-0 transition-all overflow-hidden",
+          style.ring, style.glow,
+          isFirst ? "w-14 h-14" : "w-12 h-12"
         )}>
-          <span className={cn("font-bold", style.text, isFirst ? "text-lg" : "text-sm")}>
-            {member.name.charAt(0).toUpperCase()}
-          </span>
+          <img
+            src={member.avatar_url || `/avatars/default-${(rank % 6) + 1}.jpg`}
+            alt={member.name}
+            className="w-full h-full object-cover"
+          />
         </div>
         <div className={cn(
           "absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-background",

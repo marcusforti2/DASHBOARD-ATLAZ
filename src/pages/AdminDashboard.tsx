@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useMonths, useTeamMembers, useMonthlyGoals, useWeeklyGoals, useDailyMetrics, useAiReports } from "@/hooks/use-metrics";
-import { sumMetrics, goalToMetrics, METRIC_LABELS, METRIC_KEYS, DbDailyMetric, DbTeamMember, getWorkingDaysCount } from "@/lib/db";
+import { sumMetrics, goalToMetrics, METRIC_LABELS, METRIC_KEYS, DbDailyMetric, DbTeamMember, getWorkingDaysCount, getMemberAvatar } from "@/lib/db";
 import { getWeeksOfMonth } from "@/lib/calendar-utils";
 import { KpiGrid } from "@/components/dashboard/KpiGrid";
 import { WeeklyComparisonChart } from "@/components/dashboard/WeeklyComparisonChart";
@@ -362,15 +362,11 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
                   )}>
                     <td className="py-2.5 text-card-foreground whitespace-nowrap font-semibold">
                       <div className="flex items-center gap-2">
-                        <div className={cn(
-                          "w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0",
-                          idx === 0 ? "bg-[hsl(45,93%,47%)]/20 text-[hsl(45,93%,47%)]" :
-                          idx === 1 ? "bg-[hsl(210,10%,70%)]/20 text-[hsl(210,10%,70%)]" :
-                          idx === 2 ? "bg-[hsl(24,60%,45%)]/20 text-[hsl(24,60%,45%)]" :
-                          "bg-secondary text-muted-foreground"
-                        )}>
-                          {idx < 3 ? ["🥇", "🥈", "🥉"][idx] : `${idx + 1}`}
-                        </div>
+                        <img
+                          src={getMemberAvatar(members?.find(m => m.id === member.id) || { id: member.id, name: member.name, active: true }, idx)}
+                          alt={member.name}
+                          className="w-6 h-6 rounded-full object-cover shrink-0 border border-border"
+                        />
                         <span className="text-xs">{member.name}</span>
                       </div>
                     </td>

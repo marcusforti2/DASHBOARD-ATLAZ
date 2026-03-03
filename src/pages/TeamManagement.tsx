@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useTeamMembers, useMonths, useMonthlyGoals, useDailyMetrics } from "@/hooks/use-metrics";
-import { sumMetrics, METRIC_LABELS, METRIC_KEYS, DbTeamMember } from "@/lib/db";
+import { sumMetrics, METRIC_LABELS, METRIC_KEYS, DbTeamMember, getMemberAvatar } from "@/lib/db";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Users, Plus, Edit2, Trash2, UserCheck, UserX, Loader2,
-  Sparkles, Upload, FileText, ChevronDown, X, Brain, TrendingUp, Medal
+  Sparkles, Upload, FileText, ChevronDown, X, Brain, TrendingUp, Medal, Camera
 } from "lucide-react";
 
 // --- Add/Edit Closer Dialog ---
@@ -466,10 +466,39 @@ export default function TeamManagement() {
                 onClick={() => setExpandedMember(isExpanded ? null : member.id)}
               >
                 <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${member.active ? "bg-primary/15" : "bg-secondary"}`}>
-                    <span className={`text-sm font-bold ${member.active ? "text-primary" : "text-muted-foreground"}`}>
-                      {member.name.charAt(0).toUpperCase()}
-                    </span>
+                  {/* Avatar with upload overlay */}
+                  <div className="relative group">
+                    <img
+                      src={getMemberAvatar(member, members?.indexOf(member) || 0)}
+                      alt={member.name}
+                      className="w-10 h-10 rounded-full object-cover border-2 border-border"
+                    />
+                    <label
+                      className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                      onClick={e => e.stopPropagation()}
+                    >
+                      <Camera size={14} className="text-white" />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          if (file.size > 5 * 1024 * 1024) { toast.error("Imagem deve ter no máximo 5MB"); return; }
+                          const ext = file.name.split('.').pop();
+                          const filePath = `${member.id}/avatar.${ext}`;
+                          const { error: uploadErr } = await supabase.storage.from("member-avatars").upload(filePath, file, { upsert: true });
+                          if (uploadErr) { toast.error("Erro no upload: " + uploadErr.message); return; }
+                          const { data: urlData } = supabase.storage.from("member-avatars").getPublicUrl(filePath);
+                          const avatarUrl = urlData.publicUrl + "?t=" + Date.now();
+                          const { error: updateErr } = await supabase.from("team_members").update({ avatar_url: avatarUrl }).eq("id", member.id);
+                          if (updateErr) { toast.error(updateErr.message); return; }
+                          toast.success("Foto atualizada!");
+                          queryClient.invalidateQueries({ queryKey: ["team-members"] });
+                        }}
+                      />
+                    </label>
                   </div>
                   <div>
                     <h4 className="text-sm font-semibold text-card-foreground">{member.name}</h4>
