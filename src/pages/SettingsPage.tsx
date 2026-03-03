@@ -28,13 +28,14 @@ export default function SettingsPage() {
   useEffect(() => {
     if (!isAdmin) return;
     setLoadingProfiles(true);
-    supabase
-      .from("profiles")
-      .select("id, full_name, team_member_id")
-      .then(({ data }) => {
-        setProfiles(data || []);
-        setLoadingProfiles(false);
-      });
+    Promise.all([
+      supabase.from("profiles").select("id, full_name, team_member_id"),
+      supabase.from("user_roles").select("user_id").eq("role", "admin"),
+    ]).then(([{ data: allProfiles }, { data: adminRoles }]) => {
+      const adminIds = new Set((adminRoles || []).map(r => r.user_id));
+      setProfiles((allProfiles || []).filter(p => !adminIds.has(p.id)));
+      setLoadingProfiles(false);
+    });
   }, [isAdmin]);
 
   const handleSaveProfile = async () => {
