@@ -267,7 +267,7 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
         accentColor="bg-primary/15"
         defaultOpen={true}
       >
-        <KpiGrid totals={monthTotals} goals={goalToMetrics(goals)} previousTotals={previousTotals} compact />
+        <KpiGrid totals={monthTotals} goals={goalToMetrics(goals)} previousTotals={previousTotals} onCardClick={(key) => setMetricModalKey(key)} compact />
       </CollapsiblePanel>
 
       {/* Panel 2: Visão Semanal */}
@@ -309,7 +309,7 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
           ) : undefined
         }
       >
-        <KpiGrid totals={weekTotals} goals={weekGoals} compact />
+        <KpiGrid totals={weekTotals} goals={weekGoals} onCardClick={(key) => setMetricModalKey(key)} compact />
       </CollapsiblePanel>
 
       {/* Panel 3: Visão Geral — Todos os SDRs */}
