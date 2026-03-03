@@ -1,12 +1,12 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMonths, useMonthlyGoals, useWeeklyGoals } from "@/hooks/use-metrics";
-import { METRIC_KEYS, METRIC_LABELS, DbMonth } from "@/lib/db";
+import { METRIC_KEYS, METRIC_LABELS, DbMonth, DbWeeklyGoal } from "@/lib/db";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Plus, Edit2, Trash2, Loader2, Calendar, Target, ChevronDown,
-  Save, X, ChevronRight
+  Save, X, ChevronRight, RefreshCw, ArrowDownUp
 } from "lucide-react";
 
 const MONTH_NAMES = [
@@ -90,85 +90,108 @@ function MonthFormDialog({
   );
 }
 
-// --- Monthly Goals Editor ---
-function MonthlyGoalsEditor({ monthId, monthLabel }: { monthId: string; monthLabel: string }) {
-  const { data: goals, isLoading } = useMonthlyGoals(monthId);
-  const queryClient = useQueryClient();
-  const [values, setValues] = useState<Record<string, number> | null>(null);
-  const [saving, setSaving] = useState(false);
+// --- Helper: sum weekly goals into monthly totals ---
+function sumWeeklyToMonthly(weeks: DbWeeklyGoal[]): Record<string, number> {
+  return METRIC_KEYS.reduce((acc, k) => {
+    acc[k] = weeks.reduce((sum, w) => sum + ((w as any)[k] || 0), 0);
+    return acc;
+  }, {} as Record<string, number>);
+}
 
-  // Initialize values from fetched goals
-  const currentValues = values ?? (goals
+// --- Helper: distribute monthly total evenly across N weeks ---
+function distributeMonthlyToWeeks(monthlyValues: Record<string, number>, weekCount: number): Record<string, number>[] {
+  if (weekCount === 0) return [];
+  return Array.from({ length: weekCount }, (_, i) =>
+    METRIC_KEYS.reduce((acc, k) => {
+      const total = monthlyValues[k] || 0;
+      const base = Math.floor(total / weekCount);
+      const remainder = total % weekCount;
+      // Distribute remainder to first weeks
+      acc[k] = base + (i < remainder ? 1 : 0);
+      return acc;
+    }, {} as Record<string, number>)
+  );
+}
+
+// --- Synced Goals Editor (Monthly + Weekly together) ---
+function SyncedGoalsEditor({ monthId, monthLabel }: { monthId: string; monthLabel: string }) {
+  const { data: goals, isLoading: goalsLoading } = useMonthlyGoals(monthId);
+  const { data: weeklyGoals, isLoading: weeksLoading } = useWeeklyGoals(monthId);
+  const queryClient = useQueryClient();
+
+  const [monthlyValues, setMonthlyValues] = useState<Record<string, number> | null>(null);
+  const [editingWeek, setEditingWeek] = useState<number | null>(null);
+  const [weekValues, setWeekValues] = useState<Record<string, number>>({});
+  const [addingWeek, setAddingWeek] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+
+  const isLoading = goalsLoading || weeksLoading;
+
+  // Current monthly values (from local state or DB)
+  const currentMonthly = monthlyValues ?? (goals
     ? METRIC_KEYS.reduce((acc, k) => ({ ...acc, [k]: (goals as any)[k] || 0 }), {} as Record<string, number>)
     : METRIC_KEYS.reduce((acc, k) => ({ ...acc, [k]: 0 }), {} as Record<string, number>)
   );
 
-  const handleSave = async () => {
-    setSaving(true);
-    const payload = { month_id: monthId, ...currentValues };
+  const nextWeekNum = (weeklyGoals?.length || 0) + 1;
 
-    // Check if goals exist already
+  // --- Save monthly goals AND distribute to weeks ---
+  const handleSaveMonthlyAndDistribute = async () => {
+    setSaving(true);
+    const payload = { month_id: monthId, ...currentMonthly };
+
+    // Save monthly
     if (goals) {
-      const { error } = await supabase.from("monthly_goals").update(currentValues).eq("month_id", monthId);
-      if (error) toast.error(error.message);
-      else toast.success("Metas mensais atualizadas!");
+      const { error } = await supabase.from("monthly_goals").update(currentMonthly).eq("month_id", monthId);
+      if (error) { toast.error(error.message); setSaving(false); return; }
     } else {
       const { error } = await supabase.from("monthly_goals").insert(payload);
-      if (error) toast.error(error.message);
-      else toast.success("Metas mensais criadas!");
+      if (error) { toast.error(error.message); setSaving(false); return; }
     }
+
+    // Distribute to existing weeks
+    if (weeklyGoals && weeklyGoals.length > 0) {
+      const distributed = distributeMonthlyToWeeks(currentMonthly, weeklyGoals.length);
+      for (let i = 0; i < weeklyGoals.length; i++) {
+        const { error } = await supabase
+          .from("weekly_goals")
+          .update(distributed[i])
+          .eq("month_id", monthId)
+          .eq("week_number", weeklyGoals[i].week_number);
+        if (error) { toast.error(error.message); break; }
+      }
+    }
+
+    toast.success("Metas mensais salvas e distribuídas nas semanas!");
     queryClient.invalidateQueries({ queryKey: ["monthly-goals", monthId] });
+    queryClient.invalidateQueries({ queryKey: ["weekly-goals", monthId] });
+    setMonthlyValues(null);
     setSaving(false);
   };
 
-  if (isLoading) return <div className="flex justify-center py-4"><Loader2 size={16} className="animate-spin text-primary" /></div>;
+  // --- Update monthly totals from weeks (sum) ---
+  const recalcMonthlyFromWeeks = async (updatedWeeks?: DbWeeklyGoal[]) => {
+    const weeks = updatedWeeks || weeklyGoals || [];
+    if (weeks.length === 0) return;
+    
+    const totals = sumWeeklyToMonthly(weeks);
+    
+    // Save to DB
+    if (goals) {
+      await supabase.from("monthly_goals").update(totals).eq("month_id", monthId);
+    } else {
+      await supabase.from("monthly_goals").insert({ month_id: monthId, ...totals });
+    }
+    
+    queryClient.invalidateQueries({ queryKey: ["monthly-goals", monthId] });
+    setMonthlyValues(null);
+  };
 
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Metas Mensais</span>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="px-3 py-1.5 text-[10px] rounded-lg font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-1.5"
-        >
-          {saving ? <Loader2 size={10} className="animate-spin" /> : <Save size={10} />}
-          Salvar Metas
-        </button>
-      </div>
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-        {METRIC_KEYS.map(k => (
-          <div key={k}>
-            <label className="text-[8px] font-semibold text-muted-foreground uppercase tracking-wider block truncate" title={METRIC_LABELS[k]}>
-              {METRIC_LABELS[k]}
-            </label>
-            <input
-              type="number"
-              min={0}
-              value={currentValues[k]}
-              onChange={e => setValues({ ...currentValues, [k]: parseInt(e.target.value) || 0 })}
-              className="mt-1 w-full rounded-lg border border-border bg-secondary px-2 py-1.5 text-xs text-secondary-foreground tabular-nums focus:ring-1 focus:ring-primary outline-none"
-            />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// --- Weekly Goals Editor ---
-function WeeklyGoalsEditor({ monthId }: { monthId: string }) {
-  const { data: weeklyGoals, isLoading } = useWeeklyGoals(monthId);
-  const queryClient = useQueryClient();
-  const [editingWeek, setEditingWeek] = useState<number | null>(null);
-  const [weekValues, setWeekValues] = useState<Record<string, number>>({});
-  const [saving, setSaving] = useState(false);
-  const [addingWeek, setAddingWeek] = useState(false);
-
-  const nextWeekNum = (weeklyGoals?.length || 0) + 1;
-
+  // --- Week operations ---
   const startEditWeek = (week: any) => {
     setEditingWeek(week.week_number);
+    setAddingWeek(false);
     const vals: Record<string, number> = {};
     METRIC_KEYS.forEach(k => { vals[k] = (week as any)[k] || 0; });
     setWeekValues(vals);
@@ -177,146 +200,224 @@ function WeeklyGoalsEditor({ monthId }: { monthId: string }) {
   const startAddWeek = () => {
     setAddingWeek(true);
     setEditingWeek(nextWeekNum);
+    // Pre-fill with zeros
     setWeekValues(METRIC_KEYS.reduce((acc, k) => ({ ...acc, [k]: 0 }), {} as Record<string, number>));
   };
 
   const handleSaveWeek = async () => {
-    setSaving(true);
+    setSyncing(true);
     const existing = weeklyGoals?.find(w => w.week_number === editingWeek);
 
     if (existing) {
       const { error } = await supabase.from("weekly_goals").update(weekValues).eq("month_id", monthId).eq("week_number", editingWeek);
-      if (error) toast.error(error.message);
-      else toast.success(`Semana ${editingWeek} atualizada!`);
+      if (error) { toast.error(error.message); setSyncing(false); return; }
     } else {
       const { error } = await supabase.from("weekly_goals").insert({
-        month_id: monthId,
-        week_number: editingWeek!,
-        ...weekValues,
+        month_id: monthId, week_number: editingWeek!, ...weekValues,
       });
-      if (error) toast.error(error.message);
-      else toast.success(`Semana ${editingWeek} criada!`);
+      if (error) { toast.error(error.message); setSyncing(false); return; }
     }
 
+    // Recalc monthly from updated weeks
+    const updatedWeeks = existing
+      ? weeklyGoals!.map(w => w.week_number === editingWeek ? { ...w, ...weekValues } as DbWeeklyGoal : w)
+      : [...(weeklyGoals || []), { week_number: editingWeek!, ...weekValues } as DbWeeklyGoal];
+    
+    await recalcMonthlyFromWeeks(updatedWeeks);
+
+    toast.success(`Semana ${editingWeek} salva — meta mensal atualizada!`);
     queryClient.invalidateQueries({ queryKey: ["weekly-goals", monthId] });
     setEditingWeek(null);
     setAddingWeek(false);
-    setSaving(false);
+    setSyncing(false);
   };
 
   const handleDeleteWeek = async (weekNumber: number) => {
-    if (!confirm(`Excluir metas da Semana ${weekNumber}?`)) return;
+    if (!confirm(`Excluir metas da Semana ${weekNumber}? A meta mensal será recalculada.`)) return;
+    setSyncing(true);
+    
     const { error } = await supabase.from("weekly_goals").delete().eq("month_id", monthId).eq("week_number", weekNumber);
-    if (error) toast.error(error.message);
-    else {
-      toast.success(`Semana ${weekNumber} excluída`);
-      queryClient.invalidateQueries({ queryKey: ["weekly-goals", monthId] });
+    if (error) { toast.error(error.message); setSyncing(false); return; }
+
+    // Recalc monthly without this week
+    const remainingWeeks = (weeklyGoals || []).filter(w => w.week_number !== weekNumber);
+    if (remainingWeeks.length > 0) {
+      await recalcMonthlyFromWeeks(remainingWeeks);
     }
+
+    toast.success(`Semana ${weekNumber} excluída — meta mensal recalculada`);
+    queryClient.invalidateQueries({ queryKey: ["weekly-goals", monthId] });
+    setSyncing(false);
   };
 
   if (isLoading) return <div className="flex justify-center py-4"><Loader2 size={16} className="animate-spin text-primary" /></div>;
 
+  // Computed: weekly sum vs monthly for visual sync indicator
+  const weeklySum = weeklyGoals ? sumWeeklyToMonthly(weeklyGoals) : null;
+  const isInSync = weeklySum && METRIC_KEYS.every(k => (weeklySum[k] || 0) === (currentMonthly[k] || 0));
+
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-          Metas Semanais ({weeklyGoals?.length || 0} semanas)
-        </span>
-        <button
-          onClick={startAddWeek}
-          disabled={addingWeek}
-          className="px-3 py-1.5 text-[10px] rounded-lg font-medium bg-accent text-accent-foreground hover:bg-accent/90 transition-colors flex items-center gap-1.5"
-        >
-          <Plus size={10} /> Semana {nextWeekNum}
-        </button>
+    <div className="space-y-6">
+      {/* Sync indicator */}
+      {weeklyGoals && weeklyGoals.length > 0 && (
+        <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-semibold uppercase tracking-wider ${
+          isInSync
+            ? "bg-accent/10 text-accent-foreground border border-accent/20"
+            : "bg-destructive/10 text-destructive border border-destructive/20"
+        }`}>
+          <ArrowDownUp size={12} />
+          {isInSync
+            ? "✓ Metas mensais e semanais sincronizadas"
+            : "⚠ Metas fora de sincronia — salve as metas mensais para redistribuir ou edite as semanas"
+          }
+          {syncing && <Loader2 size={12} className="animate-spin ml-auto" />}
+        </div>
+      )}
+
+      {/* Monthly Goals */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Metas Mensais</span>
+          <button
+            onClick={handleSaveMonthlyAndDistribute}
+            disabled={saving}
+            className="px-3 py-1.5 text-[10px] rounded-lg font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+          >
+            {saving ? <Loader2 size={10} className="animate-spin" /> : <Save size={10} />}
+            Salvar Metas
+          </button>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+          {METRIC_KEYS.map(k => (
+            <div key={k}>
+              <label className="text-[8px] font-semibold text-muted-foreground uppercase tracking-wider block truncate" title={METRIC_LABELS[k]}>
+                {METRIC_LABELS[k]}
+              </label>
+              <input
+                type="number"
+                min={0}
+                value={currentMonthly[k]}
+                onChange={e => setMonthlyValues({ ...currentMonthly, [k]: parseInt(e.target.value) || 0 })}
+                className="mt-1 w-full rounded-lg border border-border bg-secondary px-2 py-1.5 text-xs text-secondary-foreground tabular-nums focus:ring-1 focus:ring-primary outline-none"
+              />
+            </div>
+          ))}
+        </div>
+        {weeklyGoals && weeklyGoals.length > 0 && (
+          <p className="text-[9px] text-muted-foreground flex items-center gap-1">
+            <RefreshCw size={9} />
+            Ao salvar, os valores serão distribuídos igualmente entre as {weeklyGoals.length} semanas
+          </p>
+        )}
       </div>
 
-      {/* Week rows */}
-      <div className="space-y-2">
-        {weeklyGoals?.map(week => {
-          const isEditing = editingWeek === week.week_number && !addingWeek;
-          return (
-            <div key={week.week_number} className="rounded-lg border border-border bg-secondary/30 p-3">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold text-card-foreground">Semana {week.week_number}</span>
-                <div className="flex items-center gap-1">
-                  {isEditing ? (
-                    <>
-                      <button onClick={() => setEditingWeek(null)} className="p-1 rounded text-muted-foreground hover:text-foreground"><X size={12} /></button>
-                      <button onClick={handleSaveWeek} disabled={saving} className="px-2 py-1 text-[10px] rounded bg-primary text-primary-foreground flex items-center gap-1">
-                        {saving && <Loader2 size={10} className="animate-spin" />} Salvar
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button onClick={() => startEditWeek(week)} className="p-1 rounded text-muted-foreground hover:text-foreground"><Edit2 size={12} /></button>
-                      <button onClick={() => handleDeleteWeek(week.week_number)} className="p-1 rounded text-muted-foreground hover:text-destructive"><Trash2 size={12} /></button>
-                    </>
-                  )}
-                </div>
-              </div>
-              {isEditing ? (
-                <div className="grid grid-cols-5 gap-1.5">
-                  {METRIC_KEYS.map(k => (
-                    <div key={k}>
-                      <label className="text-[7px] font-semibold text-muted-foreground uppercase tracking-wider block truncate" title={METRIC_LABELS[k]}>
-                        {METRIC_LABELS[k]}
-                      </label>
-                      <input
-                        type="number" min={0}
-                        value={weekValues[k]}
-                        onChange={e => setWeekValues(v => ({ ...v, [k]: parseInt(e.target.value) || 0 }))}
-                        className="mt-0.5 w-full rounded border border-border bg-secondary px-1.5 py-1 text-[10px] text-secondary-foreground tabular-nums focus:ring-1 focus:ring-primary outline-none"
-                      />
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-wrap gap-x-3 gap-y-1">
-                  {METRIC_KEYS.map(k => {
-                    const val = (week as any)[k] || 0;
-                    if (val === 0) return null;
-                    return (
-                      <span key={k} className="text-[9px] text-muted-foreground">
-                        <span className="text-secondary-foreground font-semibold">{val}</span> {METRIC_LABELS[k]}
-                      </span>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          );
-        })}
+      <div className="h-px bg-border" />
 
-        {/* Adding new week */}
-        {addingWeek && (
-          <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-primary">Nova Semana {editingWeek}</span>
-              <div className="flex items-center gap-1">
-                <button onClick={() => { setAddingWeek(false); setEditingWeek(null); }} className="p-1 rounded text-muted-foreground hover:text-foreground"><X size={12} /></button>
-                <button onClick={handleSaveWeek} disabled={saving} className="px-2 py-1 text-[10px] rounded bg-primary text-primary-foreground flex items-center gap-1">
-                  {saving && <Loader2 size={10} className="animate-spin" />} Criar
-                </button>
-              </div>
-            </div>
-            <div className="grid grid-cols-5 gap-1.5">
-              {METRIC_KEYS.map(k => (
-                <div key={k}>
-                  <label className="text-[7px] font-semibold text-muted-foreground uppercase tracking-wider block truncate" title={METRIC_LABELS[k]}>
-                    {METRIC_LABELS[k]}
-                  </label>
-                  <input
-                    type="number" min={0}
-                    value={weekValues[k]}
-                    onChange={e => setWeekValues(v => ({ ...v, [k]: parseInt(e.target.value) || 0 }))}
-                    className="mt-0.5 w-full rounded border border-border bg-secondary px-1.5 py-1 text-[10px] text-secondary-foreground tabular-nums focus:ring-1 focus:ring-primary outline-none"
-                  />
+      {/* Weekly Goals */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+            Metas Semanais ({weeklyGoals?.length || 0} semanas)
+          </span>
+          <button
+            onClick={startAddWeek}
+            disabled={addingWeek}
+            className="px-3 py-1.5 text-[10px] rounded-lg font-medium bg-accent text-accent-foreground hover:bg-accent/90 transition-colors flex items-center gap-1.5"
+          >
+            <Plus size={10} /> Semana {nextWeekNum}
+          </button>
+        </div>
+
+        <div className="space-y-2">
+          {weeklyGoals?.map(week => {
+            const isEditing = editingWeek === week.week_number && !addingWeek;
+            return (
+              <div key={week.week_number} className="rounded-lg border border-border bg-secondary/30 p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold text-card-foreground">Semana {week.week_number}</span>
+                  <div className="flex items-center gap-1">
+                    {isEditing ? (
+                      <>
+                        <button onClick={() => setEditingWeek(null)} className="p-1 rounded text-muted-foreground hover:text-foreground"><X size={12} /></button>
+                        <button onClick={handleSaveWeek} disabled={syncing} className="px-2 py-1 text-[10px] rounded bg-primary text-primary-foreground flex items-center gap-1">
+                          {syncing && <Loader2 size={10} className="animate-spin" />} Salvar
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button onClick={() => startEditWeek(week)} className="p-1 rounded text-muted-foreground hover:text-foreground"><Edit2 size={12} /></button>
+                        <button onClick={() => handleDeleteWeek(week.week_number)} className="p-1 rounded text-muted-foreground hover:text-destructive"><Trash2 size={12} /></button>
+                      </>
+                    )}
+                  </div>
                 </div>
-              ))}
+                {isEditing ? (
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {METRIC_KEYS.map(k => (
+                      <div key={k}>
+                        <label className="text-[7px] font-semibold text-muted-foreground uppercase tracking-wider block truncate" title={METRIC_LABELS[k]}>
+                          {METRIC_LABELS[k]}
+                        </label>
+                        <input
+                          type="number" min={0}
+                          value={weekValues[k]}
+                          onChange={e => setWeekValues(v => ({ ...v, [k]: parseInt(e.target.value) || 0 }))}
+                          className="mt-0.5 w-full rounded border border-border bg-secondary px-1.5 py-1 text-[10px] text-secondary-foreground tabular-nums focus:ring-1 focus:ring-primary outline-none"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-x-3 gap-y-1">
+                    {METRIC_KEYS.map(k => {
+                      const val = (week as any)[k] || 0;
+                      if (val === 0) return null;
+                      return (
+                        <span key={k} className="text-[9px] text-muted-foreground">
+                          <span className="text-secondary-foreground font-semibold">{val}</span> {METRIC_LABELS[k]}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Adding new week */}
+          {addingWeek && (
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-primary">Nova Semana {editingWeek}</span>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => { setAddingWeek(false); setEditingWeek(null); }} className="p-1 rounded text-muted-foreground hover:text-foreground"><X size={12} /></button>
+                  <button onClick={handleSaveWeek} disabled={syncing} className="px-2 py-1 text-[10px] rounded bg-primary text-primary-foreground flex items-center gap-1">
+                    {syncing && <Loader2 size={10} className="animate-spin" />} Criar
+                  </button>
+                </div>
+              </div>
+              <div className="grid grid-cols-5 gap-1.5">
+                {METRIC_KEYS.map(k => (
+                  <div key={k}>
+                    <label className="text-[7px] font-semibold text-muted-foreground uppercase tracking-wider block truncate" title={METRIC_LABELS[k]}>
+                      {METRIC_LABELS[k]}
+                    </label>
+                    <input
+                      type="number" min={0}
+                      value={weekValues[k]}
+                      onChange={e => setWeekValues(v => ({ ...v, [k]: parseInt(e.target.value) || 0 }))}
+                      className="mt-0.5 w-full rounded border border-border bg-secondary px-1.5 py-1 text-[10px] text-secondary-foreground tabular-nums focus:ring-1 focus:ring-primary outline-none"
+                    />
+                  </div>
+                ))}
+              </div>
+              <p className="text-[9px] text-muted-foreground mt-2 flex items-center gap-1">
+                <ArrowDownUp size={9} />
+                Ao criar, a meta mensal será recalculada automaticamente
+              </p>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
@@ -350,11 +451,10 @@ export default function GoalsManagement() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-bold text-foreground">Gestão de Metas</h2>
-          <p className="text-xs text-muted-foreground mt-1">Gerencie meses, metas mensais e semanais</p>
+          <p className="text-xs text-muted-foreground mt-1">Metas mensais e semanais sincronizadas automaticamente</p>
         </div>
         <button
           onClick={() => { setEditingMonth(null); setShowMonthForm(true); }}
@@ -364,13 +464,11 @@ export default function GoalsManagement() {
         </button>
       </div>
 
-      {/* Months list */}
       <div className="space-y-3">
         {months?.map(month => {
           const isExpanded = expandedMonthId === month.id;
           return (
             <div key={month.id} className="rounded-xl border border-border bg-card overflow-hidden transition-all">
-              {/* Month header */}
               <div
                 className="flex items-center justify-between p-4 cursor-pointer hover:bg-secondary/20 transition-colors"
                 onClick={() => setExpandedMonthId(isExpanded ? null : month.id)}
@@ -403,12 +501,9 @@ export default function GoalsManagement() {
                 </div>
               </div>
 
-              {/* Expanded: Monthly + Weekly Goals */}
               {isExpanded && (
-                <div className="border-t border-border p-5 space-y-6 bg-secondary/5">
-                  <MonthlyGoalsEditor monthId={month.id} monthLabel={month.label} />
-                  <div className="h-px bg-border" />
-                  <WeeklyGoalsEditor monthId={month.id} />
+                <div className="border-t border-border p-5 bg-secondary/5">
+                  <SyncedGoalsEditor monthId={month.id} monthLabel={month.label} />
                 </div>
               )}
             </div>
@@ -424,7 +519,6 @@ export default function GoalsManagement() {
         )}
       </div>
 
-      {/* Month form dialog */}
       {showMonthForm && (
         <MonthFormDialog
           month={editingMonth}
