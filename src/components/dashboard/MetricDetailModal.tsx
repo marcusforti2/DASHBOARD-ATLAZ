@@ -1,9 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { METRIC_LABELS, METRIC_KEYS, DbDailyMetric, DbTeamMember, sumMetrics, getMemberAvatar } from "@/lib/db";
+import { METRIC_LABELS, DbDailyMetric, DbTeamMember, sumMetrics, getMemberAvatar } from "@/lib/db";
 import { cn } from "@/lib/utils";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
-import { Link, UserCheck, MessageSquare, Mail, Target, Phone, PhoneCall, Calendar, CalendarCheck, Trophy, TrendingUp } from "lucide-react";
-import { Progress } from "@/components/ui/progress";
+import { Link, UserCheck, MessageSquare, Mail, Target, Phone, PhoneCall, Calendar, CalendarCheck } from "lucide-react";
 
 const ICONS: Record<string, React.ReactNode> = {
   conexoes: <Link size={18} />,
@@ -19,10 +17,12 @@ const ICONS: Record<string, React.ReactNode> = {
 };
 
 const RANK_COLORS = [
-  "hsl(45, 93%, 47%)",   // gold
-  "hsl(210, 10%, 70%)",  // silver
-  "hsl(24, 60%, 45%)",   // bronze
+  "hsl(45, 93%, 47%)",
+  "hsl(210, 10%, 70%)",
+  "hsl(24, 60%, 45%)",
 ];
+
+const RANK_EMOJI = ["🥇", "🥈", "🥉"];
 
 interface MetricDetailModalProps {
   open: boolean;
@@ -40,7 +40,6 @@ export function MetricDetailModal({ open, onOpenChange, metricKey, members, metr
   const label = METRIC_LABELS[metricKey] || metricKey;
   const totalGoal = goals?.[metricKey] || 0;
 
-  // Per-member data sorted by value desc
   const memberData = members
     .map((m, idx) => {
       const totals = sumMetrics(metrics, m.id);
@@ -51,148 +50,127 @@ export function MetricDetailModal({ open, onOpenChange, metricKey, members, metr
   const totalValue = memberData.reduce((s, m) => s + m.value, 0);
   const maxValue = memberData[0]?.value || 1;
   const totalPct = totalGoal > 0 ? Math.round((totalValue / totalGoal) * 100) : 0;
+  const goalPerMember = totalGoal > 0 && members.length > 0 ? totalGoal / members.length : 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg bg-card border-border p-0 overflow-hidden">
-        {/* Header */}
-        <div className="bg-gradient-to-br from-primary/10 to-transparent p-6 pb-4 border-b border-border">
+      <DialogContent className="sm:max-w-md bg-card border-border p-0 overflow-hidden gap-0">
+        {/* Compact header */}
+        <div className="px-5 pt-5 pb-4 border-b border-border/50">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-3 text-base font-black text-card-foreground">
-              <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center text-primary">
+            <DialogTitle className="flex items-center gap-2.5 text-sm font-bold text-card-foreground">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
                 {ICONS[metricKey]}
               </div>
-              <div>
-                <span>{label}</span>
+              <div className="min-w-0">
+                <span className="block truncate">{label}</span>
                 {periodLabel && (
-                  <p className="text-[10px] font-medium text-muted-foreground mt-0.5">{periodLabel}</p>
+                  <span className="text-[10px] font-medium text-muted-foreground">{periodLabel}</span>
                 )}
               </div>
             </DialogTitle>
           </DialogHeader>
 
-          {/* Total summary */}
-          <div className="mt-4 flex items-end gap-3">
-            <span className="text-3xl font-black tabular-nums text-card-foreground">
+          {/* Total inline */}
+          <div className="mt-3 flex items-center gap-2.5">
+            <span className="text-2xl font-black tabular-nums text-card-foreground leading-none">
               {totalValue.toLocaleString("pt-BR")}
             </span>
             {totalGoal > 0 && (
-              <div className="flex items-center gap-2 mb-1">
+              <>
                 <span className="text-xs text-muted-foreground">/ {totalGoal.toLocaleString("pt-BR")}</span>
                 <span className={cn(
-                  "text-xs font-bold px-2 py-0.5 rounded-full",
+                  "text-[10px] font-bold px-1.5 py-0.5 rounded-md",
                   totalPct >= 100 ? "bg-accent/15 text-accent" :
                   totalPct >= 70 ? "bg-primary/15 text-primary" :
                   "bg-destructive/15 text-destructive"
                 )}>
                   {totalPct}%
                 </span>
-              </div>
+              </>
             )}
           </div>
           {totalGoal > 0 && (
-            <Progress
-              value={Math.min(totalPct, 100)}
-              className={cn("h-1.5 mt-2", totalPct >= 100 ? "[&>div]:bg-accent" : totalPct >= 70 ? "" : "[&>div]:bg-destructive")}
-            />
+            <div className="w-full h-1 rounded-full bg-secondary overflow-hidden mt-2.5">
+              <div
+                className={cn(
+                  "h-full rounded-full transition-all duration-500",
+                  totalPct >= 100 ? "bg-accent" : totalPct >= 70 ? "bg-primary" : "bg-destructive"
+                )}
+                style={{ width: `${Math.min(totalPct, 100)}%` }}
+              />
+            </div>
           )}
         </div>
 
-        {/* Chart */}
-        <div className="px-6 pt-4">
-          <div className="h-40">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={memberData} layout="vertical" barSize={20} margin={{ left: 0, right: 10 }}>
-                <XAxis type="number" hide />
-                <YAxis
-                  type="category"
-                  dataKey="name"
-                  tick={{ fill: "hsl(210, 40%, 96%)", fontSize: 12, fontWeight: 600 }}
-                  axisLine={false}
-                  tickLine={false}
-                  width={65}
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: "hsl(222, 47%, 9%)",
-                    border: "1px solid hsl(222, 30%, 18%)",
-                    borderRadius: "8px",
-                    color: "hsl(210, 40%, 96%)",
-                    fontSize: 12,
-                  }}
-                  formatter={(val: number) => [val.toLocaleString("pt-BR"), label]}
-                />
-                <Bar dataKey="value" radius={[0, 6, 6, 0]}>
-                  {memberData.map((entry, idx) => (
-                    <Cell
-                      key={entry.id}
-                      fill={idx < 3 ? RANK_COLORS[idx] : "hsl(217, 91%, 60%)"}
-                      fillOpacity={idx < 3 ? 1 : 0.6}
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Ranking list */}
-        <div className="px-6 pb-6 pt-2 space-y-1.5 max-h-[300px] overflow-y-auto">
+        {/* Ranking list — single unified view */}
+        <div className="px-4 py-3 space-y-1 max-h-[360px] overflow-y-auto">
           {memberData.map((member, idx) => {
-            const pctOfMax = maxValue > 0 ? Math.round((member.value / maxValue) * 100) : 0;
-            const pctOfGoal = totalGoal > 0 && members.length > 0
-              ? Math.round((member.value / (totalGoal / members.length)) * 100)
-              : 0;
+            const pctOfMax = maxValue > 0 ? (member.value / maxValue) * 100 : 0;
+            const pctOfGoal = goalPerMember > 0 ? Math.round((member.value / goalPerMember) * 100) : 0;
+            const isTop3 = idx < 3;
+            const barColor = isTop3 ? RANK_COLORS[idx] : "hsl(217, 91%, 60%)";
 
             return (
               <div
                 key={member.id}
                 className={cn(
-                  "flex items-center gap-3 rounded-xl p-3 transition-colors",
-                  idx === 0 ? "bg-[hsl(45,93%,47%)]/8 border border-[hsl(45,93%,47%)]/20" :
-                  "bg-secondary/30 border border-transparent hover:border-border"
+                  "flex items-center gap-2.5 rounded-lg px-3 py-2.5 transition-all duration-200",
+                  idx === 0
+                    ? "bg-[hsl(45,93%,47%)]/[0.06] ring-1 ring-[hsl(45,93%,47%)]/15"
+                    : "hover:bg-secondary/40"
                 )}
               >
+                {/* Rank */}
+                <span className="text-sm w-5 text-center shrink-0 leading-none">
+                  {isTop3 ? RANK_EMOJI[idx] : (
+                    <span className="text-[10px] font-bold text-muted-foreground">{idx + 1}º</span>
+                  )}
+                </span>
+
                 {/* Avatar */}
                 <img
                   src={member.avatar}
                   alt={member.name}
                   className={cn(
-                    "w-8 h-8 rounded-lg object-cover shrink-0 border",
-                    idx === 0 ? "border-[hsl(45,93%,47%)]/40" :
-                    idx === 1 ? "border-[hsl(210,10%,70%)]/30" :
-                    idx === 2 ? "border-[hsl(24,60%,45%)]/30" :
-                    "border-border"
+                    "w-7 h-7 rounded-full object-cover shrink-0 ring-1",
+                    idx === 0 ? "ring-[hsl(45,93%,47%)]/40" :
+                    idx === 1 ? "ring-[hsl(210,10%,70%)]/30" :
+                    idx === 2 ? "ring-[hsl(24,60%,45%)]/30" :
+                    "ring-border"
                   )}
                 />
 
-                {/* Name & bar */}
+                {/* Name + bar */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-bold text-card-foreground truncate">{member.name}</span>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-sm font-black tabular-nums text-card-foreground">
+                    <span className="text-xs font-semibold text-card-foreground truncate">{member.name}</span>
+                    <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                      <span className={cn(
+                        "text-sm tabular-nums text-card-foreground",
+                        idx === 0 ? "font-black" : "font-bold"
+                      )}>
                         {member.value.toLocaleString("pt-BR")}
                       </span>
                       {pctOfGoal > 0 && (
                         <span className={cn(
-                          "text-[9px] font-bold px-1.5 py-0.5 rounded",
+                          "text-[9px] font-bold px-1 py-px rounded tabular-nums",
                           pctOfGoal >= 100 ? "bg-accent/15 text-accent" :
                           pctOfGoal >= 70 ? "bg-primary/15 text-primary" :
-                          "bg-muted text-muted-foreground"
+                          "bg-muted/60 text-muted-foreground"
                         )}>
                           {pctOfGoal}%
                         </span>
                       )}
                     </div>
                   </div>
-                  <div className="w-full h-1.5 rounded-full bg-secondary overflow-hidden">
+                  <div className="w-full h-1 rounded-full bg-secondary/60 overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all duration-500"
                       style={{
                         width: `${pctOfMax}%`,
-                        background: idx < 3 ? RANK_COLORS[idx] : "hsl(217, 91%, 60%)",
-                        opacity: idx < 3 ? 1 : 0.6,
+                        background: barColor,
+                        opacity: isTop3 ? 1 : 0.5,
                       }}
                     />
                   </div>
