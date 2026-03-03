@@ -1,14 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useMonths, useMonthlyGoals, useWeeklyGoals, useTeamMembers } from "@/hooks/use-metrics";
-import { METRIC_KEYS, METRIC_LABELS, DbMonth, DbWeeklyGoal, DbMonthlyGoal, DbTeamMember, fetchMonthlyGoals, fetchWeeklyGoals } from "@/lib/db";
+import { useMonths, useTeamMembers } from "@/hooks/use-metrics";
+import { METRIC_KEYS, METRIC_LABELS, DbMonth, DbWeeklyGoal, DbMonthlyGoal, DbTeamMember } from "@/lib/db";
 import { getWeeksOfMonth, getNextMonth, CalendarWeek } from "@/lib/calendar-utils";
 import { MiniCalendar } from "@/components/dashboard/MiniCalendar";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
-  Plus, Edit2, Trash2, Loader2, Calendar, ChevronDown,
-  Save, X, RefreshCw, ArrowDownUp, Users, User
+  Plus, Trash2, Loader2, Calendar, ChevronDown,
+  Save, Users, User, AlertTriangle
 } from "lucide-react";
 
 const MONTH_NAMES = [
@@ -16,556 +16,435 @@ const MONTH_NAMES = [
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 ];
 
-function sumWeeklyToMonthly(weeks: DbWeeklyGoal[]): Record<string, number> {
-  return METRIC_KEYS.reduce((acc, k) => {
-    acc[k] = weeks.reduce((sum, w) => sum + ((w as any)[k] || 0), 0);
-    return acc;
-  }, {} as Record<string, number>);
+type MetricValues = Record<string, number>;
+type CloserGoals = { monthly: MetricValues; weeks: MetricValues[] };
+type AllGoals = Record<string, CloserGoals>;
+
+function zeroMetrics(): MetricValues {
+  return METRIC_KEYS.reduce((acc, k) => ({ ...acc, [k]: 0 }), {} as MetricValues);
 }
 
-function distributeMonthlyToWeeks(monthlyValues: Record<string, number>, weekCount: number): Record<string, number>[] {
+function getMetrics(obj: any): MetricValues {
+  return METRIC_KEYS.reduce((acc, k) => ({ ...acc, [k]: (obj as any)?.[k] || 0 }), {} as MetricValues);
+}
+
+function sumMetricsList(list: MetricValues[]): MetricValues {
+  return METRIC_KEYS.reduce((acc, k) => {
+    acc[k] = list.reduce((s, v) => s + (v[k] || 0), 0);
+    return acc;
+  }, {} as MetricValues);
+}
+
+function distributeToWeeks(monthly: MetricValues, weekCount: number): MetricValues[] {
   if (weekCount === 0) return [];
   return Array.from({ length: weekCount }, (_, i) =>
     METRIC_KEYS.reduce((acc, k) => {
-      const total = monthlyValues[k] || 0;
+      const total = monthly[k] || 0;
       const base = Math.floor(total / weekCount);
       const remainder = total % weekCount;
       acc[k] = base + (i < remainder ? 1 : 0);
       return acc;
-    }, {} as Record<string, number>)
+    }, {} as MetricValues)
   );
 }
 
 function formatDateShort(dateStr: string): string {
-  const [y, m, d] = dateStr.split("-");
+  const [, m, d] = dateStr.split("-");
   return `${d}/${m}`;
 }
 
-function getMetricValues(obj: any): Record<string, number> {
-  return METRIC_KEYS.reduce((acc, k) => ({ ...acc, [k]: (obj as any)?.[k] || 0 }), {} as Record<string, number>);
+// Fetch ALL goals for a month (all members + team) in one query
+async function fetchAllMonthGoals(monthId: string) {
+  const [monthlyRes, weeklyRes] = await Promise.all([
+    supabase.from("monthly_goals").select("*").eq("month_id", monthId),
+    supabase.from("weekly_goals").select("*").eq("month_id", monthId).order("week_number"),
+  ]);
+  return {
+    monthlyGoals: monthlyRes.data || [],
+    weeklyGoals: weeklyRes.data || [],
+  };
 }
 
-/** Recalculate team monthly & weekly goals as sum of all closers */
-async function syncTeamFromClosers(monthId: string, members: DbTeamMember[], queryClient: any) {
-  // Sum monthly goals from all closers
-  const closerMonthlyGoals = await Promise.all(
-    members.map(m => fetchMonthlyGoals(monthId, m.id))
-  );
-  
-  const teamMonthlyTotals = METRIC_KEYS.reduce((acc, k) => {
-    acc[k] = closerMonthlyGoals.reduce((sum, g) => sum + ((g as any)?.[k] || 0), 0);
-    return acc;
-  }, {} as Record<string, number>);
-
-  // Upsert team monthly goal
-  const teamGoal = await fetchMonthlyGoals(monthId, null);
-  if (teamGoal) {
-    await supabase.from("monthly_goals").update(teamMonthlyTotals).eq("id", teamGoal.id);
-  } else {
-    await supabase.from("monthly_goals").insert({ month_id: monthId, ...teamMonthlyTotals });
-  }
-
-  // Sum weekly goals from all closers per week_number
-  const closerWeeklyGoals = await Promise.all(
-    members.map(m => fetchWeeklyGoals(monthId, m.id))
-  );
-  const teamWeeklyGoals = await fetchWeeklyGoals(monthId, null);
-
-  // Build a map: week_number -> sum of all closers
-  const weekNumbers = new Set<number>();
-  closerWeeklyGoals.forEach(cw => cw.forEach(w => weekNumbers.add(w.week_number)));
-
-  for (const wn of weekNumbers) {
-    const weekTotal = METRIC_KEYS.reduce((acc, k) => {
-      acc[k] = closerWeeklyGoals.reduce((sum, closerWeeks) => {
-        const w = closerWeeks.find(cw => cw.week_number === wn);
-        return sum + ((w as any)?.[k] || 0);
-      }, 0);
-      return acc;
-    }, {} as Record<string, number>);
-
-    const teamWeek = teamWeeklyGoals.find(tw => tw.week_number === wn);
-    if (teamWeek) {
-      await supabase.from("weekly_goals").update(weekTotal).eq("id", teamWeek.id);
-    }
-  }
-
-  // Invalidate all team queries
-  queryClient.invalidateQueries({ queryKey: ["monthly-goals", monthId, "team"] });
-  queryClient.invalidateQueries({ queryKey: ["weekly-goals", monthId, "team"] });
+function useAllMonthGoals(monthId: string | undefined) {
+  return useQuery({
+    queryKey: ["all-month-goals", monthId],
+    queryFn: () => fetchAllMonthGoals(monthId!),
+    enabled: !!monthId,
+  });
 }
 
-// --- Synced Goals Editor ---
-function SyncedGoalsEditor({
-  monthId, year, month, memberId, memberName, calendarWeeks, members
+// ====================================================================
+function MonthGoalsEditor({
+  month, members, onDirtyChange
 }: {
-  monthId: string; year: number; month: number;
-  memberId: string | null; memberName: string;
-  calendarWeeks: CalendarWeek[];
-  members: DbTeamMember[];
+  month: DbMonth; members: DbTeamMember[];
+  onDirtyChange: (dirty: boolean) => void;
 }) {
-  const { data: goals, isLoading: goalsLoading } = useMonthlyGoals(monthId, memberId);
-  const { data: weeklyGoals, isLoading: weeksLoading } = useWeeklyGoals(monthId, memberId);
   const queryClient = useQueryClient();
-  const [monthlyValues, setMonthlyValues] = useState<Record<string, number> | null>(null);
-  const [editingWeek, setEditingWeek] = useState<number | null>(null);
-  const [weekValues, setWeekValues] = useState<Record<string, number>>({});
+  const calendarWeeks = getWeeksOfMonth(month.year, month.month);
+  const weekCount = calendarWeeks.length;
+  const { data, isLoading } = useAllMonthGoals(month.id);
+
+  const [localGoals, setLocalGoals] = useState<AllGoals | null>(null);
   const [saving, setSaving] = useState(false);
-  const [syncing, setSyncing] = useState(false);
-  const [generatingWeeks, setGeneratingWeeks] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>(members[0]?.id || "team");
+  const dbSnapshot = useRef<string>("");
 
-  const isLoading = goalsLoading || weeksLoading;
-  const currentMonthly = monthlyValues ?? getMetricValues(goals);
-  const qkMonthly = ["monthly-goals", monthId, memberId ?? "team"];
-  const qkWeekly = ["weekly-goals", monthId, memberId ?? "team"];
-  const isTeam = !memberId;
+  // Build local state from DB
+  useEffect(() => {
+    if (!data || isLoading) return;
+    const { monthlyGoals, weeklyGoals } = data;
+    const goals: AllGoals = {};
 
-  const handleGenerateWeeks = async () => {
-    setGeneratingWeeks(true);
-    const distributed = distributeMonthlyToWeeks(currentMonthly, calendarWeeks.length);
-    
-    for (let i = 0; i < calendarWeeks.length; i++) {
-      const cw = calendarWeeks[i];
-      const payload: any = {
-        month_id: monthId,
-        week_number: cw.weekNumber,
-        start_date: cw.startDate,
-        end_date: cw.endDate,
-        ...distributed[i],
+    members.forEach(m => {
+      const mg = monthlyGoals.find((g: any) => g.member_id === m.id);
+      const wgs = weeklyGoals.filter((w: any) => w.member_id === m.id);
+      goals[m.id] = {
+        monthly: getMetrics(mg),
+        weeks: Array.from({ length: weekCount }, (_, wi) => {
+          const w = wgs.find((wk: any) => wk.week_number === wi + 1);
+          return w ? getMetrics(w) : zeroMetrics();
+        }),
       };
-      if (memberId) payload.member_id = memberId;
-      const { error } = await supabase.from("weekly_goals").insert(payload);
-      if (error && error.code !== "23505") {
-        toast.error(error.message);
-        break;
-      }
-    }
+    });
 
-    toast.success(`${calendarWeeks.length} semanas geradas para ${memberName}!`);
-    queryClient.invalidateQueries({ queryKey: qkWeekly });
-    setGeneratingWeeks(false);
+    const snap = JSON.stringify(goals);
+    dbSnapshot.current = snap;
+    setLocalGoals(goals);
+  }, [data, isLoading, members.length, month.id, weekCount]);
+
+  // Team totals computed live
+  const teamMonthly = useMemo(() => {
+    if (!localGoals) return zeroMetrics();
+    return sumMetricsList(Object.values(localGoals).map(g => g.monthly));
+  }, [localGoals]);
+
+  const teamWeeks = useMemo(() => {
+    if (!localGoals) return Array.from({ length: weekCount }, () => zeroMetrics());
+    return Array.from({ length: weekCount }, (_, wi) =>
+      sumMetricsList(Object.values(localGoals).map(g => g.weeks[wi] || zeroMetrics()))
+    );
+  }, [localGoals, weekCount]);
+
+  const isDirty = useMemo(() => {
+    if (!localGoals) return false;
+    return JSON.stringify(localGoals) !== dbSnapshot.current;
+  }, [localGoals]);
+
+  useEffect(() => { onDirtyChange(isDirty); }, [isDirty, onDirtyChange]);
+
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (isDirty) { e.preventDefault(); e.returnValue = ""; }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isDirty]);
+
+  const updateMonthly = (memberId: string, key: string, value: number) => {
+    setLocalGoals(prev => {
+      if (!prev) return prev;
+      return { ...prev, [memberId]: { ...prev[memberId], monthly: { ...prev[memberId].monthly, [key]: value } } };
+    });
   };
 
-  const handleSaveMonthlyAndDistribute = async () => {
+  const updateWeek = (memberId: string, weekIdx: number, key: string, value: number) => {
+    setLocalGoals(prev => {
+      if (!prev) return prev;
+      const weeks = [...prev[memberId].weeks];
+      weeks[weekIdx] = { ...weeks[weekIdx], [key]: value };
+      const newMonthly = sumMetricsList(weeks);
+      return { ...prev, [memberId]: { monthly: newMonthly, weeks } };
+    });
+  };
+
+  const distributeMonthlyToCloser = (memberId: string) => {
+    setLocalGoals(prev => {
+      if (!prev) return prev;
+      return { ...prev, [memberId]: { ...prev[memberId], weeks: distributeToWeeks(prev[memberId].monthly, weekCount) } };
+    });
+    toast.success("Distribuído nas semanas!");
+  };
+
+  const handleSaveAll = async () => {
+    if (!localGoals || !data) return;
     setSaving(true);
+    try {
+      const { monthlyGoals: existingMonthly, weeklyGoals: existingWeekly } = data;
+      const allEntities: (string | null)[] = [null, ...members.map(m => m.id)];
 
-    if (goals) {
-      const { error } = await supabase.from("monthly_goals").update(currentMonthly).eq("id", goals.id);
-      if (error) { toast.error(error.message); setSaving(false); return; }
-    } else {
-      const payload: any = { month_id: monthId, ...currentMonthly };
-      if (memberId) payload.member_id = memberId;
-      const { error } = await supabase.from("monthly_goals").insert(payload);
-      if (error) { toast.error(error.message); setSaving(false); return; }
-    }
+      for (const memberId of allEntities) {
+        const isTeam = !memberId;
+        const monthly = isTeam ? teamMonthly : localGoals[memberId!].monthly;
+        const weeks = isTeam ? teamWeeks : localGoals[memberId!].weeks;
 
-    if (weeklyGoals && weeklyGoals.length > 0) {
-      const distributed = distributeMonthlyToWeeks(currentMonthly, weeklyGoals.length);
-      for (let i = 0; i < weeklyGoals.length; i++) {
-        await supabase.from("weekly_goals").update(distributed[i]).eq("id", weeklyGoals[i].id);
+        // Upsert monthly
+        const existingMG = existingMonthly.find((g: any) =>
+          isTeam ? g.member_id === null : g.member_id === memberId
+        );
+        if (existingMG) {
+          await supabase.from("monthly_goals").update(monthly).eq("id", existingMG.id);
+        } else {
+          const p: any = { month_id: month.id, ...monthly };
+          if (memberId) p.member_id = memberId;
+          await supabase.from("monthly_goals").insert(p);
+        }
+
+        // Upsert weekly
+        for (let wi = 0; wi < weekCount; wi++) {
+          const existingWG = existingWeekly.find((w: any) =>
+            w.week_number === wi + 1 && (isTeam ? w.member_id === null : w.member_id === memberId)
+          );
+          if (existingWG) {
+            await supabase.from("weekly_goals").update(weeks[wi]).eq("id", existingWG.id);
+          } else {
+            const p: any = {
+              month_id: month.id, week_number: wi + 1,
+              start_date: calendarWeeks[wi].startDate, end_date: calendarWeeks[wi].endDate,
+              ...weeks[wi],
+            };
+            if (memberId) p.member_id = memberId;
+            await supabase.from("weekly_goals").insert(p);
+          }
+        }
       }
-    }
 
-    // If saving individual closer, sync team totals
-    if (!isTeam) {
-      await syncTeamFromClosers(monthId, members, queryClient);
+      dbSnapshot.current = JSON.stringify(localGoals);
+      toast.success("Todas as metas salvas!");
+      queryClient.invalidateQueries({ queryKey: ["all-month-goals", month.id] });
+      queryClient.invalidateQueries({ queryKey: ["monthly-goals"] });
+      queryClient.invalidateQueries({ queryKey: ["weekly-goals"] });
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao salvar");
     }
-
-    toast.success(`Metas de ${memberName} salvas e distribuídas!`);
-    queryClient.invalidateQueries({ queryKey: qkMonthly });
-    queryClient.invalidateQueries({ queryKey: qkWeekly });
-    setMonthlyValues(null);
     setSaving(false);
   };
 
-  const recalcMonthlyFromWeeks = async (updatedWeeks: DbWeeklyGoal[]) => {
-    if (updatedWeeks.length === 0) return;
-    const totals = sumWeeklyToMonthly(updatedWeeks);
-    if (goals) {
-      await supabase.from("monthly_goals").update(totals).eq("id", goals.id);
-    } else {
-      const payload: any = { month_id: monthId, ...totals };
-      if (memberId) payload.member_id = memberId;
-      await supabase.from("monthly_goals").insert(payload);
-    }
-    queryClient.invalidateQueries({ queryKey: qkMonthly });
-    setMonthlyValues(null);
+  if (isLoading || !localGoals) {
+    return <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-primary" /></div>;
+  }
 
-    // Sync team if individual closer
-    if (!isTeam) {
-      await syncTeamFromClosers(monthId, members, queryClient);
-    }
-  };
+  const tabs = [
+    { id: "team", label: "Time", icon: Users },
+    ...members.map(m => ({ id: m.id, label: m.name, icon: User })),
+  ];
 
-  const startEditWeek = (week: DbWeeklyGoal) => {
-    setEditingWeek(week.week_number);
-    setWeekValues(getMetricValues(week));
-  };
-
-  const handleSaveWeek = async () => {
-    setSyncing(true);
-    const weekToUpdate = weeklyGoals!.find(w => w.week_number === editingWeek);
-    if (!weekToUpdate) return;
-
-    const { error } = await supabase.from("weekly_goals").update(weekValues).eq("id", weekToUpdate.id);
-    if (error) { toast.error(error.message); setSyncing(false); return; }
-
-    const updatedWeeks = weeklyGoals!.map(w => w.week_number === editingWeek ? { ...w, ...weekValues } as DbWeeklyGoal : w);
-    await recalcMonthlyFromWeeks(updatedWeeks);
-
-    toast.success(`Semana ${editingWeek} salva — metas sincronizadas!`);
-    queryClient.invalidateQueries({ queryKey: qkWeekly });
-    setEditingWeek(null);
-    setSyncing(false);
-  };
-
-  if (isLoading) return <div className="flex justify-center py-4"><Loader2 size={16} className="animate-spin text-primary" /></div>;
-
-  const weeklySum = weeklyGoals ? sumWeeklyToMonthly(weeklyGoals) : null;
-  const isInSync = weeklySum && METRIC_KEYS.every(k => (weeklySum[k] || 0) === (currentMonthly[k] || 0));
-  const hasWeeks = weeklyGoals && weeklyGoals.length > 0;
+  const isViewingTeam = activeTab === "team";
+  const currentMonthly = isViewingTeam ? teamMonthly : (localGoals[activeTab]?.monthly || zeroMetrics());
+  const currentWeeks = isViewingTeam ? teamWeeks : (localGoals[activeTab]?.weeks || []);
 
   return (
-    <div className="space-y-5">
-      {/* Sync indicator */}
-      {hasWeeks && (
-        <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-semibold uppercase tracking-wider ${
-          isInSync
-            ? "bg-accent/10 text-accent-foreground border border-accent/20"
-            : "bg-destructive/10 text-destructive border border-destructive/20"
-        }`}>
-          <ArrowDownUp size={12} />
-          {isInSync ? "✓ Metas sincronizadas" : "⚠ Fora de sincronia — salve metas mensais para redistribuir"}
-          {syncing && <Loader2 size={12} className="animate-spin ml-auto" />}
+    <div className="space-y-4">
+      {/* Tabs + Save */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-1 overflow-x-auto">
+          {tabs.map(tab => {
+            const isActive = activeTab === tab.id;
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold rounded-lg transition-colors whitespace-nowrap ${
+                  isActive ? "bg-primary text-primary-foreground" : "bg-secondary/40 text-muted-foreground hover:bg-secondary/80"
+                }`}
+              >
+                <Icon size={12} />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+        <button
+          onClick={handleSaveAll}
+          disabled={saving || !isDirty}
+          className={`px-4 py-2 text-xs rounded-lg font-semibold flex items-center gap-1.5 transition-all ${
+            isDirty ? "bg-primary text-primary-foreground hover:bg-primary/90" : "bg-secondary text-muted-foreground"
+          }`}
+        >
+          {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+          {isDirty ? "Salvar Tudo" : "✓ Salvo"}
+        </button>
+      </div>
+
+      {isDirty && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-[10px] font-semibold">
+          <AlertTriangle size={12} />
+          Alterações não salvas
         </div>
       )}
 
-      {/* Monthly Goals */}
-      <div className="space-y-3">
+      {isViewingTeam && (
+        <p className="text-[9px] text-muted-foreground italic flex items-center gap-1">
+          <Users size={10} />
+          Soma automática das metas dos closers (somente leitura)
+        </p>
+      )}
+
+      {/* Monthly */}
+      <div className="space-y-2">
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-            Meta Mensal — {memberName}
+            Meta Mensal — {tabs.find(t => t.id === activeTab)?.label}
           </span>
-          {!isTeam && (
-            <button
-              onClick={handleSaveMonthlyAndDistribute}
-              disabled={saving}
-              className="px-3 py-1.5 text-[10px] rounded-lg font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-1.5"
-            >
-              {saving ? <Loader2 size={10} className="animate-spin" /> : <Save size={10} />}
-              Salvar & Distribuir
+          {!isViewingTeam && (
+            <button onClick={() => distributeMonthlyToCloser(activeTab)} className="text-[9px] text-primary hover:underline font-semibold">
+              ↓ Distribuir nas semanas
             </button>
           )}
         </div>
-        {isTeam && (
-          <p className="text-[9px] text-muted-foreground italic flex items-center gap-1">
-            <Users size={10} />
-            Meta do time = soma das metas individuais dos closers (somente leitura)
-          </p>
-        )}
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
           {METRIC_KEYS.map(k => (
             <div key={k}>
-              <label className="text-[8px] font-semibold text-muted-foreground uppercase tracking-wider block truncate" title={METRIC_LABELS[k]}>
-                {METRIC_LABELS[k]}
-              </label>
+              <label className="text-[8px] font-semibold text-muted-foreground uppercase tracking-wider block truncate" title={METRIC_LABELS[k]}>{METRIC_LABELS[k]}</label>
               <input
                 type="number" min={0}
                 value={currentMonthly[k]}
-                onChange={e => !isTeam && setMonthlyValues({ ...currentMonthly, [k]: parseInt(e.target.value) || 0 })}
-                readOnly={isTeam}
+                onChange={e => !isViewingTeam && updateMonthly(activeTab, k, parseInt(e.target.value) || 0)}
+                readOnly={isViewingTeam}
                 className={`mt-1 w-full rounded-lg border border-border px-2 py-1.5 text-xs tabular-nums focus:ring-1 focus:ring-primary outline-none ${
-                  isTeam
-                    ? "bg-muted text-muted-foreground cursor-not-allowed"
-                    : "bg-secondary text-secondary-foreground"
+                  isViewingTeam ? "bg-muted text-muted-foreground cursor-not-allowed" : "bg-secondary text-secondary-foreground"
                 }`}
               />
             </div>
           ))}
         </div>
-        {!isTeam && hasWeeks && (
-          <p className="text-[9px] text-muted-foreground flex items-center gap-1">
-            <RefreshCw size={9} />
-            Ao salvar, distribui entre as {weeklyGoals.length} semanas • Meta diária = semanal ÷ 5
-          </p>
-        )}
       </div>
 
       <div className="h-px bg-border" />
 
-      {/* Calendar + Weekly Goals */}
+      {/* Calendar + Weeks */}
       <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4">
-        <MiniCalendar year={year} month={month} weeks={hasWeeks ? weeklyGoals.map((w, i) => ({
-          weekNumber: w.week_number,
-          startDate: w.start_date || calendarWeeks[i]?.startDate || "",
-          endDate: w.end_date || calendarWeeks[i]?.endDate || "",
-          label: "",
-        })) : calendarWeeks} />
+        <MiniCalendar year={month.year} month={month.month} weeks={calendarWeeks} />
+        <div className="space-y-2">
+          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Metas Semanais — {weekCount} semanas</span>
+          {currentWeeks.map((wm, wi) => {
+            const cw = calendarWeeks[wi];
+            if (!cw) return null;
+            const dateLabel = `${formatDateShort(cw.startDate)} — ${formatDateShort(cw.endDate)}`;
+            const daily = METRIC_KEYS.reduce((a, k) => ({ ...a, [k]: Math.round((wm[k] || 0) / 5) }), {} as MetricValues);
 
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-              Metas Semanais — {hasWeeks ? weeklyGoals.length : calendarWeeks.length} semanas
-            </span>
-          </div>
+            return (
+              <div key={wi} className="rounded-lg border border-border bg-secondary/20 p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-primary/20 text-primary text-[10px] font-bold flex items-center justify-center shrink-0">{wi + 1}</span>
+                  <span className="text-xs font-semibold text-card-foreground">Semana {wi + 1}</span>
+                  <span className="text-[10px] text-muted-foreground font-mono">{dateLabel}</span>
+                </div>
 
-          {!hasWeeks && !isTeam && (
-            <button
-              onClick={handleGenerateWeeks}
-              disabled={generatingWeeks}
-              className="w-full py-4 rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 text-primary text-xs font-semibold hover:bg-primary/10 transition-colors flex flex-col items-center gap-2"
-            >
-              {generatingWeeks ? <Loader2 size={16} className="animate-spin" /> : <Calendar size={16} />}
-              Gerar {calendarWeeks.length} semanas para {memberName}
-            </button>
-          )}
-
-          <div className="space-y-2">
-            {(hasWeeks ? weeklyGoals : [])?.map(week => {
-              const isEditing = editingWeek === week.week_number && !isTeam;
-              const dateLabel = week.start_date && week.end_date
-                ? `${formatDateShort(week.start_date)} — ${formatDateShort(week.end_date)}`
-                : "";
-              const dailyGoals = METRIC_KEYS.reduce((acc, k) => {
-                acc[k] = Math.round(((week as any)[k] || 0) / 5);
-                return acc;
-              }, {} as Record<string, number>);
-
-              return (
-                <div key={week.week_number} className="rounded-lg border border-border bg-secondary/30 p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-full bg-primary/20 text-primary text-[10px] font-bold flex items-center justify-center">
-                        {week.week_number}
-                      </span>
-                      <span className="text-xs font-semibold text-card-foreground">Semana {week.week_number}</span>
-                      {dateLabel && (
-                        <span className="text-[10px] text-muted-foreground font-mono">{dateLabel}</span>
-                      )}
-                    </div>
-                    {!isTeam && (
-                      <div className="flex items-center gap-1">
-                        {editingWeek === week.week_number ? (
-                          <>
-                            <button onClick={() => setEditingWeek(null)} className="p-1 rounded text-muted-foreground hover:text-foreground"><X size={12} /></button>
-                            <button onClick={handleSaveWeek} disabled={syncing} className="px-2 py-1 text-[10px] rounded bg-primary text-primary-foreground flex items-center gap-1">
-                              {syncing && <Loader2 size={10} className="animate-spin" />} Salvar
-                            </button>
-                          </>
-                        ) : (
-                          <button onClick={() => startEditWeek(week)} className="p-1 rounded text-muted-foreground hover:text-foreground"><Edit2 size={12} /></button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  {editingWeek === week.week_number && !isTeam ? (
+                {!isViewingTeam ? (
+                  <>
                     <div className="grid grid-cols-5 gap-1.5">
                       {METRIC_KEYS.map(k => (
                         <div key={k}>
-                          <label className="text-[7px] font-semibold text-muted-foreground uppercase tracking-wider block truncate" title={METRIC_LABELS[k]}>
-                            {METRIC_LABELS[k]}
-                          </label>
+                          <label className="text-[7px] font-semibold text-muted-foreground uppercase tracking-wider block truncate" title={METRIC_LABELS[k]}>{METRIC_LABELS[k]}</label>
                           <input
-                            type="number" min={0}
-                            value={weekValues[k]}
-                            onChange={e => setWeekValues(v => ({ ...v, [k]: parseInt(e.target.value) || 0 }))}
+                            type="number" min={0} value={wm[k]}
+                            onChange={e => updateWeek(activeTab, wi, k, parseInt(e.target.value) || 0)}
                             className="mt-0.5 w-full rounded border border-border bg-secondary px-1.5 py-1 text-[10px] text-secondary-foreground tabular-nums focus:ring-1 focus:ring-primary outline-none"
                           />
                         </div>
                       ))}
                     </div>
-                  ) : (
-                    <div className="space-y-1">
-                      <div className="flex flex-wrap gap-x-3 gap-y-1">
-                        {METRIC_KEYS.map(k => {
-                          const val = (week as any)[k] || 0;
-                          if (val === 0) return null;
-                          return (
-                            <span key={k} className="text-[9px] text-muted-foreground">
-                              <span className="text-secondary-foreground font-semibold">{val}</span> {METRIC_LABELS[k]}
-                            </span>
-                          );
-                        })}
+                    {METRIC_KEYS.some(k => daily[k] > 0) && (
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1 border-t border-border/50">
+                        <span className="text-[8px] font-semibold text-muted-foreground uppercase">Meta/dia:</span>
+                        {METRIC_KEYS.map(k => daily[k] > 0 ? (
+                          <span key={k} className="text-[8px] text-muted-foreground"><span className="text-primary font-semibold">{daily[k]}</span> {METRIC_LABELS[k]}</span>
+                        ) : null)}
                       </div>
-                      {METRIC_KEYS.some(k => dailyGoals[k] > 0) && (
-                        <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1 border-t border-border/50">
-                          <span className="text-[8px] font-semibold text-muted-foreground uppercase">Diário:</span>
-                          {METRIC_KEYS.map(k => {
-                            if (dailyGoals[k] === 0) return null;
-                            return (
-                              <span key={k} className="text-[8px] text-muted-foreground">
-                                <span className="text-primary font-semibold">{dailyGoals[k]}</span> {METRIC_LABELS[k]}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      )}
+                    )}
+                  </>
+                ) : (
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap gap-x-3 gap-y-1">
+                      {METRIC_KEYS.map(k => wm[k] > 0 ? (
+                        <span key={k} className="text-[9px] text-muted-foreground"><span className="text-secondary-foreground font-semibold">{wm[k]}</span> {METRIC_LABELS[k]}</span>
+                      ) : null)}
                     </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                    {METRIC_KEYS.some(k => daily[k] > 0) && (
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1 border-t border-border/50">
+                        <span className="text-[8px] font-semibold text-muted-foreground uppercase">Diário:</span>
+                        {METRIC_KEYS.map(k => daily[k] > 0 ? (
+                          <span key={k} className="text-[8px] text-muted-foreground"><span className="text-primary font-semibold">{daily[k]}</span> {METRIC_LABELS[k]}</span>
+                        ) : null)}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
   );
 }
 
-// --- Month Card with Tabs ---
-function MonthGoalsCard({ month, members, isExpanded, onToggle, onDelete }: {
-  month: DbMonth; members: DbTeamMember[]; isExpanded: boolean; onToggle: () => void; onDelete: () => void;
-}) {
-  const [activeTab, setActiveTab] = useState<string | null>(null);
-  const calendarWeeks = getWeeksOfMonth(month.year, month.month);
-
-  const tabs = [
-    { id: null, label: "Time", icon: Users },
-    ...members.map(m => ({ id: m.id, label: m.name, icon: User })),
-  ];
-
-  return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden transition-all">
-      <div
-        className="flex items-center justify-between p-4 cursor-pointer hover:bg-secondary/20 transition-colors"
-        onClick={onToggle}
-      >
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center">
-            <Calendar size={16} className="text-primary" />
-          </div>
-          <div>
-            <h4 className="text-sm font-semibold text-card-foreground">{month.label}</h4>
-            <span className="text-[10px] text-muted-foreground">
-              {calendarWeeks.length} semanas • {calendarWeeks[0]?.label} → {calendarWeeks[calendarWeeks.length - 1]?.label}
-            </span>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={e => { e.stopPropagation(); onDelete(); }}
-            className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-            title="Excluir"
-          >
-            <Trash2 size={14} />
-          </button>
-          <ChevronDown size={14} className={`text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`} />
-        </div>
-      </div>
-
-      {isExpanded && (
-        <div className="border-t border-border">
-          <div className="flex items-center gap-1 p-3 pb-0 overflow-x-auto">
-            {tabs.map(tab => {
-              const isActive = activeTab === tab.id;
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.id ?? "team"}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold rounded-t-lg border border-b-0 transition-colors whitespace-nowrap ${
-                    isActive
-                      ? "bg-card text-primary border-border"
-                      : "bg-secondary/30 text-muted-foreground border-transparent hover:bg-secondary/60"
-                  }`}
-                >
-                  <Icon size={12} />
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="p-5 bg-secondary/5">
-            <SyncedGoalsEditor
-              key={activeTab ?? "team"}
-              monthId={month.id}
-              year={month.year}
-              month={month.month}
-              memberId={activeTab}
-              memberName={activeTab ? tabs.find(t => t.id === activeTab)?.label || "" : "Time"}
-              calendarWeeks={calendarWeeks}
-              members={members}
-            />
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// --- Main Page ---
+// ====================================================================
 export default function GoalsManagement() {
   const { data: months, isLoading } = useMonths();
   const { data: members, isLoading: membersLoading } = useTeamMembers();
   const queryClient = useQueryClient();
   const [expandedMonthId, setExpandedMonthId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [dirtyMonths, setDirtyMonths] = useState<Set<string>>(new Set());
+
+  const handleDirtyChange = useCallback((monthId: string, dirty: boolean) => {
+    setDirtyMonths(prev => {
+      const next = new Set(prev);
+      if (dirty) next.add(monthId); else next.delete(monthId);
+      return next;
+    });
+  }, []);
+
+  const handleToggleMonth = (monthId: string) => {
+    if (expandedMonthId && expandedMonthId !== monthId && dirtyMonths.has(expandedMonthId)) {
+      if (!confirm("Há alterações não salvas. Deseja descartar?")) return;
+    }
+    setExpandedMonthId(expandedMonthId === monthId ? null : monthId);
+  };
 
   const handleDeleteMonth = async (month: DbMonth) => {
-    if (!confirm(`Excluir "${month.label}" e todos os dados? Não pode ser desfeito.`)) return;
+    if (!confirm(`Excluir "${month.label}" e todos os dados?`)) return;
+    await supabase.from("daily_metrics").delete().eq("month_id", month.id);
     await supabase.from("weekly_goals").delete().eq("month_id", month.id);
     await supabase.from("monthly_goals").delete().eq("month_id", month.id);
-    const { error } = await supabase.from("months").delete().eq("id", month.id);
-    if (error) toast.error(error.message);
-    else {
-      toast.success("Mês excluído");
-      queryClient.invalidateQueries({ queryKey: ["months"] });
-    }
+    await supabase.from("months").delete().eq("id", month.id);
+    toast.success("Mês excluído");
+    queryClient.invalidateQueries({ queryKey: ["months"] });
   };
 
   const handleCreateNextMonth = async () => {
     setCreating(true);
     const next = getNextMonth(months?.map(m => ({ year: m.year, month: m.month })) || []);
     const label = `${MONTH_NAMES[next.month - 1]} ${next.year}`;
-
     const { data: newMonth, error } = await supabase.from("months").insert({ year: next.year, month: next.month, label }).select().single();
     if (error) { toast.error(error.message); setCreating(false); return; }
 
     const weeks = getWeeksOfMonth(next.year, next.month);
-    const zeroMetrics = METRIC_KEYS.reduce((acc, k) => ({ ...acc, [k]: 0 }), {} as Record<string, number>);
-    
-    // Create team weekly & monthly goals
-    for (const w of weeks) {
-      await supabase.from("weekly_goals").insert({
-        month_id: newMonth.id,
-        week_number: w.weekNumber,
-        start_date: w.startDate,
-        end_date: w.endDate,
-        ...zeroMetrics,
-      });
-    }
-    await supabase.from("monthly_goals").insert({ month_id: newMonth.id, ...zeroMetrics });
+    const zero = zeroMetrics();
+    const allEntities: (string | null)[] = [null, ...(members || []).map(m => m.id)];
 
-    // Also create individual closer goals
-    if (members) {
-      for (const member of members) {
-        for (const w of weeks) {
-          await supabase.from("weekly_goals").insert({
-            month_id: newMonth.id,
-            member_id: member.id,
-            week_number: w.weekNumber,
-            start_date: w.startDate,
-            end_date: w.endDate,
-            ...zeroMetrics,
-          });
-        }
-        await supabase.from("monthly_goals").insert({ month_id: newMonth.id, member_id: member.id, ...zeroMetrics });
+    for (const memberId of allEntities) {
+      const mp: any = { month_id: newMonth.id, ...zero };
+      if (memberId) mp.member_id = memberId;
+      await supabase.from("monthly_goals").insert(mp);
+      for (const w of weeks) {
+        const wp: any = { month_id: newMonth.id, week_number: w.weekNumber, start_date: w.startDate, end_date: w.endDate, ...zero };
+        if (memberId) wp.member_id = memberId;
+        await supabase.from("weekly_goals").insert(wp);
       }
     }
 
-    toast.success(`${label} criado com ${weeks.length} semanas para time + ${members?.length || 0} closers!`);
+    toast.success(`${label} criado!`);
     queryClient.invalidateQueries({ queryKey: ["months"] });
     setExpandedMonthId(newMonth.id);
     setCreating(false);
   };
 
   if (isLoading || membersLoading) {
-    return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="animate-spin text-primary" size={24} />
-      </div>
-    );
+    return <div className="flex items-center justify-center py-24"><Loader2 className="animate-spin text-primary" size={24} /></div>;
   }
 
   return (
@@ -573,35 +452,56 @@ export default function GoalsManagement() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-bold text-foreground">Gestão de Metas</h2>
-          <p className="text-xs text-muted-foreground mt-1">Meta do Time = soma das metas individuais dos closers</p>
+          <p className="text-xs text-muted-foreground mt-1">Time = soma dos closers • Semanal ÷ 5 = diário</p>
         </div>
-        <button
-          onClick={handleCreateNextMonth}
-          disabled={creating}
-          className="px-4 py-2 text-xs rounded-lg font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors flex items-center gap-1.5 disabled:opacity-50"
-        >
+        <button onClick={handleCreateNextMonth} disabled={creating}
+          className="px-4 py-2 text-xs rounded-lg font-semibold bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5 disabled:opacity-50">
           {creating ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
           Próximo Mês
         </button>
       </div>
 
       <div className="space-y-3">
-        {months?.map(month => (
-          <MonthGoalsCard
-            key={month.id}
-            month={month}
-            members={members || []}
-            isExpanded={expandedMonthId === month.id}
-            onToggle={() => setExpandedMonthId(expandedMonthId === month.id ? null : month.id)}
-            onDelete={() => handleDeleteMonth(month)}
-          />
-        ))}
+        {months?.map(month => {
+          const isExpanded = expandedMonthId === month.id;
+          const weeks = getWeeksOfMonth(month.year, month.month);
+          const isDirty = dirtyMonths.has(month.id);
+
+          return (
+            <div key={month.id} className={`rounded-xl border bg-card overflow-hidden ${isDirty ? "border-destructive/50" : "border-border"}`}>
+              <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-secondary/20" onClick={() => handleToggleMonth(month.id)}>
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isDirty ? "bg-destructive/15" : "bg-primary/15"}`}>
+                    {isDirty ? <AlertTriangle size={16} className="text-destructive" /> : <Calendar size={16} className="text-primary" />}
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-card-foreground flex items-center gap-2">
+                      {month.label}
+                      {isDirty && <span className="text-[9px] px-1.5 py-0.5 bg-destructive/20 text-destructive rounded font-semibold">NÃO SALVO</span>}
+                    </h4>
+                    <span className="text-[10px] text-muted-foreground">{weeks.length} semanas • {weeks[0]?.label} → {weeks[weeks.length - 1]?.label}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={e => { e.stopPropagation(); handleDeleteMonth(month); }}
+                    className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10"><Trash2 size={14} /></button>
+                  <ChevronDown size={14} className={`text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                </div>
+              </div>
+
+              {isExpanded && members && (
+                <div className="border-t border-border p-5 bg-secondary/5">
+                  <MonthGoalsEditor month={month} members={members} onDirtyChange={(d) => handleDirtyChange(month.id, d)} />
+                </div>
+              )}
+            </div>
+          );
+        })}
 
         {(!months || months.length === 0) && (
           <div className="text-center py-12 space-y-3">
             <Calendar size={32} className="text-muted-foreground mx-auto" />
             <p className="text-sm text-muted-foreground">Nenhum mês cadastrado</p>
-            <p className="text-xs text-muted-foreground">Clique em "Próximo Mês" para começar</p>
           </div>
         )}
       </div>
