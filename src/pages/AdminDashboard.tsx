@@ -223,6 +223,15 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
         <PersonPerformanceChart dailyMetrics={dailyMetrics} members={members} />
       )}
 
+      {/* Table */}
+      <DailyTableSection
+        filteredMetrics={filteredMetrics}
+        members={members || []}
+        selectedMemberId={selectedMemberId}
+        hasActiveFilters={!!hasActiveFilters}
+        monthLabel={activeMonth?.label}
+      />
+
       {/* AI Report */}
       {activeMonthId && activeMonth && (
         <AiReportPanel
@@ -244,15 +253,6 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
           goals={goalToMetrics(goals)}
         />
       )}
-
-      {/* Table */}
-      <DailyTableSection
-        filteredMetrics={filteredMetrics}
-        members={members || []}
-        selectedMemberId={selectedMemberId}
-        hasActiveFilters={!!hasActiveFilters}
-        monthLabel={activeMonth?.label}
-      />
     </div>
   );
 }
