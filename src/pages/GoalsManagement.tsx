@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMonths, useMonthlyGoals, useWeeklyGoals } from "@/hooks/use-metrics";
 import { METRIC_KEYS, METRIC_LABELS, DbMonth, DbWeeklyGoal } from "@/lib/db";
 import { getWeeksOfMonth, getNextMonth, CalendarWeek } from "@/lib/calendar-utils";
+import { MiniCalendar } from "@/components/dashboard/MiniCalendar";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -209,93 +210,102 @@ function SyncedGoalsEditor({ monthId, monthLabel, year, month }: { monthId: stri
 
       <div className="h-px bg-border" />
 
-      {/* Weekly Goals */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
+      {/* Calendar + Weekly Goals side by side */}
+      <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4">
+        {/* Mini Calendar */}
+        <MiniCalendar year={year} month={month} weeks={hasWeeks ? weeklyGoals.map((w, i) => ({
+          weekNumber: w.week_number,
+          startDate: (w as any).start_date || calendarWeeks[i]?.startDate || "",
+          endDate: (w as any).end_date || calendarWeeks[i]?.endDate || "",
+          label: "",
+        })) : calendarWeeks} />
+
+        {/* Weekly Goals */}
+        <div className="space-y-3">
           <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-            Metas Semanais — {calendarWeeks.length} semanas reais
+            Metas Semanais — {hasWeeks ? weeklyGoals.length : calendarWeeks.length} semanas
           </span>
-        </div>
 
-        {/* Auto-generate button if no weeks */}
-        {!hasWeeks && (
-          <button
-            onClick={handleGenerateWeeks}
-            disabled={generatingWeeks}
-            className="w-full py-4 rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 text-primary text-xs font-semibold hover:bg-primary/10 transition-colors flex flex-col items-center gap-2"
-          >
-            {generatingWeeks ? <Loader2 size={16} className="animate-spin" /> : <Calendar size={16} />}
-            Gerar {calendarWeeks.length} semanas do calendário real
-            <span className="text-[9px] font-normal text-muted-foreground">
-              {calendarWeeks.map(w => w.label).join("  •  ")}
-            </span>
-          </button>
-        )}
+          {!hasWeeks && (
+            <button
+              onClick={handleGenerateWeeks}
+              disabled={generatingWeeks}
+              className="w-full py-4 rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 text-primary text-xs font-semibold hover:bg-primary/10 transition-colors flex flex-col items-center gap-2"
+            >
+              {generatingWeeks ? <Loader2 size={16} className="animate-spin" /> : <Calendar size={16} />}
+              Gerar {calendarWeeks.length} semanas do calendário
+            </button>
+          )}
 
-        <div className="space-y-2">
-          {weeklyGoals?.map(week => {
-            const isEditing = editingWeek === week.week_number;
-            const calWeek = weekDateMap.get(week.week_number);
-            const dateLabel = (week as any).start_date && (week as any).end_date
-              ? `${formatDateShort((week as any).start_date)} — ${formatDateShort((week as any).end_date)}`
-              : calWeek?.label || "";
+          <div className="space-y-2">
+            {weeklyGoals?.map(week => {
+              const isEditing = editingWeek === week.week_number;
+              const startD = (week as any).start_date;
+              const endD = (week as any).end_date;
+              const dateLabel = startD && endD
+                ? `${formatDateShort(startD)} — ${formatDateShort(endD)}`
+                : "";
 
-            return (
-              <div key={week.week_number} className="rounded-lg border border-border bg-secondary/30 p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-card-foreground">Semana {week.week_number}</span>
-                    {dateLabel && (
-                      <span className="text-[9px] text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
-                        📅 {dateLabel}
+              return (
+                <div key={week.week_number} className="rounded-lg border border-border bg-secondary/30 p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-full bg-primary/20 text-primary text-[10px] font-bold flex items-center justify-center">
+                        {week.week_number}
                       </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    {isEditing ? (
-                      <>
-                        <button onClick={() => setEditingWeek(null)} className="p-1 rounded text-muted-foreground hover:text-foreground"><X size={12} /></button>
-                        <button onClick={handleSaveWeek} disabled={syncing} className="px-2 py-1 text-[10px] rounded bg-primary text-primary-foreground flex items-center gap-1">
-                          {syncing && <Loader2 size={10} className="animate-spin" />} Salvar
-                        </button>
-                      </>
-                    ) : (
-                      <button onClick={() => startEditWeek(week)} className="p-1 rounded text-muted-foreground hover:text-foreground"><Edit2 size={12} /></button>
-                    )}
-                  </div>
-                </div>
-                {isEditing ? (
-                  <div className="grid grid-cols-5 gap-1.5">
-                    {METRIC_KEYS.map(k => (
-                      <div key={k}>
-                        <label className="text-[7px] font-semibold text-muted-foreground uppercase tracking-wider block truncate" title={METRIC_LABELS[k]}>
-                          {METRIC_LABELS[k]}
-                        </label>
-                        <input
-                          type="number" min={0}
-                          value={weekValues[k]}
-                          onChange={e => setWeekValues(v => ({ ...v, [k]: parseInt(e.target.value) || 0 }))}
-                          className="mt-0.5 w-full rounded border border-border bg-secondary px-1.5 py-1 text-[10px] text-secondary-foreground tabular-nums focus:ring-1 focus:ring-primary outline-none"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex flex-wrap gap-x-3 gap-y-1">
-                    {METRIC_KEYS.map(k => {
-                      const val = (week as any)[k] || 0;
-                      if (val === 0) return null;
-                      return (
-                        <span key={k} className="text-[9px] text-muted-foreground">
-                          <span className="text-secondary-foreground font-semibold">{val}</span> {METRIC_LABELS[k]}
+                      <span className="text-xs font-semibold text-card-foreground">Semana {week.week_number}</span>
+                      {dateLabel && (
+                        <span className="text-[10px] text-muted-foreground font-mono">
+                          {dateLabel}
                         </span>
-                      );
-                    })}
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {isEditing ? (
+                        <>
+                          <button onClick={() => setEditingWeek(null)} className="p-1 rounded text-muted-foreground hover:text-foreground"><X size={12} /></button>
+                          <button onClick={handleSaveWeek} disabled={syncing} className="px-2 py-1 text-[10px] rounded bg-primary text-primary-foreground flex items-center gap-1">
+                            {syncing && <Loader2 size={10} className="animate-spin" />} Salvar
+                          </button>
+                        </>
+                      ) : (
+                        <button onClick={() => startEditWeek(week)} className="p-1 rounded text-muted-foreground hover:text-foreground"><Edit2 size={12} /></button>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
-            );
-          })}
+                  {isEditing ? (
+                    <div className="grid grid-cols-5 gap-1.5">
+                      {METRIC_KEYS.map(k => (
+                        <div key={k}>
+                          <label className="text-[7px] font-semibold text-muted-foreground uppercase tracking-wider block truncate" title={METRIC_LABELS[k]}>
+                            {METRIC_LABELS[k]}
+                          </label>
+                          <input
+                            type="number" min={0}
+                            value={weekValues[k]}
+                            onChange={e => setWeekValues(v => ({ ...v, [k]: parseInt(e.target.value) || 0 }))}
+                            className="mt-0.5 w-full rounded border border-border bg-secondary px-1.5 py-1 text-[10px] text-secondary-foreground tabular-nums focus:ring-1 focus:ring-primary outline-none"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-x-3 gap-y-1">
+                      {METRIC_KEYS.map(k => {
+                        const val = (week as any)[k] || 0;
+                        if (val === 0) return null;
+                        return (
+                          <span key={k} className="text-[9px] text-muted-foreground">
+                            <span className="text-secondary-foreground font-semibold">{val}</span> {METRIC_LABELS[k]}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
