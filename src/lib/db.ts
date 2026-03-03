@@ -11,6 +11,20 @@ export interface DbTeamMember {
   id: string;
   name: string;
   active: boolean;
+  avatar_url?: string | null;
+}
+
+export const DEFAULT_AVATARS = [
+  "/avatars/default-1.jpg",
+  "/avatars/default-2.jpg",
+  "/avatars/default-3.jpg",
+  "/avatars/default-4.jpg",
+  "/avatars/default-5.jpg",
+  "/avatars/default-6.jpg",
+];
+
+export function getMemberAvatar(member: DbTeamMember, index: number): string {
+  return member.avatar_url || DEFAULT_AVATARS[index % DEFAULT_AVATARS.length];
 }
 
 export interface DbMonthlyGoal {

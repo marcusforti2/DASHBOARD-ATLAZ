@@ -320,18 +320,21 @@ export type Database = {
       team_members: {
         Row: {
           active: boolean
+          avatar_url: string | null
           created_at: string
           id: string
           name: string
         }
         Insert: {
           active?: boolean
+          avatar_url?: string | null
           created_at?: string
           id?: string
           name: string
         }
         Update: {
           active?: boolean
+          avatar_url?: string | null
           created_at?: string
           id?: string
           name?: string

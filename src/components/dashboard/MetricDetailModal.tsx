@@ -1,5 +1,5 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { METRIC_LABELS, METRIC_KEYS, DbDailyMetric, DbTeamMember, sumMetrics } from "@/lib/db";
+import { METRIC_LABELS, METRIC_KEYS, DbDailyMetric, DbTeamMember, sumMetrics, getMemberAvatar } from "@/lib/db";
 import { cn } from "@/lib/utils";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { Link, UserCheck, MessageSquare, Mail, Target, Phone, PhoneCall, Calendar, CalendarCheck, Trophy, TrendingUp } from "lucide-react";
@@ -42,9 +42,9 @@ export function MetricDetailModal({ open, onOpenChange, metricKey, members, metr
 
   // Per-member data sorted by value desc
   const memberData = members
-    .map(m => {
+    .map((m, idx) => {
       const totals = sumMetrics(metrics, m.id);
-      return { id: m.id, name: m.name, value: totals[metricKey] || 0 };
+      return { id: m.id, name: m.name, value: totals[metricKey] || 0, avatar: getMemberAvatar(m, idx) };
     })
     .sort((a, b) => b.value - a.value);
 
@@ -153,16 +153,18 @@ export function MetricDetailModal({ open, onOpenChange, metricKey, members, metr
                   "bg-secondary/30 border border-transparent hover:border-border"
                 )}
               >
-                {/* Rank badge */}
-                <div className={cn(
-                  "w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black shrink-0",
-                  idx === 0 ? "bg-[hsl(45,93%,47%)]/20 text-[hsl(45,93%,47%)]" :
-                  idx === 1 ? "bg-[hsl(210,10%,70%)]/20 text-[hsl(210,10%,70%)]" :
-                  idx === 2 ? "bg-[hsl(24,60%,45%)]/20 text-[hsl(24,60%,45%)]" :
-                  "bg-secondary text-muted-foreground"
-                )}>
-                  {idx < 3 ? ["🥇", "🥈", "🥉"][idx] : `${idx + 1}º`}
-                </div>
+                {/* Avatar */}
+                <img
+                  src={member.avatar}
+                  alt={member.name}
+                  className={cn(
+                    "w-8 h-8 rounded-lg object-cover shrink-0 border",
+                    idx === 0 ? "border-[hsl(45,93%,47%)]/40" :
+                    idx === 1 ? "border-[hsl(210,10%,70%)]/30" :
+                    idx === 2 ? "border-[hsl(24,60%,45%)]/30" :
+                    "border-border"
+                  )}
+                />
 
                 {/* Name & bar */}
                 <div className="flex-1 min-w-0">
