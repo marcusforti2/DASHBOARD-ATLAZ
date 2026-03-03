@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useMonths, useTeamMembers, useMonthlyGoals, useWeeklyGoals, useDailyMetrics, useAiReports } from "@/hooks/use-metrics";
 import { sumMetrics, goalToMetrics, METRIC_LABELS, METRIC_KEYS, DbDailyMetric, DbTeamMember, getWorkingDaysCount } from "@/lib/db";
 import { getWeeksOfMonth } from "@/lib/calendar-utils";
@@ -14,7 +14,7 @@ import { ExportCsvButton } from "@/components/dashboard/ExportCsvButton";
 import { CollapsiblePanel } from "@/components/dashboard/CollapsiblePanel";
 import { KpiPanelFilters } from "@/components/dashboard/KpiPanelFilters";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Loader2, Filter, X, CalendarDays, CalendarRange, Calendar as CalendarIcon, Users } from "lucide-react";
+import { ChevronDown, Loader2, Filter, X, CalendarDays, CalendarRange, Calendar as CalendarIcon, Users, Maximize, Minimize } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
@@ -54,6 +54,22 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
   const [selectedDayOfWeek, setSelectedDayOfWeek] = useState<string | null>(null);
   const [minMetricFilter, setMinMetricFilter] = useState<{ key: string; value: number } | null>(null);
   const [metricModalKey, setMetricModalKey] = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const dashRef = useRef<HTMLDivElement>(null);
+
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      dashRef.current?.requestFullscreen();
+    } else {
+      document.exitFullscreen();
+    }
+  }, []);
+
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
 
   const activeMonthId = selectedMonthId || months?.[0]?.id;
   const activeMonth = months?.find(m => m.id === activeMonthId);
@@ -191,9 +207,18 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
   }
 
   return (
-    <div className="space-y-5">
+    <div ref={dashRef} className={cn("space-y-5", isFullscreen && "bg-background p-6 overflow-auto h-screen")}>
       {/* Top bar with month & member selectors */}
       <div className="flex flex-wrap items-center gap-3">
+        <button
+          onClick={toggleFullscreen}
+          className="flex items-center gap-1.5 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
+        >
+          {isFullscreen ? <Minimize size={13} /> : <Maximize size={13} />}
+          {isFullscreen ? "Sair" : "Tela cheia"}
+        </button>
+
+        <div className="h-5 w-px bg-border" />
         <div className="relative">
           <select
             value={activeMonthId || ""}
