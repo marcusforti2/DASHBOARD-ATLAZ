@@ -104,15 +104,6 @@ export function KpiGrid({ totals, goals, previousTotals, onCardClick, compact = 
                 )}
               </div>
 
-              {previousTotals && prevVal > 0 && (
-                <div className={cn(
-                  "flex items-center gap-0.5 text-[8px] font-semibold",
-                  trendUp ? "text-accent" : trendDown ? "text-destructive" : "text-muted-foreground"
-                )}>
-                  {trendUp ? <TrendingUp size={8} /> : trendDown ? <TrendingDown size={8} /> : <Minus size={8} />}
-                  <span>{trendUp ? "+" : ""}{trendPct}%</span>
-                </div>
-              )}
             </div>
           );
         })}
