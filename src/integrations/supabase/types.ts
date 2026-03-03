@@ -46,6 +46,47 @@ export type Database = {
           },
         ]
       }
+      closer_analyses: {
+        Row: {
+          ai_analysis: string | null
+          analysis_type: string
+          created_at: string
+          file_name: string
+          file_path: string
+          id: string
+          member_id: string
+          updated_at: string
+        }
+        Insert: {
+          ai_analysis?: string | null
+          analysis_type?: string
+          created_at?: string
+          file_name: string
+          file_path: string
+          id?: string
+          member_id: string
+          updated_at?: string
+        }
+        Update: {
+          ai_analysis?: string | null
+          analysis_type?: string
+          created_at?: string
+          file_name?: string
+          file_path?: string
+          id?: string
+          member_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "closer_analyses_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_metrics: {
         Row: {
           abordagens: number
