@@ -34,7 +34,7 @@ const adminMainItems = [
 ];
 
 const adminSecondaryItems = [
-  { id: "closer-preview", title: "Ver como Closer", icon: Eye },
+  { id: "closer-preview", title: "Ver como SDR", icon: Eye },
   { id: "settings", title: "Configurações", icon: Settings },
 ];
 

@@ -11,7 +11,7 @@ export function ExportCsvButton({ dailyMetrics, members, monthLabel }: ExportCsv
   const memberMap = new Map(members.map(m => [m.id, m.name]));
 
   const handleExport = () => {
-    const headers = ["Data", "Dia", "Closer", ...METRIC_KEYS.map(k => METRIC_LABELS[k])];
+    const headers = ["Data", "Dia", "SDR", ...METRIC_KEYS.map(k => METRIC_LABELS[k])];
     const rows = dailyMetrics.map(d => [
       d.date,
       d.day_of_week,
