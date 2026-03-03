@@ -51,11 +51,12 @@ export function CloserRanking({ dailyMetrics, members }: CloserRankingProps) {
 
   const ranked = useMemo(() => {
     return members
-      .map(m => {
+      .map((m, originalIdx) => {
         const totals = sumMetrics(dailyMetrics, m.id);
         const allTotal = METRIC_KEYS.reduce((s, k) => s + (totals[k] || 0), 0);
         return {
           ...m,
+          originalIndex: originalIdx,
           total: metric === "_all" ? allTotal : (totals[metric] || 0),
           allTotals: totals,
           allTotal,
@@ -100,15 +101,15 @@ export function CloserRanking({ dailyMetrics, members }: CloserRankingProps) {
         <div className="flex items-end justify-center gap-3 pt-2">
           {/* 2nd place */}
           {podium[1] && (
-            <PodiumCard member={podium[1]} rank={1} maxVal={maxVal} style={PODIUM_STYLES[1]} height="h-24" />
+            <PodiumCard member={podium[1]} originalIndex={podium[1].originalIndex} rank={1} maxVal={maxVal} style={PODIUM_STYLES[1]} height="h-24" />
           )}
           {/* 1st place */}
           {podium[0] && (
-            <PodiumCard member={podium[0]} rank={0} maxVal={maxVal} style={PODIUM_STYLES[0]} height="h-32" isFirst />
+            <PodiumCard member={podium[0]} originalIndex={podium[0].originalIndex} rank={0} maxVal={maxVal} style={PODIUM_STYLES[0]} height="h-32" isFirst />
           )}
           {/* 3rd place */}
           {podium[2] && (
-            <PodiumCard member={podium[2]} rank={2} maxVal={maxVal} style={PODIUM_STYLES[2]} height="h-20" />
+            <PodiumCard member={podium[2]} originalIndex={podium[2].originalIndex} rank={2} maxVal={maxVal} style={PODIUM_STYLES[2]} height="h-20" />
           )}
         </div>
       )}
@@ -125,7 +126,7 @@ export function CloserRanking({ dailyMetrics, members }: CloserRankingProps) {
                   {position}º
                 </span>
                 <img
-                  src={getMemberAvatar(member, idx + 3)}
+                  src={getMemberAvatar(member, member.originalIndex)}
                   alt={member.name}
                   className="w-7 h-7 rounded-full object-cover shrink-0 border border-border"
                 />
@@ -201,6 +202,7 @@ export function CloserRanking({ dailyMetrics, members }: CloserRankingProps) {
 
 function PodiumCard({
   member,
+  originalIndex,
   rank,
   maxVal,
   style,
@@ -208,6 +210,7 @@ function PodiumCard({
   isFirst = false,
 }: {
   member: { name: string; total: number; avatar_url?: string | null; id: string };
+  originalIndex: number;
   rank: number;
   maxVal: number;
   style: typeof PODIUM_STYLES[0];
@@ -227,7 +230,7 @@ function PodiumCard({
           isFirst ? "w-14 h-14" : "w-12 h-12"
         )}>
           <img
-            src={member.avatar_url || `/avatars/default-${(rank % 6) + 1}.jpg`}
+            src={member.avatar_url || `/avatars/default-${(originalIndex % 6) + 1}.jpg`}
             alt={member.name}
             className="w-full h-full object-cover"
           />
