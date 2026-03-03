@@ -38,8 +38,8 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
   const [selectedChartMetric, setSelectedChartMetric] = useState("follow_up");
 
   // Panel 1 - Month (fixed to month)
-  // Panel 2 - Week states
-  const [weekPanelWeekIdx, setWeekPanelWeekIdx] = useState<number>(0);
+  // Panel 2 - Week states — default to current week
+  const [weekPanelWeekIdx, setWeekPanelWeekIdx] = useState<number>(-1); // -1 = not yet initialized
   
   // Panel 3 - All SDRs states
   const [allSdrPeriod, setAllSdrPeriod] = useState<"month" | "week" | "day">("month");
@@ -60,6 +60,15 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
     if (!activeMonth) return [];
     return getWeeksOfMonth(activeMonth.year, activeMonth.month);
   }, [activeMonth]);
+
+  // Find current week index
+  const currentWeekIdx = useMemo(() => {
+    const today = format(new Date(), "yyyy-MM-dd");
+    return weeksOfMonth.findIndex(w => today >= w.startDate && today <= w.endDate);
+  }, [weeksOfMonth]);
+
+  // Auto-initialize week panel to current week
+  const effectiveWeekIdx = weekPanelWeekIdx === -1 ? (currentWeekIdx >= 0 ? currentWeekIdx : 0) : weekPanelWeekIdx;
 
   // Previous month for trends
   const activeMonthIdx = months?.findIndex(m => m.id === activeMonthId) ?? -1;
@@ -90,10 +99,10 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
 
   // Panel 2: Week totals
   const weekFilteredMetrics = useMemo(() => {
-    if (!weeksOfMonth[weekPanelWeekIdx]) return [];
-    const week = weeksOfMonth[weekPanelWeekIdx];
+    if (!weeksOfMonth[effectiveWeekIdx]) return [];
+    const week = weeksOfMonth[effectiveWeekIdx];
     return memberFilteredMetrics.filter(d => d.date >= week.startDate && d.date <= week.endDate);
-  }, [memberFilteredMetrics, weeksOfMonth, weekPanelWeekIdx]);
+  }, [memberFilteredMetrics, weeksOfMonth, effectiveWeekIdx]);
   const weekTotals = useMemo(() => weekFilteredMetrics.length > 0 ? sumMetrics(weekFilteredMetrics) : {}, [weekFilteredMetrics]);
 
   // Panel 3: All SDRs (ignore member filter, apply own period)
@@ -197,23 +206,38 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
       {/* Panel 2: Visão Semanal */}
       <CollapsiblePanel
         title="Visão Semanal"
-        subtitle={weeksOfMonth[weekPanelWeekIdx] ? `Semana ${weeksOfMonth[weekPanelWeekIdx].weekNumber} — ${weeksOfMonth[weekPanelWeekIdx].label}` : ""}
+        subtitle={weeksOfMonth[effectiveWeekIdx] ? `Semana ${weeksOfMonth[effectiveWeekIdx].weekNumber} — ${weeksOfMonth[effectiveWeekIdx].label}` : ""}
         icon={<CalendarRange size={15} className="text-accent" />}
         accentColor="bg-accent/15"
         defaultOpen={true}
         headerActions={
           weeksOfMonth.length > 0 ? (
-            <div className="relative">
-              <select
-                value={weekPanelWeekIdx}
-                onChange={e => setWeekPanelWeekIdx(Number(e.target.value))}
-                className="appearance-none bg-secondary text-secondary-foreground text-[10px] font-medium px-2.5 py-1 pr-6 rounded-md border border-border cursor-pointer outline-none"
-              >
-                {weeksOfMonth.map((w, i) => (
-                  <option key={i} value={i}>Sem {w.weekNumber}</option>
-                ))}
-              </select>
-              <ChevronDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <div className="flex items-center gap-1.5">
+              {currentWeekIdx >= 0 && (
+                <button
+                  onClick={() => setWeekPanelWeekIdx(currentWeekIdx)}
+                  className={cn(
+                    "px-2.5 py-1 text-[10px] rounded-md font-semibold uppercase tracking-wider transition-colors flex items-center gap-1",
+                    effectiveWeekIdx === currentWeekIdx
+                      ? "bg-accent text-accent-foreground"
+                      : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                  )}
+                >
+                  <CalendarDays size={10} /> Atual
+                </button>
+              )}
+              <div className="relative">
+                <select
+                  value={effectiveWeekIdx}
+                  onChange={e => setWeekPanelWeekIdx(Number(e.target.value))}
+                  className="appearance-none bg-secondary text-secondary-foreground text-[10px] font-medium px-2.5 py-1 pr-6 rounded-md border border-border cursor-pointer outline-none"
+                >
+                  {weeksOfMonth.map((w, i) => (
+                    <option key={i} value={i}>Sem {w.weekNumber}</option>
+                  ))}
+                </select>
+                <ChevronDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              </div>
             </div>
           ) : undefined
         }
