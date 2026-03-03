@@ -9,7 +9,7 @@ import SettingsPage from "@/pages/SettingsPage";
 import { AppSidebar, AdminView, CloserView } from "@/components/AppSidebar";
 import { AiReportPanel } from "@/components/dashboard/AiReportPanel";
 import { useMonthlyGoals, useAiReports, useDailyMetrics } from "@/hooks/use-metrics";
-import { sumMetrics } from "@/lib/db";
+import { sumMetrics, goalToMetrics } from "@/lib/db";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { BarChart3, Loader2, Eye, Shield, Menu, Users, Target, Settings, Construction } from "lucide-react";
 import { Navigate } from "react-router-dom";
@@ -104,7 +104,7 @@ export default function Index() {
               monthId={activeMonthId}
               monthLabel={activeMonth.label}
               metrics={totals}
-              goals={goals ? { ...goals } as Record<string, number> : null}
+              goals={goalToMetrics(goals)}
               members={members?.map(m => m.name) || []}
               existingReports={aiReports || []}
               onReportGenerated={() => queryClient.invalidateQueries({ queryKey: ["ai-reports", activeMonthId] })}

@@ -14,6 +14,9 @@ export interface DbTeamMember {
 }
 
 export interface DbMonthlyGoal {
+  id: string;
+  month_id: string;
+  member_id: string | null;
   conexoes: number;
   conexoes_aceitas: number;
   abordagens: number;
@@ -45,7 +48,12 @@ export interface DbDailyMetric {
 }
 
 export interface DbWeeklyGoal {
+  id: string;
+  month_id: string;
   week_number: number;
+  member_id: string | null;
+  start_date: string | null;
+  end_date: string | null;
   conexoes: number;
   conexoes_aceitas: number;
   abordagens: number;
@@ -96,22 +104,38 @@ export async function fetchTeamMembers(): Promise<DbTeamMember[]> {
   return data || [];
 }
 
-export async function fetchMonthlyGoals(monthId: string): Promise<DbMonthlyGoal | null> {
-  const { data, error } = await supabase
+/** Fetch monthly goal — team (member_id is null) or specific member */
+export async function fetchMonthlyGoals(monthId: string, memberId?: string | null): Promise<DbMonthlyGoal | null> {
+  let query = supabase
     .from("monthly_goals")
     .select("*")
-    .eq("month_id", monthId)
-    .single();
-  if (error && error.code !== "PGRST116") throw error;
+    .eq("month_id", monthId);
+
+  if (memberId) {
+    query = query.eq("member_id", memberId);
+  } else {
+    query = query.is("member_id", null);
+  }
+
+  const { data, error } = await query.maybeSingle();
+  if (error) throw error;
   return data || null;
 }
 
-export async function fetchWeeklyGoals(monthId: string): Promise<DbWeeklyGoal[]> {
-  const { data, error } = await supabase
+/** Fetch weekly goals — team (member_id is null) or specific member */
+export async function fetchWeeklyGoals(monthId: string, memberId?: string | null): Promise<DbWeeklyGoal[]> {
+  let query = supabase
     .from("weekly_goals")
     .select("*")
-    .eq("month_id", monthId)
-    .order("week_number");
+    .eq("month_id", monthId);
+
+  if (memberId) {
+    query = query.eq("member_id", memberId);
+  } else {
+    query = query.is("member_id", null);
+  }
+
+  const { data, error } = await query.order("week_number");
   if (error) throw error;
   return data || [];
 }
@@ -142,6 +166,15 @@ export async function saveAiReport(monthId: string, content: string, reportType 
     .from("ai_reports")
     .insert({ month_id: monthId, content, report_type: reportType });
   if (error) throw error;
+}
+
+/** Extract only metric number fields from a goal object */
+export function goalToMetrics(goal: DbMonthlyGoal | null): Record<string, number> | null {
+  if (!goal) return null;
+  return METRIC_KEYS.reduce((acc, k) => {
+    acc[k] = (goal as any)[k] || 0;
+    return acc;
+  }, {} as Record<string, number>);
 }
 
 export function sumMetrics(metrics: DbDailyMetric[], filterMemberId?: string) {
