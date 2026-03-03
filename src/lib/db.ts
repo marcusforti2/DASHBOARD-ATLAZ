@@ -47,6 +47,14 @@ export interface DbDailyMetric {
   reuniao_realizada: number;
 }
 
+export const ALL_WEEKDAYS = ["Seg", "Ter", "Qua", "Qui", "Sex"] as const;
+export const DEFAULT_WORKING_DAYS = "Seg,Ter,Qua,Qui,Sex";
+
+export function getWorkingDaysCount(workingDays?: string | null): number {
+  if (!workingDays) return 5;
+  return workingDays.split(",").filter(d => d.trim()).length;
+}
+
 export interface DbWeeklyGoal {
   id: string;
   month_id: string;
@@ -54,6 +62,7 @@ export interface DbWeeklyGoal {
   member_id: string | null;
   start_date: string | null;
   end_date: string | null;
+  working_days: string;
   conexoes: number;
   conexoes_aceitas: number;
   abordagens: number;
