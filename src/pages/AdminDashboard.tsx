@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useMonths, useTeamMembers, useMonthlyGoals, useWeeklyGoals, useDailyMetrics, useAiReports } from "@/hooks/use-metrics";
-import { sumMetrics, goalToMetrics, METRIC_LABELS, METRIC_KEYS, DbDailyMetric } from "@/lib/db";
+import { sumMetrics, goalToMetrics, METRIC_LABELS, METRIC_KEYS, DbDailyMetric, DbTeamMember } from "@/lib/db";
 import { KpiGrid } from "@/components/dashboard/KpiGrid";
 import { WeeklyComparisonChart } from "@/components/dashboard/WeeklyComparisonChart";
 import { PersonPerformanceChart } from "@/components/dashboard/PersonPerformanceChart";
@@ -10,7 +10,12 @@ import { AiReportPanel } from "@/components/dashboard/AiReportPanel";
 import { AlertsPanel } from "@/components/dashboard/AlertsPanel";
 import { ExportCsvButton } from "@/components/dashboard/ExportCsvButton";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Loader2, Filter, X } from "lucide-react";
+import { ChevronDown, Loader2, Filter, X, CalendarDays } from "lucide-react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 const CHART_METRICS = ["follow_up", "conexoes", "reuniao_realizada", "lig_realizada"];
 
@@ -241,25 +246,93 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
       )}
 
       {/* Table */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
+      <DailyTableSection
+        filteredMetrics={filteredMetrics}
+        members={members || []}
+        selectedMemberId={selectedMemberId}
+        hasActiveFilters={!!hasActiveFilters}
+        monthLabel={activeMonth?.label}
+      />
+    </div>
+  );
+}
+
+/** Sub-component: Daily table with "Hoje" button + date picker */
+function DailyTableSection({
+  filteredMetrics,
+  members,
+  selectedMemberId,
+  hasActiveFilters,
+  monthLabel,
+}: {
+  filteredMetrics: DbDailyMetric[];
+  members: DbTeamMember[];
+  selectedMemberId: string | null;
+  hasActiveFilters: boolean;
+  monthLabel?: string;
+}) {
+  const [dayFilter, setDayFilter] = useState<Date | undefined>(undefined);
+  const todayStr = format(new Date(), "yyyy-MM-dd");
+
+  const tableMetrics = useMemo(() => {
+    if (!dayFilter) return filteredMetrics;
+    const dayStr = format(dayFilter, "yyyy-MM-dd");
+    return filteredMetrics.filter(d => d.date === dayStr);
+  }, [filteredMetrics, dayFilter]);
+
+  const isToday = dayFilter && format(dayFilter, "yyyy-MM-dd") === todayStr;
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <div className="flex items-center gap-2">
           <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider">
             Detalhamento Diário
-            {selectedMemberId && members ? ` — ${members.find(m => m.id === selectedMemberId)?.name}` : ""}
-            {hasActiveFilters ? ` (${filteredMetrics.length} registros filtrados)` : ""}
+            {selectedMemberId && members.length ? ` — ${members.find(m => m.id === selectedMemberId)?.name}` : ""}
+            {hasActiveFilters ? ` (${tableMetrics.length} registros)` : ""}
           </h3>
-          {members && (
-            <ExportCsvButton
-              dailyMetrics={filteredMetrics}
-              members={members}
-              monthLabel={activeMonth?.label}
-            />
-          )}
         </div>
-        {members && (
-          <DailyTable dailyMetrics={filteredMetrics} members={members} selectedMemberId={selectedMemberId} />
-        )}
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setDayFilter(dayFilter && isToday ? undefined : new Date())}
+            className={cn(
+              "px-3 py-1.5 text-[10px] rounded-lg font-semibold uppercase tracking-wider transition-colors flex items-center gap-1",
+              isToday ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+            )}
+          >
+            <CalendarDays size={12} /> Hoje
+          </button>
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                className={cn(
+                  "px-3 py-1.5 text-[10px] rounded-lg font-semibold uppercase tracking-wider transition-colors flex items-center gap-1",
+                  dayFilter && !isToday ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                )}
+              >
+                <CalendarDays size={12} />
+                {dayFilter && !isToday ? format(dayFilter, "dd/MM", { locale: ptBR }) : "Escolher dia"}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                mode="single"
+                selected={dayFilter}
+                onSelect={(d) => setDayFilter(d || undefined)}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
+          {dayFilter && (
+            <button onClick={() => setDayFilter(undefined)} className="text-[10px] text-destructive hover:text-destructive/80 flex items-center gap-0.5">
+              <X size={10} /> Limpar
+            </button>
+          )}
+          <ExportCsvButton dailyMetrics={tableMetrics} members={members} monthLabel={monthLabel} />
+        </div>
       </div>
+      <DailyTable dailyMetrics={tableMetrics} members={members} selectedMemberId={selectedMemberId} />
     </div>
   );
 }

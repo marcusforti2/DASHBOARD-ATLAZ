@@ -5,6 +5,7 @@ import AdminDashboard from "@/pages/AdminDashboard";
 import CloserEntry from "@/pages/CloserEntry";
 import TeamManagement from "@/pages/TeamManagement";
 import GoalsManagement from "@/pages/GoalsManagement";
+import { CloserDailyDashboard } from "@/components/dashboard/CloserDailyDashboard";
 import SettingsPage from "@/pages/SettingsPage";
 import { AppSidebar, AdminView, CloserView } from "@/components/AppSidebar";
 import { AiReportPanel } from "@/components/dashboard/AiReportPanel";
@@ -133,6 +134,14 @@ export default function Index() {
               <p className="text-xs text-muted-foreground">Peça ao gestor para vincular sua conta.</p>
             </div>
           );
+        case "daily-goals":
+          return profile?.team_member_id ? (
+            <CloserDailyDashboard teamMemberId={profile.team_member_id} memberName={profile.full_name || ""} />
+          ) : (
+            <div className="text-center py-12 space-y-3">
+              <p className="text-sm text-muted-foreground">Seu perfil ainda não foi vinculado a um membro da equipe.</p>
+            </div>
+          );
         case "dashboard":
           return <AdminDashboard onSignOut={signOut} userName={profile?.full_name || ""} />;
         default:
@@ -168,7 +177,7 @@ export default function Index() {
                   adminView === "closer-preview" ? "Visualização Closer" :
                   "Configurações"
                 ) : (
-                  closerView === "entry" ? "Inserir Dados" : "Meu Dashboard"
+                  closerView === "entry" ? "Inserir Dados" : closerView === "daily-goals" ? "Metas do Dia" : "Meu Dashboard"
                 )}
               </h2>
             </div>
