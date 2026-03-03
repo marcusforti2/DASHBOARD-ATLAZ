@@ -8,8 +8,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Plus, Trash2, Loader2, Calendar, ChevronDown,
-  Save, Users, User, AlertTriangle
+  Save, Users, User, AlertTriangle, Copy, Pencil
 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 const MONTH_NAMES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -444,6 +445,9 @@ export default function GoalsManagement() {
   const [expandedMonthId, setExpandedMonthId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [dirtyMonths, setDirtyMonths] = useState<Set<string>>(new Set());
+  const [editingMonth, setEditingMonth] = useState<DbMonth | null>(null);
+  const [editLabel, setEditLabel] = useState("");
+  const [duplicating, setDuplicating] = useState<string | null>(null);
 
   const handleDirtyChange = useCallback((monthId: string, dirty: boolean) => {
     setDirtyMonths(prev => {
@@ -468,6 +472,73 @@ export default function GoalsManagement() {
     await supabase.from("months").delete().eq("id", month.id);
     toast.success("Mês excluído");
     queryClient.invalidateQueries({ queryKey: ["months"] });
+  };
+
+  const handleEditMonth = async () => {
+    if (!editingMonth || !editLabel.trim()) return;
+    const { error } = await supabase.from("months").update({ label: editLabel.trim() }).eq("id", editingMonth.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Mês atualizado!");
+    queryClient.invalidateQueries({ queryKey: ["months"] });
+    setEditingMonth(null);
+  };
+
+  const handleDuplicateMonth = async (sourceMonth: DbMonth) => {
+    if (!confirm(`Duplicar "${sourceMonth.label}" para um novo mês com as mesmas metas?`)) return;
+    setDuplicating(sourceMonth.id);
+
+    // Calculate next month
+    const nextM = sourceMonth.month === 12 ? 1 : sourceMonth.month + 1;
+    const nextY = sourceMonth.month === 12 ? sourceMonth.year + 1 : sourceMonth.year;
+
+    // Check if already exists
+    const existing = months?.find(m => m.year === nextY && m.month === nextM);
+    if (existing) {
+      toast.error(`${MONTH_NAMES[nextM - 1]} ${nextY} já existe!`);
+      setDuplicating(null);
+      return;
+    }
+
+    const label = `${MONTH_NAMES[nextM - 1]} ${nextY}`;
+    const { data: newMonth, error } = await supabase.from("months").insert({ year: nextY, month: nextM, label }).select().single();
+    if (error) { toast.error(error.message); setDuplicating(null); return; }
+
+    // Copy monthly goals
+    const { data: srcMonthly } = await supabase.from("monthly_goals").select("*").eq("month_id", sourceMonth.id);
+    for (const mg of srcMonthly || []) {
+      const { id, created_at, month_id, ...rest } = mg;
+      await supabase.from("monthly_goals").insert({ ...rest, month_id: newMonth.id });
+    }
+
+    // Copy weekly goals, adjusting week dates to new month
+    const newWeeks = getWeeksOfMonth(nextY, nextM);
+    const { data: srcWeekly } = await supabase.from("weekly_goals").select("*").eq("month_id", sourceMonth.id).order("week_number");
+    const srcByMember = new Map<string, typeof srcWeekly>();
+    for (const wg of srcWeekly || []) {
+      const key = wg.member_id || "__team__";
+      if (!srcByMember.has(key)) srcByMember.set(key, []);
+      srcByMember.get(key)!.push(wg);
+    }
+
+    for (const [memberKey, srcWeeks] of srcByMember) {
+      for (let i = 0; i < newWeeks.length; i++) {
+        const src = srcWeeks[Math.min(i, srcWeeks.length - 1)];
+        const { id, created_at, month_id, week_number, start_date, end_date, ...metrics } = src;
+        await supabase.from("weekly_goals").insert({
+          ...metrics,
+          month_id: newMonth.id,
+          week_number: newWeeks[i].weekNumber,
+          start_date: newWeeks[i].startDate,
+          end_date: newWeeks[i].endDate,
+          member_id: memberKey === "__team__" ? null : memberKey,
+        });
+      }
+    }
+
+    toast.success(`${label} criado com metas duplicadas!`);
+    queryClient.invalidateQueries({ queryKey: ["months"] });
+    setExpandedMonthId(newMonth.id);
+    setDuplicating(null);
   };
 
   const handleCreateNextMonth = async () => {
@@ -537,9 +608,23 @@ export default function GoalsManagement() {
                     <span className="text-[10px] text-muted-foreground">{weeks.length} semanas • {weeks[0]?.label} → {weeks[weeks.length - 1]?.label}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
+                  <button onClick={e => { e.stopPropagation(); handleDuplicateMonth(month); }}
+                    disabled={duplicating === month.id}
+                    className="p-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 disabled:opacity-50"
+                    title="Duplicar mês">
+                    {duplicating === month.id ? <Loader2 size={14} className="animate-spin" /> : <Copy size={14} />}
+                  </button>
+                  <button onClick={e => { e.stopPropagation(); setEditingMonth(month); setEditLabel(month.label); }}
+                    className="p-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10"
+                    title="Editar mês">
+                    <Pencil size={14} />
+                  </button>
                   <button onClick={e => { e.stopPropagation(); handleDeleteMonth(month); }}
-                    className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10"><Trash2 size={14} /></button>
+                    className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                    title="Excluir mês">
+                    <Trash2 size={14} />
+                  </button>
                   <ChevronDown size={14} className={`text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`} />
                 </div>
               </div>
@@ -560,6 +645,35 @@ export default function GoalsManagement() {
           </div>
         )}
       </div>
+
+      {/* Edit Month Dialog */}
+      <Dialog open={!!editingMonth} onOpenChange={(open) => !open && setEditingMonth(null)}>
+        <DialogContent className="sm:max-w-sm bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-bold text-card-foreground flex items-center gap-2">
+              <Pencil size={14} className="text-primary" /> Editar Mês
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-2">
+            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Nome do mês</label>
+            <input
+              type="text"
+              value={editLabel}
+              onChange={e => setEditLabel(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-border bg-secondary px-3 py-2.5 text-sm text-secondary-foreground focus:ring-2 focus:ring-primary/50 outline-none"
+            />
+          </div>
+          <DialogFooter>
+            <button
+              onClick={handleEditMonth}
+              disabled={!editLabel.trim()}
+              className="w-full rounded-xl bg-primary py-2.5 text-sm font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              <Save size={14} /> Salvar
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
