@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useMonths, useTeamMembers, useMonthlyGoals, useWeeklyGoals, useDailyMetrics, useAiReports } from "@/hooks/use-metrics";
-import { sumMetrics, METRIC_LABELS, METRIC_KEYS, DbDailyMetric } from "@/lib/db";
+import { sumMetrics, goalToMetrics, METRIC_LABELS, METRIC_KEYS, DbDailyMetric } from "@/lib/db";
 import { KpiGrid } from "@/components/dashboard/KpiGrid";
 import { WeeklyComparisonChart } from "@/components/dashboard/WeeklyComparisonChart";
 import { PersonPerformanceChart } from "@/components/dashboard/PersonPerformanceChart";
@@ -123,7 +123,7 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
       </div>
 
       {/* KPIs */}
-      <KpiGrid totals={totals} goals={goals ? { ...goals } as Record<string, number> : null} previousTotals={previousTotals} />
+      <KpiGrid totals={totals} goals={goalToMetrics(goals)} previousTotals={previousTotals} />
 
       {/* Filters Panel */}
       <div className="rounded-xl border border-border bg-card p-4">
@@ -224,7 +224,7 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
           monthId={activeMonthId}
           monthLabel={activeMonth.label}
           metrics={totals}
-          goals={goals ? { ...goals } as Record<string, number> : null}
+          goals={goalToMetrics(goals)}
           members={members?.map(m => m.name) || []}
           existingReports={aiReports || []}
           onReportGenerated={() => queryClient.invalidateQueries({ queryKey: ["ai-reports", activeMonthId] })}
@@ -236,7 +236,7 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
         <AlertsPanel
           dailyMetrics={filteredMetrics}
           members={members}
-          goals={goals ? { ...goals } as Record<string, number> : null}
+          goals={goalToMetrics(goals)}
         />
       )}
 

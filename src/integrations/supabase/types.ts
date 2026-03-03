@@ -173,6 +173,7 @@ export type Database = {
           inmail: number
           lig_agendada: number
           lig_realizada: number
+          member_id: string | null
           month_id: string
           numero: number
           reuniao_agendada: number
@@ -188,6 +189,7 @@ export type Database = {
           inmail?: number
           lig_agendada?: number
           lig_realizada?: number
+          member_id?: string | null
           month_id: string
           numero?: number
           reuniao_agendada?: number
@@ -203,6 +205,7 @@ export type Database = {
           inmail?: number
           lig_agendada?: number
           lig_realizada?: number
+          member_id?: string | null
           month_id?: string
           numero?: number
           reuniao_agendada?: number
@@ -210,9 +213,16 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "monthly_goals_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "monthly_goals_month_id_fkey"
             columns: ["month_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "months"
             referencedColumns: ["id"]
           },
@@ -328,6 +338,7 @@ export type Database = {
           inmail: number
           lig_agendada: number
           lig_realizada: number
+          member_id: string | null
           month_id: string
           numero: number
           reuniao_agendada: number
@@ -346,6 +357,7 @@ export type Database = {
           inmail?: number
           lig_agendada?: number
           lig_realizada?: number
+          member_id?: string | null
           month_id: string
           numero?: number
           reuniao_agendada?: number
@@ -364,6 +376,7 @@ export type Database = {
           inmail?: number
           lig_agendada?: number
           lig_realizada?: number
+          member_id?: string | null
           month_id?: string
           numero?: number
           reuniao_agendada?: number
@@ -372,6 +385,13 @@ export type Database = {
           week_number?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "weekly_goals_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "weekly_goals_month_id_fkey"
             columns: ["month_id"]

@@ -9,18 +9,18 @@ export function useTeamMembers() {
   return useQuery({ queryKey: ["team-members"], queryFn: fetchTeamMembers });
 }
 
-export function useMonthlyGoals(monthId: string | undefined) {
+export function useMonthlyGoals(monthId: string | undefined, memberId?: string | null) {
   return useQuery({
-    queryKey: ["monthly-goals", monthId],
-    queryFn: () => fetchMonthlyGoals(monthId!),
+    queryKey: ["monthly-goals", monthId, memberId ?? "team"],
+    queryFn: () => fetchMonthlyGoals(monthId!, memberId),
     enabled: !!monthId,
   });
 }
 
-export function useWeeklyGoals(monthId: string | undefined) {
+export function useWeeklyGoals(monthId: string | undefined, memberId?: string | null) {
   return useQuery({
-    queryKey: ["weekly-goals", monthId],
-    queryFn: () => fetchWeeklyGoals(monthId!),
+    queryKey: ["weekly-goals", monthId, memberId ?? "team"],
+    queryFn: () => fetchWeeklyGoals(monthId!, memberId),
     enabled: !!monthId,
   });
 }
