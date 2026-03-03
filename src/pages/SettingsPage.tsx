@@ -163,6 +163,8 @@ function AdminManagementSection() {
   const [newPassword, setNewPassword] = useState("");
   const [creating, setCreating] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [generatingLink, setGeneratingLink] = useState(false);
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
   const { user } = useAuth();
 
   const loadAdmins = async () => {
@@ -227,6 +229,26 @@ function AdminManagementSection() {
     }
   };
 
+  const handleGenerateLink = async () => {
+    if (!user) return;
+    setGeneratingLink(true);
+    const { data, error } = await supabase
+      .from("admin_invites")
+      .insert({ created_by: user.id })
+      .select("token")
+      .single();
+
+    if (error) {
+      toast.error("Erro ao gerar link: " + error.message);
+    } else {
+      const link = `${window.location.origin}/register-admin?token=${data.token}`;
+      setInviteLink(link);
+      await navigator.clipboard.writeText(link);
+      toast.success("Link copiado para a área de transferência!");
+    }
+    setGeneratingLink(false);
+  };
+
   return (
     <div className="rounded-xl border border-border bg-card p-5 space-y-4">
       <div className="flex items-center justify-between">
@@ -234,16 +256,46 @@ function AdminManagementSection() {
           <ShieldCheck size={14} className="text-primary" />
           <h3 className="text-xs font-semibold text-card-foreground uppercase tracking-wider">Gerenciar Administradores</h3>
         </div>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="px-3 py-1.5 text-[10px] rounded-lg font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors flex items-center gap-1.5"
-        >
-          <Plus size={10} /> Novo Admin
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleGenerateLink}
+            disabled={generatingLink}
+            className="px-3 py-1.5 text-[10px] rounded-lg font-medium bg-accent text-accent-foreground hover:bg-accent/80 transition-colors flex items-center gap-1.5"
+          >
+            {generatingLink ? <Loader2 size={10} className="animate-spin" /> : <Link2 size={10} />}
+            Gerar Link de Convite
+          </button>
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="px-3 py-1.5 text-[10px] rounded-lg font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors flex items-center gap-1.5"
+          >
+            <Plus size={10} /> Criar Direto
+          </button>
+        </div>
       </div>
       <p className="text-[10px] text-muted-foreground">
-        Cadastre novos administradores que terão acesso total ao painel de gestão.
+        Gere um link de convite para enviar ao novo admin, ou crie a conta diretamente.
       </p>
+
+      {/* Invite link display */}
+      {inviteLink && (
+        <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
+          <p className="text-[10px] font-semibold text-primary uppercase tracking-wider">Link de Convite (válido por 7 dias)</p>
+          <div className="flex items-center gap-2">
+            <input
+              readOnly
+              value={inviteLink}
+              className="flex-1 text-[10px] rounded-lg border border-border bg-secondary px-3 py-2 text-secondary-foreground outline-none"
+            />
+            <button
+              onClick={() => { navigator.clipboard.writeText(inviteLink); toast.success("Link copiado!"); }}
+              className="px-3 py-2 text-[10px] rounded-lg font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
+              Copiar
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Create admin form */}
       {showForm && (
