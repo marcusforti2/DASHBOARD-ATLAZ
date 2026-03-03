@@ -1,9 +1,22 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 import { BarChart3, Loader2, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
 export default function Auth() {
+  const navigate = useNavigate();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) navigate("/", { replace: true });
+    });
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) navigate("/", { replace: true });
+    });
+    return () => subscription.unsubscribe();
+  }, [navigate]);
   const [mode, setMode] = useState<"login" | "signup" | "forgot">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
