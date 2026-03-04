@@ -440,6 +440,51 @@ export type Database = {
           },
         ]
       }
+      whatsapp_automations: {
+        Row: {
+          active: boolean
+          created_at: string
+          description: string
+          id: string
+          include_ai_tips: boolean
+          include_metrics: boolean
+          message_template: string
+          name: string
+          schedule_cron: string | null
+          target_audience: string
+          target_role: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          description?: string
+          id?: string
+          include_ai_tips?: boolean
+          include_metrics?: boolean
+          message_template: string
+          name: string
+          schedule_cron?: string | null
+          target_audience?: string
+          target_role?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          description?: string
+          id?: string
+          include_ai_tips?: boolean
+          include_metrics?: boolean
+          message_template?: string
+          name?: string
+          schedule_cron?: string | null
+          target_audience?: string
+          target_role?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       whatsapp_contacts: {
         Row: {
           active: boolean
