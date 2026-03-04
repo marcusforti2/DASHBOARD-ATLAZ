@@ -440,6 +440,38 @@ export type Database = {
           },
         ]
       }
+      whatsapp_contacts: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          phone: string
+          team_member_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          phone: string
+          team_member_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          phone?: string
+          team_member_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_contacts_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: true
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
