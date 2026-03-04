@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import {
   Zap, Clock, Target, MessageSquare, Send, Play, Pause, Trash2, Edit3, Save, X,
   Sparkles, ToggleLeft, ToggleRight, Loader2, Radio,
-  Users, ShieldCheck, UserCheck, Bot, CheckCircle2, Plus, GripHorizontal
+  Users, ShieldCheck, UserCheck, Bot, CheckCircle2, Plus, GripHorizontal, Copy
 } from "lucide-react";
 
 interface Automation {
@@ -499,21 +499,49 @@ export default function FlowBuilder({ automations, onReload }: FlowBuilderProps)
         <div className="w-56 border-r border-border bg-secondary/10 flex-shrink-0 overflow-auto">
           <div className="p-2 space-y-1">
             {automations.map(a => (
-              <button key={a.id}
-                onClick={() => { setSelectedId(a.id); setShowAiGenerator(false); }}
-                className={`w-full text-left p-3 rounded-xl transition-all ${
-                  selectedId === a.id ? "bg-primary/10 border border-primary/30" : "hover:bg-secondary border border-transparent"
-                }`}>
-                <div className="flex items-center gap-2">
-                  <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${a.active ? "bg-green-500" : "bg-muted-foreground/30"}`} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[11px] font-bold text-card-foreground truncate">{a.name}</p>
-                    <p className="text-[9px] text-muted-foreground mt-0.5">
-                      {a.schedule_cron ? cronToLabel(a.schedule_cron) : "Manual"} · {audienceLabel(a.target_audience)}
-                    </p>
+              <div key={a.id} className="group relative">
+                <button
+                  onClick={() => { setSelectedId(a.id); setShowAiGenerator(false); }}
+                  className={`w-full text-left p-3 rounded-xl transition-all ${
+                    selectedId === a.id ? "bg-primary/10 border border-primary/30" : "hover:bg-secondary border border-transparent"
+                  }`}>
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${a.active ? "bg-green-500" : "bg-muted-foreground/30"}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] font-bold text-card-foreground truncate">{a.name}</p>
+                      <p className="text-[9px] text-muted-foreground mt-0.5">
+                        {a.schedule_cron ? cronToLabel(a.schedule_cron) : "Manual"} · {audienceLabel(a.target_audience)}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              </button>
+                </button>
+                <button
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    const { data, error } = await supabase.from("whatsapp_automations").insert({
+                      name: a.name + " (cópia)",
+                      description: a.description,
+                      message_template: a.message_template,
+                      schedule_cron: a.schedule_cron,
+                      target_audience: a.target_audience,
+                      target_role: a.target_role,
+                      include_metrics: a.include_metrics,
+                      include_ai_tips: a.include_ai_tips,
+                      active: false,
+                    }).select("id").maybeSingle();
+                    if (error) toast.error("Erro: " + error.message);
+                    else {
+                      toast.success("Fluxo duplicado! ✨");
+                      await onReload();
+                      if (data?.id) setSelectedId(data.id);
+                    }
+                  }}
+                  title="Duplicar fluxo"
+                  className="absolute top-2 right-2 p-1.5 rounded-lg bg-secondary/80 border border-border text-muted-foreground hover:text-primary hover:bg-primary/10 opacity-0 group-hover:opacity-100 transition-all"
+                >
+                  <Copy size={10} />
+                </button>
+              </div>
             ))}
             {automations.length === 0 && (
               <div className="p-8 text-center">
