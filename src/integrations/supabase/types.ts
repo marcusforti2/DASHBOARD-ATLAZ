@@ -491,27 +491,30 @@ export type Database = {
           created_at: string
           id: string
           phone: string
-          team_member_id: string
+          team_member_id: string | null
+          user_id: string | null
         }
         Insert: {
           active?: boolean
           created_at?: string
           id?: string
           phone: string
-          team_member_id: string
+          team_member_id?: string | null
+          user_id?: string | null
         }
         Update: {
           active?: boolean
           created_at?: string
           id?: string
           phone?: string
-          team_member_id?: string
+          team_member_id?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "whatsapp_contacts_team_member_id_fkey"
             columns: ["team_member_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "team_members"
             referencedColumns: ["id"]
           },
