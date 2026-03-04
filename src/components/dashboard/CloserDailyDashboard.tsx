@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import {
   Target, TrendingUp, CheckCircle2, Loader2, Plus, Flame,
   Zap, Trophy, Calendar, ArrowUpRight, Save, ClipboardList,
-  X, UserPlus, User, Upload, FileSpreadsheet, PenLine, Trash2
+  X, UserPlus, User, Upload, FileSpreadsheet, PenLine, Trash2, ChevronDown
 } from "lucide-react";
 
 
@@ -282,20 +282,21 @@ export function CloserDailyDashboard({ teamMemberId, memberName, memberRole = "s
   );
 }
 
-/* ========== Lead History Panel ========== */
+/* ========== Audit / History Panel ========== */
 
-type LeadFilterMode = "day" | "week" | "month";
+type AuditFilterMode = "day" | "week" | "month";
 
 function LeadHistoryPanel({ teamMemberId }: { teamMemberId: string }) {
   const [leads, setLeads] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filterMode, setFilterMode] = useState<LeadFilterMode>("day");
+  const [filterMode, setFilterMode] = useState<AuditFilterMode>("day");
   const [filterDate, setFilterDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [searchTerm, setSearchTerm] = useState("");
+  const [metricFilter, setMetricFilter] = useState<string>("all");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<any>({});
   const [deleting, setDeleting] = useState<string | null>(null);
-  const [expandedLead, setExpandedLead] = useState<string | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
   const queryClient = useQueryClient();
 
   const METRIC_SHORT: Record<string, string> = {
@@ -319,21 +320,6 @@ function LeadHistoryPanel({ teamMemberId }: { teamMemberId: string }) {
 
   useEffect(() => { fetchLeads(); }, [teamMemberId]);
 
-  // Count how many times each lead appears
-  const leadCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    leads.forEach(l => {
-      const key = l.lead_name?.toLowerCase().trim();
-      if (key) counts[key] = (counts[key] || 0) + 1;
-    });
-    return counts;
-  }, [leads]);
-
-  const getLeadHistory = (leadName: string) => {
-    const key = leadName?.toLowerCase().trim();
-    return leads.filter(l => l.lead_name?.toLowerCase().trim() === key);
-  };
-
   const decrementMetric = async (entry: any) => {
     if (!entry.metric_type) return;
     const { data: metric } = await supabase
@@ -353,14 +339,14 @@ function LeadHistoryPanel({ teamMemberId }: { teamMemberId: string }) {
   };
 
   const handleDelete = async (entry: any) => {
-    if (!confirm(`Apagar lead "${entry.lead_name}"? A métrica será ajustada.`)) return;
+    if (!confirm(`Apagar registro "${entry.lead_name}"? A métrica será ajustada.`)) return;
     setDeleting(entry.id);
     const { error } = await supabase.from("lead_entries").delete().eq("id", entry.id);
     if (error) { toast.error("Erro: " + error.message); setDeleting(null); return; }
     await decrementMetric(entry);
     setLeads(prev => prev.filter(l => l.id !== entry.id));
     queryClient.invalidateQueries({ queryKey: ["daily-metrics"] });
-    toast.success("Lead apagado e métrica ajustada!");
+    toast.success("Registro apagado e métrica ajustada!");
     setDeleting(null);
   };
 
@@ -377,7 +363,7 @@ function LeadHistoryPanel({ teamMemberId }: { teamMemberId: string }) {
     }).eq("id", entry.id);
     if (error) { toast.error("Erro: " + error.message); return; }
     setLeads(prev => prev.map(l => l.id === entry.id ? { ...l, ...editValues } : l));
-    toast.success("Lead atualizado!");
+    toast.success("Registro atualizado!");
     setEditingId(null);
     setEditValues({});
   };
@@ -398,6 +384,10 @@ function LeadHistoryPanel({ teamMemberId }: { teamMemberId: string }) {
       result = result.filter(l => l.date >= ms && l.date <= me);
     }
 
+    if (metricFilter !== "all") {
+      result = result.filter(l => l.metric_type === metricFilter);
+    }
+
     if (searchTerm.trim()) {
       const s = searchTerm.toLowerCase();
       result = result.filter(l =>
@@ -407,217 +397,223 @@ function LeadHistoryPanel({ teamMemberId }: { teamMemberId: string }) {
       );
     }
     return result;
-  }, [leads, filterMode, filterDate, searchTerm]);
+  }, [leads, filterMode, filterDate, searchTerm, metricFilter]);
 
-  const FILTERS: { id: LeadFilterMode; label: string }[] = [
+  // Metric counts for badges
+  const metricCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    filteredLeads.forEach(l => {
+      const mt = l.metric_type || "unknown";
+      counts[mt] = (counts[mt] || 0) + 1;
+    });
+    return counts;
+  }, [filteredLeads]);
+
+  // Unique metrics present
+  const availableMetrics = useMemo(() => {
+    const set = new Set<string>();
+    leads.forEach(l => { if (l.metric_type) set.add(l.metric_type); });
+    return Array.from(set);
+  }, [leads]);
+
+  const PERIOD_FILTERS: { id: AuditFilterMode; label: string }[] = [
     { id: "day", label: "Dia" },
     { id: "week", label: "Semana" },
     { id: "month", label: "Mês" },
   ];
 
-  if (loading) return null;
-  if (leads.length === 0) return null;
+  const todayCount = useMemo(() => {
+    const today = format(new Date(), "yyyy-MM-dd");
+    return leads.filter(l => l.date === today).length;
+  }, [leads]);
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
-      <div className="flex items-center justify-between">
+    <div className="rounded-2xl border border-border bg-card overflow-hidden">
+      {/* Header - always visible */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full p-4 flex items-center justify-between hover:bg-secondary/20 transition-colors"
+      >
         <div className="flex items-center gap-2">
           <ClipboardList size={14} className="text-primary" />
-          <h3 className="text-xs font-bold text-card-foreground uppercase tracking-wider">Meus Leads</h3>
-          <span className="text-[9px] text-muted-foreground">({filteredLeads.length})</span>
+          <h3 className="text-xs font-bold text-card-foreground uppercase tracking-wider">Meus Registros</h3>
+          {todayCount > 0 && (
+            <span className="text-[9px] font-bold text-accent bg-accent/10 px-1.5 py-0.5 rounded-md">{todayCount} hoje</span>
+          )}
         </div>
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex bg-secondary/50 rounded-lg p-0.5">
-          {FILTERS.map(f => (
-            <button
-              key={f.id}
-              onClick={() => setFilterMode(f.id)}
-              className={cn(
-                "px-2.5 py-1 text-[10px] font-semibold rounded-md transition-all",
-                filterMode === f.id
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {f.label}
-            </button>
-          ))}
+        <div className="flex items-center gap-2">
+          <span className="text-[9px] text-muted-foreground">{leads.length} total</span>
+          <ChevronDown size={14} className={cn("text-muted-foreground transition-transform", isOpen && "rotate-180")} />
         </div>
-        <input
-          type="date"
-          value={filterDate}
-          onChange={e => setFilterDate(e.target.value)}
-          className="text-[10px] bg-secondary border border-border rounded-lg px-2 py-1 text-secondary-foreground outline-none focus:ring-1 focus:ring-primary"
-        />
-        <input
-          value={searchTerm}
-          onChange={e => setSearchTerm(e.target.value)}
-          placeholder="Buscar..."
-          className="flex-1 min-w-[80px] text-[10px] bg-secondary border border-border rounded-lg px-2.5 py-1 text-secondary-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-primary"
-        />
-      </div>
+      </button>
 
-      {/* Lead list */}
-      {filteredLeads.length === 0 ? (
-        <p className="text-[10px] text-muted-foreground text-center py-4">Nenhum lead neste período</p>
-      ) : (
-        <div className="rounded-lg border border-border overflow-hidden max-h-[350px] overflow-y-auto">
-          <div className="grid grid-cols-[1fr_65px_1fr_38px_35px_46px] gap-0 bg-secondary/40 border-b border-border sticky top-0 z-10">
-            <div className="px-2 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider">Nome</div>
-            <div className="px-1 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider border-l border-border text-center">Métrica</div>
-            <div className="px-2 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider border-l border-border">Social</div>
-            <div className="px-1 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider border-l border-border text-center">Src</div>
-            <div className="px-1 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider border-l border-border text-center">Freq</div>
-            <div className="px-1 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider border-l border-border text-center">Ações</div>
-          </div>
-          {filteredLeads.map((entry: any, idx: number) => {
-            const isEditing = editingId === entry.id;
-            const leadKey = entry.lead_name?.toLowerCase().trim();
-            const count = leadCounts[leadKey] || 1;
-            const isExpanded = expandedLead === leadKey;
-
-            return (
-              <div key={entry.id}>
-                <div
-                  className={cn(
-                    "grid grid-cols-[1fr_65px_1fr_38px_35px_46px] gap-0",
-                    idx % 2 === 0 ? "bg-card" : "bg-secondary/10",
-                    idx < filteredLeads.length - 1 && !isExpanded && "border-b border-border/30"
-                  )}
-                >
-                  {/* Name */}
-                  <div className="px-2 py-1.5 text-[10px] text-card-foreground font-medium truncate">
-                    {isEditing ? (
-                      <input
-                        value={editValues.lead_name || ""}
-                        onChange={e => setEditValues((p: any) => ({ ...p, lead_name: e.target.value }))}
-                        className="w-full bg-secondary border border-primary/30 rounded px-1.5 py-0.5 text-[10px] outline-none focus:ring-1 focus:ring-primary"
-                        autoFocus
-                      />
-                    ) : (
-                      <>
-                        <span className="text-[8px] text-muted-foreground mr-1">{format(new Date(entry.date + "T12:00:00"), "dd/MM")}</span>
-                        {entry.lead_name || "—"}
-                      </>
-                    )}
-                  </div>
-
-                  {/* Metric type */}
-                  <div className="px-1 py-1.5 text-[9px] border-l border-border/30 flex items-center justify-center">
-                    {entry.metric_type ? (
-                      <span className="text-[7px] font-bold text-primary bg-primary/10 px-1 py-0.5 rounded truncate">
-                        {METRIC_SHORT[entry.metric_type] || entry.metric_type}
-                      </span>
-                    ) : "—"}
-                  </div>
-
-                  {/* Social */}
-                  <div className="px-2 py-1.5 text-[10px] text-card-foreground border-l border-border/30 truncate">
-                    {isEditing ? (
-                      <input
-                        value={editValues.social_link || ""}
-                        onChange={e => setEditValues((p: any) => ({ ...p, social_link: e.target.value }))}
-                        className="w-full bg-secondary border border-primary/30 rounded px-1.5 py-0.5 text-[10px] outline-none focus:ring-1 focus:ring-primary"
-                        placeholder="linkedin.com/in/..."
-                      />
-                    ) : entry.social_link ? (
-                      <a href={entry.social_link.startsWith("http") ? entry.social_link : `https://${entry.social_link}`}
-                        target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                        {entry.social_link}
-                      </a>
-                    ) : "—"}
-                  </div>
-
-                  {/* Source */}
-                  <div className="px-1 py-1.5 border-l border-border/30 flex items-center justify-center">
-                    {entry.source === "dripify" ? (
-                      <span className="text-[6px] font-bold text-chart-4 bg-chart-4/10 px-1 py-0.5 rounded">DRIP</span>
-                    ) : (
-                      <span className="text-[6px] font-bold text-muted-foreground bg-secondary px-1 py-0.5 rounded">MAN</span>
-                    )}
-                  </div>
-
-                  {/* Frequency */}
-                  <div className="px-1 py-1.5 border-l border-border/30 flex items-center justify-center">
+      {isOpen && (
+        <div className="px-4 pb-4 space-y-3 border-t border-border pt-3">
+          {loading ? (
+            <div className="flex justify-center py-4"><Loader2 size={16} className="animate-spin text-primary" /></div>
+          ) : (
+            <>
+              {/* Period + search filters */}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex bg-secondary/50 rounded-lg p-0.5">
+                  {PERIOD_FILTERS.map(f => (
                     <button
-                      onClick={() => count > 1 ? setExpandedLead(isExpanded ? null : leadKey) : null}
+                      key={f.id}
+                      onClick={() => setFilterMode(f.id)}
                       className={cn(
-                        "flex items-center gap-0.5 px-1 py-0.5 rounded transition-colors text-[8px] font-bold",
-                        count > 1
-                          ? "text-chart-5 bg-chart-5/10 hover:bg-chart-5/20 cursor-pointer"
-                          : "text-muted-foreground bg-secondary/50 cursor-default"
+                        "px-2.5 py-1 text-[10px] font-semibold rounded-md transition-all",
+                        filterMode === f.id
+                          ? "bg-primary text-primary-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
                       )}
-                      title={count > 1 ? `${count} aparições — clique para ver` : "1ª aparição"}
                     >
-                      {count}x
+                      {f.label}
                     </button>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center justify-center gap-0.5 border-l border-border/30">
-                    {isEditing ? (
-                      <>
-                        <button onClick={() => saveEdit(entry)} className="p-0.5 rounded text-accent hover:bg-accent/10 transition-colors" title="Salvar">
-                          <CheckCircle2 size={10} />
-                        </button>
-                        <button onClick={() => { setEditingId(null); setEditValues({}); }} className="p-0.5 rounded text-muted-foreground hover:bg-secondary transition-colors" title="Cancelar">
-                          <X size={10} />
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button onClick={() => startEdit(entry)} className="p-0.5 rounded text-muted-foreground/40 hover:text-primary hover:bg-primary/10 transition-colors" title="Editar">
-                          <PenLine size={9} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(entry)}
-                          disabled={deleting === entry.id}
-                          className="p-0.5 rounded text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
-                          title="Apagar"
-                        >
-                          {deleting === entry.id ? <Loader2 size={9} className="animate-spin" /> : <Trash2 size={9} />}
-                        </button>
-                      </>
-                    )}
-                  </div>
+                  ))}
                 </div>
-
-                {/* Expanded lead history */}
-                {isExpanded && count > 1 && (
-                  <div className="bg-chart-5/5 border-t border-b border-chart-5/20 px-2.5 py-1.5 space-y-0.5">
-                    <span className="text-[8px] font-bold text-chart-5">
-                      📋 Histórico de "{entry.lead_name}" — {count} aparições
-                    </span>
-                    {getLeadHistory(entry.lead_name).map((h: any) => (
-                      <div key={h.id} className={cn(
-                        "flex items-center gap-2 text-[8px] rounded px-2 py-1",
-                        h.id === entry.id ? "bg-chart-5/10 font-bold" : "bg-card/50"
-                      )}>
-                        <span className="text-muted-foreground w-[45px] shrink-0">
-                          {format(new Date(h.date + "T12:00:00"), "dd/MM/yy")}
-                        </span>
-                        <span className="text-[7px] font-bold text-primary bg-primary/10 px-1 py-0.5 rounded shrink-0">
-                          {METRIC_SHORT[h.metric_type] || h.metric_type || "—"}
-                        </span>
-                        <span className={cn(
-                          "text-[6px] font-bold px-1 py-0.5 rounded shrink-0",
-                          h.source === "dripify" ? "text-chart-4 bg-chart-4/10" : "text-muted-foreground bg-secondary"
-                        )}>
-                          {h.source === "dripify" ? "DRIP" : "MAN"}
-                        </span>
-                        {h.id === entry.id && (
-                          <span className="text-[7px] text-chart-5 ml-auto">← atual</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <input
+                  type="date"
+                  value={filterDate}
+                  onChange={e => setFilterDate(e.target.value)}
+                  className="text-[10px] bg-secondary border border-border rounded-lg px-2 py-1 text-secondary-foreground outline-none focus:ring-1 focus:ring-primary"
+                />
+                <input
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  placeholder="Buscar..."
+                  className="flex-1 min-w-[80px] text-[10px] bg-secondary border border-border rounded-lg px-2.5 py-1 text-secondary-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-primary"
+                />
               </div>
-            );
-          })}
+
+              {/* Metric type filter chips */}
+              {availableMetrics.length > 1 && (
+                <div className="flex flex-wrap gap-1">
+                  <button
+                    onClick={() => setMetricFilter("all")}
+                    className={cn(
+                      "px-2 py-0.5 rounded-full text-[8px] font-bold transition-all",
+                      metricFilter === "all"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-secondary text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    Todos ({filteredLeads.length})
+                  </button>
+                  {availableMetrics.map(mt => (
+                    <button
+                      key={mt}
+                      onClick={() => setMetricFilter(metricFilter === mt ? "all" : mt)}
+                      className={cn(
+                        "px-2 py-0.5 rounded-full text-[8px] font-bold transition-all",
+                        metricFilter === mt
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-secondary text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      {METRIC_SHORT[mt] || mt} {metricCounts[mt] ? `(${metricCounts[mt]})` : ""}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Entries list */}
+              {filteredLeads.length === 0 ? (
+                <p className="text-[10px] text-muted-foreground text-center py-4">Nenhum registro neste período</p>
+              ) : (
+                <div className="rounded-lg border border-border overflow-hidden max-h-[400px] overflow-y-auto">
+                  {/* Table header */}
+                  <div className="grid grid-cols-[auto_1fr_60px_50px] gap-0 bg-secondary/40 border-b border-border sticky top-0 z-10">
+                    <div className="px-2 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider">Data</div>
+                    <div className="px-2 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider border-l border-border">Registro</div>
+                    <div className="px-1 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider border-l border-border text-center">Métrica</div>
+                    <div className="px-1 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider border-l border-border text-center">Ações</div>
+                  </div>
+
+                  {filteredLeads.map((entry: any, idx: number) => {
+                    const isEditing = editingId === entry.id;
+                    const isNumero = entry.metric_type === "numero";
+
+                    return (
+                      <div
+                        key={entry.id}
+                        className={cn(
+                          "grid grid-cols-[auto_1fr_60px_50px] gap-0",
+                          idx % 2 === 0 ? "bg-card" : "bg-secondary/10",
+                          idx < filteredLeads.length - 1 && "border-b border-border/30"
+                        )}
+                      >
+                        {/* Date */}
+                        <div className="px-2 py-1.5 text-[9px] text-muted-foreground tabular-nums whitespace-nowrap">
+                          {format(new Date(entry.date + "T12:00:00"), "dd/MM")}
+                        </div>
+
+                        {/* Name / detail */}
+                        <div className="px-2 py-1.5 text-[10px] text-card-foreground border-l border-border/30 truncate">
+                          {isEditing ? (
+                            <input
+                              value={editValues.lead_name || ""}
+                              onChange={e => setEditValues((p: any) => ({ ...p, lead_name: e.target.value }))}
+                              className="w-full bg-secondary border border-primary/30 rounded px-1.5 py-0.5 text-[10px] outline-none focus:ring-1 focus:ring-primary"
+                              autoFocus
+                            />
+                          ) : (
+                            <div className="flex items-center gap-1.5">
+                              <span className={cn("font-medium", isNumero ? "text-card-foreground" : "text-muted-foreground")}>
+                                {entry.lead_name || "—"}
+                              </span>
+                              {entry.source === "dripify" && (
+                                <span className="text-[6px] font-bold text-chart-4 bg-chart-4/10 px-1 py-0.5 rounded shrink-0">DRIP</span>
+                              )}
+                              {isNumero && entry.whatsapp && (
+                                <span className="text-[8px] text-muted-foreground">📱{entry.whatsapp}</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Metric badge */}
+                        <div className="px-1 py-1.5 border-l border-border/30 flex items-center justify-center">
+                          <span className="text-[7px] font-bold text-primary bg-primary/10 px-1 py-0.5 rounded truncate">
+                            {METRIC_SHORT[entry.metric_type] || entry.metric_type || "—"}
+                          </span>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex items-center justify-center gap-0.5 border-l border-border/30">
+                          {isEditing ? (
+                            <>
+                              <button onClick={() => saveEdit(entry)} className="p-0.5 rounded text-accent hover:bg-accent/10 transition-colors" title="Salvar">
+                                <CheckCircle2 size={10} />
+                              </button>
+                              <button onClick={() => { setEditingId(null); setEditValues({}); }} className="p-0.5 rounded text-muted-foreground hover:bg-secondary transition-colors" title="Cancelar">
+                                <X size={10} />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              {isNumero && (
+                                <button onClick={() => startEdit(entry)} className="p-0.5 rounded text-muted-foreground/40 hover:text-primary hover:bg-primary/10 transition-colors" title="Editar">
+                                  <PenLine size={9} />
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleDelete(entry)}
+                                disabled={deleting === entry.id}
+                                className="p-0.5 rounded text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
+                                title="Apagar"
+                              >
+                                {deleting === entry.id ? <Loader2 size={9} className="animate-spin" /> : <Trash2 size={9} />}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
     </div>
@@ -710,6 +706,19 @@ function DataEntryDialog({
     const dateObj = new Date(todayStr + "T12:00:00");
     const dayName = DAY_NAMES[dateObj.getDay()];
 
+    // 1. Create audit trail entries (lead_entries)
+    const auditInserts = Array.from({ length: quickQty }, () => ({
+      member_id: teamMemberId,
+      date: todayStr,
+      lead_name: METRIC_LABELS[selectedMetric] || selectedMetric,
+      whatsapp: "",
+      social_link: "",
+      metric_type: selectedMetric,
+      source: "manual",
+    }));
+    await supabase.from("lead_entries").insert(auditInserts);
+
+    // 2. Update daily_metrics
     const { data: existing } = await supabase
       .from("daily_metrics")
       .select("*")
