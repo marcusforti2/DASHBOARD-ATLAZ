@@ -159,35 +159,51 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
   }, [sdrMembersList, closerMembersList, allSdrMetrics]);
   const allSdrTotals = useMemo(() => allSdrMetrics.length > 0 ? sumMetrics(allSdrMetrics) : {}, [allSdrMetrics]);
 
-  // All SDRs goals based on period
+  // All SDRs goals based on period — SUM of individual member goals (not team row)
   const allSdrGoals = useMemo((): Record<string, number> | null => {
+    if (!allMemberMonthlyGoals || !allMemberWeeklyGoals || !members) return null;
+    const activeMembers = members.filter(m => m.active);
+
     if (allSdrPeriod === "month") {
-      return goalToMetrics(teamGoals);
+      // Sum each member's monthly goal
+      return METRIC_KEYS.reduce((acc, k) => {
+        acc[k] = activeMembers.reduce((sum, m) => {
+          const mg = allMemberMonthlyGoals.find((g: any) => g.member_id === m.id);
+          return sum + ((mg as any)?.[k] || 0);
+        }, 0);
+        return acc;
+      }, {} as Record<string, number>);
     }
     if (allSdrPeriod === "week") {
-      if (!teamWeeklyGoals || !weeksOfMonth[allSdrWeekIdx]) return null;
+      if (!weeksOfMonth[allSdrWeekIdx]) return null;
       const weekNum = weeksOfMonth[allSdrWeekIdx].weekNumber;
-      const wg = teamWeeklyGoals.find(w => w.week_number === weekNum);
-      return wg ? goalToMetrics(wg as any) : null;
+      // Sum each member's weekly goal for this week
+      return METRIC_KEYS.reduce((acc, k) => {
+        acc[k] = activeMembers.reduce((sum, m) => {
+          const wg = allMemberWeeklyGoals.find((w: any) => w.member_id === m.id && w.week_number === weekNum);
+          return sum + ((wg as any)?.[k] || 0);
+        }, 0);
+        return acc;
+      }, {} as Record<string, number>);
     }
     if (allSdrPeriod === "day") {
-      // Daily goal = find the week that contains this day, then divide by working days
+      // Sum each member's daily goal (their weekly / their own working days)
       const dayStr = format(allSdrDate, "yyyy-MM-dd");
       const weekIdx = weeksOfMonth.findIndex(w => dayStr >= w.startDate && dayStr <= w.endDate);
-      if (weekIdx < 0 || !teamWeeklyGoals) return null;
+      if (weekIdx < 0) return null;
       const weekNum = weeksOfMonth[weekIdx].weekNumber;
-      const wg = teamWeeklyGoals.find(w => w.week_number === weekNum);
-      if (!wg) return null;
-      const wgMetrics = goalToMetrics(wg as any);
-      if (!wgMetrics) return null;
-      const wdCount = getWorkingDaysCount((wg as any).working_days);
       return METRIC_KEYS.reduce((acc, k) => {
-        acc[k] = Math.round((wgMetrics[k] || 0) / wdCount);
+        acc[k] = activeMembers.reduce((sum, m) => {
+          const wg = allMemberWeeklyGoals.find((w: any) => w.member_id === m.id && w.week_number === weekNum);
+          if (!wg) return sum;
+          const wdCount = getWorkingDaysCount((wg as any).working_days);
+          return sum + Math.round(((wg as any)[k] || 0) / wdCount);
+        }, 0);
         return acc;
       }, {} as Record<string, number>);
     }
     return null;
-  }, [allSdrPeriod, teamGoals, teamWeeklyGoals, weeksOfMonth, allSdrWeekIdx, allSdrDate]);
+  }, [allSdrPeriod, allMemberMonthlyGoals, allMemberWeeklyGoals, members, weeksOfMonth, allSdrWeekIdx, allSdrDate]);
 
   // Helper: get individual member goal for current period (uses real DB goals per member)
   const getMemberGoal = useMemo(() => {
