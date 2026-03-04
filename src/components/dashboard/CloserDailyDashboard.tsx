@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useMonths, useDailyMetrics, useWeeklyGoals } from "@/hooks/use-metrics";
 import { METRIC_KEYS, SDR_METRIC_KEYS, CLOSER_METRIC_KEYS, METRIC_LABELS, sumMetrics, getWorkingDaysCount } from "@/lib/db";
 import { supabase } from "@/integrations/supabase/client";
-import { format } from "date-fns";
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -249,6 +249,159 @@ export function CloserDailyDashboard({ teamMemberId, memberName, memberRole = "s
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* Lead History */}
+      <LeadHistoryPanel teamMemberId={teamMemberId} />
+    </div>
+  );
+}
+
+/* ========== Lead History Panel ========== */
+
+type LeadFilterMode = "day" | "week" | "month";
+
+function LeadHistoryPanel({ teamMemberId }: { teamMemberId: string }) {
+  const [leads, setLeads] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filterMode, setFilterMode] = useState<LeadFilterMode>("day");
+  const [filterDate, setFilterDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [searchTerm, setSearchTerm] = useState("");
+
+  useEffect(() => {
+    const fetchLeads = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("lead_entries")
+        .select("*")
+        .eq("member_id", teamMemberId)
+        .order("date", { ascending: false })
+        .order("created_at", { ascending: false });
+      if (!error && data) setLeads(data);
+      setLoading(false);
+    };
+    fetchLeads();
+  }, [teamMemberId]);
+
+  const filteredLeads = useMemo(() => {
+    let result = leads;
+    const refDate = new Date(filterDate + "T12:00:00");
+
+    if (filterMode === "day") {
+      result = result.filter(l => l.date === filterDate);
+    } else if (filterMode === "week") {
+      const ws = format(startOfWeek(refDate, { weekStartsOn: 0 }), "yyyy-MM-dd");
+      const we = format(endOfWeek(refDate, { weekStartsOn: 0 }), "yyyy-MM-dd");
+      result = result.filter(l => l.date >= ws && l.date <= we);
+    } else if (filterMode === "month") {
+      const ms = format(startOfMonth(refDate), "yyyy-MM-dd");
+      const me = format(endOfMonth(refDate), "yyyy-MM-dd");
+      result = result.filter(l => l.date >= ms && l.date <= me);
+    }
+
+    if (searchTerm.trim()) {
+      const s = searchTerm.toLowerCase();
+      result = result.filter(l =>
+        l.lead_name?.toLowerCase().includes(s) ||
+        l.whatsapp?.includes(s) ||
+        l.social_link?.toLowerCase().includes(s)
+      );
+    }
+    return result;
+  }, [leads, filterMode, filterDate, searchTerm]);
+
+  const FILTERS: { id: LeadFilterMode; label: string }[] = [
+    { id: "day", label: "Dia" },
+    { id: "week", label: "Semana" },
+    { id: "month", label: "Mês" },
+  ];
+
+  if (loading) return null;
+  if (leads.length === 0) return null;
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <ClipboardList size={14} className="text-primary" />
+          <h3 className="text-xs font-bold text-card-foreground uppercase tracking-wider">Meus Leads</h3>
+          <span className="text-[9px] text-muted-foreground">({filteredLeads.length})</span>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex bg-secondary/50 rounded-lg p-0.5">
+          {FILTERS.map(f => (
+            <button
+              key={f.id}
+              onClick={() => setFilterMode(f.id)}
+              className={cn(
+                "px-2.5 py-1 text-[10px] font-semibold rounded-md transition-all",
+                filterMode === f.id
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <input
+          type="date"
+          value={filterDate}
+          onChange={e => setFilterDate(e.target.value)}
+          className="text-[10px] bg-secondary border border-border rounded-lg px-2 py-1 text-secondary-foreground outline-none focus:ring-1 focus:ring-primary"
+        />
+        <input
+          value={searchTerm}
+          onChange={e => setSearchTerm(e.target.value)}
+          placeholder="Buscar..."
+          className="flex-1 min-w-[80px] text-[10px] bg-secondary border border-border rounded-lg px-2.5 py-1 text-secondary-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-primary"
+        />
+      </div>
+
+      {/* Lead list */}
+      {filteredLeads.length === 0 ? (
+        <p className="text-[10px] text-muted-foreground text-center py-4">Nenhum lead neste período</p>
+      ) : (
+        <div className="rounded-lg border border-border overflow-hidden max-h-[300px] overflow-y-auto">
+          <div className="grid grid-cols-[1fr_1fr_1fr] gap-0 bg-secondary/40 border-b border-border sticky top-0 z-10">
+            <div className="px-2.5 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider">Nome</div>
+            <div className="px-2.5 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider border-l border-border">WhatsApp</div>
+            <div className="px-2.5 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider border-l border-border">Social</div>
+          </div>
+          {filteredLeads.map((entry: any, idx: number) => (
+            <div
+              key={entry.id}
+              className={cn(
+                "grid grid-cols-[1fr_1fr_1fr] gap-0",
+                idx % 2 === 0 ? "bg-card" : "bg-secondary/10",
+                idx < filteredLeads.length - 1 && "border-b border-border/30"
+              )}
+            >
+              <div className="px-2.5 py-2 text-[10px] text-card-foreground font-medium truncate">
+                <span className="text-[8px] text-muted-foreground mr-1">{format(new Date(entry.date + "T12:00:00"), "dd/MM")}</span>
+                {entry.lead_name || "—"}
+              </div>
+              <div className="px-2.5 py-2 text-[10px] text-card-foreground font-mono border-l border-border/30 truncate">
+                {entry.whatsapp ? (
+                  <a href={`https://wa.me/${entry.whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noreferrer" className="text-accent hover:underline">
+                    {entry.whatsapp}
+                  </a>
+                ) : "—"}
+              </div>
+              <div className="px-2.5 py-2 text-[10px] text-card-foreground border-l border-border/30 truncate">
+                {entry.social_link ? (
+                  <a href={entry.social_link.startsWith("http") ? entry.social_link : `https://${entry.social_link}`}
+                    target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                    {entry.social_link}
+                  </a>
+                ) : "—"}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
