@@ -1240,7 +1240,7 @@ function DataEntryDialog({
 
               {/* Quick presets */}
               <div className="flex gap-2">
-                {[1, 5, 10, 20].map(n => (
+                {(selectedMetric === "follow_up" ? [70, 100, 140, 200] : [1, 5, 10, 20]).map(n => (
                   <button
                     key={n}
                     onClick={() => setQuickQty(n)}
