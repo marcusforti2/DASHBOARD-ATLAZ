@@ -72,9 +72,10 @@ export interface RoleRankingProps {
   dailyMetrics: DbDailyMetric[];
   metricKeys: string[];
   variant: "sdr" | "closer";
+  compact?: boolean;
 }
 
-export function RoleRanking({ title, members, dailyMetrics, metricKeys, variant }: RoleRankingProps) {
+export function RoleRanking({ title, members, dailyMetrics, metricKeys, variant, compact = false }: RoleRankingProps) {
   const rankingMetrics = ["_all", ...metricKeys];
   const rankingLabels: Record<string, string> = { _all: "Todas", ...METRIC_LABELS };
 
@@ -102,13 +103,68 @@ export function RoleRanking({ title, members, dailyMetrics, metricKeys, variant 
   const rest = ranked.slice(3);
 
   const isCloser = variant === "closer";
-  const accentColor = isCloser ? "hsl(280,65%,60%)" : "hsl(var(--primary))";
   const headerBg = isCloser
     ? "bg-[hsl(var(--panel-closer))] border-[hsl(280,30%,18%)] border-l-[3px] border-l-[hsl(var(--panel-closer-accent))]"
     : "bg-[hsl(var(--panel-sdr))] border-[hsl(217,40%,18%)] border-l-[3px] border-l-[hsl(var(--panel-sdr-accent))]";
   const chipClass = isCloser
     ? "text-[hsl(280,65%,80%)] bg-[hsl(280,65%,60%/0.15)] border-[hsl(280,65%,60%/0.3)]"
     : "text-primary-foreground bg-primary/20 border-primary/30";
+
+  // Compact: simplified list ranking, no podium
+  if (compact) {
+    return (
+      <div className={cn("rounded-xl border p-3 space-y-2", headerBg)}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Trophy size={13} className="text-[hsl(45,93%,47%)]" />
+            <h3 className="text-[10px] font-bold text-card-foreground uppercase tracking-wider">{title}</h3>
+          </div>
+          <div className="relative">
+            <select
+              value={metric}
+              onChange={e => setMetric(e.target.value)}
+              className="text-[9px] bg-secondary text-secondary-foreground rounded-md px-2 py-1 border border-border outline-none appearance-none cursor-pointer pr-5 font-medium"
+            >
+              {rankingMetrics.map(m => (
+                <option key={m} value={m}>{rankingLabels[m]}</option>
+              ))}
+            </select>
+            <ChevronDown size={8} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          </div>
+        </div>
+        <div className="space-y-1">
+          {ranked.map((member, idx) => {
+            const pct = maxVal > 0 ? (member.total / maxVal) * 100 : 0;
+            const style = idx < 3 ? PODIUM_STYLES[idx] : null;
+            return (
+              <div key={member.id} className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-secondary/40 transition-colors">
+                <span className={cn("w-4 text-center text-[9px] font-bold tabular-nums", style ? style.text : "text-muted-foreground")}>
+                  {idx < 3 ? PODIUM_STYLES[idx].label : `${idx + 1}º`}
+                </span>
+                <img
+                  src={getMemberAvatar(member, member.originalIndex)}
+                  alt={member.name}
+                  className={cn("rounded-full object-cover shrink-0 border border-border", idx === 0 ? "w-7 h-7" : "w-5 h-5")}
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-semibold text-card-foreground truncate">{member.name}</span>
+                    <span className={cn("text-[10px] font-bold tabular-nums ml-1", style ? style.text : "text-card-foreground")}>{member.total}</span>
+                  </div>
+                  <div className="w-full h-1 rounded-full bg-secondary overflow-hidden mt-0.5">
+                    <div
+                      className={cn("h-full rounded-full transition-all duration-700", style ? `bg-gradient-to-r ${style.bar}` : "bg-muted-foreground/40")}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={cn("rounded-xl border p-5 space-y-5", headerBg)}>
@@ -157,14 +213,12 @@ export function RoleRanking({ title, members, dailyMetrics, metricKeys, variant 
         </div>
       )}
 
-      {/* Single member - no podium needed */}
       {podium.length === 1 && (
         <div className="flex justify-center pt-2">
           <PodiumCard member={podium[0]} originalIndex={podium[0].originalIndex} rank={0} maxVal={maxVal} style={PODIUM_STYLES[0]} height="h-32" isFirst />
         </div>
       )}
 
-      {/* Rest of the ranking */}
       {rest.length > 0 && (
         <div className="space-y-2 pt-1">
           {rest.map((member, idx) => {
@@ -198,7 +252,6 @@ export function RoleRanking({ title, members, dailyMetrics, metricKeys, variant 
         </div>
       )}
 
-      {/* Quick stats toggle */}
       <button
         onClick={() => setShowAllMetrics(!showAllMetrics)}
         className="w-full text-center text-[10px] font-semibold text-primary hover:text-primary/80 transition-colors py-1"
@@ -206,7 +259,6 @@ export function RoleRanking({ title, members, dailyMetrics, metricKeys, variant 
         {showAllMetrics ? "Ocultar detalhes" : "Ver todas as métricas"}
       </button>
 
-      {/* All metrics comparison table */}
       {showAllMetrics && (
         <div className="overflow-x-auto -mx-5 px-5">
           <table className="w-full text-[10px]">
