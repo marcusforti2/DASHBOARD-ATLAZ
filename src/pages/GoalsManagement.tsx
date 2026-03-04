@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMonths, useTeamMembers } from "@/hooks/use-metrics";
-import { METRIC_KEYS, METRIC_LABELS, DbMonth, DbWeeklyGoal, DbMonthlyGoal, DbTeamMember, ALL_WEEKDAYS, DEFAULT_WORKING_DAYS, getWorkingDaysCount } from "@/lib/db";
+import { METRIC_KEYS, METRIC_LABELS, DbMonth, DbWeeklyGoal, DbMonthlyGoal, DbTeamMember, ALL_WEEKDAYS, DEFAULT_WORKING_DAYS, getWorkingDaysCount, SDR_METRIC_KEYS, CLOSER_METRIC_KEYS } from "@/lib/db";
 import { getWeeksOfMonth, getNextMonth, CalendarWeek } from "@/lib/calendar-utils";
 import { MiniCalendar } from "@/components/dashboard/MiniCalendar";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -250,6 +250,13 @@ function MonthGoalsEditor({
   ];
 
   const isViewingTeam = activeTab === "team";
+  const activeMember = members.find(m => m.id === activeTab);
+  const activeRole = activeMember?.member_role || "sdr";
+  const visibleMetricKeys: readonly string[] = isViewingTeam
+    ? METRIC_KEYS
+    : activeRole === "closer"
+      ? CLOSER_METRIC_KEYS
+      : SDR_METRIC_KEYS;
   const currentMonthly = isViewingTeam ? teamMonthly : (localGoals[activeTab]?.monthly || zeroMetrics());
   const currentWeeks = isViewingTeam ? teamWeeks : (localGoals[activeTab]?.weeks || []);
   const currentWorkingDays = isViewingTeam
@@ -323,8 +330,8 @@ function MonthGoalsEditor({
             </button>
           )}
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-          {METRIC_KEYS.map(k => (
+        <div className={`grid gap-2 ${visibleMetricKeys.length <= 3 ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2 sm:grid-cols-5'}`}>
+          {visibleMetricKeys.map(k => (
             <div key={k}>
               <label className="text-[8px] font-semibold text-muted-foreground uppercase tracking-wider block truncate" title={METRIC_LABELS[k]}>{METRIC_LABELS[k]}</label>
               <input
@@ -355,7 +362,7 @@ function MonthGoalsEditor({
             const wd = currentWorkingDays[wi] || DEFAULT_WORKING_DAYS;
             const wdCount = getWorkingDaysCount(wd);
             const wdSet = new Set(wd.split(",").map(d => d.trim()));
-            const daily = METRIC_KEYS.reduce((a, k) => ({ ...a, [k]: wdCount > 0 ? Math.round((wm[k] || 0) / wdCount) : 0 }), {} as MetricValues);
+            const daily = visibleMetricKeys.reduce((a, k) => ({ ...a, [k]: wdCount > 0 ? Math.round((wm[k] || 0) / wdCount) : 0 }), {} as MetricValues);
 
             const toggleDay = (day: string) => {
               const newSet = new Set(wdSet);
@@ -397,8 +404,8 @@ function MonthGoalsEditor({
 
                 {!isViewingTeam ? (
                   <>
-                    <div className="grid grid-cols-5 gap-1.5">
-                      {METRIC_KEYS.map(k => (
+                    <div className={`grid gap-1.5 ${visibleMetricKeys.length <= 3 ? 'grid-cols-3' : 'grid-cols-5'}`}>
+                      {visibleMetricKeys.map(k => (
                         <div key={k}>
                           <label className="text-[7px] font-semibold text-muted-foreground uppercase tracking-wider block truncate" title={METRIC_LABELS[k]}>{METRIC_LABELS[k]}</label>
                           <input
@@ -409,10 +416,10 @@ function MonthGoalsEditor({
                         </div>
                       ))}
                     </div>
-                    {METRIC_KEYS.some(k => daily[k] > 0) && (
+                    {visibleMetricKeys.some(k => daily[k] > 0) && (
                       <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1 border-t border-border/50">
                         <span className="text-[8px] font-semibold text-muted-foreground uppercase">Meta/dia ({wdCount}d):</span>
-                        {METRIC_KEYS.map(k => daily[k] > 0 ? (
+                        {visibleMetricKeys.map(k => daily[k] > 0 ? (
                           <span key={k} className="text-[8px] text-muted-foreground"><span className="text-primary font-semibold">{daily[k]}</span> {METRIC_LABELS[k]}</span>
                         ) : null)}
                       </div>
@@ -421,14 +428,14 @@ function MonthGoalsEditor({
                 ) : (
                   <div className="space-y-1">
                     <div className="flex flex-wrap gap-x-3 gap-y-1">
-                      {METRIC_KEYS.map(k => wm[k] > 0 ? (
+                      {visibleMetricKeys.map(k => wm[k] > 0 ? (
                         <span key={k} className="text-[9px] text-muted-foreground"><span className="text-secondary-foreground font-semibold">{wm[k]}</span> {METRIC_LABELS[k]}</span>
                       ) : null)}
                     </div>
-                    {METRIC_KEYS.some(k => daily[k] > 0) && (
+                    {visibleMetricKeys.some(k => daily[k] > 0) && (
                       <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1 border-t border-border/50">
                         <span className="text-[8px] font-semibold text-muted-foreground uppercase">Diário:</span>
-                        {METRIC_KEYS.map(k => daily[k] > 0 ? (
+                        {visibleMetricKeys.map(k => daily[k] > 0 ? (
                           <span key={k} className="text-[8px] text-muted-foreground"><span className="text-primary font-semibold">{daily[k]}</span> {METRIC_LABELS[k]}</span>
                         ) : null)}
                       </div>
