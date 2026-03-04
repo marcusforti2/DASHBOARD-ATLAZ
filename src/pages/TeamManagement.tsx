@@ -558,8 +558,7 @@ function MemberCard({
   onEdit,
   onToggleActive,
   onDelete,
-  monthId,
-  monthLabel,
+  months,
 }: {
   member: DbTeamMember;
   members: DbTeamMember[];
@@ -568,11 +567,13 @@ function MemberCard({
   onEdit: () => void;
   onToggleActive: () => void;
   onDelete: () => void;
-  monthId?: string;
-  monthLabel?: string;
+  months?: { id: string; label: string }[];
 }) {
   const queryClient = useQueryClient();
   const isCloser = member.member_role === "closer";
+  const [selectedMonthId, setSelectedMonthId] = useState<string | undefined>(months?.[0]?.id);
+  const activeMonthId = selectedMonthId || months?.[0]?.id;
+  const activeMonth = months?.find(m => m.id === activeMonthId);
 
   return (
     <div className={`rounded-xl border overflow-hidden transition-all ${
@@ -637,9 +638,22 @@ function MemberCard({
 
       {isExpanded && (
         <div className="border-t border-border p-4 sm:p-5 space-y-6 bg-secondary/5">
-          <AiCloserAnalysis member={member} monthId={monthId} monthLabel={monthLabel} />
+          {/* Month selector inside expanded */}
+          {months && months.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Período:</span>
+              <div className="relative">
+                <select value={activeMonthId || ""} onChange={e => setSelectedMonthId(e.target.value)}
+                  className="appearance-none bg-secondary text-secondary-foreground text-[10px] font-medium px-2.5 py-1.5 pr-6 rounded-lg border border-border cursor-pointer focus:ring-1 focus:ring-primary outline-none">
+                  {months.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+                </select>
+                <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              </div>
+            </div>
+          )}
+          <AiCloserAnalysis member={member} monthId={activeMonthId} monthLabel={activeMonth?.label} />
           <div className="h-px bg-border" />
-          <BehavioralAnalysis member={member} monthId={monthId} />
+          <BehavioralAnalysis member={member} monthId={activeMonthId} />
         </div>
       )}
     </div>
@@ -654,10 +668,6 @@ export default function TeamManagement() {
   const [showForm, setShowForm] = useState(false);
   const [editingMember, setEditingMember] = useState<DbTeamMember | null>(null);
   const [expandedMember, setExpandedMember] = useState<string | null>(null);
-  const [selectedMonthId, setSelectedMonthId] = useState<string | undefined>();
-
-  const activeMonthId = selectedMonthId || months?.[0]?.id;
-  const activeMonth = months?.find(m => m.id === activeMonthId);
 
   const sdrs = members?.filter(m => m.member_role !== "closer") || [];
   const closers = members?.filter(m => m.member_role === "closer") || [];
@@ -706,19 +716,10 @@ export default function TeamManagement() {
             <span className="text-primary font-semibold">{sdrs.length}</span> SDRs · <span className="text-[hsl(280,65%,65%)] font-semibold">{closers.length}</span> Closers · <span className="text-accent font-semibold">{members?.filter(m => m.active).length || 0}</span> Ativos
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <select value={activeMonthId || ""} onChange={e => setSelectedMonthId(e.target.value)}
-              className="appearance-none bg-secondary text-secondary-foreground text-xs font-medium px-3 py-2 pr-7 rounded-xl border border-border cursor-pointer focus:ring-1 focus:ring-primary outline-none">
-              {months?.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
-            </select>
-            <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-          </div>
-          <button onClick={() => { setEditingMember(null); setShowForm(true); }}
-            className="px-4 py-2 text-xs rounded-xl font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors flex items-center gap-1.5">
-            <Plus size={14} /> Novo Membro
-          </button>
-        </div>
+        <button onClick={() => { setEditingMember(null); setShowForm(true); }}
+          className="px-4 py-2 text-xs rounded-xl font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors flex items-center gap-1.5">
+          <Plus size={14} /> Novo Membro
+        </button>
       </div>
 
       {/* SDR Section */}
@@ -738,7 +739,7 @@ export default function TeamManagement() {
                 onEdit={() => { setEditingMember(member); setShowForm(true); }}
                 onToggleActive={() => handleToggleActive(member)}
                 onDelete={() => handleDelete(member)}
-                monthId={activeMonthId} monthLabel={activeMonth?.label} />
+                months={months} />
             ))}
           </div>
         </div>
@@ -761,7 +762,7 @@ export default function TeamManagement() {
                 onEdit={() => { setEditingMember(member); setShowForm(true); }}
                 onToggleActive={() => handleToggleActive(member)}
                 onDelete={() => handleDelete(member)}
-                monthId={activeMonthId} monthLabel={activeMonth?.label} />
+                months={months} />
             ))}
           </div>
         </div>
