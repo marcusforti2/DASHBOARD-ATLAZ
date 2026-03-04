@@ -47,10 +47,14 @@ function buildMetricsContext(
     .map(k => `${METRIC_LABELS[k]}: faltam ${(goalSums[k] || 0) - (monthSums[k] || 0)}`)
     .join(", ");
 
+  // Format date as dd/mm/aa (Brazilian)
+  const [yyyy, mm, dd] = today.split("-");
+  const dataBr = `${dd}/${mm}/${yyyy.slice(2)}`;
+
   return {
     nome: contactName,
     role: contactRole,
-    data: today,
+    data: dataBr,
     metricsToday,
     metricsMonth,
     faltaMeta: faltaMeta || "Todas as metas batidas! 🎉",
@@ -115,7 +119,7 @@ Agora componha a mensagem personalizada seguindo o template e usando TODOS os da
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
+      model: "google/gemini-2.5-pro",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
