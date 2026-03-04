@@ -41,7 +41,7 @@ Horários de cron (UTC-3 → UTC):
 - 18h BRT = 21 UTC → "0 21 * * 1-5"
 - Toda segunda 9h = "0 12 * * 1"
 
-Público alvo (target_audience): "all" (todos), "sdrs" (só SDRs), "closers" (só Closers)
+Público alvo (target_audience): "all" (todos membros + admins), "sdrs" (só SDRs), "closers" (só Closers), "admins" (só administradores), "team" (só membros da equipe, sem admins)
 
 Responda APENAS com um JSON válido (sem markdown, sem explicação) com esta estrutura:
 {
