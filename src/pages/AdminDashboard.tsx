@@ -74,7 +74,17 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
     return () => document.removeEventListener("fullscreenchange", handler);
   }, []);
 
-  const activeMonthId = selectedMonthId || months?.[0]?.id;
+  // Default to current month (year + month match) or fallback to first
+  const currentMonthFallbackId = useMemo(() => {
+    if (!months || months.length === 0) return undefined;
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+    const match = months.find(m => m.year === currentYear && m.month === currentMonth);
+    return match?.id || months[0]?.id;
+  }, [months]);
+
+  const activeMonthId = selectedMonthId || currentMonthFallbackId;
   const activeMonth = months?.find(m => m.id === activeMonthId);
 
   const weeksOfMonth = useMemo(() => {
