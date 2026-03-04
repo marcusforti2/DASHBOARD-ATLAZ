@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { useTeamMembers } from "@/hooks/use-metrics";
-import { DbTeamMember } from "@/lib/db";
+
+
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -11,29 +11,14 @@ import {
 
 export default function SettingsPage() {
   const { user, profile, isAdmin } = useAuth();
-  const { data: members } = useTeamMembers();
+  
   const queryClient = useQueryClient();
 
   const [fullName, setFullName] = useState(profile?.full_name || "");
   const [saving, setSaving] = useState(false);
 
-  const [profiles, setProfiles] = useState<any[]>([]);
-  const [loadingProfiles, setLoadingProfiles] = useState(false);
 
   useEffect(() => { setFullName(profile?.full_name || ""); }, [profile]);
-
-  useEffect(() => {
-    if (!isAdmin) return;
-    setLoadingProfiles(true);
-    Promise.all([
-      supabase.from("profiles").select("id, full_name, team_member_id"),
-      supabase.from("user_roles").select("user_id").eq("role", "admin"),
-    ]).then(([{ data: allProfiles }, { data: adminRoles }]) => {
-      const adminIds = new Set((adminRoles || []).map(r => r.user_id));
-      setProfiles((allProfiles || []).filter(p => !adminIds.has(p.id)));
-      setLoadingProfiles(false);
-    });
-  }, [isAdmin]);
 
   const handleSaveProfile = async () => {
     if (!user) return;
@@ -44,14 +29,8 @@ export default function SettingsPage() {
     setSaving(false);
   };
 
-  const handleLinkMember = async (profileId: string, memberId: string | null) => {
-    const { error } = await supabase.from("profiles").update({ team_member_id: memberId }).eq("id", profileId);
-    if (error) toast.error(error.message);
-    else {
-      toast.success("Vínculo atualizado!");
-      setProfiles(prev => prev.map(p => p.id === profileId ? { ...p, team_member_id: memberId } : p));
-    }
-  };
+
+
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -91,45 +70,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Admin: Link Users to Team Members */}
-      {isAdmin && (
-        <div className="rounded-xl border border-border bg-card p-5 space-y-4">
-          <div className="flex items-center gap-2">
-            <Link2 size={14} className="text-accent" />
-            <h3 className="text-xs font-semibold text-card-foreground uppercase tracking-wider">Vincular Usuários a SDRs</h3>
-          </div>
-          <p className="text-[10px] text-muted-foreground">
-            Vincule contas de usuário aos membros da equipe para que possam inserir dados e ver seu dashboard.
-          </p>
-          {loadingProfiles ? (
-            <div className="flex justify-center py-4"><Loader2 size={16} className="animate-spin text-primary" /></div>
-          ) : (
-            <div className="space-y-2">
-              {profiles.map(p => (
-                <div key={p.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/30 border border-border">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center">
-                      <span className="text-[10px] font-bold text-primary">{p.full_name?.charAt(0)?.toUpperCase() || "?"}</span>
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-card-foreground">{p.full_name || "Sem nome"}</p>
-                      <p className="text-[9px] text-muted-foreground">{p.id.slice(0, 8)}...</p>
-                    </div>
-                  </div>
-                  <div className="relative">
-                    <select value={p.team_member_id || ""} onChange={e => handleLinkMember(p.id, e.target.value || null)}
-                      className="appearance-none bg-secondary text-secondary-foreground text-[10px] font-medium px-3 py-1.5 pr-6 rounded-lg border border-border cursor-pointer focus:ring-1 focus:ring-primary outline-none">
-                      <option value="">Não vinculado</option>
-                      {members?.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                    </select>
-                    <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+
 
       {/* Admin: Manage Admins */}
       {isAdmin && <AdminManagementSection />}
