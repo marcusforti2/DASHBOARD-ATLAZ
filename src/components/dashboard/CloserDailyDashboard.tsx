@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { useMonths, useDailyMetrics, useWeeklyGoals } from "@/hooks/use-metrics";
+import { useMonths, useDailyMetrics, useWeeklyGoals, useMonthlyGoals } from "@/hooks/use-metrics";
 import { METRIC_KEYS, SDR_METRIC_KEYS, CLOSER_METRIC_KEYS, METRIC_LABELS, sumMetrics, getWorkingDaysCount } from "@/lib/db";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
@@ -42,6 +42,9 @@ export function CloserDailyDashboard({ teamMemberId, memberName, memberRole = "s
 
   const { data: dailyMetrics, isLoading: metricsLoading } = useDailyMetrics(currentMonth?.id);
   const { data: weeklyGoals } = useWeeklyGoals(currentMonth?.id, teamMemberId);
+  const { data: monthlyGoal } = useMonthlyGoals(currentMonth?.id, teamMemberId);
+
+  const [viewMode, setViewMode] = useState<"day" | "week" | "month">("day");
 
   // Find current week goal
   const currentWeekGoal = useMemo(() => {
@@ -82,18 +85,61 @@ export function CloserDailyDashboard({ teamMemberId, memberName, memberRole = "s
     return sumMetrics(entries);
   }, [dailyMetrics, currentWeekGoal, teamMemberId]);
 
-  // Overall day completion %
-  const dayCompletion = useMemo(() => {
-    if (!dailyGoals || !todayMetrics) return 0;
-    const totalGoal = roleMetrics.reduce((s, k) => s + (dailyGoals[k] || 0), 0);
-    const totalActual = roleMetrics.reduce((s, k) => s + (todayMetrics[k] || 0), 0);
+  // Month metrics
+  const monthMetrics = useMemo(() => {
+    if (!dailyMetrics) return null;
+    const entries = dailyMetrics.filter(d => d.member_id === teamMemberId);
+    if (!entries.length) return null;
+    return sumMetrics(entries);
+  }, [dailyMetrics, teamMemberId]);
+
+  // Goals and actuals based on viewMode
+  const currentGoals = useMemo(() => {
+    if (viewMode === "day") return dailyGoals;
+    if (viewMode === "week" && currentWeekGoal) {
+      return roleMetrics.reduce((acc, k) => {
+        acc[k] = (currentWeekGoal as any)[k] || 0;
+        return acc;
+      }, {} as Record<string, number>);
+    }
+    if (viewMode === "month" && monthlyGoal) {
+      return roleMetrics.reduce((acc, k) => {
+        acc[k] = (monthlyGoal as any)[k] || 0;
+        return acc;
+      }, {} as Record<string, number>);
+    }
+    return null;
+  }, [viewMode, dailyGoals, currentWeekGoal, monthlyGoal, roleMetrics]);
+
+  const currentActuals = useMemo(() => {
+    if (viewMode === "day") return todayMetrics;
+    if (viewMode === "week") return weekMetrics;
+    return monthMetrics;
+  }, [viewMode, todayMetrics, weekMetrics, monthMetrics]);
+
+  // Overall completion %
+  const completion = useMemo(() => {
+    if (!currentGoals || !currentActuals) return 0;
+    const totalGoal = roleMetrics.reduce((s, k) => s + (currentGoals[k] || 0), 0);
+    const totalActual = roleMetrics.reduce((s, k) => s + (currentActuals[k] || 0), 0);
     return totalGoal > 0 ? Math.min(Math.round((totalActual / totalGoal) * 100), 100) : 0;
-  }, [dailyGoals, todayMetrics, roleMetrics]);
+  }, [currentGoals, currentActuals, roleMetrics]);
 
   const achievedCount = useMemo(() => {
-    if (!dailyGoals || !todayMetrics) return 0;
-    return roleMetrics.filter(k => dailyGoals[k] > 0 && (todayMetrics[k] || 0) >= dailyGoals[k]).length;
-  }, [dailyGoals, todayMetrics, roleMetrics]);
+    if (!currentGoals || !currentActuals) return 0;
+    return roleMetrics.filter(k => currentGoals[k] > 0 && (currentActuals[k] || 0) >= currentGoals[k]).length;
+  }, [currentGoals, currentActuals, roleMetrics]);
+
+  const VIEW_LABELS: Record<string, string> = { day: "Dia", week: "Semana", month: "Mês" };
+
+  const periodLabel = useMemo(() => {
+    if (viewMode === "day") return format(today, "EEEE, dd 'de' MMMM", { locale: ptBR });
+    if (viewMode === "week" && currentWeekGoal?.start_date && currentWeekGoal?.end_date) {
+      return `Semana ${currentWeekGoal.week_number} — ${format(new Date(currentWeekGoal.start_date + "T12:00:00"), "dd/MM")} a ${format(new Date(currentWeekGoal.end_date + "T12:00:00"), "dd/MM")}`;
+    }
+    if (viewMode === "month" && currentMonth) return currentMonth.label;
+    return "";
+  }, [viewMode, today, currentWeekGoal, currentMonth]);
 
   if (metricsLoading) {
     return (
@@ -120,7 +166,7 @@ export function CloserDailyDashboard({ teamMemberId, memberName, memberRole = "s
             </h2>
             <p className="text-xs text-muted-foreground mt-1">
               {hasDataToday
-                ? `${achievedCount} de ${roleMetrics.filter(k => (dailyGoals?.[k] || 0) > 0).length} metas batidas hoje`
+                ? `${achievedCount} de ${roleMetrics.filter(k => (currentGoals?.[k] || 0) > 0).length} metas batidas ${viewMode === "day" ? "hoje" : viewMode === "week" ? "na semana" : "no mês"}`
                 : "Nenhum dado inserido hoje — comece agora!"
               }
             </p>
@@ -132,18 +178,18 @@ export function CloserDailyDashboard({ teamMemberId, memberName, memberRole = "s
               <circle cx="40" cy="40" r="34" fill="none" stroke="hsl(var(--secondary))" strokeWidth="6" />
               <circle
                 cx="40" cy="40" r="34" fill="none"
-                stroke={dayCompletion >= 100 ? "hsl(var(--accent))" : "hsl(var(--primary))"}
+                stroke={completion >= 100 ? "hsl(var(--accent))" : "hsl(var(--primary))"}
                 strokeWidth="6" strokeLinecap="round"
                 strokeDasharray={`${2 * Math.PI * 34}`}
-                strokeDashoffset={`${2 * Math.PI * 34 * (1 - dayCompletion / 100)}`}
+                strokeDashoffset={`${2 * Math.PI * 34 * (1 - completion / 100)}`}
                 className="transition-all duration-1000"
               />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className={cn("text-lg font-black tabular-nums", dayCompletion >= 100 ? "text-accent" : "text-primary")}>
-                {dayCompletion}%
+              <span className={cn("text-lg font-black tabular-nums", completion >= 100 ? "text-accent" : "text-primary")}>
+                {completion}%
               </span>
-              {dayCompletion >= 100 && <Flame size={12} className="text-accent" />}
+              {completion >= 100 && <Flame size={12} className="text-accent" />}
             </div>
           </div>
         </div>
@@ -159,16 +205,41 @@ export function CloserDailyDashboard({ teamMemberId, memberName, memberRole = "s
         />
       </div>
 
-      {/* Daily Metric Cards */}
+      {/* Period Filter + Metric Cards */}
       <div>
-        <div className="flex items-center gap-2 mb-3">
-          <Zap size={14} className="text-primary" />
-          <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Progresso do Dia</h3>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Zap size={14} className="text-primary" />
+            <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Progresso</h3>
+          </div>
+          <div className="flex bg-secondary/60 rounded-lg p-0.5 gap-0.5">
+            {(["day", "week", "month"] as const).map(mode => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                className={cn(
+                  "px-3 py-1.5 rounded-md text-[10px] font-bold transition-all",
+                  viewMode === mode
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {VIEW_LABELS[mode]}
+              </button>
+            ))}
+          </div>
         </div>
+
+        {/* Period info */}
+        <p className="text-[9px] text-muted-foreground mb-2.5 flex items-center gap-1">
+          <Calendar size={10} />
+          {periodLabel}
+        </p>
+
         <div className="grid grid-cols-2 md:grid-cols-5 gap-2.5">
           {roleMetrics.map(k => {
-            const goal = dailyGoals?.[k] || 0;
-            const actual = todayMetrics?.[k] || 0;
+            const goal = currentGoals?.[k] || 0;
+            const actual = currentActuals?.[k] || 0;
             const pct = goal > 0 ? Math.min(Math.round((actual / goal) * 100), 100) : 0;
             const achieved = goal > 0 && actual >= goal;
 
@@ -204,54 +275,6 @@ export function CloserDailyDashboard({ teamMemberId, memberName, memberRole = "s
           })}
         </div>
       </div>
-
-      {/* Weekly Summary */}
-      {currentWeekGoal && (
-        <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Trophy size={14} className="text-chart-4" />
-              <h3 className="text-xs font-bold text-card-foreground uppercase tracking-wider">
-                Semana {currentWeekGoal.week_number}
-              </h3>
-            </div>
-            {currentWeekGoal.start_date && currentWeekGoal.end_date && (
-              <span className="text-[9px] text-muted-foreground flex items-center gap-1">
-                <Calendar size={10} />
-                {format(new Date(currentWeekGoal.start_date + "T12:00:00"), "dd/MM")} — {format(new Date(currentWeekGoal.end_date + "T12:00:00"), "dd/MM")}
-              </span>
-            )}
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-            {roleMetrics.map(k => {
-              const goal = (currentWeekGoal as any)[k] || 0;
-              const actual = weekMetrics?.[k] || 0;
-              const pct = goal > 0 ? Math.round((actual / goal) * 100) : 0;
-              const achieved = pct >= 100;
-
-              return (
-                <div key={k} className="rounded-lg bg-secondary/40 p-2.5 text-center">
-                  <p className="text-[8px] font-semibold text-muted-foreground uppercase tracking-wider">{METRIC_LABELS[k]}</p>
-                  <p className={cn("text-sm font-black tabular-nums mt-1", achieved ? "text-accent" : "text-card-foreground")}>
-                    {actual}<span className="text-[9px] text-muted-foreground font-normal">/{goal}</span>
-                  </p>
-                  <div className="flex items-center justify-center gap-1 mt-1">
-                    {achieved ? (
-                      <CheckCircle2 size={9} className="text-accent" />
-                    ) : pct > 0 ? (
-                      <ArrowUpRight size={9} className="text-primary" />
-                    ) : null}
-                    <span className={cn("text-[9px] font-bold", achieved ? "text-accent" : pct >= 50 ? "text-primary" : "text-muted-foreground")}>
-                      {pct}%
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* Lead History */}
       <LeadHistoryPanel teamMemberId={teamMemberId} />
