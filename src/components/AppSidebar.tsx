@@ -1,4 +1,7 @@
-import { BarChart3, LayoutDashboard, Users, Target, FileText, Eye, Settings, LogOut, ClipboardList, Sparkles, MessageCircle } from "lucide-react";
+import {
+  BarChart3, LayoutDashboard, Users, Target, FileText, Eye, Settings, LogOut,
+  ClipboardList, Sparkles, MessageCircle, BookOpen, Bot
+} from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -15,8 +18,8 @@ import {
 } from "@/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-export type AdminView = "dashboard" | "team" | "goals" | "reports" | "closer-preview" | "settings" | "whatsapp";
-export type CloserView = "entry" | "dashboard" | "daily-goals";
+export type AdminView = "dashboard" | "team" | "goals" | "reports" | "closer-preview" | "settings" | "whatsapp" | "popups" | "knowledge";
+export type CloserView = "hub";
 
 interface AppSidebarProps {
   isAdmin: boolean;
@@ -36,14 +39,14 @@ const adminMainItems = [
 
 const adminSecondaryItems = [
   { id: "whatsapp", title: "WhatsApp", icon: MessageCircle },
+  { id: "popups", title: "Popups", icon: Sparkles },
+  { id: "knowledge", title: "Conhecimento IA", icon: BookOpen },
   { id: "closer-preview", title: "Ver como SDR", icon: Eye },
   { id: "settings", title: "Configurações", icon: Settings },
 ];
 
 const closerItems = [
-  { id: "daily-goals", title: "Meu Dia", icon: Target },
-  { id: "entry", title: "Inserir Dados", icon: ClipboardList },
-  { id: "dashboard", title: "Dashboard Geral", icon: LayoutDashboard },
+  { id: "hub", title: "Meu Painel", icon: LayoutDashboard },
 ];
 
 export function AppSidebar({ isAdmin, activeView, onViewChange, userName, userRole, onSignOut }: AppSidebarProps) {
@@ -73,9 +76,7 @@ export function AppSidebar({ isAdmin, activeView, onViewChange, userName, userRo
         {collapsed ? (
           <Tooltip>
             <TooltipTrigger asChild>{button}</TooltipTrigger>
-            <TooltipContent side="right" className="text-xs">
-              {item.title}
-            </TooltipContent>
+            <TooltipContent side="right" className="text-xs">{item.title}</TooltipContent>
           </Tooltip>
         ) : (
           button
@@ -110,9 +111,7 @@ export function AppSidebar({ isAdmin, activeView, onViewChange, userName, userRo
                 </SidebarGroupLabel>
               )}
               <SidebarGroupContent>
-                <SidebarMenu>
-                  {adminMainItems.map(renderItem)}
-                </SidebarMenu>
+                <SidebarMenu>{adminMainItems.map(renderItem)}</SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
 
@@ -125,9 +124,7 @@ export function AppSidebar({ isAdmin, activeView, onViewChange, userName, userRo
                 </SidebarGroupLabel>
               )}
               <SidebarGroupContent>
-                <SidebarMenu>
-                  {adminSecondaryItems.map(renderItem)}
-                </SidebarMenu>
+                <SidebarMenu>{adminSecondaryItems.map(renderItem)}</SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
           </>
@@ -139,9 +136,7 @@ export function AppSidebar({ isAdmin, activeView, onViewChange, userName, userRo
               </SidebarGroupLabel>
             )}
             <SidebarGroupContent>
-              <SidebarMenu>
-                {closerItems.map(renderItem)}
-              </SidebarMenu>
+              <SidebarMenu>{closerItems.map(renderItem)}</SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
         )}
@@ -153,45 +148,30 @@ export function AppSidebar({ isAdmin, activeView, onViewChange, userName, userRo
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/25 to-accent/15 flex items-center justify-center shrink-0 cursor-default">
-                  <span className="text-[10px] font-bold text-primary">
-                    {userName?.charAt(0)?.toUpperCase() || "U"}
-                  </span>
+                  <span className="text-[10px] font-bold text-primary">{userName?.charAt(0)?.toUpperCase() || "U"}</span>
                 </div>
               </TooltipTrigger>
-              <TooltipContent side="right" className="text-xs">
-                {userName} — {userRole}
-              </TooltipContent>
+              <TooltipContent side="right" className="text-xs">{userName} — {userRole}</TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <button
-                  onClick={onSignOut}
-                  className="p-1.5 rounded-lg text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors"
-                >
+                <button onClick={onSignOut} className="p-1.5 rounded-lg text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors">
                   <LogOut size={14} />
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="right" className="text-xs">
-                Sair
-              </TooltipContent>
+              <TooltipContent side="right" className="text-xs">Sair</TooltipContent>
             </Tooltip>
           </div>
         ) : (
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/25 to-accent/15 flex items-center justify-center shrink-0">
-              <span className="text-[10px] font-bold text-primary">
-                {userName?.charAt(0)?.toUpperCase() || "U"}
-              </span>
+              <span className="text-[10px] font-bold text-primary">{userName?.charAt(0)?.toUpperCase() || "U"}</span>
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[11px] font-semibold text-sidebar-foreground truncate">{userName}</p>
               <p className="text-[8px] text-primary uppercase font-bold tracking-[0.15em]">{userRole}</p>
             </div>
-            <button
-              onClick={onSignOut}
-              className="p-1.5 rounded-lg text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
-              title="Sair"
-            >
+            <button onClick={onSignOut} className="p-1.5 rounded-lg text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0" title="Sair">
               <LogOut size={14} />
             </button>
           </div>
