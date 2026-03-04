@@ -197,11 +197,11 @@ export default function Index() {
 
         <div ref={mainRef} className={`flex-1 flex flex-col min-w-0 ${isFullscreen ? "bg-background" : ""}`}>
           {/* Top bar */}
-          <header className="h-12 flex items-center justify-between border-b border-border px-4 bg-background/80 backdrop-blur-xl sticky top-0 z-50">
-            <div className="flex items-center gap-3">
-              <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
-              <div className="h-5 w-px bg-border" />
-              <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider">
+          <header className="h-11 sm:h-12 flex items-center justify-between border-b border-border px-2 sm:px-4 bg-background/80 backdrop-blur-xl sticky top-0 z-50">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <SidebarTrigger className="text-muted-foreground hover:text-foreground shrink-0" />
+              <div className="h-5 w-px bg-border hidden sm:block" />
+              <h2 className="text-[10px] sm:text-xs font-semibold text-foreground uppercase tracking-wider truncate">
                 {isAdmin ? (
                   adminView === "dashboard" ? "DASHBOARD LSD" :
                   adminView === "team" ? "Equipe" :
@@ -285,7 +285,7 @@ export default function Index() {
           )}
 
           {/* Content */}
-          <main className="flex-1 p-6 max-w-[1600px] mx-auto w-full">
+          <main className="flex-1 p-2 sm:p-4 lg:p-6 max-w-[1600px] mx-auto w-full">
             {renderContent()}
           </main>
         </div>
