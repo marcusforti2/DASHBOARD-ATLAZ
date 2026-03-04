@@ -240,32 +240,8 @@ serve(async (req) => {
       return text;
     }
 
-    // Build default message when no template
-    function buildDefaultMessage(name: string, role: string, metricKeys: string[], todaySums: Record<string, number>, monthSums: Record<string, number>, individualGoal: Record<string, number>): string {
-      let msg = `📊 *Relatório - ${name}*\n📅 ${today}\n\n`;
-
-      if (includeMetrics) {
-        msg += `*Hoje:*\n`;
-        metricKeys.forEach(k => { msg += `  ${METRIC_LABELS[k]}: ${todaySums[k] || 0}\n`; });
-
-        msg += `\n*Acumulado do Mês:*\n`;
-        metricKeys.forEach(k => {
-          const goal = individualGoal[k] || 0;
-          const done = monthSums[k] || 0;
-          const pct = goal > 0 ? Math.round((done / goal) * 100) : 0;
-          const emoji = pct >= 100 ? "✅" : pct >= 70 ? "🟡" : "🔴";
-          msg += `  ${emoji} ${METRIC_LABELS[k]}: ${done}/${goal} (${pct}%)\n`;
-        });
-
-        msg += `\n*Falta para a Meta:*\n`;
-        metricKeys.forEach(k => {
-          const remaining = Math.max(0, (individualGoal[k] || 0) - (monthSums[k] || 0));
-          if (remaining > 0) msg += `  ⚡ ${METRIC_LABELS[k]}: faltam ${remaining}\n`;
-        });
-      }
-
-      return msg;
-    }
+    // Fallback template when automation has no template
+    const DEFAULT_TEMPLATE = "Olá {{nome}}! 📊\n\n{{progresso_meta}}";
 
     const results: any[] = [];
 
@@ -296,27 +272,17 @@ serve(async (req) => {
           const individualGoal: Record<string, number> = {};
           metricKeys.forEach(k => { individualGoal[k] = teamGoal ? Math.max(1, Math.round((teamGoal[k] || 0) / sameRoleCount)) : 0; });
 
-          if (messageTemplate) {
-            finalMessage = fillTemplate(messageTemplate, contactName, contactRole, {
-              today: todaySums,
-              month: monthSums,
-              goal: individualGoal,
-            });
-          } else {
-            finalMessage = buildDefaultMessage(contactName, contactRole, metricKeys, todaySums, monthSums, individualGoal);
-          }
+          finalMessage = fillTemplate(messageTemplate || DEFAULT_TEMPLATE, contactName, contactRole, {
+            today: todaySums,
+            month: monthSums,
+            goal: individualGoal,
+          });
         } else if (contact.user_id) {
           // Admin contact
           contactName = profileMap.get(contact.user_id) || "Admin";
           contactRole = "admin";
 
-          if (messageTemplate) {
-            // For admins, fill with team-level data
-            finalMessage = fillTemplate(messageTemplate, contactName, contactRole);
-          } else {
-            finalMessage = buildDefaultMessage(contactName, contactRole, ALL_KEYS, teamTodaySums, teamMonthSums,
-              Object.fromEntries(ALL_KEYS.map(k => [k, teamGoal?.[k] || 0])));
-          }
+          finalMessage = fillTemplate(messageTemplate || DEFAULT_TEMPLATE, contactName, contactRole);
         } else {
           continue;
         }
