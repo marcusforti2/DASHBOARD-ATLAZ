@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useMonths, useTeamMembers, useMonthlyGoals, useWeeklyGoals, useDailyMetrics, useAiReports } from "@/hooks/use-metrics";
-import { sumMetrics, goalToMetrics, METRIC_LABELS, METRIC_KEYS, DbDailyMetric, DbTeamMember, getWorkingDaysCount, getMemberAvatar } from "@/lib/db";
+import { sumMetrics, goalToMetrics, METRIC_LABELS, METRIC_KEYS, SDR_METRIC_KEYS, CLOSER_METRIC_KEYS, DbDailyMetric, DbTeamMember, getWorkingDaysCount, getMemberAvatar } from "@/lib/db";
 import { getWeeksOfMonth } from "@/lib/calendar-utils";
 import { KpiGrid } from "@/components/dashboard/KpiGrid";
 import { WeeklyComparisonChart } from "@/components/dashboard/WeeklyComparisonChart";
@@ -150,15 +150,22 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
     return result;
   }, [dailyMetrics, allSdrPeriod, allSdrDate, allSdrWeekIdx, weeksOfMonth]);
 
-  // All SDRs per-member breakdown
-  const allSdrByMember = useMemo(() => {
-    if (!members) return [];
-    return members.map(m => ({
-      ...m,
-      totals: sumMetrics(allSdrMetrics, m.id),
-      grandTotal: METRIC_KEYS.reduce((s, k) => s + (sumMetrics(allSdrMetrics, m.id)[k] || 0), 0),
-    })).sort((a, b) => b.grandTotal - a.grandTotal);
-  }, [members, allSdrMetrics]);
+  // All SDRs per-member breakdown — split by role
+  const sdrMembersList = useMemo(() => members?.filter(m => m.member_role === "sdr") || [], [members]);
+  const closerMembersList = useMemo(() => members?.filter(m => m.member_role === "closer") || [], [members]);
+
+  const allSdrByRole = useMemo(() => {
+    const mapMembers = (list: DbTeamMember[], keys: readonly string[]) =>
+      list.map(m => ({
+        ...m,
+        totals: sumMetrics(allSdrMetrics, m.id),
+        grandTotal: keys.reduce((s, k) => s + (sumMetrics(allSdrMetrics, m.id)[k] || 0), 0),
+      })).sort((a, b) => b.grandTotal - a.grandTotal);
+    return {
+      sdrs: mapMembers(sdrMembersList, SDR_METRIC_KEYS),
+      closers: mapMembers(closerMembersList, CLOSER_METRIC_KEYS),
+    };
+  }, [sdrMembersList, closerMembersList, allSdrMetrics]);
   const allSdrTotals = useMemo(() => allSdrMetrics.length > 0 ? sumMetrics(allSdrMetrics) : {}, [allSdrMetrics]);
 
   // All SDRs goals based on period
@@ -262,9 +269,9 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
 
       {/* === 3 COLLAPSIBLE KPI PANELS === */}
 
-      {/* Panel 1: Visão Geral — Todos os SDRs (FIRST) */}
+      {/* Panel 1: Visão Geral — Equipe */}
       <CollapsiblePanel
-        title="Visão Geral — Todos os SDRs"
+        title="Visão Geral — Equipe"
         subtitle={
           allSdrPeriod === "month" ? activeMonth?.label :
           allSdrPeriod === "week" && weeksOfMonth[allSdrWeekIdx] ? `Semana ${weeksOfMonth[allSdrWeekIdx].weekNumber}` :
@@ -289,56 +296,101 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
           {/* Overall totals */}
           <KpiGrid totals={allSdrTotals} goals={allSdrGoals} onCardClick={(key) => { setMetricModalKey(key); setMetricModalSource("general"); }} compact />
 
-          {/* Per-SDR breakdown */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-[10px]">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left py-2 text-muted-foreground font-semibold uppercase tracking-wider">SDR</th>
-                  {METRIC_KEYS.map(k => (
-                    <th key={k} className="text-right py-2 text-muted-foreground font-semibold uppercase tracking-wider whitespace-nowrap px-1.5">
-                      {METRIC_LABELS[k].substring(0, 8)}
-                    </th>
-                  ))}
-                  <th className="text-right py-2 text-muted-foreground font-semibold uppercase tracking-wider px-1.5">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {allSdrByMember.map((member, idx) => (
-                  <tr key={member.id} onClick={() => setSdrModalMemberId(member.id)} className={cn(
-                    "border-b border-border/50 hover:bg-secondary/30 transition-colors cursor-pointer",
-                    idx === 0 && "bg-[hsl(45,93%,47%)]/5"
-                  )}>
-                    <td className="py-2.5 text-card-foreground whitespace-nowrap font-semibold">
-                      <div className="flex items-center gap-2">
-                        <img
-                          src={getMemberAvatar(members?.find(m => m.id === member.id) || { id: member.id, name: member.name, active: true }, idx)}
-                          alt={member.name}
-                          className="w-6 h-6 rounded-full object-cover shrink-0 border border-border"
-                        />
-                        <span className="text-xs">{member.name}</span>
-                      </div>
-                    </td>
-                    {METRIC_KEYS.map(k => {
-                      const val = member.totals[k] || 0;
-                      const isTop = allSdrByMember.every(r => (r.totals[k] || 0) <= val) && val > 0;
-                      return (
-                        <td key={k} className={cn(
-                          "text-right py-2.5 tabular-nums px-1.5",
-                          isTop ? "text-[hsl(45,93%,47%)] font-bold" : val > 0 ? "text-card-foreground" : "text-muted-foreground/30"
-                        )}>
-                          {val}
+          {/* SDR breakdown */}
+          {allSdrByRole.sdrs.length > 0 && (
+            <div className="rounded-xl p-3 bg-[hsl(var(--panel-sdr))] border border-[hsl(217,40%,18%)] border-l-[3px] border-l-[hsl(var(--panel-sdr-accent))]">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-[8px] font-bold uppercase tracking-widest text-primary-foreground bg-primary/20 px-2 py-0.5 rounded-full border border-primary/30">SDR</span>
+                <div className="flex-1 h-px bg-primary/20" />
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-[10px]">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-2 text-[hsl(217,70%,70%)] font-semibold uppercase tracking-wider">SDR</th>
+                      {SDR_METRIC_KEYS.map(k => (
+                        <th key={k} className="text-right py-2 text-[hsl(217,70%,70%)] font-semibold uppercase tracking-wider whitespace-nowrap px-1.5">
+                          {METRIC_LABELS[k]?.substring(0, 8)}
+                        </th>
+                      ))}
+                      <th className="text-right py-2 text-[hsl(217,70%,70%)] font-semibold uppercase tracking-wider px-1.5">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allSdrByRole.sdrs.map((member, idx) => (
+                      <tr key={member.id} onClick={() => setSdrModalMemberId(member.id)} className={cn(
+                        "border-b border-border/50 hover:bg-secondary/30 transition-colors cursor-pointer",
+                        idx === 0 && "bg-[hsl(45,93%,47%)]/5"
+                      )}>
+                        <td className="py-2.5 text-card-foreground whitespace-nowrap font-semibold">
+                          <div className="flex items-center gap-2">
+                            <img src={getMemberAvatar(member, idx)} alt={member.name} className="w-6 h-6 rounded-full object-cover shrink-0 border border-border" />
+                            <span className="text-xs">{member.name}</span>
+                          </div>
                         </td>
-                      );
-                    })}
-                    <td className="text-right py-2.5 tabular-nums px-1.5 font-bold text-card-foreground">
-                      {member.grandTotal}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                        {SDR_METRIC_KEYS.map(k => {
+                          const val = member.totals[k] || 0;
+                          const isTop = allSdrByRole.sdrs.every(r => (r.totals[k] || 0) <= val) && val > 0;
+                          return (
+                            <td key={k} className={cn("text-right py-2.5 tabular-nums px-1.5", isTop ? "text-[hsl(45,93%,47%)] font-bold" : val > 0 ? "text-card-foreground" : "text-muted-foreground/30")}>{val}</td>
+                          );
+                        })}
+                        <td className="text-right py-2.5 tabular-nums px-1.5 font-bold text-card-foreground">{member.grandTotal}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Closer breakdown */}
+          {allSdrByRole.closers.length > 0 && (
+            <div className="rounded-xl p-3 bg-[hsl(var(--panel-closer))] border border-[hsl(280,30%,18%)] border-l-[3px] border-l-[hsl(var(--panel-closer-accent))]">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-[8px] font-bold uppercase tracking-widest text-[hsl(280,65%,80%)] bg-[hsl(280,65%,60%/0.15)] px-2 py-0.5 rounded-full border border-[hsl(280,65%,60%/0.3)]">CLOSER</span>
+                <div className="flex-1 h-px bg-[hsl(280,65%,60%/0.2)]" />
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-[10px]">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-2 text-[hsl(280,65%,70%)] font-semibold uppercase tracking-wider">Closer</th>
+                      {CLOSER_METRIC_KEYS.map(k => (
+                        <th key={k} className="text-right py-2 text-[hsl(280,65%,70%)] font-semibold uppercase tracking-wider whitespace-nowrap px-1.5">
+                          {METRIC_LABELS[k]?.substring(0, 8)}
+                        </th>
+                      ))}
+                      <th className="text-right py-2 text-[hsl(280,65%,70%)] font-semibold uppercase tracking-wider px-1.5">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allSdrByRole.closers.map((member, idx) => (
+                      <tr key={member.id} onClick={() => setSdrModalMemberId(member.id)} className={cn(
+                        "border-b border-border/50 hover:bg-secondary/30 transition-colors cursor-pointer",
+                        idx === 0 && "bg-[hsl(45,93%,47%)]/5"
+                      )}>
+                        <td className="py-2.5 text-card-foreground whitespace-nowrap font-semibold">
+                          <div className="flex items-center gap-2">
+                            <img src={getMemberAvatar(member, idx)} alt={member.name} className="w-6 h-6 rounded-full object-cover shrink-0 border border-border" />
+                            <span className="text-xs">{member.name}</span>
+                          </div>
+                        </td>
+                        {CLOSER_METRIC_KEYS.map(k => {
+                          const val = member.totals[k] || 0;
+                          const isTop = allSdrByRole.closers.every(r => (r.totals[k] || 0) <= val) && val > 0;
+                          return (
+                            <td key={k} className={cn("text-right py-2.5 tabular-nums px-1.5", isTop ? "text-[hsl(45,93%,47%)] font-bold" : val > 0 ? "text-card-foreground" : "text-muted-foreground/30")}>{val}</td>
+                          );
+                        })}
+                        <td className="text-right py-2.5 tabular-nums px-1.5 font-bold text-card-foreground">{member.grandTotal}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       </CollapsiblePanel>
 
