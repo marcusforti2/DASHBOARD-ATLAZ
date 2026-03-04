@@ -95,6 +95,9 @@ export const METRIC_KEYS = [
   "numero", "lig_agendada", "lig_realizada", "reuniao_agendada", "reuniao_realizada"
 ] as const;
 
+export const SDR_METRIC_KEYS = ["conexoes", "conexoes_aceitas", "abordagens", "inmail", "follow_up", "numero", "lig_agendada"] as const;
+export const CLOSER_METRIC_KEYS = ["lig_realizada", "reuniao_agendada", "reuniao_realizada"] as const;
+
 export const METRIC_LABELS: Record<string, string> = {
   conexoes: "Conexões",
   conexoes_aceitas: "Conexões Aceitas",
