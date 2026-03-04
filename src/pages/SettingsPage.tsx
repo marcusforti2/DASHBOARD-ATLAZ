@@ -154,6 +154,9 @@ export default function SettingsPage() {
 
       {/* Admin: WhatsApp */}
       {isAdmin && <WhatsAppSection members={members || []} />}
+
+      {/* Admin: Automações WhatsApp */}
+      {isAdmin && <WhatsAppAutomationsPanel />}
     </div>
   );
 }
@@ -523,6 +526,111 @@ function WhatsAppSection({ members }: { members: DbTeamMember[] }) {
             {sending ? <Loader2 size={10} className="animate-spin" /> : <Send size={10} />}
             Enviar Teste
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- WhatsApp Automations Panel ---
+function WhatsAppAutomationsPanel() {
+  const [triggeringReport, setTriggeringReport] = useState(false);
+  const [lastResult, setLastResult] = useState<any>(null);
+
+  const handleTriggerDailyReport = async () => {
+    setTriggeringReport(true);
+    setLastResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("daily-whatsapp-report", {
+        body: {},
+      });
+      if (error) {
+        toast.error("Erro: " + error.message);
+        setLastResult({ error: error.message });
+      } else if (data?.error) {
+        toast.error("Erro: " + data.error);
+        setLastResult({ error: data.error });
+      } else {
+        const successCount = data?.results?.filter((r: any) => r.success).length || 0;
+        const totalCount = data?.results?.length || 0;
+        toast.success(`Relatório enviado para ${successCount}/${totalCount} contatos!`);
+        setLastResult(data);
+      }
+    } catch (e: any) {
+      toast.error("Erro inesperado: " + e.message);
+      setLastResult({ error: e.message });
+    }
+    setTriggeringReport(false);
+  };
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+      <div className="flex items-center gap-2">
+        <MessageCircle size={14} className="text-green-500" />
+        <h3 className="text-xs font-semibold text-card-foreground uppercase tracking-wider">Automações WhatsApp</h3>
+      </div>
+
+      {/* Daily Report Automation */}
+      <div className="rounded-lg border border-border bg-secondary/20 p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-green-500/15 flex items-center justify-center">
+              <Send size={16} className="text-green-500" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-card-foreground">Relatório Diário com IA</p>
+              <p className="text-[10px] text-muted-foreground">
+                Envia métricas do dia, progresso da meta e dicas de IA para cada membro às 18h
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 text-[9px] font-semibold rounded-full bg-green-500/15 text-green-600">
+              ⏰ 18:00 diário
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 pt-2 border-t border-border">
+          <button
+            onClick={handleTriggerDailyReport}
+            disabled={triggeringReport}
+            className="px-4 py-2 text-[10px] rounded-lg font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 flex items-center gap-1.5 transition-colors"
+          >
+            {triggeringReport ? <Loader2 size={10} className="animate-spin" /> : <Send size={10} />}
+            {triggeringReport ? "Enviando..." : "Disparar Agora (Teste)"}
+          </button>
+          <p className="text-[9px] text-muted-foreground">
+            Envia para todos os contatos cadastrados com número
+          </p>
+        </div>
+
+        {/* Results */}
+        {lastResult && (
+          <div className="rounded-lg border border-border bg-secondary/50 p-3 space-y-1">
+            <p className="text-[10px] font-semibold text-card-foreground">Resultado:</p>
+            {lastResult.error ? (
+              <p className="text-[10px] text-destructive">❌ {lastResult.error}</p>
+            ) : (
+              <div className="space-y-1">
+                {lastResult.results?.map((r: any, i: number) => (
+                  <div key={i} className="flex items-center gap-2 text-[10px]">
+                    <span>{r.success ? "✅" : "❌"}</span>
+                    <span className="text-card-foreground font-medium">{r.member}</span>
+                    <span className="text-muted-foreground">→ {r.phone}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Placeholder for future automations */}
+      <div className="rounded-lg border border-dashed border-border p-4 flex items-center justify-center">
+        <div className="text-center space-y-1">
+          <Plus size={16} className="mx-auto text-muted-foreground" />
+          <p className="text-[10px] text-muted-foreground">Em breve: Crie automações personalizadas com IA</p>
         </div>
       </div>
     </div>
