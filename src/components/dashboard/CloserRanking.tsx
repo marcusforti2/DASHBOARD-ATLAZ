@@ -1,4 +1,4 @@
-import { DbDailyMetric, DbTeamMember, sumMetrics, METRIC_LABELS, METRIC_KEYS, getMemberAvatar } from "@/lib/db";
+import { DbDailyMetric, DbTeamMember, sumMetrics, METRIC_LABELS, METRIC_KEYS, SDR_METRIC_KEYS, CLOSER_METRIC_KEYS, getMemberAvatar } from "@/lib/db";
 import { Trophy, Medal, Crown, Flame, Star, ChevronDown } from "lucide-react";
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
@@ -7,13 +7,6 @@ interface CloserRankingProps {
   dailyMetrics: DbDailyMetric[];
   members: DbTeamMember[];
 }
-
-const RANKING_METRICS = ["_all", "follow_up", "conexoes", "reuniao_realizada", "lig_realizada", "abordagens", "conexoes_aceitas", "inmail", "numero", "lig_agendada", "reuniao_agendada"];
-
-const RANKING_LABELS: Record<string, string> = {
-  _all: "Todas",
-  ...METRIC_LABELS,
-};
 
 const PODIUM_STYLES = [
   {
@@ -46,6 +39,45 @@ const PODIUM_STYLES = [
 ];
 
 export function CloserRanking({ dailyMetrics, members }: CloserRankingProps) {
+  const sdrMembers = members.filter(m => m.member_role === "sdr");
+  const closerMembers = members.filter(m => m.member_role === "closer");
+
+  return (
+    <div className="flex flex-col gap-4">
+      {sdrMembers.length > 0 && (
+        <RoleRanking
+          title="Ranking SDRs"
+          members={sdrMembers}
+          dailyMetrics={dailyMetrics}
+          metricKeys={[...SDR_METRIC_KEYS]}
+          variant="sdr"
+        />
+      )}
+      {closerMembers.length > 0 && (
+        <RoleRanking
+          title="Ranking Closers"
+          members={closerMembers}
+          dailyMetrics={dailyMetrics}
+          metricKeys={[...CLOSER_METRIC_KEYS]}
+          variant="closer"
+        />
+      )}
+    </div>
+  );
+}
+
+interface RoleRankingProps {
+  title: string;
+  members: DbTeamMember[];
+  dailyMetrics: DbDailyMetric[];
+  metricKeys: string[];
+  variant: "sdr" | "closer";
+}
+
+function RoleRanking({ title, members, dailyMetrics, metricKeys, variant }: RoleRankingProps) {
+  const rankingMetrics = ["_all", ...metricKeys];
+  const rankingLabels: Record<string, string> = { _all: "Todas", ...METRIC_LABELS };
+
   const [metric, setMetric] = useState("_all");
   const [showAllMetrics, setShowAllMetrics] = useState(false);
 
@@ -53,7 +85,7 @@ export function CloserRanking({ dailyMetrics, members }: CloserRankingProps) {
     return members
       .map((m, originalIdx) => {
         const totals = sumMetrics(dailyMetrics, m.id);
-        const allTotal = METRIC_KEYS.reduce((s, k) => s + (totals[k] || 0), 0);
+        const allTotal = metricKeys.reduce((s, k) => s + (totals[k] || 0), 0);
         return {
           ...m,
           originalIndex: originalIdx,
@@ -63,14 +95,23 @@ export function CloserRanking({ dailyMetrics, members }: CloserRankingProps) {
         };
       })
       .sort((a, b) => b.total - a.total);
-  }, [members, dailyMetrics, metric]);
+  }, [members, dailyMetrics, metric, metricKeys]);
 
   const maxVal = ranked[0]?.total || 1;
   const podium = ranked.slice(0, 3);
   const rest = ranked.slice(3);
 
+  const isCloser = variant === "closer";
+  const accentColor = isCloser ? "hsl(280,65%,60%)" : "hsl(var(--primary))";
+  const headerBg = isCloser
+    ? "bg-[hsl(var(--panel-closer))] border-[hsl(280,30%,18%)] border-l-[3px] border-l-[hsl(var(--panel-closer-accent))]"
+    : "bg-[hsl(var(--panel-sdr))] border-[hsl(217,40%,18%)] border-l-[3px] border-l-[hsl(var(--panel-sdr-accent))]";
+  const chipClass = isCloser
+    ? "text-[hsl(280,65%,80%)] bg-[hsl(280,65%,60%/0.15)] border-[hsl(280,65%,60%/0.3)]"
+    : "text-primary-foreground bg-primary/20 border-primary/30";
+
   return (
-    <div className="rounded-xl border border-border bg-card p-5 space-y-5">
+    <div className={cn("rounded-xl border p-5 space-y-5", headerBg)}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
@@ -78,8 +119,13 @@ export function CloserRanking({ dailyMetrics, members }: CloserRankingProps) {
             <Trophy size={16} className="text-[hsl(45,93%,47%)]" />
           </div>
           <div>
-            <h3 className="text-xs font-bold text-card-foreground uppercase tracking-wider">Ranking SDRs</h3>
-            <p className="text-[9px] text-muted-foreground mt-0.5">{RANKING_LABELS[metric]}</p>
+            <div className="flex items-center gap-2">
+              <h3 className="text-xs font-bold text-card-foreground uppercase tracking-wider">{title}</h3>
+              <span className={cn("text-[8px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border", chipClass)}>
+                {variant.toUpperCase()}
+              </span>
+            </div>
+            <p className="text-[9px] text-muted-foreground mt-0.5">{rankingLabels[metric]}</p>
           </div>
         </div>
         <div className="relative">
@@ -88,8 +134,8 @@ export function CloserRanking({ dailyMetrics, members }: CloserRankingProps) {
             onChange={e => setMetric(e.target.value)}
             className="text-[10px] bg-secondary text-secondary-foreground rounded-lg px-2.5 py-1.5 border border-border outline-none appearance-none cursor-pointer pr-6 font-medium"
           >
-            {RANKING_METRICS.map(m => (
-              <option key={m} value={m}>{RANKING_LABELS[m]}</option>
+            {rankingMetrics.map(m => (
+              <option key={m} value={m}>{rankingLabels[m]}</option>
             ))}
           </select>
           <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
@@ -99,18 +145,22 @@ export function CloserRanking({ dailyMetrics, members }: CloserRankingProps) {
       {/* Podium - Visual */}
       {podium.length >= 2 && (
         <div className="flex items-end justify-center gap-3 pt-2">
-          {/* 2nd place */}
           {podium[1] && (
             <PodiumCard member={podium[1]} originalIndex={podium[1].originalIndex} rank={1} maxVal={maxVal} style={PODIUM_STYLES[1]} height="h-24" />
           )}
-          {/* 1st place */}
           {podium[0] && (
             <PodiumCard member={podium[0]} originalIndex={podium[0].originalIndex} rank={0} maxVal={maxVal} style={PODIUM_STYLES[0]} height="h-32" isFirst />
           )}
-          {/* 3rd place */}
           {podium[2] && (
             <PodiumCard member={podium[2]} originalIndex={podium[2].originalIndex} rank={2} maxVal={maxVal} style={PODIUM_STYLES[2]} height="h-20" />
           )}
+        </div>
+      )}
+
+      {/* Single member - no podium needed */}
+      {podium.length === 1 && (
+        <div className="flex justify-center pt-2">
+          <PodiumCard member={podium[0]} originalIndex={podium[0].originalIndex} rank={0} maxVal={maxVal} style={PODIUM_STYLES[0]} height="h-32" isFirst />
         </div>
       )}
 
@@ -162,24 +212,35 @@ export function CloserRanking({ dailyMetrics, members }: CloserRankingProps) {
           <table className="w-full text-[10px]">
             <thead>
               <tr className="border-b border-border">
-                <th className="text-left py-2 text-muted-foreground font-semibold uppercase tracking-wider">SDR</th>
-                {METRIC_KEYS.map(k => (
+                <th className="text-left py-2 text-muted-foreground font-semibold uppercase tracking-wider">
+                  {variant === "sdr" ? "SDR" : "Closer"}
+                </th>
+                {metricKeys.map(k => (
                   <th key={k} className="text-right py-2 text-muted-foreground font-semibold uppercase tracking-wider whitespace-nowrap px-1.5">
-                    {METRIC_LABELS[k].substring(0, 6)}
+                    {METRIC_LABELS[k]?.substring(0, 8) || k}
                   </th>
                 ))}
+                <th className="text-right py-2 text-muted-foreground font-semibold uppercase tracking-wider whitespace-nowrap px-1.5">
+                  TOTAL
+                </th>
               </tr>
             </thead>
             <tbody>
               {ranked.map((member, idx) => (
                 <tr key={member.id} className={cn("border-b border-border/50", idx < 3 && "font-semibold")}>
                   <td className="py-2 text-card-foreground whitespace-nowrap">
-                    <span className="mr-1">{idx < 3 ? PODIUM_STYLES[idx].label : `${idx + 1}º`}</span>
-                    {member.name}
+                    <div className="flex items-center gap-2">
+                      <img
+                        src={getMemberAvatar(member, member.originalIndex)}
+                        alt={member.name}
+                        className="w-5 h-5 rounded-full object-cover shrink-0 border border-border"
+                      />
+                      <span>{idx < 3 ? PODIUM_STYLES[idx].label : `${idx + 1}º`}</span>
+                      {member.name}
+                    </div>
                   </td>
-                  {METRIC_KEYS.map(k => {
+                  {metricKeys.map(k => {
                     const val = member.allTotals[k] || 0;
-                    // Find if this member is top for this metric
                     const isTop = ranked.every(r => (r.allTotals[k] || 0) <= val) && val > 0;
                     return (
                       <td key={k} className={cn(
@@ -190,6 +251,9 @@ export function CloserRanking({ dailyMetrics, members }: CloserRankingProps) {
                       </td>
                     );
                   })}
+                  <td className="text-right py-2 tabular-nums px-1.5 font-bold text-card-foreground">
+                    {member.allTotal}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -219,7 +283,6 @@ function PodiumCard({
 }) {
   return (
     <div className={cn("flex flex-col items-center gap-2 flex-1 max-w-[120px]")}>
-      {/* Avatar */}
       <div className="relative">
         {isFirst && (
           <Crown size={16} className="absolute -top-4 left-1/2 -translate-x-1/2 text-[hsl(45,93%,47%)] animate-pulse" />
@@ -242,13 +305,9 @@ function PodiumCard({
           {rank + 1}
         </div>
       </div>
-
-      {/* Name */}
       <span className={cn("text-[11px] font-bold text-card-foreground text-center leading-tight truncate w-full", isFirst && "text-xs")}>
         {member.name}
       </span>
-
-      {/* Podium bar */}
       <div className={cn(
         "w-full rounded-t-lg flex items-end justify-center pb-2 transition-all",
         height,
