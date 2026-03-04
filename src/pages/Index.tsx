@@ -95,20 +95,45 @@ export default function Index() {
     );
   }
 
-  const activeView = isAdmin ? adminView : "hub";
-  const isCloserPreview = isAdmin && adminView === "closer-preview";
+  // ── SDR / Closer: full-screen layout WITHOUT sidebar ──
+  if (!isAdmin) {
+    if (!profile?.team_member_id) {
+      return (
+        <div className="flex min-h-screen items-center justify-center bg-background px-4">
+          <div className="text-center space-y-3">
+            <p className="text-sm text-muted-foreground">Seu perfil ainda não foi vinculado a um membro da equipe.</p>
+            <p className="text-xs text-muted-foreground">Peça ao gestor para vincular sua conta.</p>
+            <button onClick={signOut} className="text-xs text-primary hover:text-primary/80">Sair</button>
+          </div>
+        </div>
+      );
+    }
+    const memberRole = members?.find(m => m.id === profile.team_member_id)?.member_role || "sdr";
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <UserHub
+          teamMemberId={profile.team_member_id}
+          memberName={profile.full_name || ""}
+          memberRole={memberRole}
+          onSignOut={signOut}
+        />
+        <MotivationalPopup userRole={role} />
+      </div>
+    );
+  }
+
+  // ── Admin: sidebar layout ──
+  const activeView = adminView;
+  const isCloserPreview = adminView === "closer-preview";
 
   const handleViewChange = (view: string) => {
-    if (isAdmin) {
-      setAdminView(view as AdminView);
-      if (view === "closer-preview" && !previewMemberId && members?.[0]) {
-        setPreviewMemberId(members[0].id);
-      }
+    setAdminView(view as AdminView);
+    if (view === "closer-preview" && !previewMemberId && members?.[0]) {
+      setPreviewMemberId(members[0].id);
     }
   };
 
   const getHeaderTitle = () => {
-    if (!isAdmin) return "Meu Painel";
     switch (adminView) {
       case "dashboard": return "DASHBOARD LSD";
       case "team": return "Equipe";
@@ -124,29 +149,7 @@ export default function Index() {
     }
   };
 
-  const renderContent = () => {
-    if (!isAdmin) {
-      // SDR/Closer unified hub
-      if (!profile?.team_member_id) {
-        return (
-          <div className="text-center py-12 space-y-3">
-            <p className="text-sm text-muted-foreground">Seu perfil ainda não foi vinculado a um membro da equipe.</p>
-            <p className="text-xs text-muted-foreground">Peça ao gestor para vincular sua conta.</p>
-          </div>
-        );
-      }
-      const memberRole = members?.find(m => m.id === profile.team_member_id)?.member_role || "sdr";
-      return (
-        <UserHub
-          teamMemberId={profile.team_member_id}
-          memberName={profile.full_name || ""}
-          memberRole={memberRole}
-          onSignOut={signOut}
-        />
-      );
-    }
-
-    // Admin views
+  const renderAdminContent = () => {
     switch (adminView) {
       case "dashboard":
         return <AdminDashboard onSignOut={signOut} userName={profile?.full_name || ""} />;
@@ -196,7 +199,7 @@ export default function Index() {
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
         <AppSidebar
-          isAdmin={isAdmin}
+          isAdmin={true}
           activeView={activeView}
           onViewChange={handleViewChange}
           userName={profile?.full_name || user.email || ""}
@@ -214,39 +217,41 @@ export default function Index() {
               </h2>
             </div>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={toggleFullscreen}
-                  className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                >
-                  {isFullscreen ? <Minimize size={14} /> : <Maximize size={14} />}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs">
-                {isFullscreen ? "Sair da tela cheia" : "Tela cheia"} <kbd className="ml-1 px-1 py-0.5 rounded bg-muted text-[9px] font-mono">Ctrl+Shift+F</kbd>
-              </TooltipContent>
-            </Tooltip>
-
-            {isCloserPreview && members && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <Eye size={12} className="text-[hsl(38,92%,50%)]" />
-                <span className="text-[10px] text-[hsl(38,92%,50%)] font-semibold uppercase tracking-wider mr-1">Simular:</span>
-                {members.map(m => (
+            <div className="flex items-center gap-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
                   <button
-                    key={m.id}
-                    onClick={() => setPreviewMemberId(m.id)}
-                    className={`px-2.5 py-1 text-[10px] rounded-lg font-semibold uppercase tracking-wider transition-colors ${
-                      previewMemberId === m.id
-                        ? "bg-[hsl(38,92%,50%)] text-background"
-                        : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                    }`}
+                    onClick={toggleFullscreen}
+                    className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
                   >
-                    {m.name}
+                    {isFullscreen ? <Minimize size={14} /> : <Maximize size={14} />}
                   </button>
-                ))}
-              </div>
-            )}
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  {isFullscreen ? "Sair da tela cheia" : "Tela cheia"} <kbd className="ml-1 px-1 py-0.5 rounded bg-muted text-[9px] font-mono">Ctrl+Shift+F</kbd>
+                </TooltipContent>
+              </Tooltip>
+
+              {isCloserPreview && members && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Eye size={12} className="text-[hsl(38,92%,50%)]" />
+                  <span className="text-[10px] text-[hsl(38,92%,50%)] font-semibold uppercase tracking-wider mr-1">Simular:</span>
+                  {members.map(m => (
+                    <button
+                      key={m.id}
+                      onClick={() => setPreviewMemberId(m.id)}
+                      className={`px-2.5 py-1 text-[10px] rounded-lg font-semibold uppercase tracking-wider transition-colors ${
+                        previewMemberId === m.id
+                          ? "bg-[hsl(38,92%,50%)] text-background"
+                          : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                      }`}
+                    >
+                      {m.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </header>
 
           {isCloserPreview && (
@@ -264,12 +269,9 @@ export default function Index() {
           )}
 
           <main className="flex-1 p-2 sm:p-4 lg:p-6 max-w-[1600px] mx-auto w-full">
-            {renderContent()}
+            {renderAdminContent()}
           </main>
         </div>
-
-        {/* Motivational popups for SDR/Closer */}
-        {!isAdmin && role && <MotivationalPopup userRole={role} />}
       </div>
     </SidebarProvider>
   );
