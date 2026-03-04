@@ -66,7 +66,7 @@ export function CloserRanking({ dailyMetrics, members }: CloserRankingProps) {
   );
 }
 
-interface RoleRankingProps {
+export interface RoleRankingProps {
   title: string;
   members: DbTeamMember[];
   dailyMetrics: DbDailyMetric[];
@@ -74,7 +74,7 @@ interface RoleRankingProps {
   variant: "sdr" | "closer";
 }
 
-function RoleRanking({ title, members, dailyMetrics, metricKeys, variant }: RoleRankingProps) {
+export function RoleRanking({ title, members, dailyMetrics, metricKeys, variant }: RoleRankingProps) {
   const rankingMetrics = ["_all", ...metricKeys];
   const rankingLabels: Record<string, string> = { _all: "Todas", ...METRIC_LABELS };
 
