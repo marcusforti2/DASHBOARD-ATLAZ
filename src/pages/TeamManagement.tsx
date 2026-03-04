@@ -549,6 +549,55 @@ function BehavioralAnalysis({ member, monthId }: { member: DbTeamMember; monthId
   );
 }
 
+// ─── Dripify Webhook URLs ────────────────────────────────────────────────
+function DripifyWebhookUrls({ memberId, memberName }: { memberId: string; memberName: string }) {
+  const [copiedAction, setCopiedAction] = useState<string | null>(null);
+  const baseUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/dripify-webhook`;
+
+  const webhookActions = [
+    { action: "conexoes", label: "Conexão Enviada", desc: "Quando o Dripify envia uma solicitação de conexão" },
+    { action: "conexoes_aceitas", label: "Conexão Aceita", desc: "Quando o lead aceita a conexão" },
+    { action: "abordagens", label: "Mensagem/Abordagem", desc: "Quando o Dripify envia uma mensagem" },
+  ];
+
+  const copyUrl = (action: string) => {
+    const url = `${baseUrl}?member_id=${memberId}&action=${action}`;
+    navigator.clipboard.writeText(url);
+    setCopiedAction(action);
+    toast.success("URL copiada!");
+    setTimeout(() => setCopiedAction(null), 2000);
+  };
+
+  return (
+    <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-2.5">
+      <div className="flex items-center gap-2">
+        <Zap size={12} className="text-primary" />
+        <span className="text-[10px] font-bold text-primary uppercase tracking-wider">Webhooks Dripify — {memberName}</span>
+      </div>
+      <p className="text-[10px] text-muted-foreground leading-relaxed">
+        Cole estas URLs no campo de Webhook da campanha do Dripify para capturar métricas automaticamente.
+      </p>
+      <div className="space-y-1.5">
+        {webhookActions.map(({ action, label, desc }) => (
+          <div key={action} className="flex items-center gap-2 group">
+            <div className="flex-1 min-w-0">
+              <span className="text-[10px] font-semibold text-card-foreground">{label}</span>
+              <span className="text-[9px] text-muted-foreground ml-1.5">— {desc}</span>
+            </div>
+            <button
+              onClick={() => copyUrl(action)}
+              className="shrink-0 px-2.5 py-1 rounded-md text-[9px] font-semibold bg-primary/15 text-primary hover:bg-primary/25 transition-colors flex items-center gap-1"
+            >
+              {copiedAction === action ? <Check size={10} /> : <Copy size={10} />}
+              {copiedAction === action ? "Copiado" : "Copiar URL"}
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Member Card ─────────────────────────────────────────────────────────
 function MemberCard({
   member,
@@ -651,6 +700,12 @@ function MemberCard({
               </div>
             </div>
           )}
+
+          {/* Dripify Webhook URLs - only for SDRs */}
+          {member.member_role !== "closer" && (
+            <DripifyWebhookUrls memberId={member.id} memberName={member.name} />
+          )}
+
           <AiCloserAnalysis member={member} monthId={activeMonthId} monthLabel={activeMonth?.label} />
           <div className="h-px bg-border" />
           <BehavioralAnalysis member={member} monthId={activeMonthId} />
