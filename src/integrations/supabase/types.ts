@@ -254,6 +254,47 @@ export type Database = {
           },
         ]
       }
+      lead_entries: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          lead_name: string
+          member_id: string
+          metric_type: string | null
+          social_link: string | null
+          whatsapp: string | null
+        }
+        Insert: {
+          created_at?: string
+          date?: string
+          id?: string
+          lead_name?: string
+          member_id: string
+          metric_type?: string | null
+          social_link?: string | null
+          whatsapp?: string | null
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          lead_name?: string
+          member_id?: string
+          metric_type?: string | null
+          social_link?: string | null
+          whatsapp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_entries_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       monthly_goals: {
         Row: {
           abordagens: number

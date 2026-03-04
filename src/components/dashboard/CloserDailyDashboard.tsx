@@ -11,8 +11,9 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
   Target, TrendingUp, CheckCircle2, Loader2, Plus, Flame,
-  Zap, Trophy, Calendar, ArrowUpRight, Save
+  Zap, Trophy, Calendar, ArrowUpRight, Save, ClipboardList
 } from "lucide-react";
+import { LeadEntrySheet } from "@/components/user/LeadEntrySheet";
 
 const DAY_NAMES: Record<number, string> = { 0: "Dom", 1: "Seg", 2: "Ter", 3: "Qua", 4: "Qui", 5: "Sex", 6: "Sáb" };
 
@@ -277,10 +278,12 @@ function DataEntryDialog({
   );
   const [loading, setLoading] = useState(false);
   const [existingId, setExistingId] = useState<string | null>(null);
+  const [showLeadSheet, setShowLeadSheet] = useState(false);
 
   // Load existing data when dialog opens
   useEffect(() => {
     if (!open || !currentMonthId) return;
+    setShowLeadSheet(false);
     supabase
       .from("daily_metrics")
       .select("*")
@@ -331,7 +334,7 @@ function DataEntryDialog({
     } else {
       toast.success(existingId ? "Dados atualizados! 🎉" : "Dados salvos! 🚀");
       onSaved();
-      setOpen(false);
+      setShowLeadSheet(true);
     }
     setLoading(false);
   };
@@ -357,38 +360,48 @@ function DataEntryDialog({
         </button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md bg-card border-border">
-        <DialogHeader>
-          <DialogTitle className="text-sm font-bold text-card-foreground flex items-center gap-2">
-            <Calendar size={14} className="text-primary" />
-            {format(new Date(todayStr + "T12:00:00"), "EEEE, dd 'de' MMMM", { locale: ptBR })}
-          </DialogTitle>
-        </DialogHeader>
+        {showLeadSheet ? (
+          <LeadEntrySheet
+            teamMemberId={teamMemberId}
+            date={todayStr}
+            onClose={() => { setShowLeadSheet(false); setOpen(false); }}
+          />
+        ) : (
+          <>
+            <DialogHeader>
+              <DialogTitle className="text-sm font-bold text-card-foreground flex items-center gap-2">
+                <Calendar size={14} className="text-primary" />
+                {format(new Date(todayStr + "T12:00:00"), "EEEE, dd 'de' MMMM", { locale: ptBR })}
+              </DialogTitle>
+            </DialogHeader>
 
-        <div className="grid grid-cols-2 gap-3 py-2">
-          {roleMetrics.map(k => (
-            <div key={k}>
-              <label className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                <span>{METRIC_ICONS[k]}</span> {METRIC_LABELS[k]}
-              </label>
-              <input
-                type="number"
-                min={0}
-                value={values[k]}
-                onChange={e => setValues(v => ({ ...v, [k]: parseInt(e.target.value) || 0 }))}
-                className="mt-1 w-full rounded-lg border border-border bg-secondary px-3 py-2.5 text-sm text-secondary-foreground tabular-nums focus:ring-2 focus:ring-primary/50 outline-none transition-all"
-              />
+            <div className="grid grid-cols-2 gap-3 py-2">
+              {roleMetrics.map(k => (
+                <div key={k}>
+                  <label className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                    <span>{METRIC_ICONS[k]}</span> {METRIC_LABELS[k]}
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={values[k]}
+                    onChange={e => setValues(v => ({ ...v, [k]: parseInt(e.target.value) || 0 }))}
+                    className="mt-1 w-full rounded-lg border border-border bg-secondary px-3 py-2.5 text-sm text-secondary-foreground tabular-nums focus:ring-2 focus:ring-primary/50 outline-none transition-all"
+                  />
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
 
-        <button
-          onClick={handleSave}
-          disabled={loading || !currentMonthId}
-          className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 mt-2"
-        >
-          {loading ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-          {existingId ? "Atualizar" : "Salvar"}
-        </button>
+            <button
+              onClick={handleSave}
+              disabled={loading || !currentMonthId}
+              className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 mt-2"
+            >
+              {loading ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+              {existingId ? "Atualizar" : "Salvar"}
+            </button>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );
