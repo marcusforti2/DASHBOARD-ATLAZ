@@ -665,11 +665,53 @@ function DataEntryDialog({
       });
   }, [open, teamMemberId]);
 
-  const handleSelectMetric = (metric: string) => {
+  const handleSelectMetric = async (metric: string) => {
+    // Only "numero" requires lead sheet / audit trail
+    if (metric === "numero") {
+      setSelectedMetric(metric);
+      setEntrySource("manual");
+      setRows([{ lead_name: "", whatsapp: "", social_link: "" }]);
+      setStep("lead-sheet");
+      return;
+    }
+
+    // All other metrics: just increment +1 directly
+    if (!currentMonthId) return;
+    setSaving(true);
     setSelectedMetric(metric);
-    setEntrySource("manual");
-    setRows([{ lead_name: "", whatsapp: "", social_link: "" }]);
-    setStep("lead-sheet");
+
+    const dateObj = new Date(todayStr + "T12:00:00");
+    const dayName = DAY_NAMES[dateObj.getDay()];
+
+    const { data: existing } = await supabase
+      .from("daily_metrics")
+      .select("*")
+      .eq("member_id", teamMemberId)
+      .eq("date", todayStr)
+      .eq("month_id", currentMonthId)
+      .maybeSingle();
+
+    if (existing) {
+      const currentVal = (existing as any)[metric] || 0;
+      await supabase.from("daily_metrics")
+        .update({ [metric]: currentVal + 1 })
+        .eq("id", existing.id);
+    } else {
+      const payload: any = {
+        member_id: teamMemberId,
+        month_id: currentMonthId,
+        date: todayStr,
+        day_of_week: dayName,
+      };
+      roleMetrics.forEach(k => { payload[k] = 0; });
+      payload[metric] = 1;
+      await supabase.from("daily_metrics").insert(payload);
+    }
+
+    toast.success(`+1 ${METRIC_LABELS[metric]} registrado! 🚀`);
+    onSaved();
+    setSaving(false);
+    setSelectedMetric(null);
   };
 
   const handleDripifyUpload = () => {
@@ -990,7 +1032,8 @@ function DataEntryDialog({
                   <button
                     key={k}
                     onClick={() => handleSelectMetric(k)}
-                    className="group relative rounded-xl border border-border bg-secondary/30 hover:bg-primary/10 hover:border-primary/40 p-4 text-left transition-all"
+                    disabled={saving && selectedMetric === k}
+                    className="group relative rounded-xl border border-border bg-secondary/30 hover:bg-primary/10 hover:border-primary/40 p-4 text-left transition-all disabled:opacity-50"
                   >
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-lg">{METRIC_ICONS[k]}</span>
@@ -1001,7 +1044,13 @@ function DataEntryDialog({
                       )}
                     </div>
                     <p className="text-[10px] font-bold text-card-foreground">{METRIC_LABELS[k]}</p>
-                    <ArrowUpRight size={12} className="absolute top-3 right-3 text-muted-foreground/30 group-hover:text-primary transition-colors" />
+                    {k === "numero" ? (
+                      <span className="absolute top-3 right-3 text-[7px] font-bold text-chart-4 bg-chart-4/10 px-1 py-0.5 rounded">📋</span>
+                    ) : saving && selectedMetric === k ? (
+                      <Loader2 size={12} className="absolute top-3 right-3 text-primary animate-spin" />
+                    ) : (
+                      <span className="absolute top-3 right-3 text-[8px] font-bold text-muted-foreground/40 group-hover:text-primary transition-colors">+1</span>
+                    )}
                   </button>
                 );
               })}
