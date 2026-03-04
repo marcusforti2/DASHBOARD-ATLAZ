@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useMonths, useTeamMembers, useMonthlyGoals, useWeeklyGoals, useDailyMetrics, useAiReports } from "@/hooks/use-metrics";
 import { sumMetrics, goalToMetrics, METRIC_LABELS, SHORT_TABLE_LABELS, METRIC_KEYS, SDR_METRIC_KEYS, CLOSER_METRIC_KEYS, DbDailyMetric, DbTeamMember, getWorkingDaysCount, getMemberAvatar } from "@/lib/db";
 import { getWeeksOfMonth } from "@/lib/calendar-utils";
@@ -13,7 +13,7 @@ import { SdrDetailModal } from "@/components/dashboard/SdrDetailModal";
 import { CollapsiblePanel } from "@/components/dashboard/CollapsiblePanel";
 import { KpiPanelFilters } from "@/components/dashboard/KpiPanelFilters";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Loader2, Filter, X, CalendarDays, CalendarRange, Calendar as CalendarIcon, Users, Maximize, Minimize } from "lucide-react";
+import { ChevronDown, Loader2, Users } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
@@ -55,22 +55,6 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
   const [metricModalKey, setMetricModalKey] = useState<string | null>(null);
   const [metricModalSource, setMetricModalSource] = useState<"month" | "week" | "general">("general");
   const [sdrModalMemberId, setSdrModalMemberId] = useState<string | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const dashRef = useRef<HTMLDivElement>(null);
-
-  const toggleFullscreen = useCallback(() => {
-    if (!document.fullscreenElement) {
-      dashRef.current?.requestFullscreen();
-    } else {
-      document.exitFullscreen();
-    }
-  }, []);
-
-  useEffect(() => {
-    const handler = () => setIsFullscreen(!!document.fullscreenElement);
-    document.addEventListener("fullscreenchange", handler);
-    return () => document.removeEventListener("fullscreenchange", handler);
-  }, []);
 
   // Default to current month (year + month match) or fallback to first
   const currentMonthFallbackId = useMemo(() => {
@@ -225,7 +209,7 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
   }
 
   return (
-    <div ref={dashRef} className={cn("space-y-5", isFullscreen && "bg-background p-6 overflow-auto h-screen")}>
+    <div className="space-y-5">
       {/* Top bar removed — filters now managed via sidebar */}
 
       {/* === 3 COLLAPSIBLE KPI PANELS === */}
