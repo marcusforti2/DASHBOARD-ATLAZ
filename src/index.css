@@ -40,8 +40,10 @@
     --chart-4: 38 92% 50%;
     --chart-5: 0 84% 60%;
 
-    --panel-sdr: 217 40% 11%;
-    --panel-closer: 280 30% 11%;
+    --panel-sdr: 217 40% 13%;
+    --panel-closer: 280 30% 13%;
+    --panel-sdr-accent: 217 91% 60%;
+    --panel-closer-accent: 280 65% 60%;
 
     --sidebar-background: 222 47% 8%;
     --sidebar-foreground: 210 40% 90%;
