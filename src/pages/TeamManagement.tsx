@@ -8,7 +8,7 @@ import {
   Users, Plus, Edit2, Trash2, UserCheck, UserX, Loader2,
   Sparkles, Upload, FileText, ChevronDown, X, Brain, TrendingUp, Medal,
   Camera, Copy, Check, Shield, Zap, Phone, Mail, Key, Image as ImageIcon,
-  MessageCircle, ClipboardList
+  MessageCircle, ClipboardList, FileSpreadsheet
 } from "lucide-react";
 import { LeadAuditPanel } from "@/components/admin/LeadAuditPanel";
 
@@ -599,6 +599,190 @@ function DripifyWebhookUrls({ memberId, memberName }: { memberId: string; member
   );
 }
 
+// ─── Admin Dripify Upload ─────────────────────────────────────────────────
+function AdminDripifyUpload({ memberId, memberName }: { memberId: string; memberName: string }) {
+  const [uploading, setUploading] = useState(false);
+  const [selectedMetric, setSelectedMetric] = useState<string>("conexoes");
+  const [parsedLeads, setParsedLeads] = useState<any[] | null>(null);
+  const [saving, setSaving] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
+
+  const DRIPIFY_METRICS = [
+    { key: "conexoes", label: "Conexões", icon: "🔗" },
+    { key: "conexoes_aceitas", label: "Aceitas", icon: "✅" },
+    { key: "abordagens", label: "Abordagens", icon: "💬" },
+  ];
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setParsedLeads(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("metric_type", selectedMetric);
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-dripify`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${session?.access_token}` },
+          body: formData,
+        }
+      );
+      const result = await res.json();
+
+      if (result.leads && result.leads.length > 0) {
+        setParsedLeads(result.leads);
+        toast.success(`${result.leads.length} leads extraídos do Dripify!`);
+      } else {
+        toast.error(result.error || "Nenhum lead encontrado no arquivo");
+      }
+    } catch (err: any) {
+      toast.error("Erro ao processar arquivo");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const handleSaveLeads = async () => {
+    if (!parsedLeads?.length) return;
+    setSaving(true);
+
+    const todayStr = new Date().toISOString().split("T")[0];
+    const DAY_NAMES: Record<number, string> = { 0: "Dom", 1: "Seg", 2: "Ter", 3: "Qua", 4: "Qui", 5: "Sex", 6: "Sáb" };
+
+    // Insert leads
+    const inserts = parsedLeads.map(l => ({
+      member_id: memberId,
+      date: todayStr,
+      lead_name: l.name || "",
+      whatsapp: "",
+      social_link: l.linkedin || "",
+      metric_type: selectedMetric,
+      source: "dripify",
+    }));
+    await supabase.from("lead_entries").insert(inserts);
+
+    // Get current month
+    const now = new Date();
+    const { data: monthData } = await supabase
+      .from("months")
+      .select("id")
+      .eq("year", now.getFullYear())
+      .eq("month", now.getMonth() + 1)
+      .single();
+
+    if (monthData) {
+      const dayName = DAY_NAMES[now.getDay()];
+      const { data: existing } = await supabase
+        .from("daily_metrics")
+        .select("*")
+        .eq("member_id", memberId)
+        .eq("date", todayStr)
+        .eq("month_id", monthData.id)
+        .maybeSingle();
+
+      const count = parsedLeads.length;
+      if (existing) {
+        const currentVal = (existing as any)[selectedMetric] || 0;
+        await supabase.from("daily_metrics")
+          .update({ [selectedMetric]: currentVal + count })
+          .eq("id", existing.id);
+      } else {
+        const payload: any = {
+          member_id: memberId,
+          month_id: monthData.id,
+          date: todayStr,
+          day_of_week: dayName,
+          [selectedMetric]: count,
+        };
+        await supabase.from("daily_metrics").insert(payload);
+      }
+    }
+
+    toast.success(`+${parsedLeads.length} ${METRIC_LABELS[selectedMetric]} registrados para ${memberName}! 🚀`);
+    queryClient.invalidateQueries({ queryKey: ["daily-metrics"] });
+    setParsedLeads(null);
+    setSaving(false);
+  };
+
+  return (
+    <div className="rounded-xl border border-chart-4/20 bg-chart-4/5 p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <FileSpreadsheet size={14} className="text-chart-4" />
+        <span className="text-[10px] font-bold text-chart-4 uppercase tracking-wider">Upload Dripify</span>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Metric selector */}
+        <div className="flex bg-secondary/50 rounded-lg p-0.5">
+          {DRIPIFY_METRICS.map(m => (
+            <button
+              key={m.key}
+              onClick={() => { setSelectedMetric(m.key); setParsedLeads(null); }}
+              className={`px-2 py-1 text-[9px] font-semibold rounded-md transition-all ${
+                selectedMetric === m.key
+                  ? "bg-chart-4 text-white shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {m.icon} {m.label}
+            </button>
+          ))}
+        </div>
+
+        <input ref={fileRef} type="file" accept=".pdf,.xlsx,.xls,.csv" className="hidden" onChange={handleUpload} />
+
+        <button
+          onClick={() => fileRef.current?.click()}
+          disabled={uploading}
+          className="flex items-center gap-1.5 text-[10px] font-bold text-chart-4 hover:text-chart-4/80 px-3 py-1.5 rounded-lg bg-chart-4/10 hover:bg-chart-4/15 border border-chart-4/20 transition-all disabled:opacity-50"
+        >
+          {uploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+          {uploading ? "Processando..." : "Subir Relatório"}
+        </button>
+      </div>
+
+      {/* Parsed results */}
+      {parsedLeads && (
+        <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
+          <div className="rounded-lg border border-border overflow-hidden max-h-[200px] overflow-y-auto">
+            <div className="grid grid-cols-[1fr_1fr] gap-0 bg-secondary/40 border-b border-border sticky top-0">
+              <div className="px-2.5 py-1.5 text-[8px] font-bold text-muted-foreground uppercase">Nome</div>
+              <div className="px-2.5 py-1.5 text-[8px] font-bold text-muted-foreground uppercase border-l border-border">LinkedIn</div>
+            </div>
+            {parsedLeads.map((l: any, idx: number) => (
+              <div key={idx} className={`grid grid-cols-[1fr_1fr] gap-0 ${idx % 2 === 0 ? "bg-card" : "bg-secondary/10"} ${idx < parsedLeads.length - 1 ? "border-b border-border/30" : ""}`}>
+                <div className="px-2.5 py-1.5 text-[10px] text-card-foreground truncate">{l.name}</div>
+                <div className="px-2.5 py-1.5 text-[10px] text-primary border-l border-border/30 truncate">
+                  {l.linkedin ? <a href={l.linkedin} target="_blank" rel="noreferrer" className="hover:underline">{l.linkedin}</a> : "—"}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => setParsedLeads(null)}
+              className="px-3 py-2 text-[10px] rounded-lg font-semibold bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors">
+              Cancelar
+            </button>
+            <button onClick={handleSaveLeads} disabled={saving}
+              className="flex-1 px-3 py-2 text-[10px] rounded-lg font-bold bg-chart-4 text-white hover:bg-chart-4/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5">
+              {saving ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
+              Salvar {parsedLeads.length} leads para {memberName.split(" ")[0]}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Member Card ─────────────────────────────────────────────────────────
 function MemberCard({
   member,
@@ -704,7 +888,10 @@ function MemberCard({
 
           {/* Dripify Webhook URLs - only for SDRs */}
           {member.member_role !== "closer" && (
-            <DripifyWebhookUrls memberId={member.id} memberName={member.name} />
+            <>
+              <DripifyWebhookUrls memberId={member.id} memberName={member.name} />
+              <AdminDripifyUpload memberId={member.id} memberName={member.name} />
+            </>
           )}
 
           <AiCloserAnalysis member={member} monthId={activeMonthId} monthLabel={activeMonth?.label} />
