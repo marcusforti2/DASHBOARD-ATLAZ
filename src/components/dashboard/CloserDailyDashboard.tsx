@@ -665,7 +665,7 @@ function DataEntryDialog({
         <input
           ref={fileInputRef}
           type="file"
-          accept=".pdf,.xlsx,.xls,.csv"
+          accept=".pdf,.xlsx,.xls,.csv,.png,.jpg,.jpeg,.webp"
           className="hidden"
           onChange={handleFileUpload}
         />
