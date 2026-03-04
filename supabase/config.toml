@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.dripify-webhook]
 verify_jwt = false
+
+[functions.ai-coach]
+verify_jwt = false

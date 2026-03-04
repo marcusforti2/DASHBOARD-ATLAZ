@@ -117,6 +117,36 @@ export type Database = {
           },
         ]
       }
+      company_knowledge: {
+        Row: {
+          active: boolean
+          category: string
+          content: string
+          created_at: string
+          id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          category?: string
+          content: string
+          created_at?: string
+          id?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          category?: string
+          content?: string
+          created_at?: string
+          id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       daily_metrics: {
         Row: {
           abordagens: number
@@ -279,6 +309,51 @@ export type Database = {
           label?: string
           month?: number
           year?: number
+        }
+        Relationships: []
+      }
+      motivational_popups: {
+        Row: {
+          active: boolean
+          category: string
+          created_at: string
+          emoji: string | null
+          frequency_minutes: number | null
+          id: string
+          message: string
+          target_role: string | null
+          time_range_end: string | null
+          time_range_start: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          category?: string
+          created_at?: string
+          emoji?: string | null
+          frequency_minutes?: number | null
+          id?: string
+          message: string
+          target_role?: string | null
+          time_range_end?: string | null
+          time_range_start?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          category?: string
+          created_at?: string
+          emoji?: string | null
+          frequency_minutes?: number | null
+          id?: string
+          message?: string
+          target_role?: string | null
+          time_range_end?: string | null
+          time_range_start?: string | null
+          title?: string
+          updated_at?: string
         }
         Relationships: []
       }
