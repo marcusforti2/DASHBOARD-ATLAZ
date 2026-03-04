@@ -6,12 +6,10 @@ import { KpiGrid } from "@/components/dashboard/KpiGrid";
 import { WeeklyComparisonChart } from "@/components/dashboard/WeeklyComparisonChart";
 import { PersonPerformanceChart } from "@/components/dashboard/PersonPerformanceChart";
 import { CloserRanking, RoleRanking } from "@/components/dashboard/CloserRanking";
-import { DailyTable } from "@/components/dashboard/DailyTable";
 import { AiReportPanel } from "@/components/dashboard/AiReportPanel";
 import { AlertsPanel } from "@/components/dashboard/AlertsPanel";
 import { MetricDetailModal } from "@/components/dashboard/MetricDetailModal";
 import { SdrDetailModal } from "@/components/dashboard/SdrDetailModal";
-import { ExportCsvButton } from "@/components/dashboard/ExportCsvButton";
 import { CollapsiblePanel } from "@/components/dashboard/CollapsiblePanel";
 import { KpiPanelFilters } from "@/components/dashboard/KpiPanelFilters";
 import { useQueryClient } from "@tanstack/react-query";
@@ -575,14 +573,6 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
         <PersonPerformanceChart dailyMetrics={dailyMetrics} members={members} />
       )}
 
-      {/* Table */}
-      <DailyTableSection
-        filteredMetrics={memberFilteredMetrics}
-        members={members || []}
-        selectedMemberId={selectedMemberId}
-        hasActiveFilters={!!hasActiveFilters}
-        monthLabel={activeMonth?.label}
-      />
 
       {/* AI Report */}
       {activeMonthId && activeMonth && (
@@ -678,86 +668,6 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
           return null;
         }}
       />
-    </div>
-  );
-}
-
-/** Sub-component: Daily table with "Hoje" button + date picker */
-function DailyTableSection({
-  filteredMetrics,
-  members,
-  selectedMemberId,
-  hasActiveFilters,
-  monthLabel,
-}: {
-  filteredMetrics: DbDailyMetric[];
-  members: DbTeamMember[];
-  selectedMemberId: string | null;
-  hasActiveFilters: boolean;
-  monthLabel?: string;
-}) {
-  const [dayFilter, setDayFilter] = useState<Date | undefined>(undefined);
-  const todayStr = format(new Date(), "yyyy-MM-dd");
-
-  const tableMetrics = useMemo(() => {
-    if (!dayFilter) return filteredMetrics;
-    const dayStr = format(dayFilter, "yyyy-MM-dd");
-    return filteredMetrics.filter(d => d.date === dayStr);
-  }, [filteredMetrics, dayFilter]);
-
-  const isToday = dayFilter && format(dayFilter, "yyyy-MM-dd") === todayStr;
-
-  return (
-    <div>
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-        <div className="flex items-center gap-2">
-          <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider">
-            Detalhamento Diário
-            {selectedMemberId && members.length ? ` — ${members.find(m => m.id === selectedMemberId)?.name}` : ""}
-            {hasActiveFilters ? ` (${tableMetrics.length} registros)` : ""}
-          </h3>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={() => setDayFilter(dayFilter && isToday ? undefined : new Date())}
-            className={cn(
-              "px-3 py-1.5 text-[10px] rounded-lg font-semibold uppercase tracking-wider transition-colors flex items-center gap-1",
-              isToday ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-            )}
-          >
-            <CalendarDays size={12} /> Hoje
-          </button>
-          <Popover>
-            <PopoverTrigger asChild>
-              <button
-                className={cn(
-                  "px-3 py-1.5 text-[10px] rounded-lg font-semibold uppercase tracking-wider transition-colors flex items-center gap-1",
-                  dayFilter && !isToday ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                )}
-              >
-                <CalendarDays size={12} />
-                {dayFilter && !isToday ? format(dayFilter, "dd/MM", { locale: ptBR }) : "Escolher dia"}
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="end">
-              <Calendar
-                mode="single"
-                selected={dayFilter}
-                onSelect={(d) => setDayFilter(d || undefined)}
-                initialFocus
-                className={cn("p-3 pointer-events-auto")}
-              />
-            </PopoverContent>
-          </Popover>
-          {dayFilter && (
-            <button onClick={() => setDayFilter(undefined)} className="text-[10px] text-destructive hover:text-destructive/80 flex items-center gap-0.5">
-              <X size={10} /> Limpar
-            </button>
-          )}
-          <ExportCsvButton dailyMetrics={tableMetrics} members={members} monthLabel={monthLabel} />
-        </div>
-      </div>
-      <DailyTable dailyMetrics={tableMetrics} members={members} selectedMemberId={selectedMemberId} />
     </div>
   );
 }
