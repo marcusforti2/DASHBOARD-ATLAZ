@@ -23,11 +23,14 @@ function MemberFormDialog({
 }) {
   const [name, setName] = useState(member?.name || "");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [memberRole, setMemberRole] = useState<"sdr" | "closer">("sdr");
   const [saving, setSaving] = useState(false);
   const [welcomeMsg, setWelcomeMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [whatsappSent, setWhatsappSent] = useState(false);
+  const [sendingWhatsapp, setSendingWhatsapp] = useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const avatarRef = useRef<HTMLInputElement>(null);
@@ -89,6 +92,14 @@ function MemberFormDialog({
         await supabase.from("team_members").update({ avatar_url: avatarUrl }).eq("id", result.team_member_id);
       }
 
+      // Save WhatsApp contact if phone provided
+      if (phone.trim() && result.team_member_id) {
+        await supabase.from("whatsapp_contacts").insert({
+          phone: phone.trim().replace(/\D/g, ""),
+          team_member_id: result.team_member_id,
+        });
+      }
+
       toast.success("Membro cadastrado com sucesso!");
       onSaved();
 
@@ -105,6 +116,29 @@ Você foi cadastrado(a) como *${roleName}* no nosso sistema de gestão.
 
 Faça login e comece a registrar suas métricas. Bora pra cima! 🚀`;
       setWelcomeMsg(msg);
+
+      // Auto-send via WhatsApp if phone provided
+      if (phone.trim()) {
+        setSendingWhatsapp(true);
+        try {
+          const { data: { session: s } } = await supabase.auth.getSession();
+          const whatsResp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-whatsapp`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${s?.access_token}` },
+            body: JSON.stringify({ phone: phone.trim().replace(/\D/g, ""), message: msg }),
+          });
+          if (whatsResp.ok) {
+            setWhatsappSent(true);
+            toast.success("✅ Mensagem enviada no WhatsApp!");
+          } else {
+            toast.error("Não foi possível enviar no WhatsApp automaticamente");
+          }
+        } catch {
+          toast.error("Erro ao enviar WhatsApp automático");
+        } finally {
+          setSendingWhatsapp(false);
+        }
+      }
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -138,16 +172,35 @@ Faça login e comece a registrar suas métricas. Bora pra cima! 🚀`;
             </div>
             <div>
               <h3 className="text-sm font-bold text-card-foreground">Membro Cadastrado!</h3>
-              <p className="text-[10px] text-muted-foreground">Envie as credenciais abaixo via WhatsApp</p>
+              <p className="text-[10px] text-muted-foreground">
+                {whatsappSent
+                  ? "✅ Mensagem enviada automaticamente no WhatsApp!"
+                  : sendingWhatsapp
+                    ? "⏳ Enviando mensagem no WhatsApp..."
+                    : phone.trim()
+                      ? "Enviando credenciais via WhatsApp..."
+                      : "Copie e envie as credenciais abaixo"}
+              </p>
             </div>
           </div>
+
+          {/* WhatsApp auto-send status */}
+          {whatsappSent && (
+            <div className="rounded-xl bg-accent/10 border border-accent/30 p-3 mb-3 flex items-center gap-2">
+              <MessageCircle size={14} className="text-accent shrink-0" />
+              <span className="text-[10px] text-accent font-medium">
+                Mensagem de boas-vindas enviada para {phone.trim()} via WhatsApp automaticamente!
+              </span>
+            </div>
+          )}
+
           <div className="rounded-xl bg-secondary/50 border border-border p-4 max-h-56 overflow-y-auto">
             <pre className="text-xs text-secondary-foreground whitespace-pre-wrap font-sans leading-relaxed">{welcomeMsg}</pre>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 mt-4">
             <button onClick={handleWhatsApp} className="flex-1 px-4 py-2.5 text-xs rounded-xl font-semibold bg-accent text-accent-foreground hover:bg-accent/90 transition-colors flex items-center justify-center gap-2">
               <MessageCircle size={14} />
-              Enviar no WhatsApp
+              {whatsappSent ? "Enviar Novamente" : "Abrir WhatsApp"}
             </button>
             <button onClick={handleCopy} className="flex-1 px-4 py-2.5 text-xs rounded-xl font-semibold bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors flex items-center justify-center gap-2">
               {copied ? <Check size={14} /> : <Copy size={14} />}
@@ -278,6 +331,20 @@ Faça login e comece a registrar suas métricas. Bora pra cima! 🚀`;
                     Gerar Senha
                   </button>
                 </div>
+              </div>
+
+              {/* Phone (WhatsApp) */}
+              <div>
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
+                  <Phone size={10} /> WhatsApp <span className="text-[8px] font-normal opacity-60">(opcional — envia credenciais automático)</span>
+                </label>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={e => setPhone(e.target.value)}
+                  placeholder="(11) 99999-9999"
+                  className="w-full rounded-xl border border-border bg-secondary px-3 py-2.5 text-sm text-secondary-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all"
+                />
               </div>
             </>
           )}
