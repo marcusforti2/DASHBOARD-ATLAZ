@@ -1,13 +1,12 @@
 import { useState } from "react";
-import { Target, ClipboardList, Bot, LayoutDashboard } from "lucide-react";
+import { Target, Bot, LayoutDashboard } from "lucide-react";
 import { CloserDailyDashboard } from "@/components/dashboard/CloserDailyDashboard";
-import CloserEntry from "@/pages/CloserEntry";
 import AdminDashboard from "@/pages/AdminDashboard";
 import { AiChat } from "./AiChat";
 import { AiToolsPanel } from "./AiToolsPanel";
 import { cn } from "@/lib/utils";
 
-type UserTab = "dashboard" | "entry" | "ai-chat" | "ai-tools" | "general-dashboard";
+type UserTab = "dashboard" | "ai-chat" | "ai-tools" | "general-dashboard";
 
 interface UserHubProps {
   teamMemberId: string;
@@ -18,7 +17,6 @@ interface UserHubProps {
 
 const TABS: { id: UserTab; label: string; icon: React.ElementType; mobileLabel: string }[] = [
   { id: "dashboard", label: "Meu Dia", icon: Target, mobileLabel: "Dia" },
-  { id: "entry", label: "Inserir Dados", icon: ClipboardList, mobileLabel: "Inserir" },
   { id: "ai-chat", label: "Coach IA", icon: Bot, mobileLabel: "Coach" },
   { id: "ai-tools", label: "Ferramentas IA", icon: Bot, mobileLabel: "Tools" },
   { id: "general-dashboard", label: "Dashboard", icon: LayoutDashboard, mobileLabel: "Geral" },
@@ -31,8 +29,6 @@ export function UserHub({ teamMemberId, memberName, memberRole, onSignOut }: Use
     switch (activeTab) {
       case "dashboard":
         return <CloserDailyDashboard teamMemberId={teamMemberId} memberName={memberName} memberRole={memberRole} />;
-      case "entry":
-        return <CloserEntry teamMemberId={teamMemberId} memberName={memberName} />;
       case "ai-chat":
         return (
           <div className="max-w-3xl mx-auto">
