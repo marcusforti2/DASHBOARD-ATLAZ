@@ -8,8 +8,9 @@ import {
   Users, Plus, Edit2, Trash2, UserCheck, UserX, Loader2,
   Sparkles, Upload, FileText, ChevronDown, X, Brain, TrendingUp, Medal,
   Camera, Copy, Check, Shield, Zap, Phone, Mail, Key, Image as ImageIcon,
-  MessageCircle
+  MessageCircle, ClipboardList
 } from "lucide-react";
+import { LeadAuditPanel } from "@/components/admin/LeadAuditPanel";
 
 // ─── Registration Form Dialog ────────────────────────────────────────────
 function MemberFormDialog({
@@ -707,6 +708,8 @@ function MemberCard({
           )}
 
           <AiCloserAnalysis member={member} monthId={activeMonthId} monthLabel={activeMonth?.label} />
+          <div className="h-px bg-border" />
+          <LeadAuditPanel memberId={member.id} memberName={member.name} />
           <div className="h-px bg-border" />
           <BehavioralAnalysis member={member} monthId={activeMonthId} />
         </div>
