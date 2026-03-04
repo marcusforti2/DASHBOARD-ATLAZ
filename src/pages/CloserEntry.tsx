@@ -126,7 +126,7 @@ export default function CloserEntry({ teamMemberId, memberName }: CloserEntryPro
       <div className={`rounded-xl border bg-card p-5 space-y-4 ${isCloserRole ? "border-[hsl(280,30%,18%)] border-l-[3px] border-l-[hsl(280,65%,60%)]" : "border-border border-l-[3px] border-l-primary"}`}>
         <div className="flex items-center gap-2">
           <h3 className="text-xs font-semibold text-card-foreground uppercase tracking-wider">Métricas do Dia</h3>
-          <span className={`text-[8px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${isCloserRole ? "text-[hsl(280,65%,80%)] bg-[hsl(280,65%,60%/0.15)] border-[hsl(280,65%,60%/0.3)]" : "text-primary-foreground bg-primary/20 border-primary/30"}`}>
+          <span className={`text-[8px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${isCloserRole ? "text-[hsl(280,65%,80%)] bg-[hsl(280,65%,60%/0.15)] border-[hsl(280,65%,60%/0.3)]" : "text-primary bg-primary/20 border-primary/30"}`}>
             {roleLabel}
           </span>
         </div>

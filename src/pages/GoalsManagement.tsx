@@ -281,7 +281,6 @@ function MonthGoalsEditor({
                     {tab.role === "closer" ? "C" : "S"}
                   </span>
                 )}
-                {tab.label}
               </button>
             );
           })}

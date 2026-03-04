@@ -248,7 +248,7 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
             <div className="flex flex-col lg:flex-row gap-3">
               <div className="lg:flex-1 min-w-0 rounded-xl p-3 bg-[hsl(var(--panel-sdr))] border border-[hsl(217,40%,18%)] border-l-[3px] border-l-[hsl(var(--panel-sdr-accent))]">
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="text-[8px] font-bold uppercase tracking-widest text-primary-foreground bg-primary/20 px-2 py-0.5 rounded-full border border-primary/30">SDR</span>
+                  <span className="text-[8px] font-bold uppercase tracking-widest text-primary bg-primary/20 px-2 py-0.5 rounded-full border border-primary/30">SDR</span>
                   <div className="flex-1 h-px bg-primary/20" />
                 </div>
                 <table className="w-full text-[9px]">
