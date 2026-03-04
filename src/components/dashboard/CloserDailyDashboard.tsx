@@ -11,9 +11,10 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
   Target, TrendingUp, CheckCircle2, Loader2, Plus, Flame,
-  Zap, Trophy, Calendar, ArrowUpRight, Save, ClipboardList
+  Zap, Trophy, Calendar, ArrowUpRight, Save, ClipboardList,
+  X, UserPlus, User
 } from "lucide-react";
-import { LeadEntrySheet } from "@/components/user/LeadEntrySheet";
+
 
 const DAY_NAMES: Record<number, string> = { 0: "Dom", 1: "Seg", 2: "Ter", 3: "Qua", 4: "Qui", 5: "Sex", 6: "Sáb" };
 
@@ -410,6 +411,8 @@ function LeadHistoryPanel({ teamMemberId }: { teamMemberId: string }) {
 
 /* ========== Data Entry Dialog ========== */
 
+type EntryStep = "select-metric" | "lead-sheet";
+
 function DataEntryDialog({
   teamMemberId,
   todayStr,
@@ -426,70 +429,132 @@ function DataEntryDialog({
   onSaved: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [values, setValues] = useState<Record<string, number>>(() =>
-    roleMetrics.reduce((acc, k) => ({ ...acc, [k]: 0 }), {} as Record<string, number>)
-  );
-  const [loading, setLoading] = useState(false);
-  const [existingId, setExistingId] = useState<string | null>(null);
-  const [showLeadSheet, setShowLeadSheet] = useState(false);
+  const [step, setStep] = useState<EntryStep>("select-metric");
+  const [selectedMetric, setSelectedMetric] = useState<string | null>(null);
+  const [existingLeads, setExistingLeads] = useState<any[]>([]);
+  const [rows, setRows] = useState<{ lead_name: string; whatsapp: string; social_link: string; fromExisting?: boolean }[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [showExistingPicker, setShowExistingPicker] = useState(false);
+  const [existingSearch, setExistingSearch] = useState("");
 
-  // Load existing data when dialog opens
+  // Load existing leads when dialog opens
   useEffect(() => {
-    if (!open || !currentMonthId) return;
-    setShowLeadSheet(false);
+    if (!open) return;
+    setStep("select-metric");
+    setSelectedMetric(null);
+    setRows([]);
+    setShowExistingPicker(false);
+    // Fetch all existing leads for this member for reuse
     supabase
+      .from("lead_entries")
+      .select("*")
+      .eq("member_id", teamMemberId)
+      .order("created_at", { ascending: false })
+      .then(({ data }) => {
+        if (data) {
+          // Deduplicate by lead_name
+          const seen = new Set<string>();
+          const unique = data.filter((l: any) => {
+            const key = l.lead_name?.toLowerCase().trim();
+            if (!key || seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+          setExistingLeads(unique);
+        }
+      });
+  }, [open, teamMemberId]);
+
+  const handleSelectMetric = (metric: string) => {
+    setSelectedMetric(metric);
+    setRows([{ lead_name: "", whatsapp: "", social_link: "" }]);
+    setStep("lead-sheet");
+  };
+
+  const updateRow = (idx: number, field: string, value: string) => {
+    setRows(prev => prev.map((r, i) => i === idx ? { ...r, [field]: value } : r));
+  };
+
+  const addRow = () => setRows(prev => [...prev, { lead_name: "", whatsapp: "", social_link: "" }]);
+
+  const removeRow = (idx: number) => {
+    if (rows.length <= 1) return;
+    setRows(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const addExistingLead = (lead: any) => {
+    setRows(prev => [...prev, {
+      lead_name: lead.lead_name,
+      whatsapp: lead.whatsapp || "",
+      social_link: lead.social_link || "",
+      fromExisting: true,
+    }]);
+    setShowExistingPicker(false);
+    setExistingSearch("");
+  };
+
+  const filteredExisting = existingSearch.trim()
+    ? existingLeads.filter(l =>
+        l.lead_name?.toLowerCase().includes(existingSearch.toLowerCase()) ||
+        l.whatsapp?.includes(existingSearch)
+      )
+    : existingLeads.slice(0, 20);
+
+  const handleSave = async () => {
+    if (!currentMonthId || !selectedMetric) return;
+    setSaving(true);
+
+    const validRows = rows.filter(r => r.lead_name.trim());
+    const count = validRows.length;
+
+    // Save leads
+    if (count > 0) {
+      const inserts = validRows.map(r => ({
+        member_id: teamMemberId,
+        date: todayStr,
+        lead_name: r.lead_name.trim(),
+        whatsapp: r.whatsapp.trim(),
+        social_link: r.social_link.trim(),
+        metric_type: selectedMetric,
+      }));
+      await supabase.from("lead_entries").insert(inserts);
+    }
+
+    // Update daily_metrics: increment the selected metric by count
+    const dateObj = new Date(todayStr + "T12:00:00");
+    const dayName = DAY_NAMES[dateObj.getDay()];
+
+    const { data: existing } = await supabase
       .from("daily_metrics")
       .select("*")
       .eq("member_id", teamMemberId)
       .eq("date", todayStr)
       .eq("month_id", currentMonthId)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data) {
-          setExistingId(data.id);
-          const vals: Record<string, number> = {};
-          roleMetrics.forEach(k => { vals[k] = (data as any)[k] || 0; });
-          setValues(vals);
-        } else {
-          setExistingId(null);
-          setValues(roleMetrics.reduce((acc, k) => ({ ...acc, [k]: 0 }), {} as Record<string, number>));
-        }
-      });
-  }, [open, currentMonthId, teamMemberId, todayStr]);
+      .maybeSingle();
 
-  const handleSave = async () => {
-    if (!currentMonthId) {
-      toast.error("Mês não cadastrado. Peça ao gestor.");
-      return;
-    }
-    setLoading(true);
-
-    const dateObj = new Date(todayStr + "T12:00:00");
-    const dayName = DAY_NAMES[dateObj.getDay()];
-
-    const payload = {
-      ...values,
-      member_id: teamMemberId,
-      month_id: currentMonthId,
-      date: todayStr,
-      day_of_week: dayName,
-    };
-
-    let error;
-    if (existingId) {
-      ({ error } = await supabase.from("daily_metrics").update(payload).eq("id", existingId));
+    if (existing) {
+      const currentVal = (existing as any)[selectedMetric] || 0;
+      await supabase.from("daily_metrics")
+        .update({ [selectedMetric]: currentVal + count })
+        .eq("id", existing.id);
     } else {
-      ({ error } = await supabase.from("daily_metrics").insert(payload));
+      const payload: any = {
+        member_id: teamMemberId,
+        month_id: currentMonthId,
+        date: todayStr,
+        day_of_week: dayName,
+      };
+      // Zero all metrics first
+      roleMetrics.forEach(k => { payload[k] = 0; });
+      payload[selectedMetric] = count;
+      await supabase.from("daily_metrics").insert(payload);
     }
 
-    if (error) {
-      toast.error("Erro: " + error.message);
-    } else {
-      toast.success(existingId ? "Dados atualizados! 🎉" : "Dados salvos! 🚀");
-      onSaved();
-      setShowLeadSheet(true);
-    }
-    setLoading(false);
+    toast.success(`+${count} ${METRIC_LABELS[selectedMetric]} registrado(s)! 🚀`);
+    onSaved();
+    setSaving(false);
+    setStep("select-metric");
+    setSelectedMetric(null);
   };
 
   return (
@@ -512,47 +577,177 @@ function DataEntryDialog({
           )}
         </button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md bg-card border-border">
-        {showLeadSheet ? (
-          <LeadEntrySheet
-            teamMemberId={teamMemberId}
-            date={todayStr}
-            onClose={() => { setShowLeadSheet(false); setOpen(false); }}
-          />
-        ) : (
+      <DialogContent className="sm:max-w-lg bg-card border-border max-h-[85vh] overflow-y-auto">
+        {step === "select-metric" ? (
           <>
             <DialogHeader>
               <DialogTitle className="text-sm font-bold text-card-foreground flex items-center gap-2">
                 <Calendar size={14} className="text-primary" />
+                O que você quer registrar?
+              </DialogTitle>
+              <p className="text-[10px] text-muted-foreground mt-1">
                 {format(new Date(todayStr + "T12:00:00"), "EEEE, dd 'de' MMMM", { locale: ptBR })}
+              </p>
+            </DialogHeader>
+
+            <div className="grid grid-cols-2 gap-2.5 py-3">
+              {roleMetrics.map(k => {
+                const currentVal = todayMetrics?.[k] || 0;
+                return (
+                  <button
+                    key={k}
+                    onClick={() => handleSelectMetric(k)}
+                    className="group relative rounded-xl border border-border bg-secondary/30 hover:bg-primary/10 hover:border-primary/40 p-4 text-left transition-all"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-lg">{METRIC_ICONS[k]}</span>
+                      {currentVal > 0 && (
+                        <span className="text-[9px] font-bold text-accent bg-accent/10 px-1.5 py-0.5 rounded-md">
+                          {currentVal} hoje
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10px] font-bold text-card-foreground">{METRIC_LABELS[k]}</p>
+                    <ArrowUpRight size={12} className="absolute top-3 right-3 text-muted-foreground/30 group-hover:text-primary transition-colors" />
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          <>
+            <DialogHeader>
+              <DialogTitle className="text-sm font-bold text-card-foreground flex items-center gap-2">
+                <span className="text-base">{METRIC_ICONS[selectedMetric!]}</span>
+                {METRIC_LABELS[selectedMetric!]}
+                <span className="text-[10px] font-normal text-muted-foreground ml-auto">
+                  {rows.filter(r => r.lead_name.trim()).length} lead(s)
+                </span>
               </DialogTitle>
             </DialogHeader>
 
-            <div className="grid grid-cols-2 gap-3 py-2">
-              {roleMetrics.map(k => (
-                <div key={k}>
-                  <label className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                    <span>{METRIC_ICONS[k]}</span> {METRIC_LABELS[k]}
-                  </label>
+            {/* Spreadsheet */}
+            <div className="rounded-xl border border-border overflow-hidden">
+              <div className="grid grid-cols-[1fr_1fr_1fr_28px] gap-0 bg-secondary/60 border-b border-border">
+                <div className="px-2.5 py-2 text-[8px] font-bold text-muted-foreground uppercase tracking-wider">Nome do Lead</div>
+                <div className="px-2.5 py-2 text-[8px] font-bold text-muted-foreground uppercase tracking-wider border-l border-border">WhatsApp</div>
+                <div className="px-2.5 py-2 text-[8px] font-bold text-muted-foreground uppercase tracking-wider border-l border-border">LinkedIn/Insta</div>
+                <div />
+              </div>
+
+              {rows.map((row, idx) => (
+                <div
+                  key={idx}
+                  className={cn(
+                    "grid grid-cols-[1fr_1fr_1fr_28px] gap-0 transition-colors",
+                    idx % 2 === 0 ? "bg-card" : "bg-secondary/10",
+                    idx < rows.length - 1 && "border-b border-border/30",
+                    row.fromExisting && "bg-accent/5"
+                  )}
+                >
                   <input
-                    type="number"
-                    min={0}
-                    value={values[k]}
-                    onChange={e => setValues(v => ({ ...v, [k]: parseInt(e.target.value) || 0 }))}
-                    className="mt-1 w-full rounded-lg border border-border bg-secondary px-3 py-2.5 text-sm text-secondary-foreground tabular-nums focus:ring-2 focus:ring-primary/50 outline-none transition-all"
+                    value={row.lead_name}
+                    onChange={e => updateRow(idx, "lead_name", e.target.value)}
+                    placeholder="João Silva"
+                    className="px-2.5 py-2.5 text-xs bg-transparent text-card-foreground placeholder:text-muted-foreground/40 outline-none focus:bg-primary/5 transition-colors"
+                    autoFocus={idx === rows.length - 1}
                   />
+                  <input
+                    value={row.whatsapp}
+                    onChange={e => updateRow(idx, "whatsapp", e.target.value)}
+                    placeholder="(11) 99999-9999"
+                    className="px-2.5 py-2.5 text-xs bg-transparent text-card-foreground placeholder:text-muted-foreground/40 outline-none border-l border-border/30 focus:bg-primary/5 transition-colors"
+                  />
+                  <input
+                    value={row.social_link}
+                    onChange={e => updateRow(idx, "social_link", e.target.value)}
+                    placeholder="linkedin.com/in/..."
+                    className="px-2.5 py-2.5 text-xs bg-transparent text-card-foreground placeholder:text-muted-foreground/40 outline-none border-l border-border/30 focus:bg-primary/5 transition-colors"
+                  />
+                  <button
+                    onClick={() => removeRow(idx)}
+                    disabled={rows.length <= 1}
+                    className="flex items-center justify-center text-muted-foreground/40 hover:text-destructive disabled:opacity-0 transition-colors"
+                  >
+                    <X size={11} />
+                  </button>
                 </div>
               ))}
             </div>
 
-            <button
-              onClick={handleSave}
-              disabled={loading || !currentMonthId}
-              className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 mt-2"
-            >
-              {loading ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-              {existingId ? "Atualizar" : "Salvar"}
-            </button>
+            {/* Action buttons */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={addRow}
+                className="flex items-center gap-1.5 text-[10px] font-bold text-primary hover:text-primary/80 transition-all animate-pulse hover:animate-none px-3 py-2 rounded-lg bg-primary/10 hover:bg-primary/15 border border-primary/20"
+              >
+                <Plus size={12} /> Adicionar Linha
+              </button>
+
+              {existingLeads.length > 0 && (
+                <button
+                  onClick={() => setShowExistingPicker(!showExistingPicker)}
+                  className="flex items-center gap-1.5 text-[10px] font-bold text-accent hover:text-accent/80 transition-all px-3 py-2 rounded-lg bg-accent/10 hover:bg-accent/15 border border-accent/20"
+                >
+                  <UserPlus size={12} /> Lead já cadastrado
+                </button>
+              )}
+            </div>
+
+            {/* Existing lead picker */}
+            {showExistingPicker && (
+              <div className="rounded-xl border border-accent/30 bg-accent/5 p-3 space-y-2 animate-in fade-in slide-in-from-top-2">
+                <input
+                  value={existingSearch}
+                  onChange={e => setExistingSearch(e.target.value)}
+                  placeholder="Buscar lead existente..."
+                  className="w-full text-[10px] bg-secondary border border-border rounded-lg px-2.5 py-1.5 text-secondary-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-accent"
+                  autoFocus
+                />
+                <div className="max-h-[150px] overflow-y-auto space-y-0.5">
+                  {filteredExisting.length === 0 ? (
+                    <p className="text-[10px] text-muted-foreground text-center py-2">Nenhum lead encontrado</p>
+                  ) : (
+                    filteredExisting.map((lead: any) => (
+                      <button
+                        key={lead.id}
+                        onClick={() => addExistingLead(lead)}
+                        className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left hover:bg-accent/10 transition-colors group"
+                      >
+                        <div className="w-6 h-6 rounded-full bg-accent/15 flex items-center justify-center shrink-0">
+                          <User size={10} className="text-accent" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[10px] font-semibold text-card-foreground truncate">{lead.lead_name}</p>
+                          <p className="text-[8px] text-muted-foreground truncate">
+                            {lead.whatsapp || lead.social_link || "Sem contato"}
+                          </p>
+                        </div>
+                        <Plus size={10} className="text-accent opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Save / Back */}
+            <div className="flex gap-2 mt-1">
+              <button
+                onClick={() => { setStep("select-metric"); setSelectedMetric(null); }}
+                className="px-4 py-2.5 text-xs rounded-xl font-semibold bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
+              >
+                ← Voltar
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving || rows.filter(r => r.lead_name.trim()).length === 0}
+                className="flex-1 rounded-xl bg-primary py-2.5 text-xs font-bold text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+                Salvar {rows.filter(r => r.lead_name.trim()).length} lead(s)
+              </button>
+            </div>
           </>
         )}
       </DialogContent>
