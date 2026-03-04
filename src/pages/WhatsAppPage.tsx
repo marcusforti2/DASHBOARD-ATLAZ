@@ -5,7 +5,7 @@ import { useTeamMembers } from "@/hooks/use-metrics";
 import { DbTeamMember } from "@/lib/db";
 import { toast } from "sonner";
 import {
-  MessageCircle, Phone, Send, Loader2, ShieldCheck, Users, Play,
+  MessageCircle, Phone, Send, Loader2, ShieldCheck, Users,
 } from "lucide-react";
 import FlowBuilder from "@/components/whatsapp/FlowBuilder";
 
@@ -14,8 +14,6 @@ export default function WhatsAppPage() {
   const { data: members } = useTeamMembers();
   const [automations, setAutomations] = useState<any[]>([]);
   const [loadingAutomations, setLoadingAutomations] = useState(true);
-  const [triggeringReport, setTriggeringReport] = useState(false);
-  const [lastResult, setLastResult] = useState<any>(null);
 
   const loadAutomations = async () => {
     setLoadingAutomations(true);
@@ -25,21 +23,6 @@ export default function WhatsAppPage() {
   };
 
   useEffect(() => { loadAutomations(); }, []);
-
-  const handleTriggerDailyReport = async () => {
-    setTriggeringReport(true); setLastResult(null);
-    try {
-      const { data, error } = await supabase.functions.invoke("daily-whatsapp-report", { body: {} });
-      if (error) { toast.error("Erro: " + error.message); setLastResult({ error: error.message }); }
-      else if (data?.error) { toast.error("Erro: " + data.error); setLastResult({ error: data.error }); }
-      else {
-        const sc = data?.results?.filter((r: any) => r.success).length || 0;
-        toast.success(`Relatório enviado para ${sc}/${data?.results?.length || 0} contatos!`);
-        setLastResult(data);
-      }
-    } catch (e: any) { toast.error("Erro: " + e.message); setLastResult({ error: e.message }); }
-    setTriggeringReport(false);
-  };
 
   if (!isAdmin) return <p className="text-sm text-muted-foreground">Acesso restrito a administradores.</p>;
 
@@ -51,45 +34,6 @@ export default function WhatsAppPage() {
           WhatsApp
         </h2>
         <p className="text-xs text-muted-foreground mt-1">Gerencie fluxos, contatos e disparos de mensagens</p>
-      </div>
-
-      {/* Built-in Daily Report */}
-      <div className="rounded-xl border border-border bg-card p-5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-primary/15 flex items-center justify-center">
-              <Send size={16} className="text-primary" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-card-foreground">📊 Relatório Diário com IA</p>
-              <p className="text-[10px] text-muted-foreground">Métricas + progresso + dicas IA para cada membro às 18h</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 text-[9px] font-semibold rounded-full bg-primary/15 text-primary">⏰ 18:00</span>
-            <button onClick={handleTriggerDailyReport} disabled={triggeringReport}
-              className="px-4 py-2 text-[10px] rounded-lg font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 flex items-center gap-1.5 transition-colors">
-              {triggeringReport ? <Loader2 size={10} className="animate-spin" /> : <Play size={10} />}
-              {triggeringReport ? "Enviando..." : "Disparar Agora"}
-            </button>
-          </div>
-        </div>
-        {lastResult && (
-          <div className="rounded-lg border border-border bg-secondary/50 p-3 mt-3 space-y-1">
-            <p className="text-[10px] font-semibold text-card-foreground">Resultado:</p>
-            {lastResult.error ? <p className="text-[10px] text-destructive">❌ {lastResult.error}</p> : (
-              <div className="space-y-1">
-                {lastResult.results?.map((r: any, i: number) => (
-                  <div key={i} className="flex items-center gap-2 text-[10px]">
-                    <span>{r.success ? "✅" : "❌"}</span>
-                    <span className="text-card-foreground font-medium">{r.member}</span>
-                    <span className="text-muted-foreground">→ {r.phone}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Flow Builder */}
