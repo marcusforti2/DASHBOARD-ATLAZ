@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useMonths, useDailyMetrics, useWeeklyGoals } from "@/hooks/use-metrics";
-import { METRIC_KEYS, METRIC_LABELS, sumMetrics, getWorkingDaysCount } from "@/lib/db";
+import { METRIC_KEYS, SDR_METRIC_KEYS, CLOSER_METRIC_KEYS, METRIC_LABELS, sumMetrics, getWorkingDaysCount } from "@/lib/db";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -25,9 +25,13 @@ const METRIC_ICONS: Record<string, string> = {
 interface CloserDailyDashboardProps {
   teamMemberId: string;
   memberName: string;
+  memberRole?: string;
 }
 
-export function CloserDailyDashboard({ teamMemberId, memberName }: CloserDailyDashboardProps) {
+export function CloserDailyDashboard({ teamMemberId, memberName, memberRole = "sdr" }: CloserDailyDashboardProps) {
+  const roleMetrics = memberRole === "closer"
+    ? (CLOSER_METRIC_KEYS as readonly string[])
+    : (SDR_METRIC_KEYS as readonly string[]);
   const { data: months } = useMonths();
   const queryClient = useQueryClient();
   const today = new Date();
@@ -50,11 +54,11 @@ export function CloserDailyDashboard({ teamMemberId, memberName }: CloserDailyDa
   const dailyGoals = useMemo(() => {
     if (!currentWeekGoal) return null;
     const wdCount = getWorkingDaysCount((currentWeekGoal as any).working_days);
-    return METRIC_KEYS.reduce((acc, k) => {
+    return roleMetrics.reduce((acc, k) => {
       acc[k] = Math.ceil((currentWeekGoal as any)[k] / wdCount);
       return acc;
     }, {} as Record<string, number>);
-  }, [currentWeekGoal]);
+  }, [currentWeekGoal, roleMetrics]);
 
   // Today's metrics
   const todayMetrics = useMemo(() => {
@@ -79,15 +83,15 @@ export function CloserDailyDashboard({ teamMemberId, memberName }: CloserDailyDa
   // Overall day completion %
   const dayCompletion = useMemo(() => {
     if (!dailyGoals || !todayMetrics) return 0;
-    const totalGoal = METRIC_KEYS.reduce((s, k) => s + (dailyGoals[k] || 0), 0);
-    const totalActual = METRIC_KEYS.reduce((s, k) => s + (todayMetrics[k] || 0), 0);
+    const totalGoal = roleMetrics.reduce((s, k) => s + (dailyGoals[k] || 0), 0);
+    const totalActual = roleMetrics.reduce((s, k) => s + (todayMetrics[k] || 0), 0);
     return totalGoal > 0 ? Math.min(Math.round((totalActual / totalGoal) * 100), 100) : 0;
-  }, [dailyGoals, todayMetrics]);
+  }, [dailyGoals, todayMetrics, roleMetrics]);
 
   const achievedCount = useMemo(() => {
     if (!dailyGoals || !todayMetrics) return 0;
-    return METRIC_KEYS.filter(k => dailyGoals[k] > 0 && (todayMetrics[k] || 0) >= dailyGoals[k]).length;
-  }, [dailyGoals, todayMetrics]);
+    return roleMetrics.filter(k => dailyGoals[k] > 0 && (todayMetrics[k] || 0) >= dailyGoals[k]).length;
+  }, [dailyGoals, todayMetrics, roleMetrics]);
 
   if (metricsLoading) {
     return (
@@ -114,7 +118,7 @@ export function CloserDailyDashboard({ teamMemberId, memberName }: CloserDailyDa
             </h2>
             <p className="text-xs text-muted-foreground mt-1">
               {hasDataToday
-                ? `${achievedCount} de ${METRIC_KEYS.filter(k => (dailyGoals?.[k] || 0) > 0).length} metas batidas hoje`
+                ? `${achievedCount} de ${roleMetrics.filter(k => (dailyGoals?.[k] || 0) > 0).length} metas batidas hoje`
                 : "Nenhum dado inserido hoje — comece agora!"
               }
             </p>
@@ -148,6 +152,7 @@ export function CloserDailyDashboard({ teamMemberId, memberName }: CloserDailyDa
           todayStr={todayStr}
           currentMonthId={currentMonth?.id}
           todayMetrics={todayMetrics}
+          roleMetrics={roleMetrics}
           onSaved={() => queryClient.invalidateQueries({ queryKey: ["daily-metrics", currentMonth?.id] })}
         />
       </div>
@@ -159,7 +164,7 @@ export function CloserDailyDashboard({ teamMemberId, memberName }: CloserDailyDa
           <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Progresso do Dia</h3>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-2.5">
-          {METRIC_KEYS.map(k => {
+          {roleMetrics.map(k => {
             const goal = dailyGoals?.[k] || 0;
             const actual = todayMetrics?.[k] || 0;
             const pct = goal > 0 ? Math.min(Math.round((actual / goal) * 100), 100) : 0;
@@ -217,7 +222,7 @@ export function CloserDailyDashboard({ teamMemberId, memberName }: CloserDailyDa
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-            {METRIC_KEYS.map(k => {
+            {roleMetrics.map(k => {
               const goal = (currentWeekGoal as any)[k] || 0;
               const actual = weekMetrics?.[k] || 0;
               const pct = goal > 0 ? Math.round((actual / goal) * 100) : 0;
@@ -256,17 +261,19 @@ function DataEntryDialog({
   todayStr,
   currentMonthId,
   todayMetrics,
+  roleMetrics,
   onSaved,
 }: {
   teamMemberId: string;
   todayStr: string;
   currentMonthId?: string;
   todayMetrics: Record<string, number> | null;
+  roleMetrics: readonly string[];
   onSaved: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [values, setValues] = useState<Record<string, number>>(() =>
-    METRIC_KEYS.reduce((acc, k) => ({ ...acc, [k]: 0 }), {} as Record<string, number>)
+    roleMetrics.reduce((acc, k) => ({ ...acc, [k]: 0 }), {} as Record<string, number>)
   );
   const [loading, setLoading] = useState(false);
   const [existingId, setExistingId] = useState<string | null>(null);
@@ -285,11 +292,11 @@ function DataEntryDialog({
         if (data) {
           setExistingId(data.id);
           const vals: Record<string, number> = {};
-          METRIC_KEYS.forEach(k => { vals[k] = (data as any)[k] || 0; });
+          roleMetrics.forEach(k => { vals[k] = (data as any)[k] || 0; });
           setValues(vals);
         } else {
           setExistingId(null);
-          setValues(METRIC_KEYS.reduce((acc, k) => ({ ...acc, [k]: 0 }), {} as Record<string, number>));
+          setValues(roleMetrics.reduce((acc, k) => ({ ...acc, [k]: 0 }), {} as Record<string, number>));
         }
       });
   }, [open, currentMonthId, teamMemberId, todayStr]);
@@ -358,7 +365,7 @@ function DataEntryDialog({
         </DialogHeader>
 
         <div className="grid grid-cols-2 gap-3 py-2">
-          {METRIC_KEYS.map(k => (
+          {roleMetrics.map(k => (
             <div key={k}>
               <label className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
                 <span>{METRIC_ICONS[k]}</span> {METRIC_LABELS[k]}
