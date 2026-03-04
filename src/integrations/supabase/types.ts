@@ -706,6 +706,7 @@ export type Database = {
           active: boolean
           created_at: string
           description: string
+          flow_data: Json | null
           id: string
           include_ai_tips: boolean
           include_metrics: boolean
@@ -720,6 +721,7 @@ export type Database = {
           active?: boolean
           created_at?: string
           description?: string
+          flow_data?: Json | null
           id?: string
           include_ai_tips?: boolean
           include_metrics?: boolean
@@ -734,6 +736,7 @@ export type Database = {
           active?: boolean
           created_at?: string
           description?: string
+          flow_data?: Json | null
           id?: string
           include_ai_tips?: boolean
           include_metrics?: boolean
