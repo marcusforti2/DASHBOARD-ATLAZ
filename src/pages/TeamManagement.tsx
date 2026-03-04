@@ -471,7 +471,7 @@ function BehavioralAnalysis({ member, monthId }: { member: DbTeamMember; monthId
               {showHistory ? "Ocultar" : `Histórico (${existingAnalyses.length})`}
             </button>
           )}
-          <label className="px-3 py-1.5 text-[10px] rounded-lg font-medium bg-[hsl(var(--chart-3))] text-primary-foreground hover:opacity-90 transition-opacity cursor-pointer flex items-center gap-1.5">
+          <label className="px-3 py-1.5 text-[10px] rounded-lg font-medium bg-[hsl(var(--chart-3))] text-foreground hover:opacity-90 transition-opacity cursor-pointer flex items-center gap-1.5">
             {uploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
             {uploading ? "Enviando..." : "Upload PDF"}
             <input type="file" accept=".pdf" onChange={handleFileUpload} className="hidden" disabled={uploading} />

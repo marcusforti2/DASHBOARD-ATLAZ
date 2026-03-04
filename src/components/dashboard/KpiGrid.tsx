@@ -46,7 +46,7 @@ export function KpiGrid({ totals, goals, previousTotals, onCardClick, compact = 
         {/* SDR Panel */}
         <div className="flex-1 rounded-xl p-2.5 bg-[hsl(var(--panel-sdr))] border border-[hsl(217,40%,18%)] border-l-[3px] border-l-[hsl(var(--panel-sdr-accent))]">
           <div className="flex items-center gap-2 mb-1.5">
-            <span className="text-[8px] font-bold uppercase tracking-widest text-primary-foreground bg-primary/20 px-2 py-0.5 rounded-full border border-primary/30">SDR</span>
+            <span className="text-[8px] font-bold uppercase tracking-widest text-primary bg-primary/20 px-2 py-0.5 rounded-full border border-primary/30">SDR</span>
             <div className="flex-1 h-px bg-primary/20" />
           </div>
           <div className="grid grid-cols-7 gap-1.5">
@@ -78,7 +78,7 @@ export function KpiGrid({ totals, goals, previousTotals, onCardClick, compact = 
       {/* SDR Panel */}
       <div className="rounded-xl p-4 bg-[hsl(var(--panel-sdr))] border border-[hsl(217,40%,18%)] border-l-[3px] border-l-[hsl(var(--panel-sdr-accent))]">
         <div className="flex items-center gap-2 mb-3">
-          <span className="text-xs font-bold uppercase tracking-widest text-primary-foreground bg-primary/20 px-2.5 py-0.5 rounded-full border border-primary/30">Métricas SDR</span>
+          <span className="text-xs font-bold uppercase tracking-widest text-primary bg-primary/20 px-2.5 py-0.5 rounded-full border border-primary/30">Métricas SDR</span>
           <div className="flex-1 h-px bg-primary/20" />
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">

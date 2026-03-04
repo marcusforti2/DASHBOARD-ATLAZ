@@ -108,7 +108,7 @@ export function RoleRanking({ title, members, dailyMetrics, metricKeys, variant,
     : "bg-[hsl(var(--panel-sdr))] border-[hsl(217,40%,18%)] border-l-[3px] border-l-[hsl(var(--panel-sdr-accent))]";
   const chipClass = isCloser
     ? "text-[hsl(280,65%,80%)] bg-[hsl(280,65%,60%/0.15)] border-[hsl(280,65%,60%/0.3)]"
-    : "text-primary-foreground bg-primary/20 border-primary/30";
+    : "text-primary bg-primary/20 border-primary/30";
 
   // Compact: animated mini podium + list
   if (compact) {
