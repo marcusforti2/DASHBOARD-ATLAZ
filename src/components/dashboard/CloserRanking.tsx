@@ -120,18 +120,19 @@ export function RoleRanking({ title, members, dailyMetrics, metricKeys, variant,
       member: typeof p1; rank: number; podiumH: string; avatarSize: string; delay: number;
     }) => {
       const s = PODIUM_STYLES[rank];
+      const heightValue = podiumH === "h-14" ? "3.5rem" : podiumH === "h-10" ? "2.5rem" : "2rem";
       if (!member) return (
         <div className="flex flex-col items-center flex-1 justify-end">
-          <div className={cn("w-full rounded-t-md bg-secondary/10", podiumH)} />
+          <div className={cn("w-full rounded-t-md bg-secondary/10")} style={{ height: heightValue, opacity: 0.3 }} />
         </div>
       );
       return (
-        <div className="flex flex-col items-center flex-1 justify-end">
+        <div className="flex flex-col items-center flex-1 justify-end relative">
           {rank === 0 && (
             <Crown size={12} className="text-[hsl(45,93%,47%)] animate-crown-bounce mb-0.5" />
           )}
           <div
-            className={cn("rounded-full overflow-hidden shrink-0 relative opacity-0 animate-avatar-drop", avatarSize, s.ring, s.glow)}
+            className={cn("rounded-full overflow-hidden shrink-0 relative animate-avatar-drop", avatarSize, s.ring, s.glow)}
             style={{ animationDelay: `${delay + 0.2}s`, animationFillMode: "both" }}
           >
             <img src={getMemberAvatar(member, member.originalIndex)} alt={member.name} className="w-full h-full object-cover" />
@@ -144,41 +145,39 @@ export function RoleRanking({ title, members, dailyMetrics, metricKeys, variant,
             </div>
           </div>
           <span
-            className={cn("font-semibold text-card-foreground truncate w-full text-center mt-1 opacity-0 animate-fade-in", rank === 0 ? "text-[9px] font-bold" : "text-[8px]")}
+            className={cn("font-semibold text-card-foreground truncate w-full text-center mt-1 animate-fade-in", rank === 0 ? "text-[9px] font-bold" : "text-[8px]")}
             style={{ animationDelay: `${delay + 0.4}s`, animationFillMode: "both" }}
           >
             {member.name}
           </span>
           <div
-            className={cn("w-full rounded-t-md flex items-end justify-center mt-0.5 overflow-hidden", s.bg, "ring-1", s.ring)}
-            style={{ ["--podium-height" as any]: podiumH === "h-14" ? "3.5rem" : podiumH === "h-10" ? "2.5rem" : "2rem", height: 0, animationDelay: `${delay}s`, animationFillMode: "both" } as React.CSSProperties}
-            // Use inline animation since we need CSS custom property
-            ref={(el) => {
-              if (el) {
-                el.style.animation = `podium-rise 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) ${delay}s forwards`;
-              }
-            }}
+            className={cn("w-full rounded-t-md flex items-end justify-center mt-0.5 overflow-hidden relative animate-podium-rise", s.bg, "ring-1", s.ring)}
+            style={{
+              ["--podium-height" as string]: heightValue,
+              animationDelay: `${delay}s`,
+              animationFillMode: "both",
+            } as React.CSSProperties}
           >
             <span
-              className={cn("font-black tabular-nums pb-1 opacity-0 animate-score-pop", rank === 0 ? "text-sm" : "text-[10px]", s.text)}
+              className={cn("font-black tabular-nums pb-1 animate-score-pop", rank === 0 ? "text-sm" : "text-[10px]", s.text)}
               style={{ animationDelay: `${delay + 0.6}s`, animationFillMode: "both" }}
             >
               {member.total}
             </span>
             {rank === 0 && (
-              <Flame size={10} className="text-[hsl(45,93%,47%)] absolute bottom-0.5 opacity-0 animate-score-pop" style={{ animationDelay: `${delay + 0.8}s`, animationFillMode: "both" }} />
+              <Flame size={10} className="text-[hsl(45,93%,47%)] absolute bottom-0.5 animate-score-pop" style={{ animationDelay: `${delay + 0.8}s`, animationFillMode: "both" }} />
+            )}
+            {/* Shimmer on 1st place podium */}
+            {rank === 0 && (
+              <div
+                className="absolute inset-0 rounded-t-md pointer-events-none opacity-30 animate-shimmer"
+                style={{
+                  backgroundImage: "linear-gradient(90deg, transparent 0%, hsl(45,93%,47%,0.3) 50%, transparent 100%)",
+                  backgroundSize: "200% 100%",
+                }}
+              />
             )}
           </div>
-          {/* Shimmer on 1st place podium */}
-          {rank === 0 && (
-            <div
-              className="absolute bottom-0 left-0 right-0 h-14 rounded-t-md pointer-events-none opacity-30 animate-shimmer"
-              style={{
-                backgroundImage: "linear-gradient(90deg, transparent 0%, hsl(45,93%,47%,0.3) 50%, transparent 100%)",
-                backgroundSize: "200% 100%",
-              }}
-            />
-          )}
         </div>
       );
     };
