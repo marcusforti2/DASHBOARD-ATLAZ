@@ -166,11 +166,15 @@ export default function Index() {
         ) : null;
       case "closer-preview":
         if (!previewMemberId) return null;
-        const previewName = members?.find(m => m.id === previewMemberId)?.name || "";
-        if (previewCloserView === "daily-goals") {
-          return <CloserDailyDashboard teamMemberId={previewMemberId} memberName={previewName} />;
-        }
-        return <CloserEntry teamMemberId={previewMemberId} memberName={previewName} />;
+        const previewMember = members?.find(m => m.id === previewMemberId);
+        return (
+          <UserHub
+            teamMemberId={previewMemberId}
+            memberName={previewMember?.name || ""}
+            memberRole={previewMember?.member_role || "sdr"}
+            onSignOut={signOut}
+          />
+        );
       case "settings":
         return <SettingsPage />;
       case "whatsapp":
@@ -222,22 +226,6 @@ export default function Index() {
 
             {isCloserPreview && members && (
               <div className="flex items-center gap-2 flex-wrap">
-                <div className="flex items-center gap-1 mr-2">
-                  {([["entry", "Inserir Dados"], ["daily-goals", "Metas do Dia"]] as const).map(([key, label]) => (
-                    <button
-                      key={key}
-                      onClick={() => setPreviewCloserView(key)}
-                      className={`px-2.5 py-1 text-[10px] rounded-lg font-semibold uppercase tracking-wider transition-colors ${
-                        previewCloserView === key
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                <div className="h-4 w-px bg-border" />
                 <Eye size={12} className="text-[hsl(38,92%,50%)]" />
                 <span className="text-[10px] text-[hsl(38,92%,50%)] font-semibold uppercase tracking-wider mr-1">Simular:</span>
                 {members.map(m => (
