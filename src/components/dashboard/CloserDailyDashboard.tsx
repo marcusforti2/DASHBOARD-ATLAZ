@@ -451,6 +451,7 @@ function DataEntryDialog({
   const [existingSearch, setExistingSearch] = useState("");
   const [uploading, setUploading] = useState(false);
   const [dripifyData, setDripifyData] = useState<DripifyDayData[]>([]);
+  const [dragging, setDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dripifyFileRef = useRef<HTMLInputElement>(null);
 
@@ -494,12 +495,10 @@ function DataEntryDialog({
     dripifyFileRef.current?.click();
   };
 
-  const handleDripifyFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const processDripifyFile = async (file: File) => {
     setStep("uploading");
     setUploading(true);
+    setDragging(false);
 
     try {
       const formData = new FormData();
@@ -536,6 +535,32 @@ function DataEntryDialog({
       setUploading(false);
       if (dripifyFileRef.current) dripifyFileRef.current.value = "";
     }
+  };
+
+  const handleDripifyFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await processDripifyFile(file);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) processDripifyFile(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragging(false);
   };
 
   const handleSaveDripify = async () => {
@@ -742,22 +767,34 @@ function DataEntryDialog({
               </p>
             </DialogHeader>
 
-            {/* Dripify Import Button */}
-            <button
+            {/* Dripify Import Drop Zone */}
+            <div
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
               onClick={handleDripifyUpload}
-              className="w-full rounded-xl border-2 border-dashed border-chart-4/30 hover:border-chart-4/60 bg-chart-4/5 hover:bg-chart-4/10 p-3.5 flex items-center gap-3 transition-all group"
+              className={cn(
+                "w-full rounded-xl border-2 border-dashed p-4 flex flex-col items-center gap-2 transition-all cursor-pointer",
+                dragging
+                  ? "border-chart-4 bg-chart-4/15 scale-[1.02]"
+                  : "border-chart-4/30 hover:border-chart-4/60 bg-chart-4/5 hover:bg-chart-4/10"
+              )}
             >
-              <div className="w-10 h-10 rounded-lg bg-chart-4/15 flex items-center justify-center group-hover:bg-chart-4/20 transition-colors">
-                <Upload size={18} className="text-chart-4" />
+              <div className={cn(
+                "w-12 h-12 rounded-xl flex items-center justify-center transition-colors",
+                dragging ? "bg-chart-4/25" : "bg-chart-4/15"
+              )}>
+                <Upload size={20} className={cn("transition-transform", dragging ? "text-chart-4 -translate-y-1" : "text-chart-4")} />
               </div>
-              <div className="text-left flex-1">
-                <p className="text-xs font-bold text-card-foreground">📊 Importar Relatório Dripify</p>
+              <div className="text-center">
+                <p className="text-xs font-bold text-card-foreground">
+                  {dragging ? "Solte o arquivo aqui!" : "📊 Importar Relatório Dripify"}
+                </p>
                 <p className="text-[9px] text-muted-foreground mt-0.5">
-                  Suba o CSV do Dripify e importe conexões, aceitas e abordagens automaticamente
+                  {dragging ? "CSV, PDF ou imagem" : "Arraste o arquivo ou clique para selecionar"}
                 </p>
               </div>
-              <FileSpreadsheet size={14} className="text-chart-4/50 group-hover:text-chart-4 transition-colors" />
-            </button>
+            </div>
 
             <div className="flex items-center gap-2 py-1">
               <div className="flex-1 h-px bg-border" />
