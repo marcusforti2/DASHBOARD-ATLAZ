@@ -600,7 +600,7 @@ function LeadHistoryPanel({ teamMemberId }: { teamMemberId: string }) {
     </div>
   );
 }
-type EntryStep = "select-metric" | "source-choice" | "lead-sheet" | "uploading" | "dripify-preview";
+type EntryStep = "select-metric" | "quantity-picker" | "source-choice" | "lead-sheet" | "uploading" | "dripify-preview";
 
 const DRIPIFY_METRICS = ["conexoes", "conexoes_aceitas", "abordagens"];
 
@@ -626,6 +626,7 @@ function DataEntryDialog({
   const [selectedMetric, setSelectedMetric] = useState<string | null>(null);
   const [entrySource, setEntrySource] = useState<"manual" | "dripify">("manual");
   const [existingLeads, setExistingLeads] = useState<any[]>([]);
+  const [quickQty, setQuickQty] = useState(1);
   const [rows, setRows] = useState<{ lead_name: string; whatsapp: string; social_link: string; fromExisting?: boolean }[]>([]);
   const [saving, setSaving] = useState(false);
   const [showExistingPicker, setShowExistingPicker] = useState(false);
@@ -665,20 +666,23 @@ function DataEntryDialog({
       });
   }, [open, teamMemberId]);
 
-  const handleSelectMetric = async (metric: string) => {
-    // Only "numero" requires lead sheet / audit trail
+  const handleSelectMetric = (metric: string) => {
+    setSelectedMetric(metric);
+    // "numero" requires lead sheet / audit trail
     if (metric === "numero") {
-      setSelectedMetric(metric);
       setEntrySource("manual");
       setRows([{ lead_name: "", whatsapp: "", social_link: "" }]);
       setStep("lead-sheet");
       return;
     }
+    // All other metrics: show quantity picker
+    setQuickQty(1);
+    setStep("quantity-picker");
+  };
 
-    // All other metrics: just increment +1 directly
-    if (!currentMonthId) return;
+  const handleSaveQuickMetric = async () => {
+    if (!currentMonthId || !selectedMetric || quickQty < 1) return;
     setSaving(true);
-    setSelectedMetric(metric);
 
     const dateObj = new Date(todayStr + "T12:00:00");
     const dayName = DAY_NAMES[dateObj.getDay()];
@@ -692,9 +696,9 @@ function DataEntryDialog({
       .maybeSingle();
 
     if (existing) {
-      const currentVal = (existing as any)[metric] || 0;
+      const currentVal = (existing as any)[selectedMetric] || 0;
       await supabase.from("daily_metrics")
-        .update({ [metric]: currentVal + 1 })
+        .update({ [selectedMetric]: currentVal + quickQty })
         .eq("id", existing.id);
     } else {
       const payload: any = {
@@ -704,14 +708,15 @@ function DataEntryDialog({
         day_of_week: dayName,
       };
       roleMetrics.forEach(k => { payload[k] = 0; });
-      payload[metric] = 1;
+      payload[selectedMetric] = quickQty;
       await supabase.from("daily_metrics").insert(payload);
     }
 
-    toast.success(`+1 ${METRIC_LABELS[metric]} registrado! 🚀`);
+    toast.success(`+${quickQty} ${METRIC_LABELS[selectedMetric]} registrado(s)! 🚀`);
     onSaved();
     setSaving(false);
     setSelectedMetric(null);
+    setStep("select-metric");
   };
 
   const handleDripifyUpload = () => {
@@ -1054,6 +1059,71 @@ function DataEntryDialog({
                   </button>
                 );
               })}
+            </div>
+          </>
+        ) : step === "quantity-picker" ? (
+          <>
+            <DialogHeader>
+              <DialogTitle className="text-sm font-bold text-card-foreground flex items-center gap-2">
+                <span className="text-lg">{METRIC_ICONS[selectedMetric || ""]}</span>
+                {METRIC_LABELS[selectedMetric || ""]}
+              </DialogTitle>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Quantos você quer somar ao dia de hoje?
+              </p>
+            </DialogHeader>
+
+            <div className="flex flex-col items-center gap-5 py-4">
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => setQuickQty(q => Math.max(1, q - 1))}
+                  className="w-12 h-12 rounded-xl border border-border bg-secondary/50 hover:bg-secondary text-xl font-bold text-card-foreground transition-all active:scale-95"
+                >
+                  −
+                </button>
+                <span className="text-4xl font-black tabular-nums text-primary w-16 text-center">{quickQty}</span>
+                <button
+                  onClick={() => setQuickQty(q => q + 1)}
+                  className="w-12 h-12 rounded-xl border border-border bg-secondary/50 hover:bg-secondary text-xl font-bold text-card-foreground transition-all active:scale-95"
+                >
+                  +
+                </button>
+              </div>
+
+              {/* Quick presets */}
+              <div className="flex gap-2">
+                {[1, 5, 10, 20].map(n => (
+                  <button
+                    key={n}
+                    onClick={() => setQuickQty(n)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
+                      quickQty === n
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-secondary/50 text-muted-foreground hover:bg-secondary"
+                    )}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setStep("select-metric"); setSelectedMetric(null); }}
+                className="flex-1 rounded-xl py-3 text-xs font-bold border border-border bg-secondary/30 text-muted-foreground hover:bg-secondary/50 transition-all"
+              >
+                Voltar
+              </button>
+              <button
+                onClick={handleSaveQuickMetric}
+                disabled={saving}
+                className="flex-1 rounded-xl py-3 text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                Salvar +{quickQty}
+              </button>
             </div>
           </>
         ) : step === "dripify-preview" ? (
