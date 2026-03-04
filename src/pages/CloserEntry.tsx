@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useMonths } from "@/hooks/use-metrics";
-import { METRIC_KEYS, METRIC_LABELS } from "@/lib/db";
+import { useMonths, useTeamMembers } from "@/hooks/use-metrics";
+import { METRIC_KEYS, METRIC_LABELS, SDR_METRIC_KEYS, CLOSER_METRIC_KEYS } from "@/lib/db";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Loader2, Save, CheckCircle2, Calendar } from "lucide-react";
@@ -16,6 +16,7 @@ interface CloserEntryProps {
 
 export default function CloserEntry({ teamMemberId, memberName }: CloserEntryProps) {
   const { data: months } = useMonths();
+  const { data: members } = useTeamMembers();
   const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [values, setValues] = useState<Record<string, number>>(() =>
     METRIC_KEYS.reduce((acc, k) => ({ ...acc, [k]: 0 }), {} as Record<string, number>)
@@ -23,6 +24,12 @@ export default function CloserEntry({ teamMemberId, memberName }: CloserEntryPro
   const [loading, setLoading] = useState(false);
   const [existingId, setExistingId] = useState<string | null>(null);
   const [fetchingExisting, setFetchingExisting] = useState(false);
+
+  // Determine role-specific metrics
+  const currentMember = members?.find(m => m.id === teamMemberId);
+  const isCloserRole = currentMember?.member_role === "closer";
+  const visibleKeys: readonly string[] = isCloserRole ? CLOSER_METRIC_KEYS : SDR_METRIC_KEYS;
+  const roleLabel = isCloserRole ? "Closer" : "SDR";
 
   // Find month for selected date
   const dateObj = new Date(selectedDate + "T12:00:00");
@@ -81,7 +88,6 @@ export default function CloserEntry({ teamMemberId, memberName }: CloserEntryPro
     } else {
       toast.success(existingId ? "Dados atualizados!" : "Dados salvos!");
       if (!existingId) {
-        // Refetch to get the id
         const { data } = await supabase.from("daily_metrics").select("id").eq("member_id", teamMemberId).eq("date", selectedDate).single();
         if (data) setExistingId(data.id);
       }
@@ -117,13 +123,18 @@ export default function CloserEntry({ teamMemberId, memberName }: CloserEntryPro
       </div>
 
       {/* Metrics */}
-      <div className="rounded-xl border border-border bg-card p-5 space-y-4">
-        <h3 className="text-xs font-semibold text-card-foreground uppercase tracking-wider">Métricas do Dia</h3>
+      <div className={`rounded-xl border bg-card p-5 space-y-4 ${isCloserRole ? "border-[hsl(280,30%,18%)] border-l-[3px] border-l-[hsl(280,65%,60%)]" : "border-border border-l-[3px] border-l-primary"}`}>
+        <div className="flex items-center gap-2">
+          <h3 className="text-xs font-semibold text-card-foreground uppercase tracking-wider">Métricas do Dia</h3>
+          <span className={`text-[8px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${isCloserRole ? "text-[hsl(280,65%,80%)] bg-[hsl(280,65%,60%/0.15)] border-[hsl(280,65%,60%/0.3)]" : "text-primary-foreground bg-primary/20 border-primary/30"}`}>
+            {roleLabel}
+          </span>
+        </div>
         {fetchingExisting ? (
           <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-primary" /></div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
-            {METRIC_KEYS.map(k => (
+            {visibleKeys.map(k => (
               <div key={k}>
                 <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
                   {METRIC_LABELS[k]}
