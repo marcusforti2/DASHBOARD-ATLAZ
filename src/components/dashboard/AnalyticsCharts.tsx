@@ -295,91 +295,105 @@ export function AnalyticsCharts({ dailyMetrics, members, weeklyGoals, weeksOfMon
     const total = funnelData.reduce((s, d) => s + d.value, 0);
 
     return (
-      <div className="h-full flex flex-col items-center justify-center gap-0 py-4 px-8">
-        {funnelData.map((item, i) => {
-          const widthPct = 30 + (item.value / maxVal) * 70; // min 30%, max 100%
-          const nextWidthPct = i < funnelData.length - 1 ? 30 + (funnelData[i + 1].value / maxVal) * 70 : widthPct * 0.6;
-          const pctOfTotal = total > 0 ? Math.round((item.value / total) * 100) : 0;
-          const conversionRate = i > 0 && funnelData[i - 1].value > 0
-            ? Math.round((item.value / funnelData[i - 1].value) * 100) : null;
+      <div className="h-full flex flex-col items-center justify-center py-4 px-6" style={{ perspective: '800px' }}>
+        <div className="w-full max-w-md flex flex-col items-center" style={{ transformStyle: 'preserve-3d', transform: 'rotateX(8deg)' }}>
+          {funnelData.map((item, i) => {
+            const widthPct = 25 + (item.value / maxVal) * 75;
+            const pctOfTotal = total > 0 ? Math.round((item.value / total) * 100) : 0;
+            const conversionRate = i > 0 && funnelData[i - 1].value > 0
+              ? Math.round((item.value / funnelData[i - 1].value) * 100) : null;
+            const isLast = i === funnelData.length - 1;
 
-          return (
-            <div
-              key={i}
-              className="relative group w-full flex flex-col items-center"
-              style={{
-                animationDelay: `${i * 150}ms`,
-                animation: `funnel-stage-in 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards`,
-                opacity: 0,
-              }}
-            >
-              {/* Trapezoid shape */}
-              <div className="relative w-full flex justify-center">
-                <div
-                  className="relative overflow-hidden transition-all duration-500 group-hover:scale-[1.03] group-hover:brightness-110"
-                  style={{
-                    width: `${widthPct}%`,
-                    height: '56px',
-                    clipPath: `polygon(0 0, 100% 0, ${50 + (nextWidthPct / widthPct) * 50}% 100%, ${50 - (nextWidthPct / widthPct) * 50}% 100%)`,
-                    background: `linear-gradient(135deg, ${item.fill}, ${item.fill}dd)`,
-                    boxShadow: `0 4px 20px -4px ${item.fill}66`,
-                  }}
-                >
-                  {/* Shimmer overlay */}
+            return (
+              <div
+                key={i}
+                className="relative group w-full flex flex-col items-center"
+                style={{
+                  opacity: 0,
+                  animation: `funnel-stage-in 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) forwards`,
+                  animationDelay: `${i * 120}ms`,
+                }}
+              >
+                {/* 3D Elliptical segment */}
+                <div className="relative w-full flex justify-center" style={{ marginBottom: '-2px' }}>
                   <div
-                    className="absolute inset-0 opacity-20"
+                    className="relative overflow-hidden transition-all duration-500 group-hover:scale-[1.04] group-hover:brightness-110 cursor-pointer"
                     style={{
-                      background: `linear-gradient(135deg, transparent 30%, rgba(255,255,255,0.3) 50%, transparent 70%)`,
-                      backgroundSize: '200% 100%',
-                      animation: 'shimmer 3s linear infinite',
+                      width: `${widthPct}%`,
+                      height: '52px',
+                      borderRadius: `50% / ${isLast ? '40%' : '30%'}`,
+                      background: `linear-gradient(180deg, ${item.fill}ee 0%, ${item.fill} 40%, ${item.fill}bb 100%)`,
+                      boxShadow: `
+                        0 4px 20px -4px ${item.fill}55,
+                        inset 0 -8px 20px -6px rgba(0,0,0,0.35),
+                        inset 0 4px 12px -2px rgba(255,255,255,0.2)
+                      `,
                     }}
-                  />
-                  {/* Center value */}
-                  <div className="absolute inset-0 flex items-center justify-center gap-2">
-                    <span className="text-lg font-black tabular-nums drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" style={{ color: 'white' }}>
-                      {item.value.toLocaleString("pt-BR")}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Right label */}
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-2 pl-3"
-                  style={{ right: `${(100 - widthPct) / 2 - 2}%`, transform: 'translateX(100%) translateY(-50%)' }}>
-                  <div className="w-6 h-px" style={{ backgroundColor: `${item.fill}66` }} />
-                  <div className="flex flex-col">
-                    <span className="text-[11px] font-bold text-card-foreground whitespace-nowrap">{item.name}</span>
-                    <span className="text-[9px] text-muted-foreground tabular-nums">{pctOfTotal}% do total</span>
-                  </div>
-                </div>
-
-                {/* Left conversion rate badge */}
-                {conversionRate !== null && (
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2"
-                    style={{ left: `${(100 - widthPct) / 2 - 2}%`, transform: 'translateX(-100%) translateY(-50%)' }}>
-                    <div className="flex items-center gap-1.5">
-                      <div className="flex flex-col items-end">
-                        <span className={cn(
-                          "text-[10px] font-bold tabular-nums",
-                          conversionRate >= 50 ? "text-accent" : conversionRate >= 20 ? "text-[hsl(38,92%,50%)]" : "text-destructive"
-                        )}>
-                          {conversionRate}%
-                        </span>
-                        <span className="text-[8px] text-muted-foreground">conversão</span>
-                      </div>
-                      <div className="w-6 h-px" style={{ backgroundColor: `${item.fill}66` }} />
+                  >
+                    {/* Top highlight arc */}
+                    <div
+                      className="absolute top-0 left-1/2 -translate-x-1/2"
+                      style={{
+                        width: '70%',
+                        height: '40%',
+                        borderRadius: '50%',
+                        background: 'linear-gradient(180deg, rgba(255,255,255,0.25) 0%, transparent 100%)',
+                      }}
+                    />
+                    {/* Shimmer */}
+                    <div
+                      className="absolute inset-0 opacity-30"
+                      style={{
+                        background: `linear-gradient(110deg, transparent 25%, rgba(255,255,255,0.35) 50%, transparent 75%)`,
+                        backgroundSize: '250% 100%',
+                        animation: 'shimmer 3s ease-in-out infinite',
+                        borderRadius: 'inherit',
+                      }}
+                    />
+                    {/* Value */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-base font-black tabular-nums drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)]" style={{ color: 'white' }}>
+                        {item.value.toLocaleString("pt-BR")}
+                      </span>
                     </div>
                   </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
 
-        {/* Bottom tip */}
-        <div className="mt-2 flex items-center gap-2 opacity-60">
-          <div className="w-0 h-0 border-l-[6px] border-r-[6px] border-t-[8px] border-l-transparent border-r-transparent"
-            style={{ borderTopColor: funnelData[funnelData.length - 1]?.fill || 'hsl(var(--primary))' }} />
-          <span className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  {/* Right label */}
+                  <div className="absolute top-1/2 -translate-y-1/2 flex items-center gap-2"
+                    style={{ right: `${Math.max((100 - widthPct) / 2 - 4, 0)}%`, transform: 'translateX(100%) translateY(-50%)' }}>
+                    <div className="w-8 h-px opacity-40" style={{ background: `linear-gradient(90deg, ${item.fill}, transparent)` }} />
+                    <div className="flex flex-col">
+                      <span className="text-[11px] font-bold text-card-foreground whitespace-nowrap">{item.name}</span>
+                      <span className="text-[9px] text-muted-foreground tabular-nums">{pctOfTotal}% do total</span>
+                    </div>
+                  </div>
+
+                  {/* Left conversion badge */}
+                  {conversionRate !== null && (
+                    <div className="absolute top-1/2 -translate-y-1/2"
+                      style={{ left: `${Math.max((100 - widthPct) / 2 - 4, 0)}%`, transform: 'translateX(-100%) translateY(-50%)' }}>
+                      <div className="flex items-center gap-1.5">
+                        <div className="flex flex-col items-end">
+                          <span className={cn(
+                            "text-[10px] font-bold tabular-nums",
+                            conversionRate >= 50 ? "text-accent" : conversionRate >= 20 ? "text-[hsl(38,92%,50%)]" : "text-destructive"
+                          )}>
+                            ↓ {conversionRate}%
+                          </span>
+                        </div>
+                        <div className="w-8 h-px opacity-40" style={{ background: `linear-gradient(270deg, ${item.fill}, transparent)` }} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Bottom total */}
+        <div className="mt-4 flex items-center gap-2 opacity-50">
+          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">
             Total: {total.toLocaleString("pt-BR")}
           </span>
         </div>
