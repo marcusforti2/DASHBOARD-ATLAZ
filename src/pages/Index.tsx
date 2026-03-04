@@ -7,6 +7,7 @@ import TeamManagement from "@/pages/TeamManagement";
 import GoalsManagement from "@/pages/GoalsManagement";
 import { CloserDailyDashboard } from "@/components/dashboard/CloserDailyDashboard";
 import SettingsPage from "@/pages/SettingsPage";
+import WhatsAppPage from "@/pages/WhatsAppPage";
 import { AppSidebar, AdminView, CloserView } from "@/components/AppSidebar";
 import { AiReportPanel } from "@/components/dashboard/AiReportPanel";
 import { useMonthlyGoals, useAiReports, useDailyMetrics } from "@/hooks/use-metrics";
@@ -121,6 +122,8 @@ export default function Index() {
           return <CloserEntry teamMemberId={previewMemberId} memberName={previewName} />;
         case "settings":
           return <SettingsPage />;
+        case "whatsapp":
+          return <WhatsAppPage />;
         default:
           return null;
       }
@@ -175,7 +178,8 @@ export default function Index() {
                   adminView === "team" ? "Equipe" :
                   adminView === "goals" ? "Metas" :
                   adminView === "reports" ? "Relatórios IA" :
-                   adminView === "closer-preview" ? "Visualização SDR" :
+                  adminView === "whatsapp" ? "WhatsApp" :
+                  adminView === "closer-preview" ? "Visualização SDR" :
                   "Configurações"
                 ) : (
                   closerView === "daily-goals" ? "Meu Dia" : closerView === "entry" ? "Inserir Dados" : "Dashboard Geral"
