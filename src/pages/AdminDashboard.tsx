@@ -458,6 +458,7 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
           dailyMetrics={memberFilteredMetrics}
           members={members}
           goals={allSdrGoals}
+          memberGoals={memberGoalsMap}
         />
       )}
 

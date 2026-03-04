@@ -1,12 +1,14 @@
 import { useMemo } from "react";
-import { DbDailyMetric, DbTeamMember, METRIC_LABELS, METRIC_KEYS, sumMetrics } from "@/lib/db";
-import { AlertTriangle, CheckCircle2, XCircle, Calendar } from "lucide-react";
-import { format, parseISO, isWeekend, subDays } from "date-fns";
+import { DbDailyMetric, DbTeamMember, METRIC_LABELS, SDR_METRIC_KEYS, CLOSER_METRIC_KEYS, sumMetrics } from "@/lib/db";
+import { AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
+import { format, subDays } from "date-fns";
 
 interface AlertsPanelProps {
   dailyMetrics: DbDailyMetric[];
   members: DbTeamMember[];
   goals: Record<string, number> | null;
+  /** Individual member goals keyed by memberId */
+  memberGoals?: Record<string, Record<string, number>>;
 }
 
 interface Alert {
@@ -16,7 +18,7 @@ interface Alert {
   description: string;
 }
 
-export function AlertsPanel({ dailyMetrics, members, goals }: AlertsPanelProps) {
+export function AlertsPanel({ dailyMetrics, members, goals, memberGoals }: AlertsPanelProps) {
   const alerts = useMemo(() => {
     const result: Alert[] = [];
     const today = format(new Date(), "yyyy-MM-dd");
@@ -34,54 +36,72 @@ export function AlertsPanel({ dailyMetrics, members, goals }: AlertsPanelProps) 
             type: "danger",
             icon: <XCircle size={14} />,
             title: `${m.name} não preencheu dados`,
-            description: `Sem registro para ${format(parseISO(checkDate), "dd/MM")}`,
+            description: `Sem registro para ${checkDate.split("-").reverse().slice(0, 2).join("/")}`,
           });
         }
       });
     }
 
-    // Check metrics below 30% of goals
-    if (goals) {
-      members.forEach(m => {
-        const totals = sumMetrics(dailyMetrics, m.id);
-        const criticalMetrics: string[] = [];
-        METRIC_KEYS.forEach(k => {
-          const goal = (goals as any)[k] || 0;
-          const val = totals[k] || 0;
-          if (goal > 0 && val / goal < 0.3) {
-            criticalMetrics.push(METRIC_LABELS[k]);
-          }
+    // Check metrics below 30% of INDIVIDUAL goals (not team total)
+    members.forEach(m => {
+      const totals = sumMetrics(dailyMetrics, m.id);
+      const roleKeys = m.member_role === "closer" ? CLOSER_METRIC_KEYS : SDR_METRIC_KEYS;
+      const mGoal = memberGoals?.[m.id];
+      if (!mGoal) return;
+
+      const criticalMetrics: string[] = [];
+      roleKeys.forEach(k => {
+        const goal = mGoal[k] || 0;
+        const val = totals[k] || 0;
+        if (goal > 0 && val / goal < 0.3) {
+          criticalMetrics.push(METRIC_LABELS[k]);
+        }
+      });
+      if (criticalMetrics.length > 0) {
+        result.push({
+          type: "warning",
+          icon: <AlertTriangle size={14} />,
+          title: `${m.name} — métricas críticas`,
+          description: `Abaixo de 30%: ${criticalMetrics.slice(0, 3).join(", ")}${criticalMetrics.length > 3 ? ` +${criticalMetrics.length - 3}` : ""}`,
         });
-        if (criticalMetrics.length > 0) {
-          result.push({
-            type: "warning",
-            icon: <AlertTriangle size={14} />,
-            title: `${m.name} — métricas críticas`,
-            description: `Abaixo de 30%: ${criticalMetrics.slice(0, 3).join(", ")}${criticalMetrics.length > 3 ? ` +${criticalMetrics.length - 3}` : ""}`,
-          });
-        }
-      });
-    }
+      }
+    });
 
-    // Check top performer
+    // Check top performer — separate by role
     if (dailyMetrics.length > 0) {
-      const ranked = members.map(m => ({
-        name: m.name,
-        total: Object.values(sumMetrics(dailyMetrics, m.id)).reduce((a, b) => a + b, 0),
-      })).sort((a, b) => b.total - a.total);
+      const sdrMembers = members.filter(m => m.member_role === "sdr");
+      const closerMembers = members.filter(m => m.member_role === "closer");
 
-      if (ranked[0]?.total > 0) {
+      const rankByRole = (list: DbTeamMember[], keys: readonly string[]) => {
+        return list.map(m => ({
+          name: m.name,
+          total: keys.reduce((s, k) => s + (sumMetrics(dailyMetrics, m.id)[k] || 0), 0),
+        })).sort((a, b) => b.total - a.total);
+      };
+
+      const sdrRanked = rankByRole(sdrMembers, SDR_METRIC_KEYS);
+      const closerRanked = rankByRole(closerMembers, CLOSER_METRIC_KEYS);
+
+      if (sdrRanked[0]?.total > 0) {
         result.push({
           type: "success",
           icon: <CheckCircle2 size={14} />,
-          title: `${ranked[0].name} lidera o mês`,
-          description: `${ranked[0].total.toLocaleString("pt-BR")} ações totais realizadas`,
+          title: `${sdrRanked[0].name} lidera SDRs`,
+          description: `${sdrRanked[0].total.toLocaleString("pt-BR")} ações totais`,
+        });
+      }
+      if (closerRanked[0]?.total > 0) {
+        result.push({
+          type: "success",
+          icon: <CheckCircle2 size={14} />,
+          title: `${closerRanked[0].name} lidera Closers`,
+          description: `${closerRanked[0].total.toLocaleString("pt-BR")} ações totais`,
         });
       }
     }
 
     return result;
-  }, [dailyMetrics, members, goals]);
+  }, [dailyMetrics, members, goals, memberGoals]);
 
   if (alerts.length === 0) return null;
 
