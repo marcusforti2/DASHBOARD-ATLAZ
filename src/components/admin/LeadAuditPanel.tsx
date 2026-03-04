@@ -2,8 +2,9 @@ import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Calendar, Search, User, Phone, Link, Filter, Loader2 } from "lucide-react";
+import { Calendar, Search, User, Phone, Link, Filter, Loader2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface LeadEntry {
   id: string;
@@ -29,6 +30,7 @@ export function LeadAuditPanel({ memberId, memberName }: LeadAuditPanelProps) {
   const [filterMode, setFilterMode] = useState<FilterMode>("week");
   const [filterDate, setFilterDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [searchTerm, setSearchTerm] = useState("");
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   useEffect(() => {
     fetchLeads();
@@ -44,6 +46,42 @@ export function LeadAuditPanel({ memberId, memberName }: LeadAuditPanelProps) {
       .order("created_at", { ascending: false });
     if (!error && data) setLeads(data as LeadEntry[]);
     setLoading(false);
+  };
+
+  const handleDelete = async (entry: LeadEntry) => {
+    if (!confirm(`Apagar lead "${entry.lead_name}"? A métrica associada também será decrementada.`)) return;
+    setDeleting(entry.id);
+
+    // Delete the lead entry
+    const { error } = await supabase.from("lead_entries").delete().eq("id", entry.id);
+    if (error) {
+      toast.error("Erro ao apagar: " + error.message);
+      setDeleting(null);
+      return;
+    }
+
+    // Decrement the metric if metric_type is set
+    if (entry.metric_type) {
+      const { data: metric } = await supabase
+        .from("daily_metrics")
+        .select("*")
+        .eq("member_id", memberId)
+        .eq("date", entry.date)
+        .maybeSingle();
+
+      if (metric) {
+        const currentVal = (metric as any)[entry.metric_type] || 0;
+        if (currentVal > 0) {
+          await supabase.from("daily_metrics")
+            .update({ [entry.metric_type]: currentVal - 1 })
+            .eq("id", metric.id);
+        }
+      }
+    }
+
+    setLeads(prev => prev.filter(l => l.id !== entry.id));
+    toast.success("Lead apagado e métrica ajustada!");
+    setDeleting(null);
   };
 
   const filteredLeads = useMemo(() => {
@@ -167,7 +205,7 @@ export function LeadAuditPanel({ memberId, memberName }: LeadAuditPanelProps) {
               </div>
 
               <div className="rounded-lg border border-border overflow-hidden">
-                <div className="grid grid-cols-[1fr_1fr_1fr_60px] gap-0 bg-secondary/40 border-b border-border">
+                <div className="grid grid-cols-[1fr_1fr_1fr_60px_32px] gap-0 bg-secondary/40 border-b border-border">
                   <div className="px-2.5 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
                     <User size={9} /> Nome
                   </div>
@@ -180,13 +218,14 @@ export function LeadAuditPanel({ memberId, memberName }: LeadAuditPanelProps) {
                   <div className="px-2.5 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider border-l border-border text-center">
                     Fonte
                   </div>
+                  <div />
                 </div>
 
                 {entries.map((entry, idx) => (
                   <div
                     key={entry.id}
                     className={cn(
-                      "grid grid-cols-[1fr_1fr_1fr_60px] gap-0",
+                      "grid grid-cols-[1fr_1fr_1fr_60px_32px] gap-0",
                       idx % 2 === 0 ? "bg-card" : "bg-secondary/10",
                       idx < entries.length - 1 && "border-b border-border/30"
                     )}
@@ -216,6 +255,16 @@ export function LeadAuditPanel({ memberId, memberName }: LeadAuditPanelProps) {
                       ) : (
                         <span className="text-[7px] font-bold text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">MANUAL</span>
                       )}
+                    </div>
+                    <div className="flex items-center justify-center border-l border-border/30">
+                      <button
+                        onClick={() => handleDelete(entry)}
+                        disabled={deleting === entry.id}
+                        className="p-1 rounded text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
+                        title="Apagar lead"
+                      >
+                        {deleting === entry.id ? <Loader2 size={10} className="animate-spin" /> : <Trash2 size={10} />}
+                      </button>
                     </div>
                   </div>
                 ))}
