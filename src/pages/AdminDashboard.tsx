@@ -235,6 +235,18 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
     };
   }, [allMemberMonthlyGoals, allMemberWeeklyGoals, allSdrPeriod, weeksOfMonth, allSdrWeekIdx, allSdrDate]);
 
+  // Build memberGoals map for MetricDetailModal (individual goals per member for current period)
+  const memberGoalsMap = useMemo((): Record<string, Record<string, number>> => {
+    if (!members) return {};
+    const result: Record<string, Record<string, number>> = {};
+    for (const m of members) {
+      const roleKeys = m.member_role === "closer" ? CLOSER_METRIC_KEYS : SDR_METRIC_KEYS;
+      const g = getMemberGoal(m.id, roleKeys);
+      if (g) result[m.id] = g;
+    }
+    return result;
+  }, [members, getMemberGoal]);
+
   const previousTotals = previousMetrics && previousMetrics.length > 0 ? sumMetrics(previousMetrics) : undefined;
   const hasActiveFilters = dateFrom || dateTo || selectedDayOfWeek || minMetricFilter;
 
@@ -433,7 +445,7 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
           monthId={activeMonthId}
           monthLabel={activeMonth.label}
           metrics={monthTotals}
-          goals={goalToMetrics(goals)}
+          goals={allSdrGoals}
           members={members?.map(m => m.name) || []}
           existingReports={aiReports || []}
           onReportGenerated={() => queryClient.invalidateQueries({ queryKey: ["ai-reports", activeMonthId] })}
@@ -445,7 +457,7 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
         <AlertsPanel
           dailyMetrics={memberFilteredMetrics}
           members={members}
-          goals={goalToMetrics(goals)}
+          goals={allSdrGoals}
         />
       )}
 
@@ -461,10 +473,11 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
           allSdrMetrics
         }
         goals={
-          metricModalSource === "month" ? goalToMetrics(goals) :
+          metricModalSource === "month" ? allSdrGoals :
           metricModalSource === "week" ? weekGoals :
           allSdrGoals
         }
+        memberGoals={memberGoalsMap}
         periodLabel={
           metricModalSource === "month" ? activeMonth?.label || "" :
           metricModalSource === "week" && weeksOfMonth[effectiveWeekIdx]
@@ -486,37 +499,33 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
         monthLabel={activeMonth?.label}
         initialDate={format(allSdrDate, "yyyy-MM-dd")}
         getGoalsForPeriod={(period, wIdx, date) => {
+          // Use the member's own individual goals
+          const memberId = sdrModalMemberId;
+          if (!memberId || !allMemberMonthlyGoals || !allMemberWeeklyGoals) return null;
+          const memberRole = members?.find(m => m.id === memberId)?.member_role;
+          const roleKeys = memberRole === "closer" ? CLOSER_METRIC_KEYS : SDR_METRIC_KEYS;
+
           if (period === "month") {
-            // Find member-specific monthly goal
-            return goalToMetrics(teamGoals);
+            const mg = allMemberMonthlyGoals.find((g: any) => g.member_id === memberId);
+            if (!mg) return null;
+            return Object.fromEntries(METRIC_KEYS.map(k => [k, (mg as any)[k] || 0]));
           }
           if (period === "week") {
-            if (!teamWeeklyGoals || !weeksOfMonth[wIdx]) return null;
+            if (!weeksOfMonth[wIdx]) return null;
             const weekNum = weeksOfMonth[wIdx].weekNumber;
-            const wg = teamWeeklyGoals.find(w => w.week_number === weekNum);
+            const wg = allMemberWeeklyGoals.find((w: any) => w.member_id === memberId && w.week_number === weekNum);
             if (!wg) return null;
-            const wgMetrics = goalToMetrics(wg as any);
-            // Divide team goal by number of members for per-member goal
-            if (!wgMetrics || !members) return wgMetrics;
-            return METRIC_KEYS.reduce((acc, k) => {
-              acc[k] = Math.round((wgMetrics[k] || 0) / members.length);
-              return acc;
-            }, {} as Record<string, number>);
+            return Object.fromEntries(METRIC_KEYS.map(k => [k, (wg as any)[k] || 0]));
           }
           if (period === "day") {
             const dayStr = format(date, "yyyy-MM-dd");
             const weekIndex = weeksOfMonth.findIndex(w => dayStr >= w.startDate && dayStr <= w.endDate);
-            if (weekIndex < 0 || !teamWeeklyGoals) return null;
+            if (weekIndex < 0) return null;
             const weekNum = weeksOfMonth[weekIndex].weekNumber;
-            const wg = teamWeeklyGoals.find(w => w.week_number === weekNum);
+            const wg = allMemberWeeklyGoals.find((w: any) => w.member_id === memberId && w.week_number === weekNum);
             if (!wg) return null;
-            const wgMetrics = goalToMetrics(wg as any);
-            if (!wgMetrics || !members) return null;
             const wdCount = getWorkingDaysCount((wg as any).working_days);
-            return METRIC_KEYS.reduce((acc, k) => {
-              acc[k] = Math.round((wgMetrics[k] || 0) / members.length / wdCount);
-              return acc;
-            }, {} as Record<string, number>);
+            return Object.fromEntries(METRIC_KEYS.map(k => [k, Math.round(((wg as any)[k] || 0) / wdCount)]));
           }
           return null;
         }}
