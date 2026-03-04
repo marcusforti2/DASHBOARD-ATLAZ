@@ -32,9 +32,11 @@ interface MetricDetailModalProps {
   metrics: DbDailyMetric[];
   goals: Record<string, number> | null;
   periodLabel?: string;
+  /** Individual member goals keyed by memberId, for per-member % */
+  memberGoals?: Record<string, Record<string, number>>;
 }
 
-export function MetricDetailModal({ open, onOpenChange, metricKey, members, metrics, goals, periodLabel }: MetricDetailModalProps) {
+export function MetricDetailModal({ open, onOpenChange, metricKey, members, metrics, goals, periodLabel, memberGoals }: MetricDetailModalProps) {
   if (!metricKey) return null;
 
   const label = METRIC_LABELS[metricKey] || metricKey;
@@ -43,14 +45,14 @@ export function MetricDetailModal({ open, onOpenChange, metricKey, members, metr
   const memberData = members
     .map((m, idx) => {
       const totals = sumMetrics(metrics, m.id);
-      return { id: m.id, name: m.name, value: totals[metricKey] || 0, avatar: getMemberAvatar(m, idx) };
+      const individualGoal = memberGoals?.[m.id]?.[metricKey] || 0;
+      return { id: m.id, name: m.name, value: totals[metricKey] || 0, avatar: getMemberAvatar(m, idx), goal: individualGoal };
     })
     .sort((a, b) => b.value - a.value);
 
   const totalValue = memberData.reduce((s, m) => s + m.value, 0);
   const maxValue = memberData[0]?.value || 1;
   const totalPct = totalGoal > 0 ? Math.round((totalValue / totalGoal) * 100) : 0;
-  const goalPerMember = totalGoal > 0 && members.length > 0 ? totalGoal / members.length : 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -107,7 +109,7 @@ export function MetricDetailModal({ open, onOpenChange, metricKey, members, metr
         <div className="px-4 py-3 space-y-1 max-h-[360px] overflow-y-auto">
           {memberData.map((member, idx) => {
             const pctOfMax = maxValue > 0 ? (member.value / maxValue) * 100 : 0;
-            const pctOfGoal = goalPerMember > 0 ? Math.round((member.value / goalPerMember) * 100) : 0;
+            const pctOfGoal = member.goal > 0 ? Math.round((member.value / member.goal) * 100) : 0;
             const isTop3 = idx < 3;
             const barColor = isTop3 ? RANK_COLORS[idx] : "hsl(217, 91%, 60%)";
 
