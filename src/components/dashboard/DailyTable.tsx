@@ -2,6 +2,11 @@ import { DbDailyMetric, DbTeamMember, METRIC_KEYS, METRIC_LABELS } from "@/lib/d
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { cn } from "@/lib/utils";
+
+const SDR_KEYS = ["conexoes", "conexoes_aceitas", "abordagens", "inmail", "follow_up", "numero", "lig_agendada"];
+const CLOSER_KEYS = ["lig_realizada", "reuniao_agendada", "reuniao_realizada"];
+const FIRST_CLOSER_KEY = CLOSER_KEYS[0];
 
 interface DailyTableProps {
   dailyMetrics: DbDailyMetric[];
@@ -24,11 +29,22 @@ export function DailyTable({ dailyMetrics, members, selectedMemberId }: DailyTab
           <TableRow className="border-border hover:bg-transparent">
             <TableHead className="text-muted-foreground font-semibold text-[10px] uppercase tracking-wider">Data</TableHead>
             <TableHead className="text-muted-foreground font-semibold text-[10px] uppercase tracking-wider">Pessoa</TableHead>
-            {METRIC_KEYS.map(k => (
-              <TableHead key={k} className="text-muted-foreground font-semibold text-[10px] uppercase tracking-wider text-right whitespace-nowrap">
-                {METRIC_LABELS[k]}
-              </TableHead>
-            ))}
+            {METRIC_KEYS.map(k => {
+              const isCloser = CLOSER_KEYS.includes(k);
+              const isDivider = k === FIRST_CLOSER_KEY;
+              return (
+                <TableHead
+                  key={k}
+                  className={cn(
+                    "font-semibold text-[10px] uppercase tracking-wider text-right whitespace-nowrap",
+                    isCloser ? "text-[hsl(280,65%,70%)] bg-[hsl(280,30%,10%/0.5)]" : "text-[hsl(217,70%,70%)] bg-[hsl(217,40%,10%/0.3)]",
+                    isDivider && "border-l-2 border-l-[hsl(280,65%,40%)]"
+                  )}
+                >
+                  {METRIC_LABELS[k]}
+                </TableHead>
+              );
+            })}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -44,8 +60,16 @@ export function DailyTable({ dailyMetrics, members, selectedMemberId }: DailyTab
                 </TableCell>
                 {METRIC_KEYS.map(k => {
                   const val = (entry as any)[k] || 0;
+                  const isDivider = k === FIRST_CLOSER_KEY;
                   return (
-                    <TableCell key={k} className={`text-xs text-right tabular-nums ${val > 0 ? "text-card-foreground" : "text-muted-foreground/30"}`}>
+                    <TableCell
+                      key={k}
+                      className={cn(
+                        "text-xs text-right tabular-nums",
+                        val > 0 ? "text-card-foreground" : "text-muted-foreground/30",
+                        isDivider && "border-l-2 border-l-[hsl(280,65%,40%)]"
+                      )}
+                    >
                       {val}
                     </TableCell>
                   );

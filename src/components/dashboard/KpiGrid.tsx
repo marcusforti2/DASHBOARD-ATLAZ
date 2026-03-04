@@ -42,29 +42,29 @@ interface KpiGridProps {
 export function KpiGrid({ totals, goals, previousTotals, onCardClick, compact = false }: KpiGridProps) {
   if (compact) {
     return (
-      <div className="flex gap-2 items-stretch">
+      <div className="flex gap-3 items-stretch">
         {/* SDR Panel */}
-        <div className="flex-1 rounded-xl p-2.5 bg-[hsl(var(--panel-sdr))] border border-[hsl(217,40%,18%)]">
+        <div className="flex-1 rounded-xl p-2.5 bg-[hsl(var(--panel-sdr))] border border-[hsl(217,40%,18%)] border-l-[3px] border-l-[hsl(var(--panel-sdr-accent))]">
           <div className="flex items-center gap-2 mb-1.5">
-            <span className="text-[8px] font-bold uppercase tracking-widest text-primary">SDR</span>
+            <span className="text-[8px] font-bold uppercase tracking-widest text-primary-foreground bg-primary/20 px-2 py-0.5 rounded-full border border-primary/30">SDR</span>
             <div className="flex-1 h-px bg-primary/20" />
           </div>
           <div className="grid grid-cols-7 gap-1.5">
             {SDR_KEYS.map(key => (
-              <CompactCard key={key} metricKey={key} val={totals[key] || 0} goal={goals ? (goals as any)[key] || 0 : 0} onCardClick={onCardClick} />
+              <CompactCard key={key} metricKey={key} val={totals[key] || 0} goal={goals ? (goals as any)[key] || 0 : 0} onCardClick={onCardClick} variant="sdr" />
             ))}
           </div>
         </div>
 
         {/* Closer Panel */}
-        <div className="rounded-xl p-2.5 bg-[hsl(var(--panel-closer))] border border-[hsl(280,30%,18%)]" style={{ flex: '0 0 auto', width: '30%' }}>
+        <div className="rounded-xl p-2.5 bg-[hsl(var(--panel-closer))] border border-[hsl(280,30%,18%)] border-l-[3px] border-l-[hsl(var(--panel-closer-accent))]" style={{ flex: '0 0 auto', width: '30%' }}>
           <div className="flex items-center gap-2 mb-1.5">
-            <span className="text-[8px] font-bold uppercase tracking-widest text-[hsl(280,65%,65%)]">Closer</span>
+            <span className="text-[8px] font-bold uppercase tracking-widest text-[hsl(280,65%,80%)] bg-[hsl(280,65%,60%/0.15)] px-2 py-0.5 rounded-full border border-[hsl(280,65%,60%/0.3)]">CLOSER</span>
             <div className="flex-1 h-px bg-[hsl(280,65%,60%/0.2)]" />
           </div>
           <div className="grid grid-cols-3 gap-1.5">
             {CLOSER_KEYS.map(key => (
-              <CompactCard key={key} metricKey={key} val={totals[key] || 0} goal={goals ? (goals as any)[key] || 0 : 0} onCardClick={onCardClick} />
+              <CompactCard key={key} metricKey={key} val={totals[key] || 0} goal={goals ? (goals as any)[key] || 0 : 0} onCardClick={onCardClick} variant="closer" />
             ))}
           </div>
         </div>
@@ -76,9 +76,9 @@ export function KpiGrid({ totals, goals, previousTotals, onCardClick, compact = 
   return (
     <div className="flex flex-col gap-4">
       {/* SDR Panel */}
-      <div className="rounded-xl p-4 bg-[hsl(var(--panel-sdr))] border border-[hsl(217,40%,18%)]">
+      <div className="rounded-xl p-4 bg-[hsl(var(--panel-sdr))] border border-[hsl(217,40%,18%)] border-l-[3px] border-l-[hsl(var(--panel-sdr-accent))]">
         <div className="flex items-center gap-2 mb-3">
-          <span className="text-xs font-bold uppercase tracking-widest text-primary">Métricas SDR</span>
+          <span className="text-xs font-bold uppercase tracking-widest text-primary-foreground bg-primary/20 px-2.5 py-0.5 rounded-full border border-primary/30">Métricas SDR</span>
           <div className="flex-1 h-px bg-primary/20" />
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
@@ -89,14 +89,14 @@ export function KpiGrid({ totals, goals, previousTotals, onCardClick, compact = 
       </div>
 
       {/* Closer Panel */}
-      <div className="rounded-xl p-4 bg-[hsl(var(--panel-closer))] border border-[hsl(280,30%,18%)]">
+      <div className="rounded-xl p-4 bg-[hsl(var(--panel-closer))] border border-[hsl(280,30%,18%)] border-l-[3px] border-l-[hsl(var(--panel-closer-accent))]">
         <div className="flex items-center gap-2 mb-3">
-          <span className="text-xs font-bold uppercase tracking-widest text-[hsl(280,65%,65%)]">Métricas Closer</span>
+          <span className="text-xs font-bold uppercase tracking-widest text-[hsl(280,65%,80%)] bg-[hsl(280,65%,60%/0.15)] px-2.5 py-0.5 rounded-full border border-[hsl(280,65%,60%/0.3)]">Métricas Closer</span>
           <div className="flex-1 h-px bg-[hsl(280,65%,60%/0.2)]" />
         </div>
         <div className="grid grid-cols-3 gap-3">
           {CLOSER_KEYS.map(key => (
-            <FullCard key={key} metricKey={key} val={totals[key] || 0} goal={goals ? (goals as any)[key] || 0 : 0} prevVal={previousTotals?.[key] || 0} onCardClick={onCardClick} />
+            <FullCard key={key} metricKey={key} val={totals[key] || 0} goal={goals ? (goals as any)[key] || 0 : 0} prevVal={previousTotals?.[key] || 0} onCardClick={onCardClick} variant="closer" />
           ))}
         </div>
       </div>
@@ -105,7 +105,7 @@ export function KpiGrid({ totals, goals, previousTotals, onCardClick, compact = 
 }
 
 /* ---- Compact ring card ---- */
-function CompactCard({ metricKey, val, goal, onCardClick }: { metricKey: string; val: number; goal: number; onCardClick?: (k: string) => void }) {
+function CompactCard({ metricKey, val, goal, onCardClick, variant = "sdr" }: { metricKey: string; val: number; goal: number; onCardClick?: (k: string) => void; variant?: "sdr" | "closer" }) {
   const ringSize = 68;
   const strokeWidth = 4.5;
   const radius = (ringSize - strokeWidth) / 2;
@@ -113,8 +113,15 @@ function CompactCard({ metricKey, val, goal, onCardClick }: { metricKey: string;
   const pct = goal > 0 ? Math.round((val / goal) * 100) : 0;
   const isGood = pct >= 80;
   const isMid = pct >= 40;
-  const colorClass = isGood ? "text-accent" : isMid ? "text-[hsl(38,92%,50%)]" : "text-destructive";
-  const strokeColor = isGood ? "hsl(var(--accent))" : isMid ? "hsl(38,92%,50%)" : "hsl(var(--destructive))";
+
+  const getColor = () => {
+    if (variant === "closer") {
+      return { class: isGood ? "text-[hsl(280,65%,65%)]" : isMid ? "text-[hsl(280,50%,50%)]" : "text-[hsl(280,40%,40%)]", stroke: isGood ? "hsl(280,65%,65%)" : isMid ? "hsl(280,50%,50%)" : "hsl(280,40%,40%)" };
+    }
+    return { class: isGood ? "text-accent" : isMid ? "text-[hsl(38,92%,50%)]" : "text-destructive", stroke: isGood ? "hsl(var(--accent))" : isMid ? "hsl(38,92%,50%)" : "hsl(var(--destructive))" };
+  };
+
+  const { class: colorClass, stroke: strokeColor } = getColor();
   const dashOffset = circumference - (Math.min(pct, 100) / 100) * circumference;
   const isZero = val === 0 && goal === 0;
 
@@ -147,13 +154,21 @@ function CompactCard({ metricKey, val, goal, onCardClick }: { metricKey: string;
 }
 
 /* ---- Full-size card ---- */
-function FullCard({ metricKey, val, goal, prevVal, onCardClick }: { metricKey: string; val: number; goal: number; prevVal: number; onCardClick?: (k: string) => void }) {
+function FullCard({ metricKey, val, goal, prevVal, onCardClick, variant = "sdr" }: { metricKey: string; val: number; goal: number; prevVal: number; onCardClick?: (k: string) => void; variant?: "sdr" | "closer" }) {
   const pct = goal > 0 ? Math.round((val / goal) * 100) : 0;
   const isGood = pct >= 80;
   const isMid = pct >= 40;
   const trendPct = prevVal > 0 ? Math.round(((val - prevVal) / prevVal) * 100) : 0;
   const trendUp = trendPct > 0;
   const trendDown = trendPct < 0;
+
+  const barColor = variant === "closer"
+    ? (isGood ? "bg-[hsl(280,65%,65%)]" : isMid ? "bg-[hsl(280,50%,50%)]" : "bg-[hsl(280,40%,40%)]")
+    : (isGood ? "bg-accent" : isMid ? "bg-[hsl(38,92%,50%)]" : "bg-destructive");
+
+  const pctColor = variant === "closer"
+    ? (isGood ? "text-[hsl(280,65%,65%)]" : isMid ? "text-[hsl(280,50%,50%)]" : "text-[hsl(280,40%,40%)]")
+    : (isGood ? "text-accent" : isMid ? "text-[hsl(38,92%,50%)]" : "text-destructive");
 
   return (
     <div onClick={() => onCardClick?.(metricKey)} className={cn("group rounded-xl border border-border bg-card p-4 flex flex-col gap-2 hover:border-primary/30 transition-all duration-300 hover:shadow-[0_0_20px_-5px_hsl(var(--primary)/0.15)] hover:scale-105 hover:z-10", onCardClick && "cursor-pointer")} style={{ transitionDelay: '70ms' }}>
@@ -174,9 +189,9 @@ function FullCard({ metricKey, val, goal, prevVal, onCardClick }: { metricKey: s
       {goal > 0 && (
         <>
           <div className="w-full h-1.5 rounded-full bg-secondary overflow-hidden">
-            <div className={cn("h-full rounded-full transition-all duration-700", isGood ? "bg-accent" : isMid ? "bg-[hsl(38,92%,50%)]" : "bg-destructive")} style={{ width: `${Math.min(pct, 100)}%` }} />
+            <div className={cn("h-full rounded-full transition-all duration-700", barColor)} style={{ width: `${Math.min(pct, 100)}%` }} />
           </div>
-          <span className={cn("text-[10px] font-bold tabular-nums", isGood ? "text-accent" : isMid ? "text-[hsl(38,92%,50%)]" : "text-destructive")}>{pct}%</span>
+          <span className={cn("text-[10px] font-bold tabular-nums", pctColor)}>{pct}%</span>
         </>
       )}
     </div>
