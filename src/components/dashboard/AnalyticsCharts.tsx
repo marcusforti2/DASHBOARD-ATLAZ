@@ -4,14 +4,15 @@ import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend,
 } from "recharts";
-import { parseISO, format, isWithinInterval } from "date-fns";
+import { parseISO, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { BarChart3, TrendingUp, Waves, Radar as RadarIcon, Users, User } from "lucide-react";
-import { DbDailyMetric, DbTeamMember, DbWeeklyGoal, METRIC_KEYS, METRIC_LABELS, sumMetrics } from "@/lib/db";
+import { BarChart3, TrendingUp, Waves, Radar as RadarIcon, Users } from "lucide-react";
+import { DbDailyMetric, DbTeamMember, DbWeeklyGoal, METRIC_KEYS, SDR_METRIC_KEYS, CLOSER_METRIC_KEYS, METRIC_LABELS, sumMetrics } from "@/lib/db";
 import { cn } from "@/lib/utils";
 
 type ChartType = "bar" | "line" | "area" | "radar";
 type ViewMode = "weekly" | "daily" | "person";
+type TeamFilter = "all" | "sdr" | "closer";
 
 const CHART_TYPES: { id: ChartType; label: string; icon: React.ElementType }[] = [
   { id: "bar", label: "Barras", icon: BarChart3 },
@@ -24,6 +25,12 @@ const VIEW_MODES: { id: ViewMode; label: string; icon: React.ElementType }[] = [
   { id: "weekly", label: "Semanal", icon: BarChart3 },
   { id: "daily", label: "Diário", icon: TrendingUp },
   { id: "person", label: "Por Pessoa", icon: Users },
+];
+
+const TEAM_FILTERS: { id: TeamFilter; label: string }[] = [
+  { id: "all", label: "Time" },
+  { id: "sdr", label: "SDR" },
+  { id: "closer", label: "Closer" },
 ];
 
 const PALETTE = [
@@ -65,98 +72,129 @@ interface AnalyticsChartsProps {
 export function AnalyticsCharts({ dailyMetrics, members, weeklyGoals, weeksOfMonth }: AnalyticsChartsProps) {
   const [chartType, setChartType] = useState<ChartType>("bar");
   const [viewMode, setViewMode] = useState<ViewMode>("weekly");
+  const [teamFilter, setTeamFilter] = useState<TeamFilter>("all");
   const [selectedMetrics, setSelectedMetrics] = useState<string[]>(["follow_up", "conexoes", "reuniao_realizada"]);
 
+  // Filter members by team
+  const filteredMembers = useMemo(() => {
+    if (teamFilter === "sdr") return members.filter(m => m.member_role === "sdr");
+    if (teamFilter === "closer") return members.filter(m => m.member_role === "closer");
+    return members;
+  }, [members, teamFilter]);
+
+  // Available metrics based on team filter
+  const availableMetrics = useMemo((): readonly string[] => {
+    if (teamFilter === "sdr") return SDR_METRIC_KEYS;
+    if (teamFilter === "closer") return CLOSER_METRIC_KEYS;
+    return METRIC_KEYS;
+  }, [teamFilter]);
+
+  // Filter metrics by team and filtered dailyMetrics by members
+  const filteredDailyMetrics = useMemo(() => {
+    if (teamFilter === "all") return dailyMetrics;
+    const memberIds = new Set(filteredMembers.map(m => m.id));
+    return dailyMetrics.filter(d => memberIds.has(d.member_id));
+  }, [dailyMetrics, filteredMembers, teamFilter]);
+
+  // Auto-adjust selected metrics when team changes
+  const activeSelectedMetrics = useMemo(() => {
+    const valid = selectedMetrics.filter(k => availableMetrics.includes(k));
+    if (valid.length === 0) {
+      // Default: first 3 available
+      return availableMetrics.slice(0, Math.min(3, availableMetrics.length)) as string[];
+    }
+    return valid;
+  }, [selectedMetrics, availableMetrics]);
+
   const toggleMetric = (key: string) => {
-    setSelectedMetrics(prev =>
-      prev.includes(key)
-        ? prev.length > 1 ? prev.filter(k => k !== key) : prev
-        : [...prev, key]
-    );
+    const current = activeSelectedMetrics;
+    if (current.includes(key)) {
+      if (current.length > 1) setSelectedMetrics(current.filter(k => k !== key));
+    } else {
+      setSelectedMetrics([...current, key]);
+    }
   };
 
-  // Weekly data: meta vs realizado per week
+  // Get stable palette index for a metric
+  const getMetricPaletteIndex = (key: string) => {
+    const allIdx = (METRIC_KEYS as readonly string[]).indexOf(key);
+    return allIdx >= 0 ? allIdx : 0;
+  };
+
+  // Weekly data
   const weeklyData = useMemo(() => {
     if (!weeklyGoals || weeksOfMonth.length === 0) return [];
     return weeksOfMonth.map(w => {
-      const weekMetrics = dailyMetrics.filter(d => d.date >= w.startDate && d.date <= w.endDate);
+      const weekMetrics = filteredDailyMetrics.filter(d => d.date >= w.startDate && d.date <= w.endDate);
       const totals = weekMetrics.length > 0 ? sumMetrics(weekMetrics) : {};
       const goal = weeklyGoals.find(g => g.week_number === w.weekNumber);
       const entry: Record<string, any> = { name: `Sem ${w.weekNumber}` };
-      selectedMetrics.forEach(k => {
+      activeSelectedMetrics.forEach(k => {
         entry[METRIC_LABELS[k]] = totals[k] || 0;
         if (goal) entry[`Meta ${METRIC_LABELS[k]}`] = (goal as any)[k] || 0;
       });
       return entry;
     });
-  }, [dailyMetrics, weeklyGoals, weeksOfMonth, selectedMetrics]);
+  }, [filteredDailyMetrics, weeklyGoals, weeksOfMonth, activeSelectedMetrics]);
 
-  // Daily data: totals per day
+  // Daily data
   const dailyData = useMemo(() => {
     const dateMap = new Map<string, Record<string, number>>();
-    dailyMetrics.forEach(d => {
+    filteredDailyMetrics.forEach(d => {
       const existing = dateMap.get(d.date) || {};
-      selectedMetrics.forEach(k => {
+      activeSelectedMetrics.forEach(k => {
         existing[k] = (existing[k] || 0) + ((d as any)[k] || 0);
       });
       dateMap.set(d.date, existing);
     });
     return [...dateMap.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([date, vals]) => {
       const entry: Record<string, any> = { name: format(parseISO(date), "dd/MM", { locale: ptBR }) };
-      selectedMetrics.forEach(k => { entry[METRIC_LABELS[k]] = vals[k] || 0; });
+      activeSelectedMetrics.forEach(k => { entry[METRIC_LABELS[k]] = vals[k] || 0; });
       return entry;
     });
-  }, [dailyMetrics, selectedMetrics]);
+  }, [filteredDailyMetrics, activeSelectedMetrics]);
 
-  // Person data: totals per member
+  // Person data
   const personData = useMemo(() => {
-    return members.map(m => {
-      const totals = sumMetrics(dailyMetrics, m.id);
+    return filteredMembers.map(m => {
+      const totals = sumMetrics(filteredDailyMetrics, m.id);
       const entry: Record<string, any> = { name: m.name };
-      selectedMetrics.forEach(k => { entry[METRIC_LABELS[k]] = totals[k] || 0; });
+      activeSelectedMetrics.forEach(k => { entry[METRIC_LABELS[k]] = totals[k] || 0; });
       return entry;
     });
-  }, [dailyMetrics, members, selectedMetrics]);
+  }, [filteredDailyMetrics, filteredMembers, activeSelectedMetrics]);
 
   // Radar data
   const radarData = useMemo(() => {
     if (viewMode === "person") {
-      // Each metric as an axis, each member as a series
-      return selectedMetrics.map(k => {
+      return activeSelectedMetrics.map(k => {
         const entry: Record<string, any> = { metric: METRIC_LABELS[k] };
-        members.forEach(m => {
-          const totals = sumMetrics(dailyMetrics, m.id);
+        filteredMembers.forEach(m => {
+          const totals = sumMetrics(filteredDailyMetrics, m.id);
           entry[m.name] = totals[k] || 0;
         });
         return entry;
       });
     }
-    // Default: metrics as axes, single total
-    const totals = sumMetrics(dailyMetrics);
-    return selectedMetrics.map(k => ({
+    const totals = sumMetrics(filteredDailyMetrics);
+    return activeSelectedMetrics.map(k => ({
       metric: METRIC_LABELS[k],
       valor: totals[k] || 0,
     }));
-  }, [dailyMetrics, members, selectedMetrics, viewMode]);
+  }, [filteredDailyMetrics, filteredMembers, activeSelectedMetrics, viewMode]);
 
   const activeData = viewMode === "weekly" ? weeklyData : viewMode === "daily" ? dailyData : personData;
-  const dataKeys = selectedMetrics.map(k => METRIC_LABELS[k]);
+  const dataKeys = activeSelectedMetrics.map(k => METRIC_LABELS[k]);
 
   const renderChart = () => {
     if (chartType === "radar") {
-      const radarKeys = viewMode === "person" ? members.map(m => m.name) : ["valor"];
+      const radarKeys = viewMode === "person" ? filteredMembers.map(m => m.name) : ["valor"];
       return (
         <ResponsiveContainer width="100%" height="100%">
           <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="75%">
             <PolarGrid stroke="hsl(222, 30%, 20%)" />
-            <PolarAngleAxis
-              dataKey="metric"
-              tick={{ fill: "hsl(215, 16%, 65%)", fontSize: 10 }}
-            />
-            <PolarRadiusAxis
-              tick={{ fill: "hsl(215, 16%, 45%)", fontSize: 9 }}
-              axisLine={false}
-            />
+            <PolarAngleAxis dataKey="metric" tick={{ fill: "hsl(215, 16%, 65%)", fontSize: 10 }} />
+            <PolarRadiusAxis tick={{ fill: "hsl(215, 16%, 45%)", fontSize: 9 }} axisLine={false} />
             {radarKeys.map((key, i) => (
               <Radar
                 key={key}
@@ -180,70 +218,41 @@ export function AnalyticsCharts({ dailyMetrics, members, weeklyGoals, weeksOfMon
     return (
       <ResponsiveContainer width="100%" height="100%">
         <ChartComponent data={activeData} barGap={2} barCategoryGap="20%">
+          <defs>
+            {chartType === "area" && dataKeys.map((_, i) => {
+              const metricKey = activeSelectedMetrics[i];
+              const pIdx = getMetricPaletteIndex(metricKey);
+              return (
+                <linearGradient key={i} id={`gradient-${i}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={PALETTE[pIdx % PALETTE.length]} stopOpacity={0.4} />
+                  <stop offset="95%" stopColor={PALETTE[pIdx % PALETTE.length]} stopOpacity={0.02} />
+                </linearGradient>
+              );
+            })}
+          </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(222, 30%, 15%)" />
-          <XAxis
-            dataKey="name"
-            tick={{ fill: "hsl(215, 16%, 55%)", fontSize: 10 }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <YAxis
-            tick={{ fill: "hsl(215, 16%, 55%)", fontSize: 10 }}
-            axisLine={false}
-            tickLine={false}
-          />
+          <XAxis dataKey="name" tick={{ fill: "hsl(215, 16%, 55%)", fontSize: 10 }} axisLine={false} tickLine={false} />
+          <YAxis tick={{ fill: "hsl(215, 16%, 55%)", fontSize: 10 }} axisLine={false} tickLine={false} />
           <Tooltip contentStyle={TOOLTIP_STYLE} />
           <Legend wrapperStyle={{ fontSize: 10 }} iconType="circle" iconSize={6} />
 
           {dataKeys.map((key, i) => {
-            const color = PALETTE[i % PALETTE.length];
+            const metricKey = activeSelectedMetrics[i];
+            const pIdx = getMetricPaletteIndex(metricKey);
+            const color = PALETTE[pIdx % PALETTE.length];
             if (chartType === "line") {
               return (
-                <Line
-                  key={key}
-                  type="monotone"
-                  dataKey={key}
-                  stroke={color}
-                  strokeWidth={2.5}
+                <Line key={key} type="monotone" dataKey={key} stroke={color} strokeWidth={2.5}
                   dot={{ r: 4, fill: color, strokeWidth: 0 }}
                   activeDot={{ r: 6, strokeWidth: 2, stroke: "hsl(222, 47%, 9%)" }}
                 />
               );
             }
             if (chartType === "area") {
-              return (
-                <Area
-                  key={key}
-                  type="monotone"
-                  dataKey={key}
-                  stroke={color}
-                  strokeWidth={2}
-                  fill={`url(#gradient-${i})`}
-                />
-              );
+              return <Area key={key} type="monotone" dataKey={key} stroke={color} strokeWidth={2} fill={`url(#gradient-${i})`} />;
             }
-            return (
-              <Bar
-                key={key}
-                dataKey={key}
-                fill={color}
-                radius={[4, 4, 0, 0]}
-                opacity={0.85}
-              />
-            );
+            return <Bar key={key} dataKey={key} fill={color} radius={[4, 4, 0, 0]} opacity={0.85} />;
           })}
-
-          {/* Area gradients */}
-          {chartType === "area" && (
-            <defs>
-              {dataKeys.map((_, i) => (
-                <linearGradient key={i} id={`gradient-${i}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={PALETTE[i % PALETTE.length]} stopOpacity={0.4} />
-                  <stop offset="95%" stopColor={PALETTE[i % PALETTE.length]} stopOpacity={0.02} />
-                </linearGradient>
-              ))}
-            </defs>
-          )}
         </ChartComponent>
       </ResponsiveContainer>
     );
@@ -260,6 +269,26 @@ export function AnalyticsCharts({ dailyMetrics, members, weeklyGoals, weeksOfMon
           </h3>
 
           <div className="flex items-center gap-2">
+            {/* Team filter */}
+            <div className="flex items-center gap-0.5 bg-secondary/50 rounded-lg p-0.5">
+              {TEAM_FILTERS.map(tf => (
+                <button
+                  key={tf.id}
+                  onClick={() => setTeamFilter(tf.id)}
+                  className={cn(
+                    "px-2.5 py-1 text-[9px] rounded-md font-semibold uppercase tracking-wider transition-all",
+                    teamFilter === tf.id
+                      ? tf.id === "sdr" ? "bg-primary text-primary-foreground shadow-sm"
+                        : tf.id === "closer" ? "bg-[hsl(280,65%,60%)] text-white shadow-sm"
+                        : "bg-[hsl(45,93%,47%)] text-background shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {tf.label}
+                </button>
+              ))}
+            </div>
+
             {/* View mode */}
             <div className="flex items-center gap-0.5 bg-secondary/50 rounded-lg p-0.5">
               {VIEW_MODES.map(v => (
@@ -302,21 +331,25 @@ export function AnalyticsCharts({ dailyMetrics, members, weeklyGoals, weeksOfMon
 
         {/* Metric selector pills */}
         <div className="flex flex-wrap items-center gap-1 mt-3">
-          {METRIC_KEYS.map((k, i) => (
-            <button
-              key={k}
-              onClick={() => toggleMetric(k)}
-              className={cn(
-                "px-2 py-0.5 text-[9px] rounded-full font-semibold uppercase tracking-wider transition-all border",
-                selectedMetrics.includes(k)
-                  ? "border-transparent text-white shadow-sm"
-                  : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 bg-transparent"
-              )}
-              style={selectedMetrics.includes(k) ? { backgroundColor: PALETTE[i % PALETTE.length] } : {}}
-            >
-              {METRIC_LABELS[k]}
-            </button>
-          ))}
+          {availableMetrics.map((k) => {
+            const pIdx = getMetricPaletteIndex(k);
+            const isSelected = activeSelectedMetrics.includes(k);
+            return (
+              <button
+                key={k}
+                onClick={() => toggleMetric(k)}
+                className={cn(
+                  "px-2 py-0.5 text-[9px] rounded-full font-semibold uppercase tracking-wider transition-all border",
+                  isSelected
+                    ? "border-transparent text-white shadow-sm"
+                    : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 bg-transparent"
+                )}
+                style={isSelected ? { backgroundColor: PALETTE[pIdx % PALETTE.length] } : {}}
+              >
+                {METRIC_LABELS[k]}
+              </button>
+            );
+          })}
         </div>
       </div>
 
