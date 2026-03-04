@@ -6,7 +6,7 @@ import { DbTeamMember } from "@/lib/db";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  User, Save, Loader2, Camera, Link2, Users, ChevronDown, ShieldCheck, Trash2, Plus, Mail, MessageCircle, Phone, Send
+  User, Save, Loader2, Camera, Link2, Users, ChevronDown, ShieldCheck, Trash2, Plus, Mail, MessageCircle, Phone, Send, Sparkles, Clock, Target, ToggleLeft, ToggleRight, Zap, Play, Eye
 } from "lucide-react";
 
 export default function SettingsPage() {
@@ -536,41 +536,238 @@ function WhatsAppSection({ members }: { members: DbTeamMember[] }) {
 function WhatsAppAutomationsPanel() {
   const [triggeringReport, setTriggeringReport] = useState(false);
   const [lastResult, setLastResult] = useState<any>(null);
+  
+  // AI Generator
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [generating, setGenerating] = useState(false);
+  const [generatedAutomation, setGeneratedAutomation] = useState<any>(null);
+  const [showGenerator, setShowGenerator] = useState(false);
+  const [savingAutomation, setSavingAutomation] = useState(false);
+
+  // Saved automations
+  const [automations, setAutomations] = useState<any[]>([]);
+  const [loadingAutomations, setLoadingAutomations] = useState(true);
+
+  useEffect(() => { loadAutomations(); }, []);
+
+  const loadAutomations = async () => {
+    setLoadingAutomations(true);
+    const { data } = await supabase.from("whatsapp_automations").select("*").order("created_at", { ascending: false });
+    setAutomations(data || []);
+    setLoadingAutomations(false);
+  };
 
   const handleTriggerDailyReport = async () => {
     setTriggeringReport(true);
     setLastResult(null);
     try {
-      const { data, error } = await supabase.functions.invoke("daily-whatsapp-report", {
-        body: {},
-      });
-      if (error) {
-        toast.error("Erro: " + error.message);
-        setLastResult({ error: error.message });
-      } else if (data?.error) {
-        toast.error("Erro: " + data.error);
-        setLastResult({ error: data.error });
-      } else {
+      const { data, error } = await supabase.functions.invoke("daily-whatsapp-report", { body: {} });
+      if (error) { toast.error("Erro: " + error.message); setLastResult({ error: error.message }); }
+      else if (data?.error) { toast.error("Erro: " + data.error); setLastResult({ error: data.error }); }
+      else {
         const successCount = data?.results?.filter((r: any) => r.success).length || 0;
-        const totalCount = data?.results?.length || 0;
-        toast.success(`Relatório enviado para ${successCount}/${totalCount} contatos!`);
+        toast.success(`Relatório enviado para ${successCount}/${data?.results?.length || 0} contatos!`);
         setLastResult(data);
       }
-    } catch (e: any) {
-      toast.error("Erro inesperado: " + e.message);
-      setLastResult({ error: e.message });
-    }
+    } catch (e: any) { toast.error("Erro inesperado: " + e.message); setLastResult({ error: e.message }); }
     setTriggeringReport(false);
+  };
+
+  const handleGenerateAutomation = async () => {
+    if (aiPrompt.trim().length < 5) { toast.error("Descreva melhor a automação que deseja"); return; }
+    setGenerating(true);
+    setGeneratedAutomation(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-automation", {
+        body: { prompt: aiPrompt.trim() },
+      });
+      if (error) toast.error("Erro: " + error.message);
+      else if (data?.error) toast.error("Erro: " + data.error);
+      else if (data?.automation) {
+        setGeneratedAutomation(data.automation);
+        toast.success("Automação gerada! Revise e salve.");
+      }
+    } catch (e: any) { toast.error("Erro: " + e.message); }
+    setGenerating(false);
+  };
+
+  const handleSaveAutomation = async () => {
+    if (!generatedAutomation) return;
+    setSavingAutomation(true);
+    const { error } = await supabase.from("whatsapp_automations").insert({
+      name: generatedAutomation.name,
+      description: generatedAutomation.description || "",
+      message_template: generatedAutomation.message_template,
+      schedule_cron: generatedAutomation.schedule_cron || null,
+      target_audience: generatedAutomation.target_audience || "all",
+      target_role: generatedAutomation.target_role || null,
+      include_metrics: generatedAutomation.include_metrics ?? true,
+      include_ai_tips: generatedAutomation.include_ai_tips ?? true,
+    });
+    if (error) toast.error("Erro ao salvar: " + error.message);
+    else {
+      toast.success("Automação salva com sucesso! 🎉");
+      setGeneratedAutomation(null);
+      setAiPrompt("");
+      setShowGenerator(false);
+      loadAutomations();
+    }
+    setSavingAutomation(false);
+  };
+
+  const handleToggleAutomation = async (id: string, active: boolean) => {
+    const { error } = await supabase.from("whatsapp_automations").update({ active: !active }).eq("id", id);
+    if (error) toast.error(error.message);
+    else {
+      setAutomations(prev => prev.map(a => a.id === id ? { ...a, active: !active } : a));
+      toast.success(active ? "Automação desativada" : "Automação ativada");
+    }
+  };
+
+  const handleDeleteAutomation = async (id: string) => {
+    if (!confirm("Excluir esta automação?")) return;
+    const { error } = await supabase.from("whatsapp_automations").delete().eq("id", id);
+    if (error) toast.error(error.message);
+    else { setAutomations(prev => prev.filter(a => a.id !== id)); toast.success("Automação excluída"); }
+  };
+
+  const cronToLabel = (cron: string | null) => {
+    if (!cron) return "Manual";
+    if (cron.includes("* * 1-5")) return cron.replace(/0 (\d+).*/, (_, h) => `${Math.max(0, parseInt(h) - 3)}h Seg-Sex`);
+    if (cron.includes("* * *")) return cron.replace(/0 (\d+).*/, (_, h) => `${Math.max(0, parseInt(h) - 3)}h Diário`);
+    return cron;
+  };
+
+  const audienceLabel = (a: string) => {
+    if (a === "sdrs") return "Só SDRs";
+    if (a === "closers") return "Só Closers";
+    return "Todos";
   };
 
   return (
     <div className="rounded-xl border border-border bg-card p-5 space-y-4">
-      <div className="flex items-center gap-2">
-        <MessageCircle size={14} className="text-green-500" />
-        <h3 className="text-xs font-semibold text-card-foreground uppercase tracking-wider">Automações WhatsApp</h3>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Zap size={14} className="text-green-500" />
+          <h3 className="text-xs font-semibold text-card-foreground uppercase tracking-wider">Automações WhatsApp</h3>
+        </div>
+        <button
+          onClick={() => setShowGenerator(!showGenerator)}
+          className="px-3 py-1.5 text-[10px] rounded-lg font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors flex items-center gap-1.5"
+        >
+          <Sparkles size={10} /> Criar com IA
+        </button>
       </div>
 
-      {/* Daily Report Automation */}
+      {/* AI Generator */}
+      {showGenerator && (
+        <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-3 animate-in fade-in duration-200">
+          <div className="flex items-center gap-2">
+            <Sparkles size={12} className="text-primary" />
+            <h4 className="text-[10px] font-semibold text-primary uppercase tracking-wider">Gerador de Automações com IA</h4>
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            Descreva em linguagem natural o que deseja. Ex: "Enviar motivação toda segunda às 8h para os SDRs" ou "Alerta sexta às 17h com resumo semanal para closers"
+          </p>
+          <textarea
+            value={aiPrompt}
+            onChange={e => setAiPrompt(e.target.value)}
+            placeholder="Descreva a automação que deseja criar..."
+            rows={3}
+            className="w-full rounded-lg border border-border bg-secondary px-3 py-2 text-xs text-secondary-foreground focus:ring-1 focus:ring-primary outline-none resize-none"
+          />
+          <div className="flex justify-end gap-2">
+            <button onClick={() => { setShowGenerator(false); setGeneratedAutomation(null); setAiPrompt(""); }} className="px-3 py-1.5 text-[10px] rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80">
+              Cancelar
+            </button>
+            <button
+              onClick={handleGenerateAutomation}
+              disabled={generating || aiPrompt.trim().length < 5}
+              className="px-4 py-1.5 text-[10px] rounded-lg font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 flex items-center gap-1.5 transition-colors"
+            >
+              {generating ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
+              {generating ? "Gerando..." : "Gerar Automação"}
+            </button>
+          </div>
+
+          {/* Generated Preview */}
+          {generatedAutomation && (
+            <div className="rounded-lg border border-green-500/30 bg-green-500/5 p-4 space-y-3 animate-in fade-in duration-300">
+              <div className="flex items-center gap-2">
+                <Eye size={12} className="text-green-600" />
+                <h4 className="text-[10px] font-semibold text-green-600 uppercase tracking-wider">Preview da Automação</h4>
+              </div>
+
+              <div className="space-y-2">
+                <div>
+                  <label className="text-[9px] font-semibold text-muted-foreground uppercase">Nome</label>
+                  <input
+                    value={generatedAutomation.name}
+                    onChange={e => setGeneratedAutomation((prev: any) => ({ ...prev, name: e.target.value }))}
+                    className="mt-0.5 w-full rounded-lg border border-border bg-secondary px-3 py-1.5 text-xs text-secondary-foreground focus:ring-1 focus:ring-green-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] font-semibold text-muted-foreground uppercase">Descrição</label>
+                  <input
+                    value={generatedAutomation.description || ""}
+                    onChange={e => setGeneratedAutomation((prev: any) => ({ ...prev, description: e.target.value }))}
+                    className="mt-0.5 w-full rounded-lg border border-border bg-secondary px-3 py-1.5 text-xs text-secondary-foreground focus:ring-1 focus:ring-green-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] font-semibold text-muted-foreground uppercase">Template da Mensagem</label>
+                  <textarea
+                    value={generatedAutomation.message_template}
+                    onChange={e => setGeneratedAutomation((prev: any) => ({ ...prev, message_template: e.target.value }))}
+                    rows={6}
+                    className="mt-0.5 w-full rounded-lg border border-border bg-secondary px-3 py-2 text-[11px] text-secondary-foreground focus:ring-1 focus:ring-green-500 outline-none resize-none font-mono"
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="text-[9px] font-semibold text-muted-foreground uppercase">Agendamento</label>
+                    <p className="text-xs text-card-foreground mt-0.5">
+                      <Clock size={10} className="inline mr-1" />
+                      {cronToLabel(generatedAutomation.schedule_cron)}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-semibold text-muted-foreground uppercase">Público</label>
+                    <p className="text-xs text-card-foreground mt-0.5">
+                      <Target size={10} className="inline mr-1" />
+                      {audienceLabel(generatedAutomation.target_audience)}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-semibold text-muted-foreground uppercase">Recursos</label>
+                    <p className="text-[10px] text-card-foreground mt-0.5">
+                      {generatedAutomation.include_metrics && "📊 Métricas "}
+                      {generatedAutomation.include_ai_tips && "💡 Dicas IA"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-border">
+                <button onClick={() => setGeneratedAutomation(null)} className="px-3 py-1.5 text-[10px] rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80">
+                  Descartar
+                </button>
+                <button
+                  onClick={handleSaveAutomation}
+                  disabled={savingAutomation}
+                  className="px-4 py-1.5 text-[10px] rounded-lg font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 flex items-center gap-1.5 transition-colors"
+                >
+                  {savingAutomation ? <Loader2 size={10} className="animate-spin" /> : <Save size={10} />}
+                  Salvar Automação
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Built-in: Daily Report */}
       <div className="rounded-lg border border-border bg-secondary/20 p-4 space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -578,34 +775,19 @@ function WhatsAppAutomationsPanel() {
               <Send size={16} className="text-green-500" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-card-foreground">Relatório Diário com IA</p>
-              <p className="text-[10px] text-muted-foreground">
-                Envia métricas do dia, progresso da meta e dicas de IA para cada membro às 18h
-              </p>
+              <p className="text-xs font-semibold text-card-foreground">📊 Relatório Diário com IA</p>
+              <p className="text-[10px] text-muted-foreground">Métricas + progresso + dicas IA para cada membro às 18h</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 text-[9px] font-semibold rounded-full bg-green-500/15 text-green-600">
-              ⏰ 18:00 diário
-            </span>
-          </div>
+          <span className="px-2 py-0.5 text-[9px] font-semibold rounded-full bg-green-500/15 text-green-600">⏰ 18:00</span>
         </div>
-
         <div className="flex items-center gap-2 pt-2 border-t border-border">
-          <button
-            onClick={handleTriggerDailyReport}
-            disabled={triggeringReport}
-            className="px-4 py-2 text-[10px] rounded-lg font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 flex items-center gap-1.5 transition-colors"
-          >
-            {triggeringReport ? <Loader2 size={10} className="animate-spin" /> : <Send size={10} />}
-            {triggeringReport ? "Enviando..." : "Disparar Agora (Teste)"}
+          <button onClick={handleTriggerDailyReport} disabled={triggeringReport}
+            className="px-4 py-2 text-[10px] rounded-lg font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 flex items-center gap-1.5 transition-colors">
+            {triggeringReport ? <Loader2 size={10} className="animate-spin" /> : <Play size={10} />}
+            {triggeringReport ? "Enviando..." : "Disparar Agora"}
           </button>
-          <p className="text-[9px] text-muted-foreground">
-            Envia para todos os contatos cadastrados com número
-          </p>
         </div>
-
-        {/* Results */}
         {lastResult && (
           <div className="rounded-lg border border-border bg-secondary/50 p-3 space-y-1">
             <p className="text-[10px] font-semibold text-card-foreground">Resultado:</p>
@@ -626,13 +808,57 @@ function WhatsAppAutomationsPanel() {
         )}
       </div>
 
-      {/* Placeholder for future automations */}
-      <div className="rounded-lg border border-dashed border-border p-4 flex items-center justify-center">
-        <div className="text-center space-y-1">
-          <Plus size={16} className="mx-auto text-muted-foreground" />
-          <p className="text-[10px] text-muted-foreground">Em breve: Crie automações personalizadas com IA</p>
+      {/* Saved Custom Automations */}
+      {loadingAutomations ? (
+        <div className="flex justify-center py-4"><Loader2 size={16} className="animate-spin text-primary" /></div>
+      ) : automations.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Automações Customizadas</p>
+          {automations.map(a => (
+            <div key={a.id} className={`rounded-lg border p-4 space-y-2 transition-colors ${a.active ? "border-border bg-secondary/20" : "border-border/50 bg-secondary/5 opacity-60"}`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Zap size={16} className="text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-card-foreground">{a.name}</p>
+                    <p className="text-[10px] text-muted-foreground">{a.description}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 text-[9px] font-semibold rounded-full bg-accent/50 text-accent-foreground">
+                    <Clock size={8} className="inline mr-0.5" /> {cronToLabel(a.schedule_cron)}
+                  </span>
+                  <span className="px-2 py-0.5 text-[9px] rounded-full bg-accent/50 text-accent-foreground">
+                    {audienceLabel(a.target_audience)}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 pt-2 border-t border-border">
+                <button onClick={() => handleToggleAutomation(a.id, a.active)}
+                  className="px-3 py-1.5 text-[10px] rounded-lg font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80 flex items-center gap-1.5">
+                  {a.active ? <ToggleRight size={12} className="text-green-500" /> : <ToggleLeft size={12} />}
+                  {a.active ? "Ativa" : "Inativa"}
+                </button>
+                <button onClick={() => handleDeleteAutomation(a.id)}
+                  className="px-3 py-1.5 text-[10px] rounded-lg font-medium text-destructive hover:bg-destructive/10 flex items-center gap-1.5">
+                  <Trash2 size={10} /> Excluir
+                </button>
+              </div>
+              {/* Template preview */}
+              <details className="group">
+                <summary className="text-[10px] text-muted-foreground cursor-pointer hover:text-card-foreground">
+                  Ver template da mensagem
+                </summary>
+                <pre className="mt-2 p-3 rounded-lg bg-secondary text-[10px] text-secondary-foreground whitespace-pre-wrap font-mono border border-border">
+                  {a.message_template}
+                </pre>
+              </details>
+            </div>
+          ))}
         </div>
-      </div>
+      )}
     </div>
   );
 }
