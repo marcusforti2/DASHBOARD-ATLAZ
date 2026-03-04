@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, forwardRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
@@ -86,13 +86,15 @@ function getDefaultPositions(): Record<NodeType, NodePosition> {
   };
 }
 
-function CanvasNode({
-  type, subtitle, active, selected, position, onSelect, onDrag,
-}: {
-  type: NodeType; subtitle: string; active: boolean; selected: boolean;
-  position: NodePosition; onSelect: () => void;
+const CanvasNode = forwardRef<HTMLDivElement, {
+  type: NodeType;
+  subtitle: string;
+  active: boolean;
+  selected: boolean;
+  position: NodePosition;
+  onSelect: () => void;
   onDrag: (dx: number, dy: number) => void;
-}) {
+}>(({ type, subtitle, active, selected, position, onSelect, onDrag }, ref) => {
   const config = NODE_CONFIG[type];
   const Icon = config.icon;
   const dragRef = useRef<{ startX: number; startY: number } | null>(null);
@@ -122,6 +124,7 @@ function CanvasNode({
 
   return (
     <div
+      ref={ref}
       className={`absolute select-none cursor-grab active:cursor-grabbing transition-shadow ${
         selected ? "z-20" : "z-10"
       }`}
@@ -140,17 +143,16 @@ function CanvasNode({
         <span className="text-[9px] text-muted-foreground truncate max-w-[150px] px-2 text-center">{subtitle}</span>
       </div>
 
-      {/* Connection dot right */}
       {type !== "send" && (
         <div className="absolute top-1/2 -right-2 w-4 h-4 rounded-full bg-card border-2 border-border -translate-y-1/2 z-30" />
       )}
-      {/* Connection dot left */}
       {type !== "trigger" && (
         <div className="absolute top-1/2 -left-2 w-4 h-4 rounded-full bg-card border-2 border-border -translate-y-1/2 z-30" />
       )}
     </div>
   );
-}
+});
+CanvasNode.displayName = "CanvasNode";
 
 // ─── SVG Connector ───
 function SvgConnectors({ positions }: { positions: Record<NodeType, NodePosition> }) {
@@ -192,17 +194,17 @@ function SvgConnectors({ positions }: { positions: Record<NodeType, NodePosition
 }
 
 // ─── Node Editor Panel ───
-function NodeEditorPanel({
-  type, automation, onChange, onClose,
-}: {
-  type: NodeType; automation: Automation;
-  onChange: (data: Partial<Automation>) => void; onClose: () => void;
-}) {
+const NodeEditorPanel = forwardRef<HTMLDivElement, {
+  type: NodeType;
+  automation: Automation;
+  onChange: (data: Partial<Automation>) => void;
+  onClose: () => void;
+}>(({ type, automation, onChange, onClose }, ref) => {
   const config = NODE_CONFIG[type];
   const Icon = config.icon;
 
   return (
-    <div className="bg-card border border-border rounded-2xl shadow-xl p-5 space-y-4 animate-in slide-in-from-right-4 duration-200">
+    <div ref={ref} className="bg-card border border-border rounded-2xl shadow-xl p-5 space-y-4 animate-in slide-in-from-right-4 duration-200">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className={`w-8 h-8 rounded-xl ${config.bg} flex items-center justify-center`}>
@@ -313,7 +315,8 @@ function NodeEditorPanel({
       )}
     </div>
   );
-}
+});
+NodeEditorPanel.displayName = "NodeEditorPanel";
 
 // ─── Main Flow Builder ───
 export default function FlowBuilder({ automations, onReload }: FlowBuilderProps) {
@@ -415,7 +418,7 @@ export default function FlowBuilder({ automations, onReload }: FlowBuilderProps)
   const handleSaveGenerated = async () => {
     if (!generatedAutomation) return;
     setSavingNew(true);
-    const { error } = await supabase.from("whatsapp_automations").insert({
+    const { data, error } = await supabase.from("whatsapp_automations").insert({
       name: generatedAutomation.name || "Nova Automação",
       description: generatedAutomation.description || "",
       message_template: generatedAutomation.message_template || "",
@@ -424,14 +427,41 @@ export default function FlowBuilder({ automations, onReload }: FlowBuilderProps)
       target_role: generatedAutomation.target_role || null,
       include_metrics: generatedAutomation.include_metrics ?? true,
       include_ai_tips: generatedAutomation.include_ai_tips ?? true,
-    });
+    }).select("id").maybeSingle();
     if (error) toast.error("Erro: " + error.message);
     else {
       toast.success("Fluxo salvo! 🎉");
-      setGeneratedAutomation(null); setAiPrompt(""); setShowAiGenerator(false);
+      setGeneratedAutomation(null);
+      setAiPrompt("");
+      setShowAiGenerator(false);
       onReload();
+      if (data?.id) setSelectedId(data.id);
     }
     setSavingNew(false);
+  };
+
+  const handleCreateBlank = async () => {
+    const { data, error } = await supabase.from("whatsapp_automations").insert({
+      name: "Novo fluxo",
+      description: "",
+      message_template: "Olá {{nome}}, tudo bem?",
+      schedule_cron: null,
+      target_audience: "all",
+      target_role: null,
+      include_metrics: true,
+      include_ai_tips: true,
+      active: true,
+    }).select("id").maybeSingle();
+
+    if (error) {
+      toast.error("Erro ao criar fluxo: " + error.message);
+      return;
+    }
+
+    toast.success("Fluxo criado! Agora clique nos nodes para editar ✨");
+    await onReload();
+    if (data?.id) setSelectedId(data.id);
+    setShowAiGenerator(false);
   };
 
   const getNodeSubtitle = (type: NodeType, auto: Automation): string => {
@@ -452,10 +482,16 @@ export default function FlowBuilder({ automations, onReload }: FlowBuilderProps)
           <span className="text-xs font-bold text-card-foreground uppercase tracking-wider">Flow Builder</span>
           <span className="px-2 py-0.5 text-[9px] rounded-full bg-accent text-accent-foreground font-semibold">{automations.length} fluxos</span>
         </div>
-        <button onClick={() => { setShowAiGenerator(true); setSelectedId(null); setEditForm(null); setEditingNode(null); }}
-          className="px-4 py-2 text-[11px] rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors flex items-center gap-1.5 shadow-sm">
-          <Sparkles size={12} /> Criar com IA
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={handleCreateBlank}
+            className="px-4 py-2 text-[11px] rounded-xl font-bold bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors flex items-center gap-1.5 border border-border">
+            <Plus size={12} /> Novo fluxo
+          </button>
+          <button onClick={() => { setShowAiGenerator(true); setSelectedId(null); setEditForm(null); setEditingNode(null); }}
+            className="px-4 py-2 text-[11px] rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors flex items-center gap-1.5 shadow-sm">
+            <Sparkles size={12} /> Criar com IA
+          </button>
+        </div>
       </div>
 
       <div className="flex" style={{ minHeight: 520 }}>
