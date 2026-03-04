@@ -290,126 +290,115 @@ export function AnalyticsCharts({ dailyMetrics, members, weeklyGoals, weeksOfMon
   };
 
   const FUNNEL_COLORS = [
-    'hsl(217, 91%, 60%)',   // blue
-    'hsl(160, 84%, 45%)',   // emerald
-    'hsl(280, 65%, 60%)',   // purple
-    'hsl(38, 92%, 55%)',    // amber
-    'hsl(0, 84%, 60%)',     // red
-    'hsl(190, 80%, 50%)',   // cyan
-    'hsl(330, 70%, 55%)',   // pink
-    'hsl(100, 60%, 50%)',   // lime
-    'hsl(45, 95%, 55%)',    // yellow
-    'hsl(250, 70%, 65%)',   // indigo
+    '#3B82F6', '#10B981', '#A855F7', '#F59E0B', '#EF4444',
+    '#06B6D4', '#EC4899', '#84CC16', '#F97316', '#6366F1',
   ];
 
   const renderFunnel = () => {
     if (funnelData.length === 0) return <div className="flex items-center justify-center h-full text-muted-foreground text-xs">Sem dados</div>;
     const maxVal = Math.max(...funnelData.map(d => d.value), 1);
     const total = funnelData.reduce((s, d) => s + d.value, 0);
+    const count = funnelData.length;
 
     return (
-      <div className="h-full flex flex-col items-center justify-center py-4 px-6" style={{ perspective: '800px' }}>
-        <div className="w-full max-w-md flex flex-col items-center" style={{ transformStyle: 'preserve-3d', transform: 'rotateX(8deg)' }}>
-          {funnelData.map((item, i) => {
-            const color = FUNNEL_COLORS[i % FUNNEL_COLORS.length];
-            const widthPct = 25 + (item.value / maxVal) * 75;
-            const pctOfTotal = total > 0 ? Math.round((item.value / total) * 100) : 0;
-            const conversionRate = i > 0 && funnelData[i - 1].value > 0
-              ? Math.round((item.value / funnelData[i - 1].value) * 100) : null;
-            const isLast = i === funnelData.length - 1;
+      <div className="h-full w-full flex items-center justify-center py-3 px-4 overflow-hidden">
+        <div className="flex w-full max-w-2xl gap-6">
+          {/* Funnel visual */}
+          <div className="flex-1 flex flex-col items-center gap-0">
+            {funnelData.map((item, i) => {
+              const color = FUNNEL_COLORS[i % FUNNEL_COLORS.length];
+              const widthPct = 30 + (item.value / maxVal) * 70;
+              const nextWidthPct = i < count - 1 ? 30 + (funnelData[i + 1].value / maxVal) * 70 : widthPct * 0.5;
+              const segH = Math.max(32, Math.min(48, 280 / count));
+              const convRate = i > 0 && funnelData[i - 1].value > 0
+                ? Math.round((item.value / funnelData[i - 1].value) * 100) : null;
+              const pctTotal = total > 0 ? Math.round((item.value / total) * 100) : 0;
 
-            return (
-              <div
-                key={i}
-                className="relative group w-full flex flex-col items-center"
-                style={{
-                  opacity: 0,
-                  animation: `funnel-stage-in 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) forwards`,
-                  animationDelay: `${i * 120}ms`,
-                }}
-              >
-                {/* 3D Elliptical segment */}
-                <div className="relative w-full flex justify-center" style={{ marginBottom: '-2px' }}>
-                  <div
-                    className="relative overflow-hidden transition-all duration-500 group-hover:scale-[1.04] group-hover:brightness-110 cursor-pointer"
-                    style={{
-                      width: `${widthPct}%`,
-                      height: '52px',
-                      borderRadius: `50% / ${isLast ? '40%' : '30%'}`,
-                      background: `linear-gradient(180deg, ${color}ee 0%, ${color} 40%, ${color}bb 100%)`,
-                      boxShadow: `
-                        0 4px 24px -4px ${color}66,
-                        inset 0 -8px 20px -6px rgba(0,0,0,0.35),
-                        inset 0 4px 12px -2px rgba(255,255,255,0.25)
-                      `,
-                    }}
-                  >
-                    {/* Top highlight arc */}
-                    <div
-                      className="absolute top-0 left-1/2 -translate-x-1/2"
-                      style={{
-                        width: '70%',
-                        height: '40%',
-                        borderRadius: '50%',
-                        background: 'linear-gradient(180deg, rgba(255,255,255,0.25) 0%, transparent 100%)',
-                      }}
-                    />
-                    {/* Shimmer */}
-                    <div
-                      className="absolute inset-0 opacity-30"
-                      style={{
-                        background: `linear-gradient(110deg, transparent 25%, rgba(255,255,255,0.35) 50%, transparent 75%)`,
-                        backgroundSize: '250% 100%',
-                        animation: 'shimmer 3s ease-in-out infinite',
-                        borderRadius: 'inherit',
-                      }}
-                    />
-                    {/* Value */}
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-base font-black tabular-nums drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)]" style={{ color: 'white' }}>
-                        {item.value.toLocaleString("pt-BR")}
-                      </span>
+              // Trapezoid points
+              const topL = 50 - widthPct / 2;
+              const topR = 50 + widthPct / 2;
+              const botL = 50 - nextWidthPct / 2;
+              const botR = 50 + nextWidthPct / 2;
+
+              return (
+                <div
+                  key={i}
+                  className="relative w-full group"
+                  style={{
+                    opacity: 0,
+                    animation: `funnel-stage-in 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards`,
+                    animationDelay: `${i * 100}ms`,
+                  }}
+                >
+                  <div className="relative flex items-center w-full" style={{ height: `${segH}px` }}>
+                    {/* Conversion rate - left */}
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-16 text-right pr-2">
+                      {convRate !== null && (
+                        <span className={cn(
+                          "text-[10px] font-bold tabular-nums",
+                          convRate >= 50 ? "text-accent" : convRate >= 20 ? "text-amber-400" : "text-destructive"
+                        )}>
+                          ↓{convRate}%
+                        </span>
+                      )}
                     </div>
-                  </div>
 
-                  {/* Right label */}
-                  <div className="absolute top-1/2 -translate-y-1/2 flex items-center gap-2"
-                    style={{ right: `${Math.max((100 - widthPct) / 2 - 4, 0)}%`, transform: 'translateX(100%) translateY(-50%)' }}>
-                    <div className="w-8 h-px opacity-40" style={{ background: `linear-gradient(90deg, ${color}, transparent)` }} />
-                    <div className="flex flex-col">
-                      <span className="text-[11px] font-bold text-card-foreground whitespace-nowrap">{item.name}</span>
-                      <span className="text-[9px] text-muted-foreground tabular-nums">{pctOfTotal}% do total</span>
-                    </div>
-                  </div>
+                    {/* Trapezoid shape */}
+                    <div className="flex-1 flex justify-center px-16">
+                      <div
+                        className="relative transition-transform duration-300 group-hover:scale-[1.03] cursor-pointer"
+                        style={{ width: '100%', height: `${segH}px` }}
+                      >
+                        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full" style={{ filter: `drop-shadow(0 2px 8px ${color}44)` }}>
+                          <defs>
+                            <linearGradient id={`fg-${i}`} x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor={color} stopOpacity="1" />
+                              <stop offset="100%" stopColor={color} stopOpacity="0.7" />
+                            </linearGradient>
+                            <linearGradient id={`fshine-${i}`} x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="white" stopOpacity="0.25" />
+                              <stop offset="40%" stopColor="white" stopOpacity="0.05" />
+                              <stop offset="100%" stopColor="white" stopOpacity="0" />
+                            </linearGradient>
+                          </defs>
+                          {/* Main shape */}
+                          <polygon
+                            points={`${topL},0 ${topR},0 ${botR},100 ${botL},100`}
+                            fill={`url(#fg-${i})`}
+                          />
+                          {/* Shine overlay */}
+                          <polygon
+                            points={`${topL},0 ${topR},0 ${botR},100 ${botL},100`}
+                            fill={`url(#fshine-${i})`}
+                          />
+                          {/* Left edge highlight */}
+                          <line x1={topL} y1="0" x2={botL} y2="100" stroke="white" strokeOpacity="0.15" strokeWidth="0.5" />
+                        </svg>
 
-                  {/* Left conversion badge */}
-                  {conversionRate !== null && (
-                    <div className="absolute top-1/2 -translate-y-1/2"
-                      style={{ left: `${Math.max((100 - widthPct) / 2 - 4, 0)}%`, transform: 'translateX(-100%) translateY(-50%)' }}>
-                      <div className="flex items-center gap-1.5">
-                        <div className="flex flex-col items-end">
-                          <span className={cn(
-                            "text-[10px] font-bold tabular-nums",
-                            conversionRate >= 50 ? "text-accent" : conversionRate >= 20 ? "text-[hsl(38,92%,50%)]" : "text-destructive"
-                          )}>
-                            ↓ {conversionRate}%
+                        {/* Centered value */}
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <span className="text-sm font-black text-white tabular-nums drop-shadow-[0_1px_3px_rgba(0,0,0,0.5)]">
+                            {item.value.toLocaleString("pt-BR")}
                           </span>
                         </div>
-                        <div className="w-8 h-px opacity-40" style={{ background: `linear-gradient(270deg, ${color}, transparent)` }} />
                       </div>
                     </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
 
-        {/* Bottom total */}
-        <div className="mt-4 flex items-center gap-2 opacity-50">
-          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">
-            Total: {total.toLocaleString("pt-BR")}
-          </span>
+                    {/* Label - right */}
+                    <div className="absolute right-0 top-1/2 -translate-y-1/2 pl-2 min-w-[120px]">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color, boxShadow: `0 0 6px ${color}88` }} />
+                        <div className="flex flex-col">
+                          <span className="text-[11px] font-semibold text-card-foreground whitespace-nowrap leading-tight">{item.name}</span>
+                          <span className="text-[9px] text-muted-foreground tabular-nums">{pctTotal}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     );
