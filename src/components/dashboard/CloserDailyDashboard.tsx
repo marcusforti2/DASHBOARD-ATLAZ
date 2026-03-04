@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useMonths, useDailyMetrics, useWeeklyGoals } from "@/hooks/use-metrics";
 import { METRIC_KEYS, SDR_METRIC_KEYS, CLOSER_METRIC_KEYS, METRIC_LABELS, sumMetrics, getWorkingDaysCount } from "@/lib/db";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import {
   Target, TrendingUp, CheckCircle2, Loader2, Plus, Flame,
   Zap, Trophy, Calendar, ArrowUpRight, Save, ClipboardList,
-  X, UserPlus, User
+  X, UserPlus, User, Upload, FileSpreadsheet, PenLine
 } from "lucide-react";
 
 
@@ -368,16 +368,17 @@ function LeadHistoryPanel({ teamMemberId }: { teamMemberId: string }) {
         <p className="text-[10px] text-muted-foreground text-center py-4">Nenhum lead neste período</p>
       ) : (
         <div className="rounded-lg border border-border overflow-hidden max-h-[300px] overflow-y-auto">
-          <div className="grid grid-cols-[1fr_1fr_1fr] gap-0 bg-secondary/40 border-b border-border sticky top-0 z-10">
+          <div className="grid grid-cols-[1fr_1fr_1fr_50px] gap-0 bg-secondary/40 border-b border-border sticky top-0 z-10">
             <div className="px-2.5 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider">Nome</div>
             <div className="px-2.5 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider border-l border-border">WhatsApp</div>
             <div className="px-2.5 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider border-l border-border">Social</div>
+            <div className="px-2.5 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider border-l border-border text-center">Fonte</div>
           </div>
           {filteredLeads.map((entry: any, idx: number) => (
             <div
               key={entry.id}
               className={cn(
-                "grid grid-cols-[1fr_1fr_1fr] gap-0",
+                "grid grid-cols-[1fr_1fr_1fr_50px] gap-0",
                 idx % 2 === 0 ? "bg-card" : "bg-secondary/10",
                 idx < filteredLeads.length - 1 && "border-b border-border/30"
               )}
@@ -401,6 +402,13 @@ function LeadHistoryPanel({ teamMemberId }: { teamMemberId: string }) {
                   </a>
                 ) : "—"}
               </div>
+              <div className="px-2.5 py-2 text-[10px] border-l border-border/30 text-center">
+                {entry.source === "dripify" ? (
+                  <span className="text-[7px] font-bold text-chart-4 bg-chart-4/10 px-1 py-0.5 rounded">DRIP</span>
+                ) : (
+                  <span className="text-[7px] font-bold text-muted-foreground bg-secondary px-1 py-0.5 rounded">MAN</span>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -411,7 +419,9 @@ function LeadHistoryPanel({ teamMemberId }: { teamMemberId: string }) {
 
 /* ========== Data Entry Dialog ========== */
 
-type EntryStep = "select-metric" | "lead-sheet";
+type EntryStep = "select-metric" | "source-choice" | "lead-sheet" | "uploading";
+
+const DRIPIFY_METRICS = ["conexoes", "conexoes_aceitas", "abordagens"];
 
 function DataEntryDialog({
   teamMemberId,
@@ -431,20 +441,24 @@ function DataEntryDialog({
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<EntryStep>("select-metric");
   const [selectedMetric, setSelectedMetric] = useState<string | null>(null);
+  const [entrySource, setEntrySource] = useState<"manual" | "dripify">("manual");
   const [existingLeads, setExistingLeads] = useState<any[]>([]);
   const [rows, setRows] = useState<{ lead_name: string; whatsapp: string; social_link: string; fromExisting?: boolean }[]>([]);
   const [saving, setSaving] = useState(false);
   const [showExistingPicker, setShowExistingPicker] = useState(false);
   const [existingSearch, setExistingSearch] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load existing leads when dialog opens
   useEffect(() => {
     if (!open) return;
     setStep("select-metric");
     setSelectedMetric(null);
+    setEntrySource("manual");
     setRows([]);
     setShowExistingPicker(false);
-    // Fetch all existing leads for this member for reuse
+    setUploading(false);
     supabase
       .from("lead_entries")
       .select("*")
@@ -452,7 +466,6 @@ function DataEntryDialog({
       .order("created_at", { ascending: false })
       .then(({ data }) => {
         if (data) {
-          // Deduplicate by lead_name
           const seen = new Set<string>();
           const unique = data.filter((l: any) => {
             const key = l.lead_name?.toLowerCase().trim();
@@ -467,8 +480,77 @@ function DataEntryDialog({
 
   const handleSelectMetric = (metric: string) => {
     setSelectedMetric(metric);
-    setRows([{ lead_name: "", whatsapp: "", social_link: "" }]);
-    setStep("lead-sheet");
+    // If it's a Dripify metric, show source choice
+    if (DRIPIFY_METRICS.includes(metric)) {
+      setStep("source-choice");
+    } else {
+      setEntrySource("manual");
+      setRows([{ lead_name: "", whatsapp: "", social_link: "" }]);
+      setStep("lead-sheet");
+    }
+  };
+
+  const handleSourceChoice = (source: "manual" | "dripify") => {
+    setEntrySource(source);
+    if (source === "manual") {
+      setRows([{ lead_name: "", whatsapp: "", social_link: "" }]);
+      setStep("lead-sheet");
+    } else {
+      // Trigger file upload
+      fileInputRef.current?.click();
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedMetric) return;
+
+    setStep("uploading");
+    setUploading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("metric_type", selectedMetric);
+
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-dripify`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: formData,
+        }
+      );
+
+      const result = await res.json();
+
+      if (result.leads && result.leads.length > 0) {
+        const parsedRows = result.leads.map((l: any) => ({
+          lead_name: l.name || "",
+          whatsapp: "",
+          social_link: l.linkedin || "",
+          fromExisting: false,
+        }));
+        setRows(parsedRows);
+        toast.success(`${result.leads.length} leads extraídos do Dripify! 📊`);
+      } else {
+        toast.error(result.error || "Nenhum lead encontrado no arquivo");
+        setRows([{ lead_name: "", whatsapp: "", social_link: "" }]);
+      }
+
+      setStep("lead-sheet");
+    } catch (err) {
+      console.error("Erro no upload:", err);
+      toast.error("Erro ao processar arquivo. Tente novamente.");
+      setStep("source-choice");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   };
 
   const updateRow = (idx: number, field: string, value: string) => {
@@ -516,6 +598,7 @@ function DataEntryDialog({
         whatsapp: r.whatsapp.trim(),
         social_link: r.social_link.trim(),
         metric_type: selectedMetric,
+        source: entrySource,
       }));
       await supabase.from("lead_entries").insert(inserts);
     }
@@ -578,6 +661,15 @@ function DataEntryDialog({
         </button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg bg-card border-border max-h-[85vh] overflow-y-auto">
+        {/* Hidden file input for Dripify upload */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf,.xlsx,.xls,.csv"
+          className="hidden"
+          onChange={handleFileUpload}
+        />
+
         {step === "select-metric" ? (
           <>
             <DialogHeader>
@@ -593,6 +685,7 @@ function DataEntryDialog({
             <div className="grid grid-cols-2 gap-2.5 py-3">
               {roleMetrics.map(k => {
                 const currentVal = todayMetrics?.[k] || 0;
+                const isDripify = DRIPIFY_METRICS.includes(k);
                 return (
                   <button
                     key={k}
@@ -601,11 +694,18 @@ function DataEntryDialog({
                   >
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-lg">{METRIC_ICONS[k]}</span>
-                      {currentVal > 0 && (
-                        <span className="text-[9px] font-bold text-accent bg-accent/10 px-1.5 py-0.5 rounded-md">
-                          {currentVal} hoje
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1">
+                        {isDripify && (
+                          <span className="text-[7px] font-bold text-chart-4 bg-chart-4/10 px-1 py-0.5 rounded">
+                            DRIPIFY
+                          </span>
+                        )}
+                        {currentVal > 0 && (
+                          <span className="text-[9px] font-bold text-accent bg-accent/10 px-1.5 py-0.5 rounded-md">
+                            {currentVal} hoje
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <p className="text-[10px] font-bold text-card-foreground">{METRIC_LABELS[k]}</p>
                     <ArrowUpRight size={12} className="absolute top-3 right-3 text-muted-foreground/30 group-hover:text-primary transition-colors" />
@@ -614,12 +714,75 @@ function DataEntryDialog({
               })}
             </div>
           </>
+        ) : step === "source-choice" ? (
+          <>
+            <DialogHeader>
+              <DialogTitle className="text-sm font-bold text-card-foreground flex items-center gap-2">
+                <span className="text-base">{METRIC_ICONS[selectedMetric!]}</span>
+                {METRIC_LABELS[selectedMetric!]}
+              </DialogTitle>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Como você quer registrar?
+              </p>
+            </DialogHeader>
+
+            <div className="grid grid-cols-2 gap-3 py-4">
+              <button
+                onClick={() => handleSourceChoice("manual")}
+                className="group rounded-2xl border-2 border-border hover:border-primary/50 bg-secondary/20 hover:bg-primary/5 p-6 text-center transition-all space-y-3"
+              >
+                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto group-hover:bg-primary/15 transition-colors">
+                  <PenLine size={22} className="text-primary" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-card-foreground">Manual</p>
+                  <p className="text-[9px] text-muted-foreground mt-0.5">Digitar os leads um a um</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => handleSourceChoice("dripify")}
+                className="group rounded-2xl border-2 border-border hover:border-chart-4/50 bg-secondary/20 hover:bg-chart-4/5 p-6 text-center transition-all space-y-3"
+              >
+                <div className="w-12 h-12 rounded-xl bg-chart-4/10 flex items-center justify-center mx-auto group-hover:bg-chart-4/15 transition-colors">
+                  <FileSpreadsheet size={22} className="text-chart-4" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-card-foreground">Upload Dripify</p>
+                  <p className="text-[9px] text-muted-foreground mt-0.5">Subir relatório PDF ou Excel</p>
+                </div>
+              </button>
+            </div>
+
+            <button
+              onClick={() => { setStep("select-metric"); setSelectedMetric(null); }}
+              className="w-full px-4 py-2 text-xs rounded-xl font-semibold bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
+            >
+              ← Voltar
+            </button>
+          </>
+        ) : step === "uploading" ? (
+          <div className="flex flex-col items-center justify-center py-12 space-y-4">
+            <div className="w-16 h-16 rounded-2xl bg-chart-4/10 flex items-center justify-center animate-pulse">
+              <FileSpreadsheet size={28} className="text-chart-4" />
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-bold text-card-foreground">Processando relatório...</p>
+              <p className="text-[10px] text-muted-foreground mt-1">Extraindo leads do Dripify com IA</p>
+            </div>
+            <Loader2 size={20} className="animate-spin text-chart-4" />
+          </div>
         ) : (
           <>
             <DialogHeader>
               <DialogTitle className="text-sm font-bold text-card-foreground flex items-center gap-2">
                 <span className="text-base">{METRIC_ICONS[selectedMetric!]}</span>
                 {METRIC_LABELS[selectedMetric!]}
+                {entrySource === "dripify" && (
+                  <span className="text-[8px] font-bold text-chart-4 bg-chart-4/10 px-1.5 py-0.5 rounded-md">
+                    DRIPIFY
+                  </span>
+                )}
                 <span className="text-[10px] font-normal text-muted-foreground ml-auto">
                   {rows.filter(r => r.lead_name.trim()).length} lead(s)
                 </span>
@@ -650,7 +813,7 @@ function DataEntryDialog({
                     onChange={e => updateRow(idx, "lead_name", e.target.value)}
                     placeholder="João Silva"
                     className="px-2.5 py-2.5 text-xs bg-transparent text-card-foreground placeholder:text-muted-foreground/40 outline-none focus:bg-primary/5 transition-colors"
-                    autoFocus={idx === rows.length - 1}
+                    autoFocus={idx === rows.length - 1 && entrySource === "manual"}
                   />
                   <input
                     value={row.whatsapp}
@@ -734,7 +897,14 @@ function DataEntryDialog({
             {/* Save / Back */}
             <div className="flex gap-2 mt-1">
               <button
-                onClick={() => { setStep("select-metric"); setSelectedMetric(null); }}
+                onClick={() => {
+                  if (DRIPIFY_METRICS.includes(selectedMetric!)) {
+                    setStep("source-choice");
+                  } else {
+                    setStep("select-metric");
+                    setSelectedMetric(null);
+                  }
+                }}
                 className="px-4 py-2.5 text-xs rounded-xl font-semibold bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
               >
                 ← Voltar

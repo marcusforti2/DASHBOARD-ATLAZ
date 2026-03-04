@@ -1,0 +1,1 @@
+ALTER TABLE public.lead_entries ADD COLUMN source text NOT NULL DEFAULT 'manual';

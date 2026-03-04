@@ -263,6 +263,7 @@ export type Database = {
           member_id: string
           metric_type: string | null
           social_link: string | null
+          source: string
           whatsapp: string | null
         }
         Insert: {
@@ -273,6 +274,7 @@ export type Database = {
           member_id: string
           metric_type?: string | null
           social_link?: string | null
+          source?: string
           whatsapp?: string | null
         }
         Update: {
@@ -283,6 +285,7 @@ export type Database = {
           member_id?: string
           metric_type?: string | null
           social_link?: string | null
+          source?: string
           whatsapp?: string | null
         }
         Relationships: [
