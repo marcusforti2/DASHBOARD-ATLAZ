@@ -131,19 +131,32 @@ export function AppSidebar({ isAdmin, activeView, onViewChange, userName, userRo
       </SidebarContent>
 
       <SidebarFooter className="p-3 border-t border-sidebar-border/50">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/25 to-accent/15 flex items-center justify-center shrink-0">
-            <span className="text-[10px] font-bold text-primary">
-              {userName?.charAt(0)?.toUpperCase() || "U"}
-            </span>
+        {collapsed ? (
+          <div className="flex flex-col items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/25 to-accent/15 flex items-center justify-center shrink-0">
+              <span className="text-[10px] font-bold text-primary">
+                {userName?.charAt(0)?.toUpperCase() || "U"}
+              </span>
+            </div>
+            <button
+              onClick={onSignOut}
+              className="p-1.5 rounded-lg text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors"
+              title="Sair"
+            >
+              <LogOut size={14} />
+            </button>
           </div>
-          {!collapsed && (
+        ) : (
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/25 to-accent/15 flex items-center justify-center shrink-0">
+              <span className="text-[10px] font-bold text-primary">
+                {userName?.charAt(0)?.toUpperCase() || "U"}
+              </span>
+            </div>
             <div className="flex-1 min-w-0">
               <p className="text-[11px] font-semibold text-sidebar-foreground truncate">{userName}</p>
               <p className="text-[8px] text-primary uppercase font-bold tracking-[0.15em]">{userRole}</p>
             </div>
-          )}
-          {!collapsed && (
             <button
               onClick={onSignOut}
               className="p-1.5 rounded-lg text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
@@ -151,8 +164,8 @@ export function AppSidebar({ isAdmin, activeView, onViewChange, userName, userRo
             >
               <LogOut size={14} />
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </SidebarFooter>
     </Sidebar>
   );
