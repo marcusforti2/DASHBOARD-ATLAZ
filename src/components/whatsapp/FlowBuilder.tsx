@@ -79,10 +79,10 @@ const FLOW_NODES: NodeType[] = ["trigger", "audience", "message", "send"];
 
 function getDefaultPositions(): Record<NodeType, NodePosition> {
   return {
-    trigger:  { x: 80,  y: 40 },
-    audience: { x: 340, y: 40 },
-    message:  { x: 600, y: 40 },
-    send:     { x: 860, y: 40 },
+    trigger:  { x: 40,  y: 60 },
+    audience: { x: 260, y: 60 },
+    message:  { x: 480, y: 60 },
+    send:     { x: 700, y: 60 },
   };
 }
 
@@ -357,9 +357,14 @@ export default function FlowBuilder({ automations, onReload }: FlowBuilderProps)
 
   const handleSave = async () => {
     if (!editForm || !selected) return;
+    if (!editForm.name.trim()) {
+      toast.error("O nome do fluxo não pode ficar vazio");
+      return;
+    }
     setSaving(true);
+    const currentId = selected.id;
     const { error } = await supabase.from("whatsapp_automations").update({
-      name: editForm.name,
+      name: editForm.name.trim(),
       description: editForm.description,
       message_template: editForm.message_template,
       schedule_cron: editForm.schedule_cron || null,
@@ -367,9 +372,13 @@ export default function FlowBuilder({ automations, onReload }: FlowBuilderProps)
       target_role: editForm.target_role,
       include_metrics: editForm.include_metrics,
       include_ai_tips: editForm.include_ai_tips,
-    }).eq("id", selected.id);
+    }).eq("id", currentId);
     if (error) toast.error("Erro: " + error.message);
-    else { toast.success("Fluxo salvo! ✅"); onReload(); }
+    else {
+      toast.success("Fluxo salvo! ✅");
+      await onReload();
+      setSelectedId(currentId);
+    }
     setSaving(false);
   };
 
@@ -430,12 +439,13 @@ export default function FlowBuilder({ automations, onReload }: FlowBuilderProps)
     }).select("id").maybeSingle();
     if (error) toast.error("Erro: " + error.message);
     else {
+      const newId = data?.id;
       toast.success("Fluxo salvo! 🎉");
       setGeneratedAutomation(null);
       setAiPrompt("");
       setShowAiGenerator(false);
-      onReload();
-      if (data?.id) setSelectedId(data.id);
+      await onReload();
+      if (newId) setTimeout(() => setSelectedId(newId), 100);
     }
     setSavingNew(false);
   };
@@ -458,10 +468,14 @@ export default function FlowBuilder({ automations, onReload }: FlowBuilderProps)
       return;
     }
 
+    const newId = data?.id;
     toast.success("Fluxo criado! Agora clique nos nodes para editar ✨");
-    await onReload();
-    if (data?.id) setSelectedId(data.id);
     setShowAiGenerator(false);
+    await onReload();
+    if (newId) {
+      // Small delay to ensure state has updated with new automations list
+      setTimeout(() => setSelectedId(newId), 100);
+    }
   };
 
   const getNodeSubtitle = (type: NodeType, auto: Automation): string => {
