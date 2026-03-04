@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useMonths, useTeamMembers } from "@/hooks/use-metrics";
 import AdminDashboard from "@/pages/AdminDashboard";
@@ -13,7 +13,8 @@ import { AiReportPanel } from "@/components/dashboard/AiReportPanel";
 import { useMonthlyGoals, useAiReports, useDailyMetrics } from "@/hooks/use-metrics";
 import { sumMetrics, goalToMetrics } from "@/lib/db";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { BarChart3, Loader2, Eye, Shield, Menu, Users, Target, Settings, Construction } from "lucide-react";
+import { BarChart3, Loader2, Eye, Shield, Menu, Users, Target, Settings, Construction, Maximize, Minimize } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Navigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -43,6 +44,34 @@ export default function Index() {
   const [previewMemberId, setPreviewMemberId] = useState<string | null>(null);
   const [previewCloserView, setPreviewCloserView] = useState<CloserView>("entry");
   const [selectedMonthId, setSelectedMonthId] = useState<string | undefined>();
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const mainRef = useRef<HTMLDivElement>(null);
+
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      mainRef.current?.requestFullscreen();
+    } else {
+      document.exitFullscreen();
+    }
+  }, []);
+
+  useEffect(() => {
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onFsChange);
+    return () => document.removeEventListener("fullscreenchange", onFsChange);
+  }, []);
+
+  // Keyboard shortcut: F11 or Ctrl+Shift+F
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "F11" || (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "f")) {
+        e.preventDefault();
+        toggleFullscreen();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [toggleFullscreen]);
 
   const activeMonthId = selectedMonthId || months?.[0]?.id;
   const activeMonth = months?.find(m => m.id === activeMonthId);
@@ -166,7 +195,7 @@ export default function Index() {
           onSignOut={signOut}
         />
 
-        <div className="flex-1 flex flex-col min-w-0">
+        <div ref={mainRef} className={`flex-1 flex flex-col min-w-0 ${isFullscreen ? "bg-background" : ""}`}>
           {/* Top bar */}
           <header className="h-12 flex items-center justify-between border-b border-border px-4 bg-background/80 backdrop-blur-xl sticky top-0 z-50">
             <div className="flex items-center gap-3">
@@ -186,6 +215,20 @@ export default function Index() {
                 )}
               </h2>
             </div>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={toggleFullscreen}
+                  className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                >
+                  {isFullscreen ? <Minimize size={14} /> : <Maximize size={14} />}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">
+                {isFullscreen ? "Sair da tela cheia" : "Tela cheia"} <kbd className="ml-1 px-1 py-0.5 rounded bg-muted text-[9px] font-mono">Ctrl+Shift+F</kbd>
+              </TooltipContent>
+            </Tooltip>
 
             {/* Closer preview member selector */}
             {isCloserPreview && members && (
