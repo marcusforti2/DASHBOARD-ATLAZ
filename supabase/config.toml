@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.create-sdr]
 verify_jwt = false
+
+[functions.dripify-webhook]
+verify_jwt = false
