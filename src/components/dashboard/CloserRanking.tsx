@@ -110,11 +110,78 @@ export function RoleRanking({ title, members, dailyMetrics, metricKeys, variant,
     ? "text-[hsl(280,65%,80%)] bg-[hsl(280,65%,60%/0.15)] border-[hsl(280,65%,60%/0.3)]"
     : "text-primary-foreground bg-primary/20 border-primary/30";
 
-  // Compact: mini podium + list in small space
+  // Compact: animated mini podium + list
   if (compact) {
     const p1 = podium[0];
     const p2 = podium[1];
     const p3 = podium[2];
+
+    const PodiumSlot = ({ member, rank, podiumH, avatarSize, delay }: {
+      member: typeof p1; rank: number; podiumH: string; avatarSize: string; delay: number;
+    }) => {
+      const s = PODIUM_STYLES[rank];
+      if (!member) return (
+        <div className="flex flex-col items-center flex-1 justify-end">
+          <div className={cn("w-full rounded-t-md bg-secondary/10", podiumH)} />
+        </div>
+      );
+      return (
+        <div className="flex flex-col items-center flex-1 justify-end">
+          {rank === 0 && (
+            <Crown size={12} className="text-[hsl(45,93%,47%)] animate-crown-bounce mb-0.5" />
+          )}
+          <div
+            className={cn("rounded-full overflow-hidden shrink-0 relative opacity-0 animate-avatar-drop", avatarSize, s.ring, s.glow)}
+            style={{ animationDelay: `${delay + 0.2}s`, animationFillMode: "both" }}
+          >
+            <img src={getMemberAvatar(member, member.originalIndex)} alt={member.name} className="w-full h-full object-cover" />
+            <div className={cn(
+              "absolute -bottom-0.5 -right-0.5 rounded-full flex items-center justify-center font-bold text-background",
+              rank === 0 ? "w-4 h-4 text-[8px]" : "w-3.5 h-3.5 text-[7px]",
+              s.badge
+            )}>
+              {rank + 1}
+            </div>
+          </div>
+          <span
+            className={cn("font-semibold text-card-foreground truncate w-full text-center mt-1 opacity-0 animate-fade-in", rank === 0 ? "text-[9px] font-bold" : "text-[8px]")}
+            style={{ animationDelay: `${delay + 0.4}s`, animationFillMode: "both" }}
+          >
+            {member.name}
+          </span>
+          <div
+            className={cn("w-full rounded-t-md flex items-end justify-center mt-0.5 overflow-hidden", s.bg, "ring-1", s.ring)}
+            style={{ ["--podium-height" as any]: podiumH === "h-14" ? "3.5rem" : podiumH === "h-10" ? "2.5rem" : "2rem", height: 0, animationDelay: `${delay}s`, animationFillMode: "both" } as React.CSSProperties}
+            // Use inline animation since we need CSS custom property
+            ref={(el) => {
+              if (el) {
+                el.style.animation = `podium-rise 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) ${delay}s forwards`;
+              }
+            }}
+          >
+            <span
+              className={cn("font-black tabular-nums pb-1 opacity-0 animate-score-pop", rank === 0 ? "text-sm" : "text-[10px]", s.text)}
+              style={{ animationDelay: `${delay + 0.6}s`, animationFillMode: "both" }}
+            >
+              {member.total}
+            </span>
+            {rank === 0 && (
+              <Flame size={10} className="text-[hsl(45,93%,47%)] absolute bottom-0.5 opacity-0 animate-score-pop" style={{ animationDelay: `${delay + 0.8}s`, animationFillMode: "both" }} />
+            )}
+          </div>
+          {/* Shimmer on 1st place podium */}
+          {rank === 0 && (
+            <div
+              className="absolute bottom-0 left-0 right-0 h-14 rounded-t-md pointer-events-none opacity-30 animate-shimmer"
+              style={{
+                backgroundImage: "linear-gradient(90deg, transparent 0%, hsl(45,93%,47%,0.3) 50%, transparent 100%)",
+                backgroundSize: "200% 100%",
+              }}
+            />
+          )}
+        </div>
+      );
+    };
 
     return (
       <div className={cn("rounded-xl border p-3 space-y-2 h-full", headerBg)}>
@@ -137,74 +204,27 @@ export function RoleRanking({ title, members, dailyMetrics, metricKeys, variant,
           </div>
         </div>
 
-        {/* Mini Podium */}
+        {/* Animated Mini Podium */}
         {podium.length >= 1 && (
-          <div className="flex items-end justify-center gap-1 pt-1 pb-1">
-            {/* 2nd place */}
-            <div className="flex flex-col items-center flex-1 animate-fade-in" style={{ animationDelay: "0.15s", animationFillMode: "both" }}>
-              {p2 ? (
-                <>
-                  <div className={cn("relative w-8 h-8 rounded-full overflow-hidden shrink-0 ring-1", PODIUM_STYLES[1].ring, PODIUM_STYLES[1].glow)}>
-                    <img src={getMemberAvatar(p2, p2.originalIndex)} alt={p2.name} className="w-full h-full object-cover" />
-                    <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center text-[7px] font-bold text-background bg-gradient-to-br from-[hsl(210,10%,75%)] to-[hsl(210,10%,55%)]">2</div>
-                  </div>
-                  <span className="text-[8px] font-semibold text-card-foreground truncate w-full text-center mt-1">{p2.name}</span>
-                  <div className={cn("w-full rounded-t-md flex items-end justify-center h-10 mt-0.5", PODIUM_STYLES[1].bg, "ring-1", PODIUM_STYLES[1].ring)}>
-                    <span className={cn("text-xs font-black tabular-nums pb-1", PODIUM_STYLES[1].text)}>{p2.total}</span>
-                  </div>
-                </>
-              ) : (
-                <div className="w-full h-10 rounded-t-md bg-secondary/20 mt-auto" />
-              )}
-            </div>
-
-            {/* 1st place */}
-            <div className="flex flex-col items-center flex-1 animate-fade-in" style={{ animationDelay: "0s", animationFillMode: "both" }}>
-              {p1 && (
-                <>
-                  <Crown size={12} className="text-[hsl(45,93%,47%)] animate-pulse mb-0.5" />
-                  <div className={cn("relative w-10 h-10 rounded-full overflow-hidden shrink-0 ring-2", PODIUM_STYLES[0].ring, PODIUM_STYLES[0].glow)}>
-                    <img src={getMemberAvatar(p1, p1.originalIndex)} alt={p1.name} className="w-full h-full object-cover" />
-                    <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold text-background bg-gradient-to-br from-[hsl(45,93%,47%)] to-[hsl(35,90%,42%)]">1</div>
-                  </div>
-                  <span className="text-[9px] font-bold text-card-foreground truncate w-full text-center mt-1">{p1.name}</span>
-                  <div className={cn("w-full rounded-t-md flex items-end justify-center h-14 mt-0.5", PODIUM_STYLES[0].bg, "ring-1", PODIUM_STYLES[0].ring)}>
-                    <div className="text-center pb-1">
-                      <span className={cn("text-sm font-black tabular-nums", PODIUM_STYLES[0].text)}>{p1.total}</span>
-                      <Flame size={10} className="text-[hsl(45,93%,47%)] mx-auto" />
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* 3rd place */}
-            <div className="flex flex-col items-center flex-1 animate-fade-in" style={{ animationDelay: "0.3s", animationFillMode: "both" }}>
-              {p3 ? (
-                <>
-                  <div className={cn("relative w-7 h-7 rounded-full overflow-hidden shrink-0 ring-1", PODIUM_STYLES[2].ring, PODIUM_STYLES[2].glow)}>
-                    <img src={getMemberAvatar(p3, p3.originalIndex)} alt={p3.name} className="w-full h-full object-cover" />
-                    <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center text-[7px] font-bold text-background bg-gradient-to-br from-[hsl(24,60%,50%)] to-[hsl(24,50%,35%)]">3</div>
-                  </div>
-                  <span className="text-[8px] font-semibold text-card-foreground truncate w-full text-center mt-1">{p3.name}</span>
-                  <div className={cn("w-full rounded-t-md flex items-end justify-center h-8 mt-0.5", PODIUM_STYLES[2].bg, "ring-1", PODIUM_STYLES[2].ring)}>
-                    <span className={cn("text-[10px] font-black tabular-nums pb-1", PODIUM_STYLES[2].text)}>{p3.total}</span>
-                  </div>
-                </>
-              ) : (
-                <div className="w-full h-8 rounded-t-md bg-secondary/20 mt-auto" />
-              )}
-            </div>
+          <div className="flex items-end justify-center gap-1.5 pt-1 pb-1 min-h-[100px]">
+            <PodiumSlot member={p2 || null} rank={1} podiumH="h-10" avatarSize="w-8 h-8" delay={0.3} />
+            <PodiumSlot member={p1 || null} rank={0} podiumH="h-14" avatarSize="w-10 h-10 ring-2" delay={0} />
+            <PodiumSlot member={p3 || null} rank={2} podiumH="h-8" avatarSize="w-7 h-7" delay={0.5} />
           </div>
         )}
 
-        {/* Rest below podium */}
+        {/* Rest below podium with animated bars */}
         {rest.length > 0 && (
           <div className="space-y-0.5 border-t border-border/50 pt-1.5">
             {rest.map((member, idx) => {
               const pct = maxVal > 0 ? (member.total / maxVal) * 100 : 0;
+              const delay = 0.7 + idx * 0.15;
               return (
-                <div key={member.id} className="flex items-center gap-2 rounded-md px-1.5 py-1 hover:bg-secondary/40 transition-colors animate-fade-in" style={{ animationDelay: `${0.4 + idx * 0.1}s`, animationFillMode: "both" }}>
+                <div
+                  key={member.id}
+                  className="flex items-center gap-2 rounded-md px-1.5 py-1 hover:bg-secondary/40 transition-colors opacity-0 animate-fade-in"
+                  style={{ animationDelay: `${delay}s`, animationFillMode: "both" }}
+                >
                   <span className="w-4 text-center text-[9px] font-bold text-muted-foreground tabular-nums">{idx + 4}º</span>
                   <img src={getMemberAvatar(member, member.originalIndex)} alt={member.name} className="w-5 h-5 rounded-full object-cover shrink-0 border border-border" />
                   <div className="flex-1 min-w-0">
@@ -213,7 +233,10 @@ export function RoleRanking({ title, members, dailyMetrics, metricKeys, variant,
                       <span className="text-[9px] font-bold tabular-nums text-card-foreground ml-1">{member.total}</span>
                     </div>
                     <div className="w-full h-1 rounded-full bg-secondary overflow-hidden mt-0.5">
-                      <div className="h-full rounded-full bg-muted-foreground/40 transition-all duration-700" style={{ width: `${pct}%` }} />
+                      <div
+                        className="h-full rounded-full bg-muted-foreground/40 animate-bar-fill"
+                        style={{ ["--bar-width" as any]: `${pct}%`, width: 0, animationDelay: `${delay + 0.2}s`, animationFillMode: "both" } as React.CSSProperties}
+                      />
                     </div>
                   </div>
                 </div>
