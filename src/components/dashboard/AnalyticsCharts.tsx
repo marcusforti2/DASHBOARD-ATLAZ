@@ -289,6 +289,19 @@ export function AnalyticsCharts({ dailyMetrics, members, weeklyGoals, weeksOfMon
     );
   };
 
+  const FUNNEL_COLORS = [
+    'hsl(217, 91%, 60%)',   // blue
+    'hsl(160, 84%, 45%)',   // emerald
+    'hsl(280, 65%, 60%)',   // purple
+    'hsl(38, 92%, 55%)',    // amber
+    'hsl(0, 84%, 60%)',     // red
+    'hsl(190, 80%, 50%)',   // cyan
+    'hsl(330, 70%, 55%)',   // pink
+    'hsl(100, 60%, 50%)',   // lime
+    'hsl(45, 95%, 55%)',    // yellow
+    'hsl(250, 70%, 65%)',   // indigo
+  ];
+
   const renderFunnel = () => {
     if (funnelData.length === 0) return <div className="flex items-center justify-center h-full text-muted-foreground text-xs">Sem dados</div>;
     const maxVal = Math.max(...funnelData.map(d => d.value), 1);
@@ -298,6 +311,7 @@ export function AnalyticsCharts({ dailyMetrics, members, weeklyGoals, weeksOfMon
       <div className="h-full flex flex-col items-center justify-center py-4 px-6" style={{ perspective: '800px' }}>
         <div className="w-full max-w-md flex flex-col items-center" style={{ transformStyle: 'preserve-3d', transform: 'rotateX(8deg)' }}>
           {funnelData.map((item, i) => {
+            const color = FUNNEL_COLORS[i % FUNNEL_COLORS.length];
             const widthPct = 25 + (item.value / maxVal) * 75;
             const pctOfTotal = total > 0 ? Math.round((item.value / total) * 100) : 0;
             const conversionRate = i > 0 && funnelData[i - 1].value > 0
@@ -322,11 +336,11 @@ export function AnalyticsCharts({ dailyMetrics, members, weeklyGoals, weeksOfMon
                       width: `${widthPct}%`,
                       height: '52px',
                       borderRadius: `50% / ${isLast ? '40%' : '30%'}`,
-                      background: `linear-gradient(180deg, ${item.fill}ee 0%, ${item.fill} 40%, ${item.fill}bb 100%)`,
+                      background: `linear-gradient(180deg, ${color}ee 0%, ${color} 40%, ${color}bb 100%)`,
                       boxShadow: `
-                        0 4px 20px -4px ${item.fill}55,
+                        0 4px 24px -4px ${color}66,
                         inset 0 -8px 20px -6px rgba(0,0,0,0.35),
-                        inset 0 4px 12px -2px rgba(255,255,255,0.2)
+                        inset 0 4px 12px -2px rgba(255,255,255,0.25)
                       `,
                     }}
                   >
@@ -361,7 +375,7 @@ export function AnalyticsCharts({ dailyMetrics, members, weeklyGoals, weeksOfMon
                   {/* Right label */}
                   <div className="absolute top-1/2 -translate-y-1/2 flex items-center gap-2"
                     style={{ right: `${Math.max((100 - widthPct) / 2 - 4, 0)}%`, transform: 'translateX(100%) translateY(-50%)' }}>
-                    <div className="w-8 h-px opacity-40" style={{ background: `linear-gradient(90deg, ${item.fill}, transparent)` }} />
+                    <div className="w-8 h-px opacity-40" style={{ background: `linear-gradient(90deg, ${color}, transparent)` }} />
                     <div className="flex flex-col">
                       <span className="text-[11px] font-bold text-card-foreground whitespace-nowrap">{item.name}</span>
                       <span className="text-[9px] text-muted-foreground tabular-nums">{pctOfTotal}% do total</span>
@@ -381,7 +395,7 @@ export function AnalyticsCharts({ dailyMetrics, members, weeklyGoals, weeksOfMon
                             ↓ {conversionRate}%
                           </span>
                         </div>
-                        <div className="w-8 h-px opacity-40" style={{ background: `linear-gradient(270deg, ${item.fill}, transparent)` }} />
+                        <div className="w-8 h-px opacity-40" style={{ background: `linear-gradient(270deg, ${color}, transparent)` }} />
                       </div>
                     </div>
                   )}
