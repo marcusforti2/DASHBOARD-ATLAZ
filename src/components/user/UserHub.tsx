@@ -30,7 +30,7 @@ export function UserHub({ teamMemberId, memberName, memberRole, onSignOut }: Use
   const renderContent = () => {
     switch (activeTab) {
       case "dashboard":
-        return <CloserDailyDashboard teamMemberId={teamMemberId} memberName={memberName} />;
+        return <CloserDailyDashboard teamMemberId={teamMemberId} memberName={memberName} memberRole={memberRole} />;
       case "entry":
         return <CloserEntry teamMemberId={teamMemberId} memberName={memberName} />;
       case "ai-chat":
