@@ -1223,7 +1223,13 @@ function DataEntryDialog({
                 >
                   −
                 </button>
-                <span className="text-4xl font-black tabular-nums text-primary w-16 text-center">{quickQty}</span>
+                <input
+                  type="number"
+                  min={1}
+                  value={quickQty}
+                  onChange={e => setQuickQty(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="text-4xl font-black tabular-nums text-primary w-20 text-center bg-transparent border-b-2 border-primary/30 focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
                 <button
                   onClick={() => setQuickQty(q => q + 1)}
                   className="w-12 h-12 rounded-xl border border-border bg-secondary/50 hover:bg-secondary text-xl font-bold text-card-foreground transition-all active:scale-95"
