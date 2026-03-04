@@ -1,10 +1,10 @@
-import { useState, useRef, useCallback, useEffect, forwardRef } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
-  Zap, Clock, Target, MessageSquare, Send, Play, Pause, Trash2, Edit3, Save, X,
+  Zap, Clock, Target, MessageSquare, Send, Play, Trash2, Save, X,
   Sparkles, ToggleLeft, ToggleRight, Loader2, Radio,
-  Users, ShieldCheck, UserCheck, Bot, CheckCircle2, Plus, GripHorizontal, Copy
+  Users, ShieldCheck, UserCheck, Bot, CheckCircle2, Plus, Copy, ChevronRight,
 } from "lucide-react";
 
 interface Automation {
@@ -27,10 +27,7 @@ interface FlowBuilderProps {
   onReload: () => void;
 }
 
-interface NodePosition {
-  x: number;
-  y: number;
-}
+type NodeType = "trigger" | "audience" | "message" | "send";
 
 const AUDIENCE_OPTIONS = [
   { value: "all", label: "Todos", icon: Users },
@@ -62,155 +59,62 @@ function audienceLabel(a: string): string {
   return { all: "Todos", sdrs: "SDRs", closers: "Closers", admins: "Admins", team: "Equipe" }[a] || a;
 }
 
-// ─── Canvas Node ───
-const NODE_W = 180;
-const NODE_H = 72;
-
-type NodeType = "trigger" | "audience" | "message" | "send";
-
-const NODE_CONFIG: Record<NodeType, { icon: any; label: string; color: string; bg: string; border: string }> = {
-  trigger:  { icon: Clock,         label: "Gatilho",   color: "text-blue-500",   bg: "bg-blue-500/10",   border: "border-blue-500/40" },
-  audience: { icon: Target,        label: "Público",   color: "text-purple-500", bg: "bg-purple-500/10", border: "border-purple-500/40" },
-  message:  { icon: MessageSquare, label: "Mensagem",  color: "text-emerald-500",bg: "bg-emerald-500/10",border: "border-emerald-500/40" },
-  send:     { icon: Send,          label: "Enviar",    color: "text-green-500",  bg: "bg-green-500/10",  border: "border-green-500/40" },
+const NODE_META: Record<NodeType, { icon: any; label: string; colorClass: string; bgClass: string; borderClass: string; ringClass: string }> = {
+  trigger:  { icon: Clock,         label: "Gatilho",  colorClass: "text-blue-400",    bgClass: "bg-blue-500/10",    borderClass: "border-blue-500/30",    ringClass: "ring-blue-500/50" },
+  audience: { icon: Target,        label: "Público",  colorClass: "text-purple-400",  bgClass: "bg-purple-500/10",  borderClass: "border-purple-500/30",  ringClass: "ring-purple-500/50" },
+  message:  { icon: MessageSquare, label: "Mensagem", colorClass: "text-emerald-400", bgClass: "bg-emerald-500/10", borderClass: "border-emerald-500/30", ringClass: "ring-emerald-500/50" },
+  send:     { icon: Send,          label: "Enviar",   colorClass: "text-green-400",   bgClass: "bg-green-500/10",   borderClass: "border-green-500/30",   ringClass: "ring-green-500/50" },
 };
 
-const FLOW_NODES: NodeType[] = ["trigger", "audience", "message", "send"];
+const FLOW_STEPS: NodeType[] = ["trigger", "audience", "message", "send"];
 
-function getDefaultPositions(): Record<NodeType, NodePosition> {
-  return {
-    trigger:  { x: 40,  y: 60 },
-    audience: { x: 260, y: 60 },
-    message:  { x: 480, y: 60 },
-    send:     { x: 700, y: 60 },
-  };
+// ─── Inline Node (clickable, no drag) ───
+function FlowNode({ type, subtitle, active, selected, onClick }: {
+  type: NodeType; subtitle: string; active: boolean; selected: boolean; onClick: () => void;
+}) {
+  const meta = NODE_META[type];
+  const Icon = meta.icon;
+  return (
+    <button
+      onClick={onClick}
+      className={`flex-shrink-0 w-[140px] rounded-2xl border-2 p-3 transition-all ${meta.borderClass} ${meta.bgClass} ${
+        !active ? "opacity-40" : "hover:scale-105"
+      } ${selected ? `ring-2 ${meta.ringClass} shadow-lg` : "shadow-sm"} flex flex-col items-center gap-1.5`}
+    >
+      <div className={`w-9 h-9 rounded-xl ${meta.bgClass} flex items-center justify-center`}>
+        <Icon size={16} className={meta.colorClass} />
+      </div>
+      <span className="text-[11px] font-bold text-card-foreground">{meta.label}</span>
+      <span className="text-[9px] text-muted-foreground truncate max-w-[120px] text-center">{subtitle}</span>
+    </button>
+  );
 }
 
-const CanvasNode = forwardRef<HTMLDivElement, {
-  type: NodeType;
-  subtitle: string;
-  active: boolean;
-  selected: boolean;
-  position: NodePosition;
-  onSelect: () => void;
-  onDrag: (dx: number, dy: number) => void;
-}>(({ type, subtitle, active, selected, position, onSelect, onDrag }, ref) => {
-  const config = NODE_CONFIG[type];
-  const Icon = config.icon;
-  const dragRef = useRef<{ startX: number; startY: number } | null>(null);
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dragRef.current = { startX: e.clientX, startY: e.clientY };
-
-    const handleMouseMove = (ev: MouseEvent) => {
-      if (!dragRef.current) return;
-      const dx = ev.clientX - dragRef.current.startX;
-      const dy = ev.clientY - dragRef.current.startY;
-      dragRef.current = { startX: ev.clientX, startY: ev.clientY };
-      onDrag(dx, dy);
-    };
-
-    const handleMouseUp = () => {
-      dragRef.current = null;
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
-    };
-
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
-  };
-
+// ─── Arrow connector ───
+function Arrow() {
   return (
-    <div
-      ref={ref}
-      className={`absolute select-none cursor-grab active:cursor-grabbing transition-shadow ${
-        selected ? "z-20" : "z-10"
-      }`}
-      style={{ left: position.x, top: position.y, width: NODE_W, height: NODE_H }}
-      onMouseDown={handleMouseDown}
-      onClick={(e) => { e.stopPropagation(); onSelect(); }}
-    >
-      <div className={`w-full h-full rounded-2xl border-2 ${config.border} ${config.bg} ${
-        !active ? "opacity-50" : ""
-      } ${selected ? "ring-2 ring-primary ring-offset-2 ring-offset-card shadow-lg" : "shadow-sm hover:shadow-md"
-      } flex flex-col items-center justify-center gap-1.5 transition-all`}>
-        <div className={`w-9 h-9 rounded-xl ${config.bg} flex items-center justify-center`}>
-          <Icon size={18} className={config.color} />
-        </div>
-        <span className="text-[11px] font-bold text-card-foreground">{config.label}</span>
-        <span className="text-[9px] text-muted-foreground truncate max-w-[150px] px-2 text-center">{subtitle}</span>
-      </div>
-
-      {type !== "send" && (
-        <div className="absolute top-1/2 -right-2 w-4 h-4 rounded-full bg-card border-2 border-border -translate-y-1/2 z-30" />
-      )}
-      {type !== "trigger" && (
-        <div className="absolute top-1/2 -left-2 w-4 h-4 rounded-full bg-card border-2 border-border -translate-y-1/2 z-30" />
-      )}
+    <div className="flex-shrink-0 flex items-center text-muted-foreground/40">
+      <div className="w-6 h-px bg-muted-foreground/30" />
+      <ChevronRight size={14} className="text-muted-foreground/40 -ml-1" />
     </div>
   );
-});
-CanvasNode.displayName = "CanvasNode";
-
-// ─── SVG Connector ───
-function SvgConnectors({ positions }: { positions: Record<NodeType, NodePosition> }) {
-  const connections: [NodeType, NodeType][] = [
-    ["trigger", "audience"],
-    ["audience", "message"],
-    ["message", "send"],
-  ];
-
-  return (
-    <svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
-      <defs>
-        <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-          <polygon points="0 0, 8 3, 0 6" className="fill-muted-foreground/40" />
-        </marker>
-      </defs>
-      {connections.map(([from, to]) => {
-        const x1 = positions[from].x + NODE_W + 2;
-        const y1 = positions[from].y + NODE_H / 2;
-        const x2 = positions[to].x - 2;
-        const y2 = positions[to].y + NODE_H / 2;
-        const cx1 = x1 + (x2 - x1) * 0.4;
-        const cx2 = x1 + (x2 - x1) * 0.6;
-
-        return (
-          <path
-            key={`${from}-${to}`}
-            d={`M ${x1} ${y1} C ${cx1} ${y1}, ${cx2} ${y2}, ${x2} ${y2}`}
-            fill="none"
-            className="stroke-muted-foreground/30"
-            strokeWidth={2}
-            strokeDasharray="6 3"
-            markerEnd="url(#arrowhead)"
-          />
-        );
-      })}
-    </svg>
-  );
 }
 
-// ─── Node Editor Panel ───
-const NodeEditorPanel = forwardRef<HTMLDivElement, {
-  type: NodeType;
-  automation: Automation;
-  onChange: (data: Partial<Automation>) => void;
-  onClose: () => void;
-}>(({ type, automation, onChange, onClose }, ref) => {
-  const config = NODE_CONFIG[type];
-  const Icon = config.icon;
+// ─── Node Editor (inline below nodes) ───
+function NodeEditor({ type, automation, onChange, onClose }: {
+  type: NodeType; automation: Automation; onChange: (d: Partial<Automation>) => void; onClose: () => void;
+}) {
+  const meta = NODE_META[type];
+  const Icon = meta.icon;
 
   return (
-    <div ref={ref} className="bg-card border border-border rounded-2xl shadow-xl p-5 space-y-4 animate-in slide-in-from-right-4 duration-200">
+    <div className="rounded-2xl border border-border bg-card/80 backdrop-blur-sm p-5 space-y-4 animate-in fade-in-0 slide-in-from-top-2 duration-200">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className={`w-8 h-8 rounded-xl ${config.bg} flex items-center justify-center`}>
-            <Icon size={16} className={config.color} />
+          <div className={`w-7 h-7 rounded-lg ${meta.bgClass} flex items-center justify-center`}>
+            <Icon size={14} className={meta.colorClass} />
           </div>
-          <span className="text-sm font-bold text-card-foreground">{config.label}</span>
+          <span className="text-sm font-bold text-card-foreground">{meta.label}</span>
         </div>
         <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-secondary transition-colors">
           <X size={14} className="text-muted-foreground" />
@@ -218,29 +122,29 @@ const NodeEditorPanel = forwardRef<HTMLDivElement, {
       </div>
 
       {type === "trigger" && (
-        <div className="space-y-2">
+        <div className="space-y-3">
           <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Quando disparar?</p>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             {SCHEDULE_PRESETS.map(p => (
               <button key={p.label}
                 onClick={() => onChange({ schedule_cron: p.cron })}
                 className={`px-3 py-2.5 text-[11px] rounded-xl border transition-all ${
                   automation.schedule_cron === p.cron
-                    ? "border-blue-500 bg-blue-500/15 text-blue-600 font-bold"
+                    ? "border-blue-500 bg-blue-500/15 text-blue-400 font-bold"
                     : "border-border bg-secondary text-secondary-foreground hover:border-blue-500/40"
                 }`}>
-                {p.cron === null ? <Radio size={10} className="inline mr-1.5" /> : <Clock size={10} className="inline mr-1.5" />}
+                {p.cron === null ? <Radio size={10} className="inline mr-1" /> : <Clock size={10} className="inline mr-1" />}
                 {p.label}
               </button>
             ))}
           </div>
-          <div className="mt-2">
+          <div>
             <label className="text-[9px] text-muted-foreground font-semibold uppercase">Cron customizado (UTC)</label>
             <input
               value={automation.schedule_cron || ""}
               onChange={e => onChange({ schedule_cron: e.target.value || null })}
               placeholder="0 21 * * 1-5"
-              className="mt-1 w-full rounded-xl border border-border bg-secondary px-3 py-2 text-xs font-mono text-secondary-foreground focus:ring-2 focus:ring-blue-500 outline-none"
+              className="mt-1 w-full max-w-xs rounded-xl border border-border bg-secondary px-3 py-2 text-xs font-mono text-secondary-foreground focus:ring-2 focus:ring-blue-500 outline-none"
             />
           </div>
         </div>
@@ -249,15 +153,15 @@ const NodeEditorPanel = forwardRef<HTMLDivElement, {
       {type === "audience" && (
         <div className="space-y-3">
           <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Quem recebe?</p>
-          <div className="grid grid-cols-1 gap-2">
+          <div className="flex flex-wrap gap-2">
             {AUDIENCE_OPTIONS.map(opt => {
               const OptIcon = opt.icon;
               return (
                 <button key={opt.value}
                   onClick={() => onChange({ target_audience: opt.value })}
-                  className={`px-4 py-3 text-[11px] rounded-xl border transition-all flex items-center gap-2 ${
+                  className={`px-4 py-2.5 text-[11px] rounded-xl border transition-all flex items-center gap-2 ${
                     automation.target_audience === opt.value
-                      ? "border-purple-500 bg-purple-500/15 text-purple-600 font-bold"
+                      ? "border-purple-500 bg-purple-500/15 text-purple-400 font-bold"
                       : "border-border bg-secondary text-secondary-foreground hover:border-purple-500/40"
                   }`}>
                   <OptIcon size={14} />
@@ -266,16 +170,16 @@ const NodeEditorPanel = forwardRef<HTMLDivElement, {
               );
             })}
           </div>
-          <div className="flex flex-col gap-2 mt-2">
+          <div className="flex gap-4 mt-2">
             <button onClick={() => onChange({ include_metrics: !automation.include_metrics })}
               className="flex items-center gap-2 text-[11px] text-card-foreground py-1">
               {automation.include_metrics ? <ToggleRight size={18} className="text-green-500" /> : <ToggleLeft size={18} className="text-muted-foreground" />}
-              📊 Incluir Métricas
+              📊 Métricas
             </button>
             <button onClick={() => onChange({ include_ai_tips: !automation.include_ai_tips })}
               className="flex items-center gap-2 text-[11px] text-card-foreground py-1">
               {automation.include_ai_tips ? <ToggleRight size={18} className="text-green-500" /> : <ToggleLeft size={18} className="text-muted-foreground" />}
-              💡 Incluir Dicas IA
+              💡 Dicas IA
             </button>
           </div>
         </div>
@@ -287,14 +191,14 @@ const NodeEditorPanel = forwardRef<HTMLDivElement, {
           <textarea
             value={automation.message_template}
             onChange={e => onChange({ message_template: e.target.value })}
-            rows={8}
+            rows={6}
             className="w-full rounded-xl border border-border bg-secondary px-3 py-2.5 text-[11px] font-mono text-secondary-foreground focus:ring-2 focus:ring-emerald-500 outline-none resize-none"
           />
           <div className="flex flex-wrap gap-1.5">
-            {["{{nome}}", "{{data}}", "{{role}}", "{{metricas_hoje}}", "{{progresso_meta}}", "{{dicas_ia}}"].map(v => (
+            {["{{nome}}", "{{data}}", "{{role}}", "{{metricas_hoje}}", "{{progresso_meta}}", "{{ranking}}", "{{dicas_ia}}"].map(v => (
               <button key={v}
                 onClick={() => onChange({ message_template: automation.message_template + " " + v })}
-                className="px-2 py-1 text-[9px] rounded-lg bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 font-mono transition-colors">
+                className="px-2 py-1 text-[9px] rounded-lg bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 font-mono transition-colors">
                 {v}
               </button>
             ))}
@@ -303,27 +207,22 @@ const NodeEditorPanel = forwardRef<HTMLDivElement, {
       )}
 
       {type === "send" && (
-        <div className="space-y-3">
-          <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Entrega</p>
-          <div className="flex items-center gap-2 p-3 rounded-xl bg-green-500/10 border border-green-500/20">
-            <CheckCircle2 size={14} className="text-green-500" />
-            <span className="text-[11px] text-card-foreground">
-              A mensagem será enviada via WhatsApp para todos os contatos cadastrados do público <strong>{audienceLabel(automation.target_audience)}</strong>.
-            </span>
-          </div>
+        <div className="flex items-center gap-2 p-3 rounded-xl bg-green-500/10 border border-green-500/20">
+          <CheckCircle2 size={14} className="text-green-500" />
+          <span className="text-[11px] text-card-foreground">
+            Enviará via WhatsApp para contatos do público <strong>{audienceLabel(automation.target_audience)}</strong>.
+          </span>
         </div>
       )}
     </div>
   );
-});
-NodeEditorPanel.displayName = "NodeEditorPanel";
+}
 
 // ─── Main Flow Builder ───
 export default function FlowBuilder({ automations, onReload }: FlowBuilderProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingNode, setEditingNode] = useState<NodeType | null>(null);
   const [editForm, setEditForm] = useState<Automation | null>(null);
-  const [positions, setPositions] = useState<Record<NodeType, NodePosition>>(getDefaultPositions());
   const [showAiGenerator, setShowAiGenerator] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
   const [generating, setGenerating] = useState(false);
@@ -331,25 +230,15 @@ export default function FlowBuilder({ automations, onReload }: FlowBuilderProps)
   const [savingNew, setSavingNew] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dispatching, setDispatching] = useState(false);
-  const canvasRef = useRef<HTMLDivElement>(null);
 
   const selected = automations.find(a => a.id === selectedId);
 
-  // When selecting an automation, initialize edit form
   useEffect(() => {
     if (selected) {
       setEditForm({ ...selected });
-      setPositions(getDefaultPositions());
       setEditingNode(null);
     }
   }, [selectedId]);
-
-  const handleDrag = useCallback((nodeType: NodeType, dx: number, dy: number) => {
-    setPositions(prev => ({
-      ...prev,
-      [nodeType]: { x: prev[nodeType].x + dx, y: prev[nodeType].y + dy },
-    }));
-  }, []);
 
   const handleNodeChange = (data: Partial<Automation>) => {
     setEditForm(prev => prev ? { ...prev, ...data } : prev);
@@ -357,10 +246,7 @@ export default function FlowBuilder({ automations, onReload }: FlowBuilderProps)
 
   const handleSave = async () => {
     if (!editForm || !selected) return;
-    if (!editForm.name.trim()) {
-      toast.error("O nome do fluxo não pode ficar vazio");
-      return;
-    }
+    if (!editForm.name.trim()) { toast.error("O nome do fluxo não pode ficar vazio"); return; }
     setSaving(true);
     const currentId = selected.id;
     const { error } = await supabase.from("whatsapp_automations").update({
@@ -374,11 +260,7 @@ export default function FlowBuilder({ automations, onReload }: FlowBuilderProps)
       include_ai_tips: editForm.include_ai_tips,
     }).eq("id", currentId);
     if (error) toast.error("Erro: " + error.message);
-    else {
-      toast.success("Fluxo salvo! ✅");
-      await onReload();
-      setSelectedId(currentId);
-    }
+    else { toast.success("Fluxo salvo! ✅"); await onReload(); setSelectedId(currentId); }
     setSaving(false);
   };
 
@@ -441,9 +323,7 @@ export default function FlowBuilder({ automations, onReload }: FlowBuilderProps)
     else {
       const newId = data?.id;
       toast.success("Fluxo salvo! 🎉");
-      setGeneratedAutomation(null);
-      setAiPrompt("");
-      setShowAiGenerator(false);
+      setGeneratedAutomation(null); setAiPrompt(""); setShowAiGenerator(false);
       await onReload();
       if (newId) setTimeout(() => setSelectedId(newId), 100);
     }
@@ -454,27 +334,38 @@ export default function FlowBuilder({ automations, onReload }: FlowBuilderProps)
     const { data, error } = await supabase.from("whatsapp_automations").insert({
       name: "Novo fluxo",
       description: "",
-      message_template: "Olá {{nome}}, tudo bem?",
+      message_template: "Olá {{nome}}! 📊\n\n{{progresso_meta}}\n\n{{dicas_ia}}",
       schedule_cron: null,
       target_audience: "all",
-      target_role: null,
       include_metrics: true,
       include_ai_tips: true,
       active: true,
     }).select("id").maybeSingle();
-
-    if (error) {
-      toast.error("Erro ao criar fluxo: " + error.message);
-      return;
-    }
-
+    if (error) { toast.error("Erro: " + error.message); return; }
     const newId = data?.id;
-    toast.success("Fluxo criado! Agora clique nos nodes para editar ✨");
+    toast.success("Fluxo criado! Clique nos passos para editar ✨");
     setShowAiGenerator(false);
     await onReload();
-    if (newId) {
-      // Small delay to ensure state has updated with new automations list
-      setTimeout(() => setSelectedId(newId), 100);
+    if (newId) setTimeout(() => setSelectedId(newId), 100);
+  };
+
+  const handleDuplicate = async (a: Automation) => {
+    const { data, error } = await supabase.from("whatsapp_automations").insert({
+      name: a.name + " (cópia)",
+      description: a.description,
+      message_template: a.message_template,
+      schedule_cron: a.schedule_cron,
+      target_audience: a.target_audience,
+      target_role: a.target_role,
+      include_metrics: a.include_metrics,
+      include_ai_tips: a.include_ai_tips,
+      active: false,
+    }).select("id").maybeSingle();
+    if (error) toast.error("Erro: " + error.message);
+    else {
+      toast.success("Fluxo duplicado! ✨");
+      await onReload();
+      if (data?.id) setTimeout(() => setSelectedId(data.id), 100);
     }
   };
 
@@ -482,7 +373,7 @@ export default function FlowBuilder({ automations, onReload }: FlowBuilderProps)
     switch (type) {
       case "trigger": return auto.schedule_cron ? cronToLabel(auto.schedule_cron) : "Disparo manual";
       case "audience": return audienceLabel(auto.target_audience);
-      case "message": return auto.message_template?.substring(0, 30) + "..." || "Definir...";
+      case "message": return (auto.message_template || "").substring(0, 25) + "...";
       case "send": return "WhatsApp API";
     }
   };
@@ -508,7 +399,7 @@ export default function FlowBuilder({ automations, onReload }: FlowBuilderProps)
         </div>
       </div>
 
-      <div className="flex" style={{ minHeight: 520 }}>
+      <div className="flex" style={{ minHeight: 420 }}>
         {/* Flow List Sidebar */}
         <div className="w-56 border-r border-border bg-secondary/10 flex-shrink-0 overflow-auto">
           <div className="p-2 space-y-1">
@@ -530,26 +421,7 @@ export default function FlowBuilder({ automations, onReload }: FlowBuilderProps)
                   </div>
                 </button>
                 <button
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    const { data, error } = await supabase.from("whatsapp_automations").insert({
-                      name: a.name + " (cópia)",
-                      description: a.description,
-                      message_template: a.message_template,
-                      schedule_cron: a.schedule_cron,
-                      target_audience: a.target_audience,
-                      target_role: a.target_role,
-                      include_metrics: a.include_metrics,
-                      include_ai_tips: a.include_ai_tips,
-                      active: false,
-                    }).select("id").maybeSingle();
-                    if (error) toast.error("Erro: " + error.message);
-                    else {
-                      toast.success("Fluxo duplicado! ✨");
-                      await onReload();
-                      if (data?.id) setSelectedId(data.id);
-                    }
-                  }}
+                  onClick={(e) => { e.stopPropagation(); handleDuplicate(a); }}
                   title="Duplicar fluxo"
                   className="absolute top-2 right-2 p-1.5 rounded-lg bg-secondary/80 border border-border text-muted-foreground hover:text-primary hover:bg-primary/10 opacity-0 group-hover:opacity-100 transition-all"
                 >
@@ -566,8 +438,8 @@ export default function FlowBuilder({ automations, onReload }: FlowBuilderProps)
           </div>
         </div>
 
-        {/* Canvas Area */}
-        <div className="flex-1 flex flex-col">
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col overflow-auto">
           {showAiGenerator ? (
             /* AI Generator */
             <div className="p-6 space-y-4 max-w-lg">
@@ -615,14 +487,14 @@ export default function FlowBuilder({ automations, onReload }: FlowBuilderProps)
               )}
             </div>
           ) : selected && editForm ? (
-            <>
+            <div className="flex-1 flex flex-col">
               {/* Flow name + actions bar */}
               <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-card">
                 <div className="flex items-center gap-3">
                   <input
                     value={editForm.name}
                     onChange={e => handleNodeChange({ name: e.target.value })}
-                    className="text-sm font-bold text-card-foreground bg-transparent border-b border-transparent hover:border-border focus:border-primary outline-none px-1 py-0.5"
+                    className="text-sm font-bold text-card-foreground bg-transparent border-b border-transparent hover:border-border focus:border-primary outline-none px-1 py-0.5 max-w-[200px]"
                   />
                   <span className={`px-2 py-0.5 text-[9px] rounded-full font-bold ${selected.active ? "bg-green-500/15 text-green-600" : "bg-muted text-muted-foreground"}`}>
                     {selected.active ? "Ativa" : "Inativa"}
@@ -649,47 +521,36 @@ export default function FlowBuilder({ automations, onReload }: FlowBuilderProps)
                 </div>
               </div>
 
-              {/* Canvas + Editor side panel */}
-              <div className="flex flex-1 overflow-hidden">
-                {/* Canvas */}
-                <div
-                  ref={canvasRef}
-                  className="flex-1 relative overflow-auto"
-                  style={{
-                    backgroundImage: "radial-gradient(circle, hsl(var(--border)) 1px, transparent 1px)",
-                    backgroundSize: "24px 24px",
-                    minHeight: 400,
-                  }}
-                  onClick={() => setEditingNode(null)}
-                >
-                  <SvgConnectors positions={positions} />
-                  {FLOW_NODES.map(type => (
-                    <CanvasNode
-                      key={type}
-                      type={type}
-                      subtitle={getNodeSubtitle(type, editForm)}
-                      active={selected.active}
-                      selected={editingNode === type}
-                      position={positions[type]}
-                      onSelect={() => setEditingNode(type)}
-                      onDrag={(dx, dy) => handleDrag(type, dx, dy)}
-                    />
+              {/* Flow Pipeline (horizontal nodes) */}
+              <div className="px-6 py-6">
+                <div className="flex items-center justify-center gap-0">
+                  {FLOW_STEPS.map((type, i) => (
+                    <div key={type} className="flex items-center">
+                      <FlowNode
+                        type={type}
+                        subtitle={getNodeSubtitle(type, editForm)}
+                        active={selected.active}
+                        selected={editingNode === type}
+                        onClick={() => setEditingNode(editingNode === type ? null : type)}
+                      />
+                      {i < FLOW_STEPS.length - 1 && <Arrow />}
+                    </div>
                   ))}
                 </div>
-
-                {/* Side Editor Panel */}
-                {editingNode && (
-                  <div className="w-80 border-l border-border overflow-auto flex-shrink-0 p-4">
-                    <NodeEditorPanel
-                      type={editingNode}
-                      automation={editForm}
-                      onChange={handleNodeChange}
-                      onClose={() => setEditingNode(null)}
-                    />
-                  </div>
-                )}
               </div>
-            </>
+
+              {/* Inline editor below nodes */}
+              {editingNode && (
+                <div className="px-6 pb-6">
+                  <NodeEditor
+                    type={editingNode}
+                    automation={editForm}
+                    onChange={handleNodeChange}
+                    onClose={() => setEditingNode(null)}
+                  />
+                </div>
+              )}
+            </div>
           ) : (
             /* Empty state */
             <div className="flex-1 flex items-center justify-center">
@@ -697,7 +558,7 @@ export default function FlowBuilder({ automations, onReload }: FlowBuilderProps)
                 <div className="w-20 h-20 rounded-3xl bg-secondary/50 flex items-center justify-center mx-auto">
                   <Zap size={28} className="text-muted-foreground/40" />
                 </div>
-                <p className="text-xs text-muted-foreground">Selecione um fluxo ou crie um novo com IA</p>
+                <p className="text-xs text-muted-foreground">Selecione um fluxo ou crie um novo</p>
               </div>
             </div>
           )}
