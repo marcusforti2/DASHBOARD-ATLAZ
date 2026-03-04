@@ -13,6 +13,11 @@ interface WeekInfo {
   endDate: string;
 }
 
+interface MonthOption {
+  id: string;
+  label: string;
+}
+
 interface KpiPanelFiltersProps {
   periodFilter: "month" | "week" | "day";
   onPeriodChange: (p: "month" | "week" | "day") => void;
@@ -22,6 +27,9 @@ interface KpiPanelFiltersProps {
   onWeekChange: (i: number) => void;
   weeksOfMonth: WeekInfo[];
   showPeriodToggle?: boolean;
+  months?: MonthOption[];
+  selectedMonthId?: string;
+  onMonthChange?: (id: string) => void;
 }
 
 export function KpiPanelFilters({
@@ -33,6 +41,9 @@ export function KpiPanelFilters({
   onWeekChange,
   weeksOfMonth,
   showPeriodToggle = true,
+  months,
+  selectedMonthId,
+  onMonthChange,
 }: KpiPanelFiltersProps) {
   return (
     <div className="flex flex-wrap items-center gap-1.5">
@@ -50,6 +61,21 @@ export function KpiPanelFilters({
               {p === "month" ? "Mês" : p === "week" ? "Semana" : "Dia"}
             </button>
           ))}
+        </div>
+      )}
+
+      {periodFilter === "month" && months && months.length > 0 && onMonthChange && (
+        <div className="relative">
+          <select
+            value={selectedMonthId || ""}
+            onChange={e => onMonthChange(e.target.value)}
+            className="appearance-none bg-secondary text-secondary-foreground text-[10px] font-medium px-2.5 py-1 pr-6 rounded-md border border-border cursor-pointer outline-none"
+          >
+            {months.map(m => (
+              <option key={m.id} value={m.id}>{m.label}</option>
+            ))}
+          </select>
+          <ChevronDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
         </div>
       )}
 
