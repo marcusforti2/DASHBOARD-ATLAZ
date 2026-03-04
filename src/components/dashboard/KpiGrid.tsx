@@ -15,7 +15,6 @@ const ICONS: Record<string, React.ReactNode> = {
   reuniao_realizada: <CalendarCheck size={13} />,
 };
 
-// Short labels for compact mode
 const SHORT_LABELS: Record<string, string> = {
   conexoes: "Conexões",
   conexoes_aceitas: "Aceitas",
@@ -29,6 +28,9 @@ const SHORT_LABELS: Record<string, string> = {
   reuniao_realizada: "Reun. Realiz.",
 };
 
+const SDR_KEYS = ["conexoes", "conexoes_aceitas", "abordagens", "inmail", "follow_up", "numero", "lig_agendada"];
+const CLOSER_KEYS = ["lig_realizada", "reuniao_agendada", "reuniao_realizada"];
+
 interface KpiGridProps {
   totals: Record<string, number>;
   goals: Record<string, number> | null;
@@ -38,131 +40,145 @@ interface KpiGridProps {
 }
 
 export function KpiGrid({ totals, goals, previousTotals, onCardClick, compact = false }: KpiGridProps) {
-  const keys = Object.keys(METRIC_LABELS);
-
   if (compact) {
-    const ringSize = 68;
-    const strokeWidth = 4.5;
-    const radius = (ringSize - strokeWidth) / 2;
-    const circumference = 2 * Math.PI * radius;
-
     return (
-      <div className="grid grid-cols-5 lg:grid-cols-10 gap-1.5">
-        {keys.map(key => {
-          const val = totals[key] || 0;
-          const goal = goals ? (goals as any)[key] || 0 : 0;
-          const pct = goal > 0 ? Math.round((val / goal) * 100) : 0;
-          const isGood = pct >= 80;
-          const isMid = pct >= 40;
-          const colorClass = isGood ? "text-accent" : isMid ? "text-[hsl(38,92%,50%)]" : "text-destructive";
-          const strokeColor = isGood ? "hsl(var(--accent))" : isMid ? "hsl(38,92%,50%)" : "hsl(var(--destructive))";
-          const dashOffset = circumference - (Math.min(pct, 100) / 100) * circumference;
-          const isZero = val === 0 && goal === 0;
+      <div className="flex flex-col gap-3">
+        {/* SDR Panel */}
+        <div className="rounded-xl p-3 bg-[hsl(var(--panel-sdr))] border border-[hsl(217,40%,18%)]">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-[9px] font-bold uppercase tracking-widest text-primary">SDR</span>
+            <div className="flex-1 h-px bg-primary/20" />
+          </div>
+          <div className="grid grid-cols-7 gap-1.5">
+            {SDR_KEYS.map(key => (
+              <CompactCard key={key} metricKey={key} val={totals[key] || 0} goal={goals ? (goals as any)[key] || 0 : 0} onCardClick={onCardClick} />
+            ))}
+          </div>
+        </div>
 
-          return (
-            <div key={key} onClick={() => onCardClick?.(key)} className={cn("group flex flex-col items-center gap-0.5", onCardClick && "cursor-pointer", isZero && "opacity-40")}>
-              {/* Label above card */}
-              <span className="text-[7px] font-semibold text-muted-foreground uppercase tracking-wider leading-tight text-center truncate w-full">
-                {SHORT_LABELS[key]}
-              </span>
-              <div className="aspect-square w-full rounded-lg border border-border bg-card flex items-center justify-center hover:border-primary/30 transition-all duration-300 hover:shadow-[0_0_15px_-5px_hsl(var(--primary)/0.15)] hover:scale-110 hover:z-10 relative overflow-hidden" style={{ transitionDelay: '70ms' }}>
-                {goal > 0 ? (
-                  <div className="relative flex items-center justify-center w-[90%] h-[90%]">
-                    <svg viewBox={`0 0 ${ringSize} ${ringSize}`} className="-rotate-90 w-full h-full">
-                      <circle cx={ringSize / 2} cy={ringSize / 2} r={radius} fill="none" stroke="hsl(var(--secondary))" strokeWidth={strokeWidth} />
-                      <circle cx={ringSize / 2} cy={ringSize / 2} r={radius} fill="none" stroke={strokeColor} strokeWidth={strokeWidth} strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={dashOffset} className="transition-all duration-700" />
-                    </svg>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <div className="flex items-baseline gap-px">
-                        <span className="text-[15px] font-black tabular-nums text-card-foreground leading-none">
-                          {val.toLocaleString("pt-BR")}
-                        </span>
-                        <span className="text-[10px] font-medium text-muted-foreground leading-none">/{goal.toLocaleString("pt-BR")}</span>
-                      </div>
-                      <span className={cn("text-[9px] font-bold tabular-nums leading-none mt-0.5", colorClass)}>
-                        {pct}%
-                      </span>
-                    </div>
-                  </div>
-                ) : (
-                  <span className="text-xl font-black tabular-nums text-card-foreground leading-none">
-                    {val.toLocaleString("pt-BR")}
-                  </span>
-                )}
-              </div>
-            </div>
-          );
-        })}
+        {/* Closer Panel */}
+        <div className="rounded-xl p-3 bg-[hsl(var(--panel-closer))] border border-[hsl(280,30%,18%)]">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-[9px] font-bold uppercase tracking-widest text-[hsl(280,65%,65%)]">Closer</span>
+            <div className="flex-1 h-px bg-[hsl(280,65%,60%/0.2)]" />
+          </div>
+          <div className="grid grid-cols-3 gap-1.5">
+            {CLOSER_KEYS.map(key => (
+              <CompactCard key={key} metricKey={key} val={totals[key] || 0} goal={goals ? (goals as any)[key] || 0 : 0} onCardClick={onCardClick} />
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
 
-  // Original non-compact layout
+  // Non-compact layout
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-      {keys.map(key => {
-        const val = totals[key] || 0;
-        const goal = goals ? (goals as any)[key] || 0 : 0;
-        const pct = goal > 0 ? Math.round((val / goal) * 100) : 0;
-        const isGood = pct >= 80;
-        const isMid = pct >= 40;
+    <div className="flex flex-col gap-4">
+      {/* SDR Panel */}
+      <div className="rounded-xl p-4 bg-[hsl(var(--panel-sdr))] border border-[hsl(217,40%,18%)]">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-xs font-bold uppercase tracking-widest text-primary">Métricas SDR</span>
+          <div className="flex-1 h-px bg-primary/20" />
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+          {SDR_KEYS.map(key => (
+            <FullCard key={key} metricKey={key} val={totals[key] || 0} goal={goals ? (goals as any)[key] || 0 : 0} prevVal={previousTotals?.[key] || 0} onCardClick={onCardClick} />
+          ))}
+        </div>
+      </div>
 
-        const prevVal = previousTotals?.[key] || 0;
-        const trendPct = prevVal > 0 ? Math.round(((val - prevVal) / prevVal) * 100) : 0;
-        const trendUp = trendPct > 0;
-        const trendDown = trendPct < 0;
+      {/* Closer Panel */}
+      <div className="rounded-xl p-4 bg-[hsl(var(--panel-closer))] border border-[hsl(280,30%,18%)]">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-xs font-bold uppercase tracking-widest text-[hsl(280,65%,65%)]">Métricas Closer</span>
+          <div className="flex-1 h-px bg-[hsl(280,65%,60%/0.2)]" />
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          {CLOSER_KEYS.map(key => (
+            <FullCard key={key} metricKey={key} val={totals[key] || 0} goal={goals ? (goals as any)[key] || 0 : 0} prevVal={previousTotals?.[key] || 0} onCardClick={onCardClick} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
-        return (
-          <div key={key} onClick={() => onCardClick?.(key)} className={cn("group rounded-xl border border-border bg-card p-4 flex flex-col gap-2 hover:border-primary/30 transition-all duration-300 hover:shadow-[0_0_20px_-5px_hsl(var(--primary)/0.15)] hover:scale-105 hover:z-10", onCardClick && "cursor-pointer")} style={{ transitionDelay: '70ms' }}>
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">
-                {METRIC_LABELS[key]}
-              </span>
-              <span className="text-muted-foreground opacity-50 group-hover:opacity-100 transition-opacity">
-                {ICONS[key]}
-              </span>
-            </div>
-            <div className="flex items-end gap-1.5">
-              <span className="text-2xl font-bold tabular-nums text-card-foreground leading-none">
-                {val.toLocaleString("pt-BR")}
-              </span>
-              {goal > 0 && (
-                <span className="text-[10px] text-muted-foreground mb-0.5">/ {goal.toLocaleString("pt-BR")}</span>
-              )}
-            </div>
+/* ---- Compact ring card ---- */
+function CompactCard({ metricKey, val, goal, onCardClick }: { metricKey: string; val: number; goal: number; onCardClick?: (k: string) => void }) {
+  const ringSize = 68;
+  const strokeWidth = 4.5;
+  const radius = (ringSize - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const pct = goal > 0 ? Math.round((val / goal) * 100) : 0;
+  const isGood = pct >= 80;
+  const isMid = pct >= 40;
+  const colorClass = isGood ? "text-accent" : isMid ? "text-[hsl(38,92%,50%)]" : "text-destructive";
+  const strokeColor = isGood ? "hsl(var(--accent))" : isMid ? "hsl(38,92%,50%)" : "hsl(var(--destructive))";
+  const dashOffset = circumference - (Math.min(pct, 100) / 100) * circumference;
+  const isZero = val === 0 && goal === 0;
 
-            {previousTotals && prevVal > 0 && (
-              <div className={cn(
-                "flex items-center gap-1 text-[10px] font-semibold",
-                trendUp ? "text-accent" : trendDown ? "text-destructive" : "text-muted-foreground"
-              )}>
-                {trendUp ? <TrendingUp size={10} /> : trendDown ? <TrendingDown size={10} /> : <Minus size={10} />}
-                <span>{trendUp ? "+" : ""}{trendPct}% vs anterior</span>
+  return (
+    <div onClick={() => onCardClick?.(metricKey)} className={cn("group flex flex-col items-center gap-0.5", onCardClick && "cursor-pointer", isZero && "opacity-40")}>
+      <span className="text-[7px] font-semibold text-muted-foreground uppercase tracking-wider leading-tight text-center truncate w-full">
+        {SHORT_LABELS[metricKey]}
+      </span>
+      <div className="aspect-square w-full rounded-lg border border-border bg-card flex items-center justify-center hover:border-primary/30 transition-all duration-300 hover:shadow-[0_0_15px_-5px_hsl(var(--primary)/0.15)] hover:scale-110 hover:z-10 relative overflow-hidden" style={{ transitionDelay: '70ms' }}>
+        {goal > 0 ? (
+          <div className="relative flex items-center justify-center w-[90%] h-[90%]">
+            <svg viewBox={`0 0 ${ringSize} ${ringSize}`} className="-rotate-90 w-full h-full">
+              <circle cx={ringSize / 2} cy={ringSize / 2} r={radius} fill="none" stroke="hsl(var(--secondary))" strokeWidth={strokeWidth} />
+              <circle cx={ringSize / 2} cy={ringSize / 2} r={radius} fill="none" stroke={strokeColor} strokeWidth={strokeWidth} strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={dashOffset} className="transition-all duration-700" />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <div className="flex items-baseline gap-px">
+                <span className="text-[15px] font-black tabular-nums text-card-foreground leading-none">{val.toLocaleString("pt-BR")}</span>
+                <span className="text-[10px] font-medium text-muted-foreground leading-none">/{goal.toLocaleString("pt-BR")}</span>
               </div>
-            )}
-
-            {goal > 0 && (
-              <>
-                <div className="w-full h-1.5 rounded-full bg-secondary overflow-hidden">
-                  <div
-                    className={cn(
-                      "h-full rounded-full transition-all duration-700",
-                      isGood ? "bg-accent" : isMid ? "bg-[hsl(38,92%,50%)]" : "bg-destructive"
-                    )}
-                    style={{ width: `${Math.min(pct, 100)}%` }}
-                  />
-                </div>
-                <span className={cn(
-                  "text-[10px] font-bold tabular-nums",
-                  isGood ? "text-accent" : isMid ? "text-[hsl(38,92%,50%)]" : "text-destructive"
-                )}>
-                  {pct}%
-                </span>
-              </>
-            )}
+              <span className={cn("text-[9px] font-bold tabular-nums leading-none mt-0.5", colorClass)}>{pct}%</span>
+            </div>
           </div>
-        );
-      })}
+        ) : (
+          <span className="text-xl font-black tabular-nums text-card-foreground leading-none">{val.toLocaleString("pt-BR")}</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ---- Full-size card ---- */
+function FullCard({ metricKey, val, goal, prevVal, onCardClick }: { metricKey: string; val: number; goal: number; prevVal: number; onCardClick?: (k: string) => void }) {
+  const pct = goal > 0 ? Math.round((val / goal) * 100) : 0;
+  const isGood = pct >= 80;
+  const isMid = pct >= 40;
+  const trendPct = prevVal > 0 ? Math.round(((val - prevVal) / prevVal) * 100) : 0;
+  const trendUp = trendPct > 0;
+  const trendDown = trendPct < 0;
+
+  return (
+    <div onClick={() => onCardClick?.(metricKey)} className={cn("group rounded-xl border border-border bg-card p-4 flex flex-col gap-2 hover:border-primary/30 transition-all duration-300 hover:shadow-[0_0_20px_-5px_hsl(var(--primary)/0.15)] hover:scale-105 hover:z-10", onCardClick && "cursor-pointer")} style={{ transitionDelay: '70ms' }}>
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">{METRIC_LABELS[metricKey]}</span>
+        <span className="text-muted-foreground opacity-50 group-hover:opacity-100 transition-opacity">{ICONS[metricKey]}</span>
+      </div>
+      <div className="flex items-end gap-1.5">
+        <span className="text-2xl font-bold tabular-nums text-card-foreground leading-none">{val.toLocaleString("pt-BR")}</span>
+        {goal > 0 && <span className="text-[10px] text-muted-foreground mb-0.5">/ {goal.toLocaleString("pt-BR")}</span>}
+      </div>
+      {prevVal > 0 && (
+        <div className={cn("flex items-center gap-1 text-[10px] font-semibold", trendUp ? "text-accent" : trendDown ? "text-destructive" : "text-muted-foreground")}>
+          {trendUp ? <TrendingUp size={10} /> : trendDown ? <TrendingDown size={10} /> : <Minus size={10} />}
+          <span>{trendUp ? "+" : ""}{trendPct}% vs anterior</span>
+        </div>
+      )}
+      {goal > 0 && (
+        <>
+          <div className="w-full h-1.5 rounded-full bg-secondary overflow-hidden">
+            <div className={cn("h-full rounded-full transition-all duration-700", isGood ? "bg-accent" : isMid ? "bg-[hsl(38,92%,50%)]" : "bg-destructive")} style={{ width: `${Math.min(pct, 100)}%` }} />
+          </div>
+          <span className={cn("text-[10px] font-bold tabular-nums", isGood ? "text-accent" : isMid ? "text-[hsl(38,92%,50%)]" : "text-destructive")}>{pct}%</span>
+        </>
+      )}
     </div>
   );
 }
