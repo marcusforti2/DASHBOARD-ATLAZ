@@ -1,4 +1,4 @@
-import { BarChart3, LayoutDashboard, Users, Target, FileText, Eye, Settings, LogOut, ClipboardList, Sparkles } from "lucide-react";
+import { BarChart3, LayoutDashboard, Users, Target, FileText, Eye, Settings, LogOut, ClipboardList, Sparkles, MessageCircle } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -14,7 +14,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-export type AdminView = "dashboard" | "team" | "goals" | "reports" | "closer-preview" | "settings";
+export type AdminView = "dashboard" | "team" | "goals" | "reports" | "closer-preview" | "settings" | "whatsapp";
 export type CloserView = "entry" | "dashboard" | "daily-goals";
 
 interface AppSidebarProps {
@@ -34,6 +34,7 @@ const adminMainItems = [
 ];
 
 const adminSecondaryItems = [
+  { id: "whatsapp", title: "WhatsApp", icon: MessageCircle },
   { id: "closer-preview", title: "Ver como SDR", icon: Eye },
   { id: "settings", title: "Configurações", icon: Settings },
 ];
