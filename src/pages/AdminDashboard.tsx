@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { useMonths, useTeamMembers, useMonthlyGoals, useWeeklyGoals, useDailyMetrics, useAiReports } from "@/hooks/use-metrics";
+import { useMonths, useTeamMembers, useMonthlyGoals, useWeeklyGoals, useDailyMetrics, useAiReports, useAllMonthlyGoals, useAllWeeklyGoals } from "@/hooks/use-metrics";
 import { sumMetrics, goalToMetrics, METRIC_LABELS, SHORT_TABLE_LABELS, METRIC_KEYS, SDR_METRIC_KEYS, CLOSER_METRIC_KEYS, DbDailyMetric, DbTeamMember, getWorkingDaysCount, getMemberAvatar } from "@/lib/db";
 import { getWeeksOfMonth } from "@/lib/calendar-utils";
 import { KpiGrid } from "@/components/dashboard/KpiGrid";
@@ -20,7 +20,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 
 
-
 interface AdminDashboardProps {
   onSignOut: () => void;
   userName: string;
@@ -35,7 +34,6 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
   const [selectedMonthId, setSelectedMonthId] = useState<string | undefined>(externalMonthId);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(externalMemberId || null);
   
-
   // Panel 1 - Month (fixed to month)
   // Panel 2 - Week states — default to current week
   const [weekPanelWeekIdx, setWeekPanelWeekIdx] = useState<number>(-1); // -1 = not yet initialized
@@ -93,6 +91,8 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
   const { data: dailyMetrics } = useDailyMetrics(activeMonthId);
   const { data: previousMetrics } = useDailyMetrics(previousMonthId || undefined);
   const { data: aiReports } = useAiReports(activeMonthId);
+  const { data: allMemberMonthlyGoals } = useAllMonthlyGoals(activeMonthId);
+  const { data: allMemberWeeklyGoals } = useAllWeeklyGoals(activeMonthId);
 
   // Base filtered by member
   const memberFilteredMetrics = useMemo(() => {
@@ -189,6 +189,36 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
     return null;
   }, [allSdrPeriod, teamGoals, teamWeeklyGoals, weeksOfMonth, allSdrWeekIdx, allSdrDate]);
 
+  // Helper: get individual member goal for current period (uses real DB goals per member)
+  const getMemberGoal = useMemo(() => {
+    return (memberId: string, metricKeys: readonly string[]): Record<string, number> | null => {
+      if (!allMemberMonthlyGoals || !allMemberWeeklyGoals) return null;
+      if (allSdrPeriod === "month") {
+        const mg = allMemberMonthlyGoals.find((g: any) => g.member_id === memberId);
+        if (!mg) return null;
+        return Object.fromEntries(metricKeys.map(k => [k, (mg as any)[k] || 0]));
+      }
+      if (allSdrPeriod === "week") {
+        if (!weeksOfMonth[allSdrWeekIdx]) return null;
+        const weekNum = weeksOfMonth[allSdrWeekIdx].weekNumber;
+        const wg = allMemberWeeklyGoals.find((w: any) => w.member_id === memberId && w.week_number === weekNum);
+        if (!wg) return null;
+        return Object.fromEntries(metricKeys.map(k => [k, (wg as any)[k] || 0]));
+      }
+      if (allSdrPeriod === "day") {
+        const dayStr = format(allSdrDate, "yyyy-MM-dd");
+        const weekIdx = weeksOfMonth.findIndex(w => dayStr >= w.startDate && dayStr <= w.endDate);
+        if (weekIdx < 0) return null;
+        const weekNum = weeksOfMonth[weekIdx].weekNumber;
+        const wg = allMemberWeeklyGoals.find((w: any) => w.member_id === memberId && w.week_number === weekNum);
+        if (!wg) return null;
+        const wdCount = getWorkingDaysCount((wg as any).working_days);
+        return Object.fromEntries(metricKeys.map(k => [k, Math.round(((wg as any)[k] || 0) / wdCount)]));
+      }
+      return null;
+    };
+  }, [allMemberMonthlyGoals, allMemberWeeklyGoals, allSdrPeriod, weeksOfMonth, allSdrWeekIdx, allSdrDate]);
+
   const previousTotals = previousMetrics && previousMetrics.length > 0 ? sumMetrics(previousMetrics) : undefined;
   const hasActiveFilters = dateFrom || dateTo || selectedDayOfWeek || minMetricFilter;
 
@@ -266,9 +296,7 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
                     </thead>
                     <tbody>
                       {allSdrByRole.sdrs.map((member, idx) => {
-                        const memberGoal = allSdrGoals && sdrMembersList.length > 0
-                          ? Object.fromEntries(SDR_METRIC_KEYS.map(k => [k, Math.max(1, Math.round((allSdrGoals[k] || 0) / sdrMembersList.length))]))
-                          : null;
+                        const memberGoal = getMemberGoal(member.id, SDR_METRIC_KEYS);
                         return (
                           <tr key={member.id} onClick={() => setSdrModalMemberId(member.id)} className={cn(
                             "border-b border-border/50 hover:bg-secondary/30 transition-colors cursor-pointer",
@@ -330,9 +358,7 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
                     </thead>
                     <tbody>
                       {allSdrByRole.closers.map((member, idx) => {
-                        const memberGoal = allSdrGoals && closerMembersList.length > 0
-                          ? Object.fromEntries(CLOSER_METRIC_KEYS.map(k => [k, Math.max(1, Math.round((allSdrGoals[k] || 0) / closerMembersList.length))]))
-                          : null;
+                        const memberGoal = getMemberGoal(member.id, CLOSER_METRIC_KEYS);
                         return (
                           <tr key={member.id} onClick={() => setSdrModalMemberId(member.id)} className={cn(
                             "border-b border-border/50 hover:bg-secondary/30 transition-colors cursor-pointer",

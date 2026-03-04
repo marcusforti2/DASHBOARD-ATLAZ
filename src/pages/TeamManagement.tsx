@@ -368,7 +368,7 @@ Faça login e comece a registrar suas métricas. Bora pra cima! 🚀`;
 // ─── AI Performance Analysis ─────────────────────────────────────────────
 function AiCloserAnalysis({ member, monthId, monthLabel }: { member: DbTeamMember; monthId?: string; monthLabel?: string }) {
   const { data: dailyMetrics } = useDailyMetrics(monthId);
-  const { data: goals } = useMonthlyGoals(monthId);
+  const { data: goals } = useMonthlyGoals(monthId, member.id);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState("");
 
