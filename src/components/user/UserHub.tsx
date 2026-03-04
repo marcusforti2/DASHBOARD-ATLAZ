@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { Target, Bot, LayoutDashboard, LogOut, BarChart3 } from "lucide-react";
+import { Target, Bot, LayoutDashboard, LogOut, BarChart3, Trophy } from "lucide-react";
 import { CloserDailyDashboard } from "@/components/dashboard/CloserDailyDashboard";
 import AdminDashboard from "@/pages/AdminDashboard";
 import { AiChat } from "./AiChat";
 import { AiToolsPanel } from "./AiToolsPanel";
+import { UserRankingScreen } from "./UserRankingScreen";
 import { cn } from "@/lib/utils";
+import { AnimatePresence } from "framer-motion";
 
 type UserTab = "dashboard" | "ai-chat" | "ai-tools" | "general-dashboard";
 
@@ -24,6 +26,7 @@ const TABS: { id: UserTab; label: string; icon: React.ElementType; mobileLabel: 
 
 export function UserHub({ teamMemberId, memberName, memberRole, onSignOut }: UserHubProps) {
   const [activeTab, setActiveTab] = useState<UserTab>("dashboard");
+  const [showRanking, setShowRanking] = useState(false);
 
   const roleLabel = memberRole === "closer" ? "Closer" : "SDR";
 
@@ -89,6 +92,19 @@ export function UserHub({ teamMemberId, memberName, memberRole, onSignOut }: Use
             ))}
           </nav>
 
+          {/* Ranking button */}
+          <button
+            onClick={() => setShowRanking(true)}
+            className={cn(
+              "flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-lg text-[10px] sm:text-xs font-semibold whitespace-nowrap transition-all",
+              "text-[hsl(45,93%,47%)] bg-[hsl(45,93%,47%)]/10 hover:bg-[hsl(45,93%,47%)]/20 border border-[hsl(45,93%,47%)]/20"
+            )}
+          >
+            <Trophy size={13} />
+            <span className="hidden sm:inline">Ver Ranking</span>
+            <span className="sm:hidden">Rank</span>
+          </button>
+
           <div className="h-5 w-px bg-border mx-1 hidden sm:block" />
 
           <button
@@ -103,7 +119,19 @@ export function UserHub({ teamMemberId, memberName, memberRole, onSignOut }: Use
 
       {/* ── Content ── */}
       <main className="flex-1 p-2 sm:p-4 lg:p-6 max-w-[1600px] mx-auto w-full">
-        {renderContent()}
+        <AnimatePresence mode="wait">
+          {showRanking ? (
+            <UserRankingScreen
+              key="ranking"
+              teamMemberId={teamMemberId}
+              memberName={memberName}
+              memberRole={memberRole}
+              onBack={() => setShowRanking(false)}
+            />
+          ) : (
+            renderContent()
+          )}
+        </AnimatePresence>
       </main>
     </>
   );
