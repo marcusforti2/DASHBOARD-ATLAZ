@@ -6,7 +6,7 @@ import { DbTeamMember } from "@/lib/db";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  User, Save, Loader2, Camera, Link2, Users, ChevronDown, ShieldCheck, Trash2, Plus, Mail
+  User, Save, Loader2, Camera, Link2, Users, ChevronDown, ShieldCheck, Trash2, Plus, Mail, MessageCircle, Phone, Send
 } from "lucide-react";
 
 export default function SettingsPage() {
@@ -151,6 +151,9 @@ export default function SettingsPage() {
 
       {/* Admin: Manage Admins */}
       {isAdmin && <AdminManagementSection />}
+
+      {/* Admin: WhatsApp */}
+      {isAdmin && <WhatsAppSection members={members || []} />}
     </div>
   );
 }
@@ -378,6 +381,150 @@ function AdminManagementSection() {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// --- WhatsApp Section ---
+function WhatsAppSection({ members }: { members: DbTeamMember[] }) {
+  const [contacts, setContacts] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState<string | null>(null);
+  const [testPhone, setTestPhone] = useState("");
+  const [testMsg, setTestMsg] = useState("");
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    loadContacts();
+  }, []);
+
+  const loadContacts = async () => {
+    setLoading(true);
+    const { data } = await supabase.from("whatsapp_contacts").select("team_member_id, phone");
+    const map: Record<string, string> = {};
+    (data || []).forEach((c: any) => { map[c.team_member_id] = c.phone; });
+    setContacts(map);
+    setLoading(false);
+  };
+
+  const handleSavePhone = async (memberId: string, phone: string) => {
+    setSaving(memberId);
+    const cleanPhone = phone.replace(/\D/g, "");
+    
+    if (!cleanPhone) {
+      // Delete if empty
+      await supabase.from("whatsapp_contacts").delete().eq("team_member_id", memberId);
+      setContacts(prev => { const n = { ...prev }; delete n[memberId]; return n; });
+      toast.success("Telefone removido");
+    } else {
+      const { error } = await supabase.from("whatsapp_contacts").upsert(
+        { team_member_id: memberId, phone: cleanPhone },
+        { onConflict: "team_member_id" }
+      );
+      if (error) toast.error(error.message);
+      else {
+        setContacts(prev => ({ ...prev, [memberId]: cleanPhone }));
+        toast.success("Telefone salvo!");
+      }
+    }
+    setSaving(null);
+  };
+
+  const handleTestMessage = async () => {
+    if (!testPhone.trim() || !testMsg.trim()) {
+      toast.error("Preencha o número e a mensagem");
+      return;
+    }
+    setSending(true);
+    const { data, error } = await supabase.functions.invoke("send-whatsapp", {
+      body: { phone: testPhone.trim(), message: testMsg.trim() },
+    });
+    if (error) {
+      toast.error("Erro: " + error.message);
+    } else if (data?.error) {
+      toast.error("Erro: " + data.error);
+    } else {
+      toast.success("Mensagem enviada com sucesso! ✅");
+      setTestMsg("");
+    }
+    setSending(false);
+  };
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+      <div className="flex items-center gap-2">
+        <MessageCircle size={14} className="text-green-500" />
+        <h3 className="text-xs font-semibold text-card-foreground uppercase tracking-wider">WhatsApp - Notificações</h3>
+      </div>
+      <p className="text-[10px] text-muted-foreground">
+        Configure os números de WhatsApp de cada membro para receber alertas e relatórios.
+      </p>
+
+      {/* Phone numbers per member */}
+      {loading ? (
+        <div className="flex justify-center py-4"><Loader2 size={16} className="animate-spin text-primary" /></div>
+      ) : (
+        <div className="space-y-2">
+          {members.filter(m => m.active).map(m => (
+            <div key={m.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30 border border-border">
+              <div className="w-8 h-8 rounded-full bg-green-500/15 flex items-center justify-center">
+                <Phone size={12} className="text-green-500" />
+              </div>
+              <div className="flex-1">
+                <p className="text-xs font-semibold text-card-foreground">{m.name}</p>
+                <input
+                  type="tel"
+                  placeholder="5511999999999"
+                  defaultValue={contacts[m.id] || ""}
+                  onBlur={e => {
+                    const val = e.target.value.replace(/\D/g, "");
+                    if (val !== (contacts[m.id] || "")) handleSavePhone(m.id, val);
+                  }}
+                  className="mt-1 w-full rounded-lg border border-border bg-secondary px-3 py-1.5 text-[11px] text-secondary-foreground focus:ring-1 focus:ring-green-500 outline-none"
+                />
+              </div>
+              {saving === m.id && <Loader2 size={12} className="animate-spin text-green-500" />}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Test message */}
+      <div className="rounded-lg border border-green-500/30 bg-green-500/5 p-4 space-y-3">
+        <h4 className="text-[10px] font-semibold text-green-600 uppercase tracking-wider">Enviar Mensagem de Teste</h4>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Número</label>
+            <input
+              type="tel"
+              value={testPhone}
+              onChange={e => setTestPhone(e.target.value)}
+              placeholder="5511999999999"
+              className="mt-1 w-full rounded-lg border border-border bg-secondary px-3 py-2 text-xs text-secondary-foreground focus:ring-1 focus:ring-green-500 outline-none"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Mensagem</label>
+            <input
+              type="text"
+              value={testMsg}
+              onChange={e => setTestMsg(e.target.value)}
+              placeholder="Teste de mensagem..."
+              className="mt-1 w-full rounded-lg border border-border bg-secondary px-3 py-2 text-xs text-secondary-foreground focus:ring-1 focus:ring-green-500 outline-none"
+            />
+          </div>
+        </div>
+        <div className="flex justify-end">
+          <button
+            onClick={handleTestMessage}
+            disabled={sending}
+            className="px-4 py-1.5 text-[10px] rounded-lg font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 flex items-center gap-1.5 transition-colors"
+          >
+            {sending ? <Loader2 size={10} className="animate-spin" /> : <Send size={10} />}
+            Enviar Teste
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
