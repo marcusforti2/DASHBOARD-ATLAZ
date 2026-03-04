@@ -77,7 +77,7 @@ export function UserHub({ teamMemberId, memberName, memberRole, onSignOut }: Use
             {TABS.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => { setActiveTab(tab.id); setShowRanking(false); }}
                 className={cn(
                   "flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] sm:text-xs font-semibold whitespace-nowrap transition-all",
                   activeTab === tab.id
