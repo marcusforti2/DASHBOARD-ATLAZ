@@ -897,8 +897,6 @@ function MemberCard({
           <AiCloserAnalysis member={member} monthId={activeMonthId} monthLabel={activeMonth?.label} />
           <div className="h-px bg-border" />
           <LeadAuditPanel memberId={member.id} memberName={member.name} />
-          <div className="h-px bg-border" />
-          <BehavioralAnalysis member={member} monthId={activeMonthId} />
         </div>
       )}
     </div>
