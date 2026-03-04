@@ -419,9 +419,11 @@ function LeadHistoryPanel({ teamMemberId }: { teamMemberId: string }) {
 
 /* ========== Data Entry Dialog ========== */
 
-type EntryStep = "select-metric" | "source-choice" | "lead-sheet" | "uploading";
+type EntryStep = "select-metric" | "source-choice" | "lead-sheet" | "uploading" | "dripify-preview";
 
 const DRIPIFY_METRICS = ["conexoes", "conexoes_aceitas", "abordagens"];
+
+type DripifyDayData = { date: string; metrics: Record<string, number> };
 
 function DataEntryDialog({
   teamMemberId,
@@ -448,7 +450,9 @@ function DataEntryDialog({
   const [showExistingPicker, setShowExistingPicker] = useState(false);
   const [existingSearch, setExistingSearch] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [dripifyData, setDripifyData] = useState<DripifyDayData[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dripifyFileRef = useRef<HTMLInputElement>(null);
 
   // Load existing leads when dialog opens
   useEffect(() => {
@@ -459,6 +463,7 @@ function DataEntryDialog({
     setRows([]);
     setShowExistingPicker(false);
     setUploading(false);
+    setDripifyData([]);
     supabase
       .from("lead_entries")
       .select("*")
@@ -480,30 +485,18 @@ function DataEntryDialog({
 
   const handleSelectMetric = (metric: string) => {
     setSelectedMetric(metric);
-    // If it's a Dripify metric, show source choice
-    if (DRIPIFY_METRICS.includes(metric)) {
-      setStep("source-choice");
-    } else {
-      setEntrySource("manual");
-      setRows([{ lead_name: "", whatsapp: "", social_link: "" }]);
-      setStep("lead-sheet");
-    }
+    setEntrySource("manual");
+    setRows([{ lead_name: "", whatsapp: "", social_link: "" }]);
+    setStep("lead-sheet");
   };
 
-  const handleSourceChoice = (source: "manual" | "dripify") => {
-    setEntrySource(source);
-    if (source === "manual") {
-      setRows([{ lead_name: "", whatsapp: "", social_link: "" }]);
-      setStep("lead-sheet");
-    } else {
-      // Trigger file upload
-      fileInputRef.current?.click();
-    }
+  const handleDripifyUpload = () => {
+    dripifyFileRef.current?.click();
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDripifyFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !selectedMetric) return;
+    if (!file) return;
 
     setStep("uploading");
     setUploading(true);
@@ -511,7 +504,6 @@ function DataEntryDialog({
     try {
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("metric_type", selectedMetric);
 
       const { data: { session } } = await supabase.auth.getSession();
 
@@ -528,29 +520,90 @@ function DataEntryDialog({
 
       const result = await res.json();
 
-      if (result.leads && result.leads.length > 0) {
-        const parsedRows = result.leads.map((l: any) => ({
-          lead_name: l.name || "",
-          whatsapp: "",
-          social_link: l.linkedin || "",
-          fromExisting: false,
-        }));
-        setRows(parsedRows);
-        toast.success(`${result.leads.length} leads extraídos do Dripify! 📊`);
+      if (result.daily_data && result.daily_data.length > 0) {
+        setDripifyData(result.daily_data);
+        setStep("dripify-preview");
+        toast.success(`${result.daily_data.length} dias encontrados no relatório! 📊`);
       } else {
-        toast.error(result.error || "Nenhum lead encontrado no arquivo");
-        setRows([{ lead_name: "", whatsapp: "", social_link: "" }]);
+        toast.error(result.error || "Nenhum dado encontrado no arquivo");
+        setStep("select-metric");
       }
-
-      setStep("lead-sheet");
     } catch (err) {
       console.error("Erro no upload:", err);
       toast.error("Erro ao processar arquivo. Tente novamente.");
-      setStep("source-choice");
+      setStep("select-metric");
     } finally {
       setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      if (dripifyFileRef.current) dripifyFileRef.current.value = "";
     }
+  };
+
+  const handleSaveDripify = async () => {
+    if (!currentMonthId || dripifyData.length === 0) return;
+    setSaving(true);
+
+    const DAY_NAMES_MAP: Record<number, string> = { 0: "Dom", 1: "Seg", 2: "Ter", 3: "Qua", 4: "Qui", 5: "Sex", 6: "Sáb" };
+
+    try {
+      for (const dayData of dripifyData) {
+        const dateObj = new Date(dayData.date + "T12:00:00");
+        const dayName = DAY_NAMES_MAP[dateObj.getDay()];
+
+        const { data: existing } = await supabase
+          .from("daily_metrics")
+          .select("*")
+          .eq("member_id", teamMemberId)
+          .eq("date", dayData.date)
+          .eq("month_id", currentMonthId)
+          .maybeSingle();
+
+        if (existing) {
+          const updates: Record<string, number> = {};
+          for (const [metric, val] of Object.entries(dayData.metrics)) {
+            updates[metric] = ((existing as any)[metric] || 0) + val;
+          }
+          await supabase.from("daily_metrics")
+            .update(updates)
+            .eq("id", existing.id);
+        } else {
+          const payload: any = {
+            member_id: teamMemberId,
+            month_id: currentMonthId,
+            date: dayData.date,
+            day_of_week: dayName,
+          };
+          roleMetrics.forEach(k => { payload[k] = 0; });
+          for (const [metric, val] of Object.entries(dayData.metrics)) {
+            payload[metric] = val;
+          }
+          await supabase.from("daily_metrics").insert(payload);
+        }
+
+        // Small delay between batches
+        await new Promise(r => setTimeout(r, 50));
+      }
+
+      const totalMetrics = dripifyData.reduce((sum, d) => {
+        return sum + Object.values(d.metrics).reduce((s, v) => s + v, 0);
+      }, 0);
+
+      toast.success(`${totalMetrics} métricas importadas de ${dripifyData.length} dias! 🚀`);
+      onSaved();
+      setSaving(false);
+      setOpen(false);
+    } catch (err) {
+      console.error("Erro ao salvar Dripify:", err);
+      toast.error("Erro ao salvar dados. Tente novamente.");
+      setSaving(false);
+    }
+  };
+
+  // Legacy per-metric file upload (kept for manual source choice)
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedMetric) return;
+    // Not used anymore for Dripify - redirect to dripify flow
+    if (dripifyFileRef.current) dripifyFileRef.current.value = "";
   };
 
   const updateRow = (idx: number, field: string, value: string) => {
@@ -661,13 +714,20 @@ function DataEntryDialog({
         </button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg bg-card border-border max-h-[85vh] overflow-y-auto">
-        {/* Hidden file input for Dripify upload */}
+        {/* Hidden file inputs */}
         <input
           ref={fileInputRef}
           type="file"
           accept=".pdf,.xlsx,.xls,.csv,.png,.jpg,.jpeg,.webp"
           className="hidden"
           onChange={handleFileUpload}
+        />
+        <input
+          ref={dripifyFileRef}
+          type="file"
+          accept=".csv,.pdf,.xlsx,.xls,.png,.jpg,.jpeg,.webp"
+          className="hidden"
+          onChange={handleDripifyFile}
         />
 
         {step === "select-metric" ? (
@@ -682,10 +742,32 @@ function DataEntryDialog({
               </p>
             </DialogHeader>
 
-            <div className="grid grid-cols-2 gap-2.5 py-3">
+            {/* Dripify Import Button */}
+            <button
+              onClick={handleDripifyUpload}
+              className="w-full rounded-xl border-2 border-dashed border-chart-4/30 hover:border-chart-4/60 bg-chart-4/5 hover:bg-chart-4/10 p-3.5 flex items-center gap-3 transition-all group"
+            >
+              <div className="w-10 h-10 rounded-lg bg-chart-4/15 flex items-center justify-center group-hover:bg-chart-4/20 transition-colors">
+                <Upload size={18} className="text-chart-4" />
+              </div>
+              <div className="text-left flex-1">
+                <p className="text-xs font-bold text-card-foreground">📊 Importar Relatório Dripify</p>
+                <p className="text-[9px] text-muted-foreground mt-0.5">
+                  Suba o CSV do Dripify e importe conexões, aceitas e abordagens automaticamente
+                </p>
+              </div>
+              <FileSpreadsheet size={14} className="text-chart-4/50 group-hover:text-chart-4 transition-colors" />
+            </button>
+
+            <div className="flex items-center gap-2 py-1">
+              <div className="flex-1 h-px bg-border" />
+              <span className="text-[9px] text-muted-foreground">ou registre manualmente</span>
+              <div className="flex-1 h-px bg-border" />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5">
               {roleMetrics.map(k => {
                 const currentVal = todayMetrics?.[k] || 0;
-                const isDripify = DRIPIFY_METRICS.includes(k);
                 return (
                   <button
                     key={k}
@@ -694,18 +776,11 @@ function DataEntryDialog({
                   >
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-lg">{METRIC_ICONS[k]}</span>
-                      <div className="flex items-center gap-1">
-                        {isDripify && (
-                          <span className="text-[7px] font-bold text-chart-4 bg-chart-4/10 px-1 py-0.5 rounded">
-                            DRIPIFY
-                          </span>
-                        )}
-                        {currentVal > 0 && (
-                          <span className="text-[9px] font-bold text-accent bg-accent/10 px-1.5 py-0.5 rounded-md">
-                            {currentVal} hoje
-                          </span>
-                        )}
-                      </div>
+                      {currentVal > 0 && (
+                        <span className="text-[9px] font-bold text-accent bg-accent/10 px-1.5 py-0.5 rounded-md">
+                          {currentVal} hoje
+                        </span>
+                      )}
                     </div>
                     <p className="text-[10px] font-bold text-card-foreground">{METRIC_LABELS[k]}</p>
                     <ArrowUpRight size={12} className="absolute top-3 right-3 text-muted-foreground/30 group-hover:text-primary transition-colors" />
@@ -714,52 +789,79 @@ function DataEntryDialog({
               })}
             </div>
           </>
-        ) : step === "source-choice" ? (
+        ) : step === "dripify-preview" ? (
           <>
             <DialogHeader>
               <DialogTitle className="text-sm font-bold text-card-foreground flex items-center gap-2">
-                <span className="text-base">{METRIC_ICONS[selectedMetric!]}</span>
-                {METRIC_LABELS[selectedMetric!]}
+                <FileSpreadsheet size={14} className="text-chart-4" />
+                Dados do Dripify
+                <span className="text-[9px] font-bold text-chart-4 bg-chart-4/10 px-1.5 py-0.5 rounded">
+                  {dripifyData.length} dias
+                </span>
               </DialogTitle>
-              <p className="text-[10px] text-muted-foreground mt-1">
-                Como você quer registrar?
-              </p>
             </DialogHeader>
 
-            <div className="grid grid-cols-2 gap-3 py-4">
-              <button
-                onClick={() => handleSourceChoice("manual")}
-                className="group rounded-2xl border-2 border-border hover:border-primary/50 bg-secondary/20 hover:bg-primary/5 p-6 text-center transition-all space-y-3"
-              >
-                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto group-hover:bg-primary/15 transition-colors">
-                  <PenLine size={22} className="text-primary" />
+            <div className="rounded-lg border border-border overflow-hidden max-h-[300px] overflow-y-auto">
+              <div className="grid grid-cols-[90px_1fr_1fr_1fr] gap-0 bg-secondary/40 border-b border-border sticky top-0 z-10">
+                <div className="px-2 py-1.5 text-[8px] font-bold text-muted-foreground uppercase">Data</div>
+                <div className="px-2 py-1.5 text-[8px] font-bold text-muted-foreground uppercase border-l border-border text-center">Conexões</div>
+                <div className="px-2 py-1.5 text-[8px] font-bold text-muted-foreground uppercase border-l border-border text-center">Aceitas</div>
+                <div className="px-2 py-1.5 text-[8px] font-bold text-muted-foreground uppercase border-l border-border text-center">Abordagens</div>
+              </div>
+              {dripifyData.map((day, idx) => (
+                <div
+                  key={day.date}
+                  className={cn(
+                    "grid grid-cols-[90px_1fr_1fr_1fr] gap-0",
+                    idx % 2 === 0 ? "bg-card" : "bg-secondary/10",
+                    idx < dripifyData.length - 1 && "border-b border-border/30"
+                  )}
+                >
+                  <div className="px-2 py-2 text-[10px] text-card-foreground font-medium">
+                    {format(new Date(day.date + "T12:00:00"), "dd/MM (EEE)", { locale: ptBR })}
+                  </div>
+                  <div className="px-2 py-2 text-[11px] font-bold text-card-foreground text-center border-l border-border/30 tabular-nums">
+                    {day.metrics.conexoes || 0}
+                  </div>
+                  <div className="px-2 py-2 text-[11px] font-bold text-card-foreground text-center border-l border-border/30 tabular-nums">
+                    {day.metrics.conexoes_aceitas || 0}
+                  </div>
+                  <div className="px-2 py-2 text-[11px] font-bold text-card-foreground text-center border-l border-border/30 tabular-nums">
+                    {day.metrics.abordagens || 0}
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs font-bold text-card-foreground">Manual</p>
-                  <p className="text-[9px] text-muted-foreground mt-0.5">Digitar os leads um a um</p>
+              ))}
+              {/* Totals row */}
+              <div className="grid grid-cols-[90px_1fr_1fr_1fr] gap-0 bg-primary/5 border-t border-border font-bold">
+                <div className="px-2 py-2 text-[10px] text-primary uppercase">Total</div>
+                <div className="px-2 py-2 text-[11px] text-primary text-center border-l border-border/30 tabular-nums">
+                  {dripifyData.reduce((s, d) => s + (d.metrics.conexoes || 0), 0)}
                 </div>
-              </button>
-
-              <button
-                onClick={() => handleSourceChoice("dripify")}
-                className="group rounded-2xl border-2 border-border hover:border-chart-4/50 bg-secondary/20 hover:bg-chart-4/5 p-6 text-center transition-all space-y-3"
-              >
-                <div className="w-12 h-12 rounded-xl bg-chart-4/10 flex items-center justify-center mx-auto group-hover:bg-chart-4/15 transition-colors">
-                  <FileSpreadsheet size={22} className="text-chart-4" />
+                <div className="px-2 py-2 text-[11px] text-primary text-center border-l border-border/30 tabular-nums">
+                  {dripifyData.reduce((s, d) => s + (d.metrics.conexoes_aceitas || 0), 0)}
                 </div>
-                <div>
-                  <p className="text-xs font-bold text-card-foreground">Upload Dripify</p>
-                  <p className="text-[9px] text-muted-foreground mt-0.5">Subir relatório PDF ou Excel</p>
+                <div className="px-2 py-2 text-[11px] text-primary text-center border-l border-border/30 tabular-nums">
+                  {dripifyData.reduce((s, d) => s + (d.metrics.abordagens || 0), 0)}
                 </div>
-              </button>
+              </div>
             </div>
 
-            <button
-              onClick={() => { setStep("select-metric"); setSelectedMetric(null); }}
-              className="w-full px-4 py-2 text-xs rounded-xl font-semibold bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
-            >
-              ← Voltar
-            </button>
+            <div className="flex gap-2 mt-1">
+              <button
+                onClick={() => { setStep("select-metric"); setDripifyData([]); }}
+                className="px-4 py-2.5 text-xs rounded-xl font-semibold bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
+              >
+                ← Voltar
+              </button>
+              <button
+                onClick={handleSaveDripify}
+                disabled={saving}
+                className="flex-1 rounded-xl bg-chart-4 py-2.5 text-xs font-bold text-white hover:bg-chart-4/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+                Importar {dripifyData.length} dias
+              </button>
+            </div>
           </>
         ) : step === "uploading" ? (
           <div className="flex flex-col items-center justify-center py-12 space-y-4">
@@ -768,7 +870,7 @@ function DataEntryDialog({
             </div>
             <div className="text-center">
               <p className="text-sm font-bold text-card-foreground">Processando relatório...</p>
-              <p className="text-[10px] text-muted-foreground mt-1">Extraindo leads do Dripify com IA</p>
+              <p className="text-[10px] text-muted-foreground mt-1">Lendo dados do Dripify</p>
             </div>
             <Loader2 size={20} className="animate-spin text-chart-4" />
           </div>
