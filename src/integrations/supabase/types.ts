@@ -222,6 +222,38 @@ export type Database = {
           },
         ]
       }
+      dna_chat_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          role: string
+          submission_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          role: string
+          submission_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          role?: string
+          submission_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dna_chat_messages_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "test_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       monthly_goals: {
         Row: {
           abordagens: number
@@ -418,6 +450,116 @@ export type Database = {
           name?: string
         }
         Relationships: []
+      }
+      test_answers: {
+        Row: {
+          answer: string
+          created_at: string
+          id: string
+          question_id: number
+          submission_id: string
+        }
+        Insert: {
+          answer: string
+          created_at?: string
+          id?: string
+          question_id: number
+          submission_id: string
+        }
+        Update: {
+          answer?: string
+          created_at?: string
+          id?: string
+          question_id?: number
+          submission_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "test_answers_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "test_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      test_links: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          label: string
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          token?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          token?: string
+        }
+        Relationships: []
+      }
+      test_submissions: {
+        Row: {
+          ai_analysis: Json | null
+          completed_at: string | null
+          created_at: string
+          id: string
+          member_id: string | null
+          respondent_email: string | null
+          respondent_name: string | null
+          respondent_phone: string | null
+          status: string
+          test_link_id: string | null
+        }
+        Insert: {
+          ai_analysis?: Json | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          member_id?: string | null
+          respondent_email?: string | null
+          respondent_name?: string | null
+          respondent_phone?: string | null
+          status?: string
+          test_link_id?: string | null
+        }
+        Update: {
+          ai_analysis?: Json | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          member_id?: string | null
+          respondent_email?: string | null
+          respondent_name?: string | null
+          respondent_phone?: string | null
+          status?: string
+          test_link_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "test_submissions_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "test_submissions_test_link_id_fkey"
+            columns: ["test_link_id"]
+            isOneToOne: false
+            referencedRelation: "test_links"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
