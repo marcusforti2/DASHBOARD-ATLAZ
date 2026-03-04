@@ -296,9 +296,9 @@ export function AnalyticsCharts({ dailyMetrics, members, weeklyGoals, weeksOfMon
         <FunnelChart>
           <Tooltip contentStyle={TOOLTIP_STYLE} />
           <Funnel dataKey="value" data={funnelData} isAnimationActive>
-            <LabelList position="center" fill="white" fontSize={11} fontWeight="bold"
+            <LabelList position="center" fill="hsl(222, 47%, 6%)" fontSize={13} fontWeight="bold"
               formatter={(value: number) => value} />
-            <LabelList position="right" fill="hsl(215, 16%, 65%)" fontSize={10}
+            <LabelList position="right" fill="hsl(210, 40%, 96%)" fontSize={10}
               dataKey="name" />
             {funnelData.map((d, i) => <Cell key={i} fill={d.fill} />)}
           </Funnel>
