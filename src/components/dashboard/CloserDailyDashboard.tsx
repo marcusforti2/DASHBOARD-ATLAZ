@@ -272,7 +272,15 @@ function LeadHistoryPanel({ teamMemberId }: { teamMemberId: string }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<any>({});
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [expandedLead, setExpandedLead] = useState<string | null>(null);
   const queryClient = useQueryClient();
+
+  const METRIC_SHORT: Record<string, string> = {
+    conexoes: "Conexão", conexoes_aceitas: "Aceita", abordagens: "Abordagem",
+    inmail: "InMail", follow_up: "Follow-up", numero: "Número",
+    lig_agendada: "Lig.Agend", lig_realizada: "Lig.Real",
+    reuniao_agendada: "Reun.Agend", reuniao_realizada: "Reun.Real",
+  };
 
   const fetchLeads = async () => {
     setLoading(true);
@@ -287,6 +295,21 @@ function LeadHistoryPanel({ teamMemberId }: { teamMemberId: string }) {
   };
 
   useEffect(() => { fetchLeads(); }, [teamMemberId]);
+
+  // Count how many times each lead appears
+  const leadCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    leads.forEach(l => {
+      const key = l.lead_name?.toLowerCase().trim();
+      if (key) counts[key] = (counts[key] || 0) + 1;
+    });
+    return counts;
+  }, [leads]);
+
+  const getLeadHistory = (leadName: string) => {
+    const key = leadName?.toLowerCase().trim();
+    return leads.filter(l => l.lead_name?.toLowerCase().trim() === key);
+  };
 
   const decrementMetric = async (entry: any) => {
     if (!entry.metric_type) return;
@@ -418,102 +441,157 @@ function LeadHistoryPanel({ teamMemberId }: { teamMemberId: string }) {
       {filteredLeads.length === 0 ? (
         <p className="text-[10px] text-muted-foreground text-center py-4">Nenhum lead neste período</p>
       ) : (
-        <div className="rounded-lg border border-border overflow-hidden max-h-[300px] overflow-y-auto">
-          <div className="grid grid-cols-[1fr_1fr_1fr_42px_50px] gap-0 bg-secondary/40 border-b border-border sticky top-0 z-10">
-            <div className="px-2.5 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider">Nome</div>
-            <div className="px-2.5 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider border-l border-border">WhatsApp</div>
-            <div className="px-2.5 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider border-l border-border">Social</div>
-            <div className="px-2.5 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider border-l border-border text-center">Fonte</div>
+        <div className="rounded-lg border border-border overflow-hidden max-h-[350px] overflow-y-auto">
+          <div className="grid grid-cols-[1fr_65px_1fr_38px_35px_46px] gap-0 bg-secondary/40 border-b border-border sticky top-0 z-10">
+            <div className="px-2 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider">Nome</div>
+            <div className="px-1 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider border-l border-border text-center">Métrica</div>
+            <div className="px-2 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider border-l border-border">Social</div>
+            <div className="px-1 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider border-l border-border text-center">Src</div>
+            <div className="px-1 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider border-l border-border text-center">Freq</div>
             <div className="px-1 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider border-l border-border text-center">Ações</div>
           </div>
           {filteredLeads.map((entry: any, idx: number) => {
             const isEditing = editingId === entry.id;
+            const leadKey = entry.lead_name?.toLowerCase().trim();
+            const count = leadCounts[leadKey] || 1;
+            const isExpanded = expandedLead === leadKey;
+
             return (
-              <div
-                key={entry.id}
-                className={cn(
-                  "grid grid-cols-[1fr_1fr_1fr_42px_50px] gap-0",
-                  idx % 2 === 0 ? "bg-card" : "bg-secondary/10",
-                  idx < filteredLeads.length - 1 && "border-b border-border/30"
+              <div key={entry.id}>
+                <div
+                  className={cn(
+                    "grid grid-cols-[1fr_65px_1fr_38px_35px_46px] gap-0",
+                    idx % 2 === 0 ? "bg-card" : "bg-secondary/10",
+                    idx < filteredLeads.length - 1 && !isExpanded && "border-b border-border/30"
+                  )}
+                >
+                  {/* Name */}
+                  <div className="px-2 py-1.5 text-[10px] text-card-foreground font-medium truncate">
+                    {isEditing ? (
+                      <input
+                        value={editValues.lead_name || ""}
+                        onChange={e => setEditValues((p: any) => ({ ...p, lead_name: e.target.value }))}
+                        className="w-full bg-secondary border border-primary/30 rounded px-1.5 py-0.5 text-[10px] outline-none focus:ring-1 focus:ring-primary"
+                        autoFocus
+                      />
+                    ) : (
+                      <>
+                        <span className="text-[8px] text-muted-foreground mr-1">{format(new Date(entry.date + "T12:00:00"), "dd/MM")}</span>
+                        {entry.lead_name || "—"}
+                      </>
+                    )}
+                  </div>
+
+                  {/* Metric type */}
+                  <div className="px-1 py-1.5 text-[9px] border-l border-border/30 flex items-center justify-center">
+                    {entry.metric_type ? (
+                      <span className="text-[7px] font-bold text-primary bg-primary/10 px-1 py-0.5 rounded truncate">
+                        {METRIC_SHORT[entry.metric_type] || entry.metric_type}
+                      </span>
+                    ) : "—"}
+                  </div>
+
+                  {/* Social */}
+                  <div className="px-2 py-1.5 text-[10px] text-card-foreground border-l border-border/30 truncate">
+                    {isEditing ? (
+                      <input
+                        value={editValues.social_link || ""}
+                        onChange={e => setEditValues((p: any) => ({ ...p, social_link: e.target.value }))}
+                        className="w-full bg-secondary border border-primary/30 rounded px-1.5 py-0.5 text-[10px] outline-none focus:ring-1 focus:ring-primary"
+                        placeholder="linkedin.com/in/..."
+                      />
+                    ) : entry.social_link ? (
+                      <a href={entry.social_link.startsWith("http") ? entry.social_link : `https://${entry.social_link}`}
+                        target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                        {entry.social_link}
+                      </a>
+                    ) : "—"}
+                  </div>
+
+                  {/* Source */}
+                  <div className="px-1 py-1.5 border-l border-border/30 flex items-center justify-center">
+                    {entry.source === "dripify" ? (
+                      <span className="text-[6px] font-bold text-chart-4 bg-chart-4/10 px-1 py-0.5 rounded">DRIP</span>
+                    ) : (
+                      <span className="text-[6px] font-bold text-muted-foreground bg-secondary px-1 py-0.5 rounded">MAN</span>
+                    )}
+                  </div>
+
+                  {/* Frequency */}
+                  <div className="px-1 py-1.5 border-l border-border/30 flex items-center justify-center">
+                    <button
+                      onClick={() => count > 1 ? setExpandedLead(isExpanded ? null : leadKey) : null}
+                      className={cn(
+                        "flex items-center gap-0.5 px-1 py-0.5 rounded transition-colors text-[8px] font-bold",
+                        count > 1
+                          ? "text-chart-5 bg-chart-5/10 hover:bg-chart-5/20 cursor-pointer"
+                          : "text-muted-foreground bg-secondary/50 cursor-default"
+                      )}
+                      title={count > 1 ? `${count} aparições — clique para ver` : "1ª aparição"}
+                    >
+                      {count}x
+                    </button>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center justify-center gap-0.5 border-l border-border/30">
+                    {isEditing ? (
+                      <>
+                        <button onClick={() => saveEdit(entry)} className="p-0.5 rounded text-accent hover:bg-accent/10 transition-colors" title="Salvar">
+                          <CheckCircle2 size={10} />
+                        </button>
+                        <button onClick={() => { setEditingId(null); setEditValues({}); }} className="p-0.5 rounded text-muted-foreground hover:bg-secondary transition-colors" title="Cancelar">
+                          <X size={10} />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button onClick={() => startEdit(entry)} className="p-0.5 rounded text-muted-foreground/40 hover:text-primary hover:bg-primary/10 transition-colors" title="Editar">
+                          <PenLine size={9} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(entry)}
+                          disabled={deleting === entry.id}
+                          className="p-0.5 rounded text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
+                          title="Apagar"
+                        >
+                          {deleting === entry.id ? <Loader2 size={9} className="animate-spin" /> : <Trash2 size={9} />}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Expanded lead history */}
+                {isExpanded && count > 1 && (
+                  <div className="bg-chart-5/5 border-t border-b border-chart-5/20 px-2.5 py-1.5 space-y-0.5">
+                    <span className="text-[8px] font-bold text-chart-5">
+                      📋 Histórico de "{entry.lead_name}" — {count} aparições
+                    </span>
+                    {getLeadHistory(entry.lead_name).map((h: any) => (
+                      <div key={h.id} className={cn(
+                        "flex items-center gap-2 text-[8px] rounded px-2 py-1",
+                        h.id === entry.id ? "bg-chart-5/10 font-bold" : "bg-card/50"
+                      )}>
+                        <span className="text-muted-foreground w-[45px] shrink-0">
+                          {format(new Date(h.date + "T12:00:00"), "dd/MM/yy")}
+                        </span>
+                        <span className="text-[7px] font-bold text-primary bg-primary/10 px-1 py-0.5 rounded shrink-0">
+                          {METRIC_SHORT[h.metric_type] || h.metric_type || "—"}
+                        </span>
+                        <span className={cn(
+                          "text-[6px] font-bold px-1 py-0.5 rounded shrink-0",
+                          h.source === "dripify" ? "text-chart-4 bg-chart-4/10" : "text-muted-foreground bg-secondary"
+                        )}>
+                          {h.source === "dripify" ? "DRIP" : "MAN"}
+                        </span>
+                        {h.id === entry.id && (
+                          <span className="text-[7px] text-chart-5 ml-auto">← atual</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 )}
-              >
-                <div className="px-2.5 py-1.5 text-[10px] text-card-foreground font-medium truncate">
-                  {isEditing ? (
-                    <input
-                      value={editValues.lead_name || ""}
-                      onChange={e => setEditValues((p: any) => ({ ...p, lead_name: e.target.value }))}
-                      className="w-full bg-secondary border border-primary/30 rounded px-1.5 py-0.5 text-[10px] outline-none focus:ring-1 focus:ring-primary"
-                      autoFocus
-                    />
-                  ) : (
-                    <>
-                      <span className="text-[8px] text-muted-foreground mr-1">{format(new Date(entry.date + "T12:00:00"), "dd/MM")}</span>
-                      {entry.lead_name || "—"}
-                    </>
-                  )}
-                </div>
-                <div className="px-2.5 py-1.5 text-[10px] text-card-foreground font-mono border-l border-border/30 truncate">
-                  {isEditing ? (
-                    <input
-                      value={editValues.whatsapp || ""}
-                      onChange={e => setEditValues((p: any) => ({ ...p, whatsapp: e.target.value }))}
-                      className="w-full bg-secondary border border-primary/30 rounded px-1.5 py-0.5 text-[10px] outline-none focus:ring-1 focus:ring-primary"
-                      placeholder="(11) 99999-9999"
-                    />
-                  ) : entry.whatsapp ? (
-                    <a href={`https://wa.me/${entry.whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noreferrer" className="text-accent hover:underline">
-                      {entry.whatsapp}
-                    </a>
-                  ) : "—"}
-                </div>
-                <div className="px-2.5 py-1.5 text-[10px] text-card-foreground border-l border-border/30 truncate">
-                  {isEditing ? (
-                    <input
-                      value={editValues.social_link || ""}
-                      onChange={e => setEditValues((p: any) => ({ ...p, social_link: e.target.value }))}
-                      className="w-full bg-secondary border border-primary/30 rounded px-1.5 py-0.5 text-[10px] outline-none focus:ring-1 focus:ring-primary"
-                      placeholder="linkedin.com/in/..."
-                    />
-                  ) : entry.social_link ? (
-                    <a href={entry.social_link.startsWith("http") ? entry.social_link : `https://${entry.social_link}`}
-                      target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                      {entry.social_link}
-                    </a>
-                  ) : "—"}
-                </div>
-                <div className="px-1 py-1.5 text-[10px] border-l border-border/30 flex items-center justify-center">
-                  {entry.source === "dripify" ? (
-                    <span className="text-[7px] font-bold text-chart-4 bg-chart-4/10 px-1 py-0.5 rounded">DRIP</span>
-                  ) : (
-                    <span className="text-[7px] font-bold text-muted-foreground bg-secondary px-1 py-0.5 rounded">MAN</span>
-                  )}
-                </div>
-                <div className="flex items-center justify-center gap-0.5 border-l border-border/30">
-                  {isEditing ? (
-                    <>
-                      <button onClick={() => saveEdit(entry)} className="p-1 rounded text-accent hover:bg-accent/10 transition-colors" title="Salvar">
-                        <CheckCircle2 size={10} />
-                      </button>
-                      <button onClick={() => { setEditingId(null); setEditValues({}); }} className="p-1 rounded text-muted-foreground hover:bg-secondary transition-colors" title="Cancelar">
-                        <X size={10} />
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button onClick={() => startEdit(entry)} className="p-1 rounded text-muted-foreground/40 hover:text-primary hover:bg-primary/10 transition-colors" title="Editar">
-                        <PenLine size={10} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(entry)}
-                        disabled={deleting === entry.id}
-                        className="p-1 rounded text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
-                        title="Apagar"
-                      >
-                        {deleting === entry.id ? <Loader2 size={10} className="animate-spin" /> : <Trash2 size={10} />}
-                      </button>
-                    </>
-                  )}
-                </div>
               </div>
             );
           })}
@@ -522,7 +600,6 @@ function LeadHistoryPanel({ teamMemberId }: { teamMemberId: string }) {
     </div>
   );
 }
-
 type EntryStep = "select-metric" | "source-choice" | "lead-sheet" | "uploading" | "dripify-preview";
 
 const DRIPIFY_METRICS = ["conexoes", "conexoes_aceitas", "abordagens"];
