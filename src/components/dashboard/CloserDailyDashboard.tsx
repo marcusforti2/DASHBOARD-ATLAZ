@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import {
   Target, TrendingUp, CheckCircle2, Loader2, Plus, Flame,
   Zap, Trophy, Calendar, ArrowUpRight, Save, ClipboardList,
-  X, UserPlus, User, Upload, FileSpreadsheet, PenLine
+  X, UserPlus, User, Upload, FileSpreadsheet, PenLine, Trash2
 } from "lucide-react";
 
 
@@ -269,21 +269,72 @@ function LeadHistoryPanel({ teamMemberId }: { teamMemberId: string }) {
   const [filterMode, setFilterMode] = useState<LeadFilterMode>("day");
   const [filterDate, setFilterDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [searchTerm, setSearchTerm] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValues, setEditValues] = useState<any>({});
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    const fetchLeads = async () => {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from("lead_entries")
-        .select("*")
-        .eq("member_id", teamMemberId)
-        .order("date", { ascending: false })
-        .order("created_at", { ascending: false });
-      if (!error && data) setLeads(data);
-      setLoading(false);
-    };
-    fetchLeads();
-  }, [teamMemberId]);
+  const fetchLeads = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("lead_entries")
+      .select("*")
+      .eq("member_id", teamMemberId)
+      .order("date", { ascending: false })
+      .order("created_at", { ascending: false });
+    if (!error && data) setLeads(data);
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchLeads(); }, [teamMemberId]);
+
+  const decrementMetric = async (entry: any) => {
+    if (!entry.metric_type) return;
+    const { data: metric } = await supabase
+      .from("daily_metrics")
+      .select("*")
+      .eq("member_id", teamMemberId)
+      .eq("date", entry.date)
+      .maybeSingle();
+    if (metric) {
+      const val = (metric as any)[entry.metric_type] || 0;
+      if (val > 0) {
+        await supabase.from("daily_metrics")
+          .update({ [entry.metric_type]: val - 1 })
+          .eq("id", metric.id);
+      }
+    }
+  };
+
+  const handleDelete = async (entry: any) => {
+    if (!confirm(`Apagar lead "${entry.lead_name}"? A métrica será ajustada.`)) return;
+    setDeleting(entry.id);
+    const { error } = await supabase.from("lead_entries").delete().eq("id", entry.id);
+    if (error) { toast.error("Erro: " + error.message); setDeleting(null); return; }
+    await decrementMetric(entry);
+    setLeads(prev => prev.filter(l => l.id !== entry.id));
+    queryClient.invalidateQueries({ queryKey: ["daily-metrics"] });
+    toast.success("Lead apagado e métrica ajustada!");
+    setDeleting(null);
+  };
+
+  const startEdit = (entry: any) => {
+    setEditingId(entry.id);
+    setEditValues({ lead_name: entry.lead_name, whatsapp: entry.whatsapp || "", social_link: entry.social_link || "" });
+  };
+
+  const saveEdit = async (entry: any) => {
+    const { error } = await supabase.from("lead_entries").update({
+      lead_name: editValues.lead_name?.trim() || entry.lead_name,
+      whatsapp: editValues.whatsapp?.trim() || "",
+      social_link: editValues.social_link?.trim() || "",
+    }).eq("id", entry.id);
+    if (error) { toast.error("Erro: " + error.message); return; }
+    setLeads(prev => prev.map(l => l.id === entry.id ? { ...l, ...editValues } : l));
+    toast.success("Lead atualizado!");
+    setEditingId(null);
+    setEditValues({});
+  };
 
   const filteredLeads = useMemo(() => {
     let result = leads;
@@ -368,56 +419,109 @@ function LeadHistoryPanel({ teamMemberId }: { teamMemberId: string }) {
         <p className="text-[10px] text-muted-foreground text-center py-4">Nenhum lead neste período</p>
       ) : (
         <div className="rounded-lg border border-border overflow-hidden max-h-[300px] overflow-y-auto">
-          <div className="grid grid-cols-[1fr_1fr_1fr_50px] gap-0 bg-secondary/40 border-b border-border sticky top-0 z-10">
+          <div className="grid grid-cols-[1fr_1fr_1fr_42px_50px] gap-0 bg-secondary/40 border-b border-border sticky top-0 z-10">
             <div className="px-2.5 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider">Nome</div>
             <div className="px-2.5 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider border-l border-border">WhatsApp</div>
             <div className="px-2.5 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider border-l border-border">Social</div>
             <div className="px-2.5 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider border-l border-border text-center">Fonte</div>
+            <div className="px-1 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider border-l border-border text-center">Ações</div>
           </div>
-          {filteredLeads.map((entry: any, idx: number) => (
-            <div
-              key={entry.id}
-              className={cn(
-                "grid grid-cols-[1fr_1fr_1fr_50px] gap-0",
-                idx % 2 === 0 ? "bg-card" : "bg-secondary/10",
-                idx < filteredLeads.length - 1 && "border-b border-border/30"
-              )}
-            >
-              <div className="px-2.5 py-2 text-[10px] text-card-foreground font-medium truncate">
-                <span className="text-[8px] text-muted-foreground mr-1">{format(new Date(entry.date + "T12:00:00"), "dd/MM")}</span>
-                {entry.lead_name || "—"}
-              </div>
-              <div className="px-2.5 py-2 text-[10px] text-card-foreground font-mono border-l border-border/30 truncate">
-                {entry.whatsapp ? (
-                  <a href={`https://wa.me/${entry.whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noreferrer" className="text-accent hover:underline">
-                    {entry.whatsapp}
-                  </a>
-                ) : "—"}
-              </div>
-              <div className="px-2.5 py-2 text-[10px] text-card-foreground border-l border-border/30 truncate">
-                {entry.social_link ? (
-                  <a href={entry.social_link.startsWith("http") ? entry.social_link : `https://${entry.social_link}`}
-                    target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                    {entry.social_link}
-                  </a>
-                ) : "—"}
-              </div>
-              <div className="px-2.5 py-2 text-[10px] border-l border-border/30 text-center">
-                {entry.source === "dripify" ? (
-                  <span className="text-[7px] font-bold text-chart-4 bg-chart-4/10 px-1 py-0.5 rounded">DRIP</span>
-                ) : (
-                  <span className="text-[7px] font-bold text-muted-foreground bg-secondary px-1 py-0.5 rounded">MAN</span>
+          {filteredLeads.map((entry: any, idx: number) => {
+            const isEditing = editingId === entry.id;
+            return (
+              <div
+                key={entry.id}
+                className={cn(
+                  "grid grid-cols-[1fr_1fr_1fr_42px_50px] gap-0",
+                  idx % 2 === 0 ? "bg-card" : "bg-secondary/10",
+                  idx < filteredLeads.length - 1 && "border-b border-border/30"
                 )}
+              >
+                <div className="px-2.5 py-1.5 text-[10px] text-card-foreground font-medium truncate">
+                  {isEditing ? (
+                    <input
+                      value={editValues.lead_name || ""}
+                      onChange={e => setEditValues((p: any) => ({ ...p, lead_name: e.target.value }))}
+                      className="w-full bg-secondary border border-primary/30 rounded px-1.5 py-0.5 text-[10px] outline-none focus:ring-1 focus:ring-primary"
+                      autoFocus
+                    />
+                  ) : (
+                    <>
+                      <span className="text-[8px] text-muted-foreground mr-1">{format(new Date(entry.date + "T12:00:00"), "dd/MM")}</span>
+                      {entry.lead_name || "—"}
+                    </>
+                  )}
+                </div>
+                <div className="px-2.5 py-1.5 text-[10px] text-card-foreground font-mono border-l border-border/30 truncate">
+                  {isEditing ? (
+                    <input
+                      value={editValues.whatsapp || ""}
+                      onChange={e => setEditValues((p: any) => ({ ...p, whatsapp: e.target.value }))}
+                      className="w-full bg-secondary border border-primary/30 rounded px-1.5 py-0.5 text-[10px] outline-none focus:ring-1 focus:ring-primary"
+                      placeholder="(11) 99999-9999"
+                    />
+                  ) : entry.whatsapp ? (
+                    <a href={`https://wa.me/${entry.whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noreferrer" className="text-accent hover:underline">
+                      {entry.whatsapp}
+                    </a>
+                  ) : "—"}
+                </div>
+                <div className="px-2.5 py-1.5 text-[10px] text-card-foreground border-l border-border/30 truncate">
+                  {isEditing ? (
+                    <input
+                      value={editValues.social_link || ""}
+                      onChange={e => setEditValues((p: any) => ({ ...p, social_link: e.target.value }))}
+                      className="w-full bg-secondary border border-primary/30 rounded px-1.5 py-0.5 text-[10px] outline-none focus:ring-1 focus:ring-primary"
+                      placeholder="linkedin.com/in/..."
+                    />
+                  ) : entry.social_link ? (
+                    <a href={entry.social_link.startsWith("http") ? entry.social_link : `https://${entry.social_link}`}
+                      target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                      {entry.social_link}
+                    </a>
+                  ) : "—"}
+                </div>
+                <div className="px-1 py-1.5 text-[10px] border-l border-border/30 flex items-center justify-center">
+                  {entry.source === "dripify" ? (
+                    <span className="text-[7px] font-bold text-chart-4 bg-chart-4/10 px-1 py-0.5 rounded">DRIP</span>
+                  ) : (
+                    <span className="text-[7px] font-bold text-muted-foreground bg-secondary px-1 py-0.5 rounded">MAN</span>
+                  )}
+                </div>
+                <div className="flex items-center justify-center gap-0.5 border-l border-border/30">
+                  {isEditing ? (
+                    <>
+                      <button onClick={() => saveEdit(entry)} className="p-1 rounded text-accent hover:bg-accent/10 transition-colors" title="Salvar">
+                        <CheckCircle2 size={10} />
+                      </button>
+                      <button onClick={() => { setEditingId(null); setEditValues({}); }} className="p-1 rounded text-muted-foreground hover:bg-secondary transition-colors" title="Cancelar">
+                        <X size={10} />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button onClick={() => startEdit(entry)} className="p-1 rounded text-muted-foreground/40 hover:text-primary hover:bg-primary/10 transition-colors" title="Editar">
+                        <PenLine size={10} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(entry)}
+                        disabled={deleting === entry.id}
+                        className="p-1 rounded text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
+                        title="Apagar"
+                      >
+                        {deleting === entry.id ? <Loader2 size={10} className="animate-spin" /> : <Trash2 size={10} />}
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
   );
 }
-
-/* ========== Data Entry Dialog ========== */
 
 type EntryStep = "select-metric" | "source-choice" | "lead-sheet" | "uploading" | "dripify-preview";
 
