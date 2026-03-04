@@ -1,4 +1,4 @@
-import { DbDailyMetric, DbTeamMember, sumMetrics, METRIC_LABELS, METRIC_KEYS, SDR_METRIC_KEYS, CLOSER_METRIC_KEYS, getMemberAvatar } from "@/lib/db";
+import { DbDailyMetric, DbTeamMember, sumMetrics, METRIC_LABELS, SHORT_TABLE_LABELS, METRIC_KEYS, SDR_METRIC_KEYS, CLOSER_METRIC_KEYS, getMemberAvatar } from "@/lib/db";
 import { Trophy, Medal, Crown, Flame, Star, ChevronDown } from "lucide-react";
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
@@ -217,7 +217,7 @@ function RoleRanking({ title, members, dailyMetrics, metricKeys, variant }: Role
                 </th>
                 {metricKeys.map(k => (
                   <th key={k} className="text-right py-2 text-muted-foreground font-semibold uppercase tracking-wider whitespace-nowrap px-1.5">
-                    {METRIC_LABELS[k]?.substring(0, 8) || k}
+                    {SHORT_TABLE_LABELS[k] || METRIC_LABELS[k] || k}
                   </th>
                 ))}
                 <th className="text-right py-2 text-muted-foreground font-semibold uppercase tracking-wider whitespace-nowrap px-1.5">

@@ -111,6 +111,20 @@ export const METRIC_LABELS: Record<string, string> = {
   reuniao_realizada: "Reunião Realiz.",
 };
 
+/** Short labels for compact table headers — avoids truncation issues */
+export const SHORT_TABLE_LABELS: Record<string, string> = {
+  conexoes: "Conexões",
+  conexoes_aceitas: "Aceitas",
+  abordagens: "Abordag.",
+  inmail: "InMail",
+  follow_up: "Follow Up",
+  numero: "Número",
+  lig_agendada: "Lig. Ag.",
+  lig_realizada: "Lig. Re.",
+  reuniao_agendada: "Reun. Ag.",
+  reuniao_realizada: "Reun. Re.",
+};
+
 export async function fetchMonths(): Promise<DbMonth[]> {
   const { data, error } = await supabase
     .from("months")
