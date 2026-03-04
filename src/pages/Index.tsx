@@ -174,7 +174,7 @@ export default function Index() {
               <div className="h-5 w-px bg-border" />
               <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider">
                 {isAdmin ? (
-                  adminView === "dashboard" ? "Dashboard" :
+                  adminView === "dashboard" ? "DASHBOARD LSD" :
                   adminView === "team" ? "Equipe" :
                   adminView === "goals" ? "Metas" :
                   adminView === "reports" ? "Relatórios IA" :
