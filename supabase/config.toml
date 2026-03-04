@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.ai-coach]
 verify_jwt = false
+
+[functions.parse-dripify]
+verify_jwt = false

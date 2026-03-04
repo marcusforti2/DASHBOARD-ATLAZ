@@ -12,6 +12,7 @@ interface LeadEntry {
   whatsapp: string;
   social_link: string;
   metric_type: string;
+  source: string;
   created_at: string;
 }
 
@@ -166,7 +167,7 @@ export function LeadAuditPanel({ memberId, memberName }: LeadAuditPanelProps) {
               </div>
 
               <div className="rounded-lg border border-border overflow-hidden">
-                <div className="grid grid-cols-[1fr_1fr_1fr] gap-0 bg-secondary/40 border-b border-border">
+                <div className="grid grid-cols-[1fr_1fr_1fr_60px] gap-0 bg-secondary/40 border-b border-border">
                   <div className="px-2.5 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
                     <User size={9} /> Nome
                   </div>
@@ -176,13 +177,16 @@ export function LeadAuditPanel({ memberId, memberName }: LeadAuditPanelProps) {
                   <div className="px-2.5 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1 border-l border-border">
                     <Link size={9} /> Social
                   </div>
+                  <div className="px-2.5 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider border-l border-border text-center">
+                    Fonte
+                  </div>
                 </div>
 
                 {entries.map((entry, idx) => (
                   <div
                     key={entry.id}
                     className={cn(
-                      "grid grid-cols-[1fr_1fr_1fr] gap-0",
+                      "grid grid-cols-[1fr_1fr_1fr_60px] gap-0",
                       idx % 2 === 0 ? "bg-card" : "bg-secondary/10",
                       idx < entries.length - 1 && "border-b border-border/30"
                     )}
@@ -205,6 +209,13 @@ export function LeadAuditPanel({ memberId, memberName }: LeadAuditPanelProps) {
                           {entry.social_link}
                         </a>
                       ) : "—"}
+                    </div>
+                    <div className="px-2.5 py-2 text-[10px] border-l border-border/30 text-center">
+                      {entry.source === "dripify" ? (
+                        <span className="text-[7px] font-bold text-chart-4 bg-chart-4/10 px-1.5 py-0.5 rounded">DRIPIFY</span>
+                      ) : (
+                        <span className="text-[7px] font-bold text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">MANUAL</span>
+                      )}
                     </div>
                   </div>
                 ))}
