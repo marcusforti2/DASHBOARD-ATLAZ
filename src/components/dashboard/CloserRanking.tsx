@@ -423,7 +423,7 @@ function PodiumCard({
           isFirst ? "w-14 h-14" : "w-12 h-12"
         )}>
           <img
-            src={member.avatar_url || `/avatars/default-${(originalIndex % 6) + 1}.jpg`}
+            src={getMemberAvatar(member, originalIndex)}
             alt={member.name}
             className="w-full h-full object-cover"
           />
