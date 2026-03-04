@@ -3,8 +3,7 @@ import { useMonths, useTeamMembers, useMonthlyGoals, useWeeklyGoals, useDailyMet
 import { sumMetrics, goalToMetrics, METRIC_LABELS, SHORT_TABLE_LABELS, METRIC_KEYS, SDR_METRIC_KEYS, CLOSER_METRIC_KEYS, DbDailyMetric, DbTeamMember, getWorkingDaysCount, getMemberAvatar } from "@/lib/db";
 import { getWeeksOfMonth } from "@/lib/calendar-utils";
 import { KpiGrid } from "@/components/dashboard/KpiGrid";
-import { WeeklyComparisonChart } from "@/components/dashboard/WeeklyComparisonChart";
-import { PersonPerformanceChart } from "@/components/dashboard/PersonPerformanceChart";
+import { AnalyticsCharts } from "@/components/dashboard/AnalyticsCharts";
 import { CloserRanking, RoleRanking } from "@/components/dashboard/CloserRanking";
 import { AiReportPanel } from "@/components/dashboard/AiReportPanel";
 import { AlertsPanel } from "@/components/dashboard/AlertsPanel";
@@ -20,7 +19,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
-const CHART_METRICS = ["follow_up", "conexoes", "reuniao_realizada", "lig_realizada"];
+
 
 interface AdminDashboardProps {
   onSignOut: () => void;
@@ -35,7 +34,7 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
   const { data: members } = useTeamMembers();
   const [selectedMonthId, setSelectedMonthId] = useState<string | undefined>(externalMonthId);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(externalMemberId || null);
-  const [selectedChartMetric, setSelectedChartMetric] = useState("follow_up");
+  
 
   // Panel 1 - Month (fixed to month)
   // Panel 2 - Week states — default to current week
@@ -371,35 +370,14 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
       </CollapsiblePanel>
 
 
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 gap-4">
-        <div>
-          <div className="flex items-center gap-1 mb-3">
-            {CHART_METRICS.map(m => (
-              <button
-                key={m}
-                onClick={() => setSelectedChartMetric(m)}
-                className={`px-2.5 py-1 text-[10px] rounded-md font-semibold uppercase tracking-wider transition-colors ${
-                  selectedChartMetric === m ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {METRIC_LABELS[m]}
-              </button>
-            ))}
-          </div>
-          {weeklyGoals && (
-            <WeeklyComparisonChart
-              weeklyGoals={weeklyGoals}
-              metric={selectedChartMetric}
-              dailyMetrics={memberFilteredMetrics}
-            />
-          )}
-        </div>
-      </div>
-
-      {/* Person Performance */}
+      {/* Analytics Charts */}
       {dailyMetrics && members && (
-        <PersonPerformanceChart dailyMetrics={dailyMetrics} members={members} />
+        <AnalyticsCharts
+          dailyMetrics={memberFilteredMetrics}
+          members={members}
+          weeklyGoals={weeklyGoals}
+          weeksOfMonth={weeksOfMonth}
+        />
       )}
 
 
