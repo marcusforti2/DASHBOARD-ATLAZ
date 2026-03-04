@@ -164,9 +164,6 @@ export function RoleRanking({ title, members, dailyMetrics, metricKeys, variant,
             >
               {member.total}
             </span>
-            {rank === 0 && (
-              <Flame size={10} className="text-[hsl(45,93%,47%)] absolute bottom-0.5 animate-score-pop" style={{ animationDelay: `${delay + 0.8}s`, animationFillMode: "both" }} />
-            )}
             {/* Shimmer on 1st place podium */}
             {rank === 0 && (
               <div
@@ -450,7 +447,7 @@ function PodiumCard({
           <p className={cn("text-lg font-black tabular-nums", style.text, isFirst && "text-2xl")}>
             {member.total}
           </p>
-          {isFirst && <Flame size={12} className="text-[hsl(45,93%,47%)] mx-auto mt-0.5" />}
+          
         </div>
       </div>
     </div>
