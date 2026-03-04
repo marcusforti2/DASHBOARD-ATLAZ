@@ -327,7 +327,7 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
                   <tbody>
                     {allSdrByRole.sdrs.map((member, idx) => {
                       const memberGoal = allSdrGoals && sdrMembersList.length > 0
-                        ? Object.fromEntries(SDR_METRIC_KEYS.map(k => [k, Math.round((allSdrGoals[k] || 0) / sdrMembersList.length)]))
+                        ? Object.fromEntries(SDR_METRIC_KEYS.map(k => [k, Math.max(1, Math.round((allSdrGoals[k] || 0) / sdrMembersList.length))]))
                         : null;
                       return (
                         <tr key={member.id} onClick={() => setSdrModalMemberId(member.id)} className={cn(
@@ -389,7 +389,7 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
                   <tbody>
                     {allSdrByRole.closers.map((member, idx) => {
                       const memberGoal = allSdrGoals && closerMembersList.length > 0
-                        ? Object.fromEntries(CLOSER_METRIC_KEYS.map(k => [k, Math.round((allSdrGoals[k] || 0) / closerMembersList.length)]))
+                        ? Object.fromEntries(CLOSER_METRIC_KEYS.map(k => [k, Math.max(1, Math.round((allSdrGoals[k] || 0) / closerMembersList.length))]))
                         : null;
                       return (
                         <tr key={member.id} onClick={() => setSdrModalMemberId(member.id)} className={cn(
