@@ -1,32 +1,33 @@
 
 
-## Plano: Melhorar UX/UI da separação SDR vs Closer
+## Plano: Melhorar tabelas SDR/Closer e layout
 
-### Problema atual
-Os dois painéis (SDR e Closer) no modo compacto estão lado a lado mas com pouca diferenciação visual. Os cards Closer ficam apertados e a separação não é clara o suficiente. A tabela abaixo também mistura todas as métricas sem distinção.
+### Problemas identificados
 
-### Mudanças propostas
+1. **"Conexões" repetida** — O código usa `METRIC_LABELS[k]?.substring(0, 8)` que corta "Conexões Aceitas" para "Conexões", ficando igual à primeira coluna. Precisa usar labels curtas específicas.
 
-**1. KpiGrid compacto — visual mais forte**
-- Aumentar contraste das cores de fundo dos painéis: SDR com azul mais vivo (`217 40% 13%`), Closer com roxo mais vivo (`280 30% 13%`)
-- Adicionar borda lateral colorida (left border 3px) em cada painel: azul para SDR, roxo para Closer
-- Badge/chip colorido no header de cada seção (fundo semitransparente com texto): `SDR` em azul, `CLOSER` em roxo
-- Adicionar um divisor vertical sutil entre os dois painéis (ou gap maior)
+2. **Falta métrica/meta por usuário** — As tabelas só mostram o valor bruto. Precisa mostrar `valor/meta` com cálculo proporcional (dia, semana ou mês) para cada membro.
 
-**2. KpiGrid compacto — cards Closer com anel roxo**
-- Cards do Closer usam cor roxa no anel de progresso (ao invés de verde/amarelo/vermelho), para reforçar visualmente que são de outro grupo
-- Passar uma prop `variant="closer"` para o CompactCard quando renderizado no painel Closer, alterando a cor do stroke do ring
+3. **Layout: tabelas devem seguir o tamanho dos painéis** — SDR table alinhada ao painel SDR (lado a lado com Closer), não ocupando 100% da largura. Rankings abaixo do painel Closer.
 
-**3. Tabela diária — separação visual de colunas**
-- Adicionar um divisor vertical (border-left mais forte) entre a coluna "Lig. Agend." (última SDR) e "Lig. Realiz." (primeira Closer)
-- Colorir os headers das colunas Closer com tom roxo sutil
-- Colorir os headers das colunas SDR com tom azul sutil
+### Mudanças
 
-**4. CSS (index.css)**
-- Ajustar `--panel-sdr` e `--panel-closer` para mais contraste
+**1. Corrigir labels truncadas (`AdminDashboard.tsx` e `CloserRanking.tsx`)**
+- Substituir `METRIC_LABELS[k]?.substring(0, 8)` por um mapa de labels curtas (SHORT_TABLE_LABELS) com valores como "Conexões", "Aceitas", "Abordage", "Follow U", "Lig. Rea", "Reun. Ag", "Reun. Re"
+- Adicionar este mapa em `db.ts` para reutilizar
+
+**2. Adicionar coluna valor/meta nas tabelas de equipe (`AdminDashboard.tsx`)**
+- Calcular metas individuais: meta da equipe ÷ número de membros daquela role
+- Em cada célula, mostrar `valor/meta` em vez de só `valor`
+- Colorir baseado no % atingido (verde ≥80%, amarelo ≥40%, vermelho <40%)
+
+**3. Reorganizar layout no painel "Visão Geral" (`AdminDashboard.tsx`)**
+- Usar layout `flex` lado a lado: coluna esquerda (70%) = painel KPI SDR + tabela SDR, coluna direita (30%) = painel KPI Closer + tabela Closer + Rankings
+- Isso faz cada tabela seguir a largura do seu painel KPI correspondente
+- Rankings ficam abaixo da tabela Closer
 
 ### Arquivos a editar
-- `src/index.css` — ajustar variáveis de painel
-- `src/components/dashboard/KpiGrid.tsx` — chips coloridos no header, border-left, variante de cor para Closer cards
-- `src/components/dashboard/DailyTable.tsx` — divisor visual entre colunas SDR e Closer, headers coloridos
+- `src/lib/db.ts` — adicionar `SHORT_TABLE_LABELS`
+- `src/pages/AdminDashboard.tsx` — reorganizar layout das tabelas + adicionar valor/meta + corrigir labels
+- `src/components/dashboard/CloserRanking.tsx` — corrigir labels truncadas
 
