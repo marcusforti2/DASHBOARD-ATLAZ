@@ -250,6 +250,9 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
             selectedWeekIdx={allSdrWeekIdx}
             onWeekChange={setAllSdrWeekIdx}
             weeksOfMonth={weeksOfMonth}
+            months={months?.map(m => ({ id: m.id, label: m.label })) || []}
+            selectedMonthId={activeMonthId}
+            onMonthChange={setSelectedMonthId}
           />
         }
       >
