@@ -46,7 +46,7 @@ export function KpiPanelFilters({
   onMonthChange,
 }: KpiPanelFiltersProps) {
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
+    <div className="flex flex-wrap items-center gap-1 sm:gap-1.5">
       {showPeriodToggle && (
         <div className="flex items-center gap-1">
           {(["month", "week", "day"] as const).map(p => (
