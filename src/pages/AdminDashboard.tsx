@@ -262,60 +262,7 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
 
       {/* === 3 COLLAPSIBLE KPI PANELS === */}
 
-      {/* Panel 1: Visão Mensal */}
-      <CollapsiblePanel
-        title="Visão Mensal"
-        subtitle={activeMonth?.label}
-        icon={<CalendarIcon size={15} className="text-primary" />}
-        accentColor="bg-primary/15"
-        defaultOpen={true}
-      >
-        <KpiGrid totals={monthTotals} goals={goalToMetrics(goals)} previousTotals={previousTotals} onCardClick={(key) => { setMetricModalKey(key); setMetricModalSource("month"); }} compact />
-      </CollapsiblePanel>
-
-      {/* Panel 2: Visão Semanal */}
-      <CollapsiblePanel
-        title="Visão Semanal"
-        subtitle={weeksOfMonth[effectiveWeekIdx] ? `Semana ${weeksOfMonth[effectiveWeekIdx].weekNumber} — ${weeksOfMonth[effectiveWeekIdx].label}` : ""}
-        icon={<CalendarRange size={15} className="text-accent" />}
-        accentColor="bg-accent/15"
-        defaultOpen={true}
-        headerActions={
-          weeksOfMonth.length > 0 ? (
-            <div className="flex items-center gap-1.5">
-              {currentWeekIdx >= 0 && (
-                <button
-                  onClick={() => setWeekPanelWeekIdx(currentWeekIdx)}
-                  className={cn(
-                    "px-2.5 py-1 text-[10px] rounded-md font-semibold uppercase tracking-wider transition-colors flex items-center gap-1",
-                    effectiveWeekIdx === currentWeekIdx
-                      ? "bg-accent text-accent-foreground"
-                      : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                  )}
-                >
-                  <CalendarDays size={10} /> Atual
-                </button>
-              )}
-              <div className="relative">
-                <select
-                  value={effectiveWeekIdx}
-                  onChange={e => setWeekPanelWeekIdx(Number(e.target.value))}
-                  className="appearance-none bg-secondary text-secondary-foreground text-[10px] font-medium px-2.5 py-1 pr-6 rounded-md border border-border cursor-pointer outline-none"
-                >
-                  {weeksOfMonth.map((w, i) => (
-                    <option key={i} value={i}>Sem {w.weekNumber}</option>
-                  ))}
-                </select>
-                <ChevronDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-              </div>
-            </div>
-          ) : undefined
-        }
-      >
-        <KpiGrid totals={weekTotals} goals={weekGoals} onCardClick={(key) => { setMetricModalKey(key); setMetricModalSource("week"); }} compact />
-      </CollapsiblePanel>
-
-      {/* Panel 3: Visão Geral — Todos os SDRs */}
+      {/* Panel 1: Visão Geral — Todos os SDRs (FIRST) */}
       <CollapsiblePanel
         title="Visão Geral — Todos os SDRs"
         subtitle={
@@ -393,6 +340,59 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
             </table>
           </div>
         </div>
+      </CollapsiblePanel>
+
+      {/* Panel 2: Visão Mensal */}
+      <CollapsiblePanel
+        title="Visão Mensal"
+        subtitle={activeMonth?.label}
+        icon={<CalendarIcon size={15} className="text-primary" />}
+        accentColor="bg-primary/15"
+        defaultOpen={true}
+      >
+        <KpiGrid totals={monthTotals} goals={goalToMetrics(goals)} previousTotals={previousTotals} onCardClick={(key) => { setMetricModalKey(key); setMetricModalSource("month"); }} compact />
+      </CollapsiblePanel>
+
+      {/* Panel 3: Visão Semanal */}
+      <CollapsiblePanel
+        title="Visão Semanal"
+        subtitle={weeksOfMonth[effectiveWeekIdx] ? `Semana ${weeksOfMonth[effectiveWeekIdx].weekNumber} — ${weeksOfMonth[effectiveWeekIdx].label}` : ""}
+        icon={<CalendarRange size={15} className="text-accent" />}
+        accentColor="bg-accent/15"
+        defaultOpen={true}
+        headerActions={
+          weeksOfMonth.length > 0 ? (
+            <div className="flex items-center gap-1.5">
+              {currentWeekIdx >= 0 && (
+                <button
+                  onClick={() => setWeekPanelWeekIdx(currentWeekIdx)}
+                  className={cn(
+                    "px-2.5 py-1 text-[10px] rounded-md font-semibold uppercase tracking-wider transition-colors flex items-center gap-1",
+                    effectiveWeekIdx === currentWeekIdx
+                      ? "bg-accent text-accent-foreground"
+                      : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                  )}
+                >
+                  <CalendarDays size={10} /> Atual
+                </button>
+              )}
+              <div className="relative">
+                <select
+                  value={effectiveWeekIdx}
+                  onChange={e => setWeekPanelWeekIdx(Number(e.target.value))}
+                  className="appearance-none bg-secondary text-secondary-foreground text-[10px] font-medium px-2.5 py-1 pr-6 rounded-md border border-border cursor-pointer outline-none"
+                >
+                  {weeksOfMonth.map((w, i) => (
+                    <option key={i} value={i}>Sem {w.weekNumber}</option>
+                  ))}
+                </select>
+                <ChevronDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              </div>
+            </div>
+          ) : undefined
+        }
+      >
+        <KpiGrid totals={weekTotals} goals={weekGoals} onCardClick={(key) => { setMetricModalKey(key); setMetricModalSource("week"); }} compact />
       </CollapsiblePanel>
 
       {/* Filters Panel */}

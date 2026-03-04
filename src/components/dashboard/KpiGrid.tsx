@@ -42,11 +42,11 @@ interface KpiGridProps {
 export function KpiGrid({ totals, goals, previousTotals, onCardClick, compact = false }: KpiGridProps) {
   if (compact) {
     return (
-      <div className="flex flex-col gap-3">
+      <div className="flex gap-2 items-stretch">
         {/* SDR Panel */}
-        <div className="rounded-xl p-3 bg-[hsl(var(--panel-sdr))] border border-[hsl(217,40%,18%)]">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-[9px] font-bold uppercase tracking-widest text-primary">SDR</span>
+        <div className="flex-1 rounded-xl p-2.5 bg-[hsl(var(--panel-sdr))] border border-[hsl(217,40%,18%)]">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="text-[8px] font-bold uppercase tracking-widest text-primary">SDR</span>
             <div className="flex-1 h-px bg-primary/20" />
           </div>
           <div className="grid grid-cols-7 gap-1.5">
@@ -57,9 +57,9 @@ export function KpiGrid({ totals, goals, previousTotals, onCardClick, compact = 
         </div>
 
         {/* Closer Panel */}
-        <div className="rounded-xl p-3 bg-[hsl(var(--panel-closer))] border border-[hsl(280,30%,18%)]">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-[9px] font-bold uppercase tracking-widest text-[hsl(280,65%,65%)]">Closer</span>
+        <div className="rounded-xl p-2.5 bg-[hsl(var(--panel-closer))] border border-[hsl(280,30%,18%)]" style={{ flex: '0 0 auto', width: '30%' }}>
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="text-[8px] font-bold uppercase tracking-widest text-[hsl(280,65%,65%)]">Closer</span>
             <div className="flex-1 h-px bg-[hsl(280,65%,60%/0.2)]" />
           </div>
           <div className="grid grid-cols-3 gap-1.5">
