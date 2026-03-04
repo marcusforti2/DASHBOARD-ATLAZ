@@ -119,7 +119,7 @@ Agora componha a mensagem personalizada seguindo o template e usando TODOS os da
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "google/gemini-2.5-pro",
+      model: "google/gemini-3-pro-preview",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
