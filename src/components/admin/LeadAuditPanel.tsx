@@ -1,8 +1,8 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Calendar, Search, User, Phone, Link, Loader2, Trash2, Pencil, Check, X, CheckSquare, Square, AlertTriangle } from "lucide-react";
+import { Calendar, Search, User, Phone, Link, Loader2, Trash2, Pencil, Check, X, CheckSquare, Square, AlertTriangle, BarChart3, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { METRIC_LABELS } from "@/lib/db";
@@ -36,6 +36,7 @@ export function LeadAuditPanel({ memberId, memberName }: LeadAuditPanelProps) {
   const [editValues, setEditValues] = useState<Partial<LeadEntry>>({});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [expandedLead, setExpandedLead] = useState<string | null>(null);
 
   useEffect(() => {
     fetchLeads();
@@ -51,6 +52,22 @@ export function LeadAuditPanel({ memberId, memberName }: LeadAuditPanelProps) {
       .order("created_at", { ascending: false });
     if (!error && data) setLeads(data as LeadEntry[]);
     setLoading(false);
+  };
+
+  // Count how many times each lead_name appears (case-insensitive)
+  const leadCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    leads.forEach(l => {
+      const key = l.lead_name?.toLowerCase().trim();
+      if (key) counts[key] = (counts[key] || 0) + 1;
+    });
+    return counts;
+  }, [leads]);
+
+  // Get full history for a specific lead name
+  const getLeadHistory = (leadName: string) => {
+    const key = leadName?.toLowerCase().trim();
+    return leads.filter(l => l.lead_name?.toLowerCase().trim() === key);
   };
 
   const decrementMetric = async (entry: LeadEntry) => {
@@ -97,7 +114,6 @@ export function LeadAuditPanel({ memberId, memberName }: LeadAuditPanelProps) {
 
     const entriesToDelete = leads.filter(l => selectedIds.has(l.id));
 
-    // Delete all selected
     const { error } = await supabase
       .from("lead_entries")
       .delete()
@@ -109,7 +125,6 @@ export function LeadAuditPanel({ memberId, memberName }: LeadAuditPanelProps) {
       return;
     }
 
-    // Decrement metrics - group by date+metric_type to batch
     const decrements: Record<string, { date: string; metric_type: string; count: number }> = {};
     for (const entry of entriesToDelete) {
       if (!entry.metric_type) continue;
@@ -220,7 +235,6 @@ export function LeadAuditPanel({ memberId, memberName }: LeadAuditPanelProps) {
     return result;
   }, [leads, filterMode, filterDate, searchTerm]);
 
-  // Group by date
   const groupedByDate = useMemo(() => {
     const groups: Record<string, LeadEntry[]> = {};
     filteredLeads.forEach(l => {
@@ -236,6 +250,19 @@ export function LeadAuditPanel({ memberId, memberName }: LeadAuditPanelProps) {
     { id: "month", label: "Mês" },
     { id: "all", label: "Tudo" },
   ];
+
+  const METRIC_SHORT: Record<string, string> = {
+    conexoes: "Conexão",
+    conexoes_aceitas: "Aceita",
+    abordagens: "Abordagem",
+    inmail: "InMail",
+    follow_up: "Follow-up",
+    numero: "Número",
+    lig_agendada: "Lig.Agend",
+    lig_realizada: "Lig.Real",
+    reuniao_agendada: "Reun.Agend",
+    reuniao_realizada: "Reun.Real",
+  };
 
   if (loading) {
     return (
@@ -325,7 +352,7 @@ export function LeadAuditPanel({ memberId, memberName }: LeadAuditPanelProps) {
           <p className="text-xs text-muted-foreground">Nenhum lead registrado neste período</p>
         </div>
       ) : (
-        <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+        <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
           {groupedByDate.map(([date, entries]) => {
             const allSelected = entries.every(e => selectedIds.has(e.id));
             const someSelected = entries.some(e => selectedIds.has(e.id));
@@ -354,19 +381,22 @@ export function LeadAuditPanel({ memberId, memberName }: LeadAuditPanelProps) {
                 </div>
 
                 <div className="rounded-lg border border-border overflow-hidden">
-                  <div className="grid grid-cols-[24px_1fr_1fr_1fr_55px_55px] gap-0 bg-secondary/40 border-b border-border">
+                  <div className="grid grid-cols-[24px_1fr_70px_1fr_50px_45px_50px] gap-0 bg-secondary/40 border-b border-border">
                     <div />
                     <div className="px-2 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
                       <User size={9} /> Nome
                     </div>
-                    <div className="px-2 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1 border-l border-border">
-                      <Phone size={9} /> WhatsApp
+                    <div className="px-2 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider border-l border-border text-center">
+                      Métrica
                     </div>
                     <div className="px-2 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1 border-l border-border">
                       <Link size={9} /> Social
                     </div>
-                    <div className="px-2 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider border-l border-border text-center">
+                    <div className="px-1 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider border-l border-border text-center">
                       Fonte
+                    </div>
+                    <div className="px-1 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider border-l border-border text-center">
+                      Freq
                     </div>
                     <div className="px-1 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider border-l border-border text-center">
                       Ações
@@ -376,123 +406,165 @@ export function LeadAuditPanel({ memberId, memberName }: LeadAuditPanelProps) {
                   {entries.map((entry, idx) => {
                     const isEditing = editingId === entry.id;
                     const isSelected = selectedIds.has(entry.id);
+                    const leadKey = entry.lead_name?.toLowerCase().trim();
+                    const count = leadCounts[leadKey] || 1;
+                    const isExpanded = expandedLead === leadKey;
 
                     return (
-                      <div
-                        key={entry.id}
-                        className={cn(
-                          "grid grid-cols-[24px_1fr_1fr_1fr_55px_55px] gap-0",
-                          isSelected ? "bg-primary/5" : idx % 2 === 0 ? "bg-card" : "bg-secondary/10",
-                          idx < entries.length - 1 && "border-b border-border/30"
-                        )}
-                      >
-                        {/* Checkbox */}
-                        <div className="flex items-center justify-center">
-                          <button onClick={() => toggleSelect(entry.id)} className="p-0.5">
-                            {isSelected ? (
-                              <CheckSquare size={11} className="text-primary" />
+                      <div key={entry.id}>
+                        <div
+                          className={cn(
+                            "grid grid-cols-[24px_1fr_70px_1fr_50px_45px_50px] gap-0",
+                            isSelected ? "bg-primary/5" : idx % 2 === 0 ? "bg-card" : "bg-secondary/10",
+                            idx < entries.length - 1 && !isExpanded && "border-b border-border/30"
+                          )}
+                        >
+                          {/* Checkbox */}
+                          <div className="flex items-center justify-center">
+                            <button onClick={() => toggleSelect(entry.id)} className="p-0.5">
+                              {isSelected ? (
+                                <CheckSquare size={11} className="text-primary" />
+                              ) : (
+                                <Square size={11} className="text-muted-foreground/30 hover:text-muted-foreground" />
+                              )}
+                            </button>
+                          </div>
+
+                          {/* Name */}
+                          <div className="px-2 py-1.5 text-[10px] text-card-foreground font-medium truncate">
+                            {isEditing ? (
+                              <input
+                                value={editValues.lead_name || ""}
+                                onChange={e => setEditValues(prev => ({ ...prev, lead_name: e.target.value }))}
+                                className="w-full bg-secondary border border-primary/30 rounded px-1.5 py-0.5 text-[10px] outline-none focus:ring-1 focus:ring-primary"
+                                autoFocus
+                              />
                             ) : (
-                              <Square size={11} className="text-muted-foreground/30 hover:text-muted-foreground" />
+                              entry.lead_name || "—"
                             )}
-                          </button>
+                          </div>
+
+                          {/* Metric type */}
+                          <div className="px-1.5 py-1.5 text-[9px] border-l border-border/30 flex items-center justify-center">
+                            {entry.metric_type ? (
+                              <span className="text-[7px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded truncate">
+                                {METRIC_SHORT[entry.metric_type] || entry.metric_type}
+                              </span>
+                            ) : "—"}
+                          </div>
+
+                          {/* Social */}
+                          <div className="px-2 py-1.5 text-[10px] text-card-foreground border-l border-border/30 truncate">
+                            {isEditing ? (
+                              <input
+                                value={editValues.social_link || ""}
+                                onChange={e => setEditValues(prev => ({ ...prev, social_link: e.target.value }))}
+                                className="w-full bg-secondary border border-primary/30 rounded px-1.5 py-0.5 text-[10px] outline-none focus:ring-1 focus:ring-primary"
+                                placeholder="linkedin.com/in/..."
+                              />
+                            ) : entry.social_link ? (
+                              <a href={entry.social_link.startsWith("http") ? entry.social_link : `https://${entry.social_link}`}
+                                target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                                {entry.social_link}
+                              </a>
+                            ) : "—"}
+                          </div>
+
+                          {/* Source badge */}
+                          <div className="px-1 py-1.5 text-[10px] border-l border-border/30 flex items-center justify-center">
+                            {entry.source === "dripify" ? (
+                              <span className="text-[7px] font-bold text-chart-4 bg-chart-4/10 px-1.5 py-0.5 rounded">DRIP</span>
+                            ) : (
+                              <span className="text-[7px] font-bold text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">MAN</span>
+                            )}
+                          </div>
+
+                          {/* Frequency badge */}
+                          <div className="px-1 py-1.5 border-l border-border/30 flex items-center justify-center">
+                            <button
+                              onClick={() => count > 1 ? setExpandedLead(isExpanded ? null : leadKey) : null}
+                              className={cn(
+                                "flex items-center gap-0.5 px-1.5 py-0.5 rounded transition-colors text-[8px] font-bold",
+                                count > 1
+                                  ? "text-chart-5 bg-chart-5/10 hover:bg-chart-5/20 cursor-pointer"
+                                  : "text-muted-foreground bg-secondary/50 cursor-default"
+                              )}
+                              title={count > 1 ? `Este lead aparece ${count}x — clique para ver histórico` : "Primeira aparição"}
+                            >
+                              {count}x
+                              {count > 1 && (isExpanded ? <ChevronUp size={8} /> : <ChevronDown size={8} />)}
+                            </button>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex items-center justify-center gap-0.5 border-l border-border/30">
+                            {isEditing ? (
+                              <>
+                                <button onClick={() => saveEdit(entry)} className="p-1 rounded text-accent hover:bg-accent/10 transition-colors" title="Salvar">
+                                  <Check size={10} />
+                                </button>
+                                <button onClick={cancelEdit} className="p-1 rounded text-muted-foreground hover:bg-secondary transition-colors" title="Cancelar">
+                                  <X size={10} />
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button onClick={() => startEdit(entry)} className="p-1 rounded text-muted-foreground/40 hover:text-primary hover:bg-primary/10 transition-colors" title="Editar">
+                                  <Pencil size={10} />
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(entry)}
+                                  disabled={deleting === entry.id}
+                                  className="p-1 rounded text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
+                                  title="Apagar"
+                                >
+                                  {deleting === entry.id ? <Loader2 size={10} className="animate-spin" /> : <Trash2 size={10} />}
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </div>
 
-                        {/* Name */}
-                        <div className="px-2 py-1.5 text-[10px] text-card-foreground font-medium truncate">
-                          {isEditing ? (
-                            <input
-                              value={editValues.lead_name || ""}
-                              onChange={e => setEditValues(prev => ({ ...prev, lead_name: e.target.value }))}
-                              className="w-full bg-secondary border border-primary/30 rounded px-1.5 py-0.5 text-[10px] outline-none focus:ring-1 focus:ring-primary"
-                              autoFocus
-                            />
-                          ) : (
-                            entry.lead_name || "—"
-                          )}
-                        </div>
-
-                        {/* WhatsApp */}
-                        <div className="px-2 py-1.5 text-[10px] text-card-foreground font-mono border-l border-border/30 truncate">
-                          {isEditing ? (
-                            <input
-                              value={editValues.whatsapp || ""}
-                              onChange={e => setEditValues(prev => ({ ...prev, whatsapp: e.target.value }))}
-                              className="w-full bg-secondary border border-primary/30 rounded px-1.5 py-0.5 text-[10px] outline-none focus:ring-1 focus:ring-primary"
-                              placeholder="(11) 99999-9999"
-                            />
-                          ) : entry.whatsapp ? (
-                            <a href={`https://wa.me/${entry.whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noreferrer"
-                              className="text-accent hover:underline">
-                              {entry.whatsapp}
-                            </a>
-                          ) : "—"}
-                        </div>
-
-                        {/* Social */}
-                        <div className="px-2 py-1.5 text-[10px] text-card-foreground border-l border-border/30 truncate">
-                          {isEditing ? (
-                            <input
-                              value={editValues.social_link || ""}
-                              onChange={e => setEditValues(prev => ({ ...prev, social_link: e.target.value }))}
-                              className="w-full bg-secondary border border-primary/30 rounded px-1.5 py-0.5 text-[10px] outline-none focus:ring-1 focus:ring-primary"
-                              placeholder="linkedin.com/in/..."
-                            />
-                          ) : entry.social_link ? (
-                            <a href={entry.social_link.startsWith("http") ? entry.social_link : `https://${entry.social_link}`}
-                              target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                              {entry.social_link}
-                            </a>
-                          ) : "—"}
-                        </div>
-
-                        {/* Source badge */}
-                        <div className="px-1 py-1.5 text-[10px] border-l border-border/30 flex items-center justify-center">
-                          {entry.source === "dripify" ? (
-                            <span className="text-[7px] font-bold text-chart-4 bg-chart-4/10 px-1.5 py-0.5 rounded">DRIP</span>
-                          ) : (
-                            <span className="text-[7px] font-bold text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">MAN</span>
-                          )}
-                        </div>
-
-                        {/* Actions */}
-                        <div className="flex items-center justify-center gap-0.5 border-l border-border/30">
-                          {isEditing ? (
-                            <>
-                              <button
-                                onClick={() => saveEdit(entry)}
-                                className="p-1 rounded text-accent hover:bg-accent/10 transition-colors"
-                                title="Salvar"
-                              >
-                                <Check size={10} />
-                              </button>
-                              <button
-                                onClick={cancelEdit}
-                                className="p-1 rounded text-muted-foreground hover:bg-secondary transition-colors"
-                                title="Cancelar"
-                              >
-                                <X size={10} />
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <button
-                                onClick={() => startEdit(entry)}
-                                className="p-1 rounded text-muted-foreground/40 hover:text-primary hover:bg-primary/10 transition-colors"
-                                title="Editar"
-                              >
-                                <Pencil size={10} />
-                              </button>
-                              <button
-                                onClick={() => handleDelete(entry)}
-                                disabled={deleting === entry.id}
-                                className="p-1 rounded text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
-                                title="Apagar"
-                              >
-                                {deleting === entry.id ? <Loader2 size={10} className="animate-spin" /> : <Trash2 size={10} />}
-                              </button>
-                            </>
-                          )}
-                        </div>
+                        {/* Expanded lead history */}
+                        {isExpanded && count > 1 && (
+                          <div className="bg-chart-5/5 border-t border-b border-chart-5/20 px-3 py-2 space-y-1">
+                            <div className="flex items-center gap-1.5 mb-1.5">
+                              <BarChart3 size={10} className="text-chart-5" />
+                              <span className="text-[9px] font-bold text-chart-5">
+                                Histórico de "{entry.lead_name}" — {count} aparições
+                              </span>
+                            </div>
+                            {getLeadHistory(entry.lead_name).map((h, hi) => (
+                              <div key={h.id} className={cn(
+                                "flex items-center gap-2 text-[9px] rounded-md px-2 py-1",
+                                h.id === entry.id ? "bg-chart-5/10 font-bold" : "bg-card/50"
+                              )}>
+                                <span className="text-muted-foreground w-[52px] shrink-0">
+                                  {format(new Date(h.date + "T12:00:00"), "dd/MM/yy")}
+                                </span>
+                                <span className="text-[7px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded shrink-0">
+                                  {METRIC_SHORT[h.metric_type] || h.metric_type || "—"}
+                                </span>
+                                <span className={cn(
+                                  "text-[7px] font-bold px-1 py-0.5 rounded shrink-0",
+                                  h.source === "dripify" ? "text-chart-4 bg-chart-4/10" : "text-muted-foreground bg-secondary"
+                                )}>
+                                  {h.source === "dripify" ? "DRIP" : "MAN"}
+                                </span>
+                                {h.social_link && (
+                                  <a href={h.social_link.startsWith("http") ? h.social_link : `https://${h.social_link}`}
+                                    target="_blank" rel="noreferrer"
+                                    className="text-primary hover:underline truncate text-[8px]">
+                                    {h.social_link}
+                                  </a>
+                                )}
+                                {h.id === entry.id && (
+                                  <span className="text-[7px] text-chart-5 ml-auto">← atual</span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
