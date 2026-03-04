@@ -2,23 +2,28 @@ import { useState, useMemo } from "react";
 import {
   BarChart, Bar, LineChart, Line, AreaChart, Area,
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+  PieChart, Pie, Cell, FunnelChart, Funnel, LabelList,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend,
 } from "recharts";
 import { parseISO, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { BarChart3, TrendingUp, Waves, Radar as RadarIcon, Users } from "lucide-react";
+import { BarChart3, TrendingUp, Waves, Radar as RadarIcon, Users, PieChart as PieIcon, Layers, Grid3X3, ArrowDownNarrowWide } from "lucide-react";
 import { DbDailyMetric, DbTeamMember, DbWeeklyGoal, METRIC_KEYS, SDR_METRIC_KEYS, CLOSER_METRIC_KEYS, METRIC_LABELS, sumMetrics } from "@/lib/db";
 import { cn } from "@/lib/utils";
 
-type ChartType = "bar" | "line" | "area" | "radar";
+type ChartType = "bar" | "stacked" | "line" | "area" | "radar" | "donut" | "heatmap" | "funnel";
 type ViewMode = "weekly" | "daily" | "person";
 type TeamFilter = "all" | "sdr" | "closer";
 
 const CHART_TYPES: { id: ChartType; label: string; icon: React.ElementType }[] = [
   { id: "bar", label: "Barras", icon: BarChart3 },
+  { id: "stacked", label: "Empilhadas", icon: Layers },
   { id: "line", label: "Linhas", icon: TrendingUp },
   { id: "area", label: "Área", icon: Waves },
   { id: "radar", label: "Radar", icon: RadarIcon },
+  { id: "donut", label: "Donut", icon: PieIcon },
+  { id: "heatmap", label: "Heatmap", icon: Grid3X3 },
+  { id: "funnel", label: "Funil", icon: ArrowDownNarrowWide },
 ];
 
 const VIEW_MODES: { id: ViewMode; label: string; icon: React.ElementType }[] = [
@@ -34,16 +39,9 @@ const TEAM_FILTERS: { id: TeamFilter; label: string }[] = [
 ];
 
 const PALETTE = [
-  "hsl(217, 91%, 60%)",
-  "hsl(160, 84%, 39%)",
-  "hsl(280, 65%, 60%)",
-  "hsl(45, 93%, 47%)",
-  "hsl(0, 70%, 55%)",
-  "hsl(190, 80%, 50%)",
-  "hsl(330, 70%, 55%)",
-  "hsl(120, 60%, 45%)",
-  "hsl(30, 90%, 55%)",
-  "hsl(250, 65%, 55%)",
+  "hsl(217, 91%, 60%)", "hsl(160, 84%, 39%)", "hsl(280, 65%, 60%)",
+  "hsl(45, 93%, 47%)", "hsl(0, 70%, 55%)", "hsl(190, 80%, 50%)",
+  "hsl(330, 70%, 55%)", "hsl(120, 60%, 45%)", "hsl(30, 90%, 55%)", "hsl(250, 65%, 55%)",
 ];
 
 const TOOLTIP_STYLE = {
@@ -55,12 +53,7 @@ const TOOLTIP_STYLE = {
   boxShadow: "0 8px 32px -8px rgba(0,0,0,0.5)",
 };
 
-interface WeekInfo {
-  weekNumber: number;
-  label: string;
-  startDate: string;
-  endDate: string;
-}
+interface WeekInfo { weekNumber: number; label: string; startDate: string; endDate: string; }
 
 interface AnalyticsChartsProps {
   dailyMetrics: DbDailyMetric[];
@@ -75,34 +68,27 @@ export function AnalyticsCharts({ dailyMetrics, members, weeklyGoals, weeksOfMon
   const [teamFilter, setTeamFilter] = useState<TeamFilter>("all");
   const [selectedMetrics, setSelectedMetrics] = useState<string[]>(["follow_up", "conexoes", "reuniao_realizada"]);
 
-  // Filter members by team
   const filteredMembers = useMemo(() => {
     if (teamFilter === "sdr") return members.filter(m => m.member_role === "sdr");
     if (teamFilter === "closer") return members.filter(m => m.member_role === "closer");
     return members;
   }, [members, teamFilter]);
 
-  // Available metrics based on team filter
   const availableMetrics = useMemo((): readonly string[] => {
     if (teamFilter === "sdr") return SDR_METRIC_KEYS;
     if (teamFilter === "closer") return CLOSER_METRIC_KEYS;
     return METRIC_KEYS;
   }, [teamFilter]);
 
-  // Filter metrics by team and filtered dailyMetrics by members
   const filteredDailyMetrics = useMemo(() => {
     if (teamFilter === "all") return dailyMetrics;
     const memberIds = new Set(filteredMembers.map(m => m.id));
     return dailyMetrics.filter(d => memberIds.has(d.member_id));
   }, [dailyMetrics, filteredMembers, teamFilter]);
 
-  // Auto-adjust selected metrics when team changes
   const activeSelectedMetrics = useMemo(() => {
     const valid = selectedMetrics.filter(k => availableMetrics.includes(k));
-    if (valid.length === 0) {
-      // Default: first 3 available
-      return availableMetrics.slice(0, Math.min(3, availableMetrics.length)) as string[];
-    }
+    if (valid.length === 0) return availableMetrics.slice(0, Math.min(3, availableMetrics.length)) as string[];
     return valid;
   }, [selectedMetrics, availableMetrics]);
 
@@ -115,36 +101,30 @@ export function AnalyticsCharts({ dailyMetrics, members, weeklyGoals, weeksOfMon
     }
   };
 
-  // Get stable palette index for a metric
   const getMetricPaletteIndex = (key: string) => {
     const allIdx = (METRIC_KEYS as readonly string[]).indexOf(key);
     return allIdx >= 0 ? allIdx : 0;
   };
 
-  // Weekly data
+  const getColor = (metricKey: string) => PALETTE[getMetricPaletteIndex(metricKey) % PALETTE.length];
+
+  // === DATA ===
   const weeklyData = useMemo(() => {
     if (!weeklyGoals || weeksOfMonth.length === 0) return [];
     return weeksOfMonth.map(w => {
       const weekMetrics = filteredDailyMetrics.filter(d => d.date >= w.startDate && d.date <= w.endDate);
       const totals = weekMetrics.length > 0 ? sumMetrics(weekMetrics) : {};
-      const goal = weeklyGoals.find(g => g.week_number === w.weekNumber);
       const entry: Record<string, any> = { name: `Sem ${w.weekNumber}` };
-      activeSelectedMetrics.forEach(k => {
-        entry[METRIC_LABELS[k]] = totals[k] || 0;
-        if (goal) entry[`Meta ${METRIC_LABELS[k]}`] = (goal as any)[k] || 0;
-      });
+      activeSelectedMetrics.forEach(k => { entry[METRIC_LABELS[k]] = totals[k] || 0; });
       return entry;
     });
   }, [filteredDailyMetrics, weeklyGoals, weeksOfMonth, activeSelectedMetrics]);
 
-  // Daily data
   const dailyData = useMemo(() => {
     const dateMap = new Map<string, Record<string, number>>();
     filteredDailyMetrics.forEach(d => {
       const existing = dateMap.get(d.date) || {};
-      activeSelectedMetrics.forEach(k => {
-        existing[k] = (existing[k] || 0) + ((d as any)[k] || 0);
-      });
+      activeSelectedMetrics.forEach(k => { existing[k] = (existing[k] || 0) + ((d as any)[k] || 0); });
       dateMap.set(d.date, existing);
     });
     return [...dateMap.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([date, vals]) => {
@@ -154,7 +134,6 @@ export function AnalyticsCharts({ dailyMetrics, members, weeklyGoals, weeksOfMon
     });
   }, [filteredDailyMetrics, activeSelectedMetrics]);
 
-  // Person data
   const personData = useMemo(() => {
     return filteredMembers.map(m => {
       const totals = sumMetrics(filteredDailyMetrics, m.id);
@@ -164,68 +143,184 @@ export function AnalyticsCharts({ dailyMetrics, members, weeklyGoals, weeksOfMon
     });
   }, [filteredDailyMetrics, filteredMembers, activeSelectedMetrics]);
 
-  // Radar data
   const radarData = useMemo(() => {
     if (viewMode === "person") {
       return activeSelectedMetrics.map(k => {
         const entry: Record<string, any> = { metric: METRIC_LABELS[k] };
-        filteredMembers.forEach(m => {
-          const totals = sumMetrics(filteredDailyMetrics, m.id);
-          entry[m.name] = totals[k] || 0;
-        });
+        filteredMembers.forEach(m => { entry[m.name] = sumMetrics(filteredDailyMetrics, m.id)[k] || 0; });
         return entry;
       });
     }
     const totals = sumMetrics(filteredDailyMetrics);
-    return activeSelectedMetrics.map(k => ({
-      metric: METRIC_LABELS[k],
-      valor: totals[k] || 0,
-    }));
+    return activeSelectedMetrics.map(k => ({ metric: METRIC_LABELS[k], valor: totals[k] || 0 }));
   }, [filteredDailyMetrics, filteredMembers, activeSelectedMetrics, viewMode]);
+
+  // Donut data
+  const donutData = useMemo(() => {
+    const totals = sumMetrics(filteredDailyMetrics);
+    return activeSelectedMetrics.map(k => ({
+      name: METRIC_LABELS[k],
+      value: totals[k] || 0,
+      color: getColor(k),
+    }));
+  }, [filteredDailyMetrics, activeSelectedMetrics]);
+
+  // Heatmap data: days x metrics
+  const heatmapData = useMemo(() => {
+    const dateMap = new Map<string, Record<string, number>>();
+    filteredDailyMetrics.forEach(d => {
+      const existing = dateMap.get(d.date) || {};
+      activeSelectedMetrics.forEach(k => { existing[k] = (existing[k] || 0) + ((d as any)[k] || 0); });
+      dateMap.set(d.date, existing);
+    });
+    return { dates: [...dateMap.keys()].sort(), map: dateMap };
+  }, [filteredDailyMetrics, activeSelectedMetrics]);
+
+  // Funnel data: show metrics in order as a conversion funnel
+  const funnelData = useMemo(() => {
+    const totals = sumMetrics(filteredDailyMetrics);
+    return activeSelectedMetrics
+      .map(k => ({ name: METRIC_LABELS[k], value: totals[k] || 0, fill: getColor(k) }))
+      .sort((a, b) => b.value - a.value);
+  }, [filteredDailyMetrics, activeSelectedMetrics]);
 
   const activeData = viewMode === "weekly" ? weeklyData : viewMode === "daily" ? dailyData : personData;
   const dataKeys = activeSelectedMetrics.map(k => METRIC_LABELS[k]);
 
-  const renderChart = () => {
-    if (chartType === "radar") {
-      const radarKeys = viewMode === "person" ? filteredMembers.map(m => m.name) : ["valor"];
-      return (
-        <ResponsiveContainer width="100%" height="100%">
-          <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="75%">
-            <PolarGrid stroke="hsl(222, 30%, 20%)" />
-            <PolarAngleAxis dataKey="metric" tick={{ fill: "hsl(215, 16%, 65%)", fontSize: 10 }} />
-            <PolarRadiusAxis tick={{ fill: "hsl(215, 16%, 45%)", fontSize: 9 }} axisLine={false} />
-            {radarKeys.map((key, i) => (
-              <Radar
-                key={key}
-                name={key === "valor" ? "Total" : key}
-                dataKey={key}
-                stroke={PALETTE[i % PALETTE.length]}
-                fill={PALETTE[i % PALETTE.length]}
-                fillOpacity={0.15}
-                strokeWidth={2}
-              />
-            ))}
-            <Legend wrapperStyle={{ fontSize: 10 }} iconType="circle" iconSize={6} />
-            <Tooltip contentStyle={TOOLTIP_STYLE} />
-          </RadarChart>
-        </ResponsiveContainer>
-      );
-    }
+  // === RENDERERS ===
+  const renderRadar = () => {
+    const radarKeys = viewMode === "person" ? filteredMembers.map(m => m.name) : ["valor"];
+    return (
+      <ResponsiveContainer width="100%" height="100%">
+        <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="75%">
+          <PolarGrid stroke="hsl(222, 30%, 20%)" />
+          <PolarAngleAxis dataKey="metric" tick={{ fill: "hsl(215, 16%, 65%)", fontSize: 10 }} />
+          <PolarRadiusAxis tick={{ fill: "hsl(215, 16%, 45%)", fontSize: 9 }} axisLine={false} />
+          {radarKeys.map((key, i) => (
+            <Radar key={key} name={key === "valor" ? "Total" : key} dataKey={key}
+              stroke={PALETTE[i % PALETTE.length]} fill={PALETTE[i % PALETTE.length]}
+              fillOpacity={0.15} strokeWidth={2} />
+          ))}
+          <Legend wrapperStyle={{ fontSize: 10 }} iconType="circle" iconSize={6} />
+          <Tooltip contentStyle={TOOLTIP_STYLE} />
+        </RadarChart>
+      </ResponsiveContainer>
+    );
+  };
 
-    const ChartComponent = chartType === "line" ? LineChart : chartType === "area" ? AreaChart : BarChart;
+  const renderDonut = () => {
+    const total = donutData.reduce((s, d) => s + d.value, 0);
+    return (
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie data={donutData} cx="50%" cy="50%" innerRadius="55%" outerRadius="80%"
+            dataKey="value" nameKey="name" paddingAngle={3} stroke="none">
+            {donutData.map((d, i) => <Cell key={i} fill={d.color} />)}
+          </Pie>
+          <Tooltip contentStyle={TOOLTIP_STYLE}
+            formatter={(value: number, name: string) => [`${value} (${total > 0 ? Math.round((value / total) * 100) : 0}%)`, name]} />
+          <Legend wrapperStyle={{ fontSize: 10 }} iconType="circle" iconSize={6} />
+          <text x="50%" y="48%" textAnchor="middle" fill="hsl(210, 40%, 96%)" fontSize={22} fontWeight="bold">{total}</text>
+          <text x="50%" y="56%" textAnchor="middle" fill="hsl(215, 16%, 55%)" fontSize={9}>TOTAL</text>
+        </PieChart>
+      </ResponsiveContainer>
+    );
+  };
+
+  const renderHeatmap = () => {
+    const { dates, map } = heatmapData;
+    if (dates.length === 0) return <div className="flex items-center justify-center h-full text-muted-foreground text-xs">Sem dados</div>;
+
+    // Find max per metric for color scaling
+    const maxPerMetric: Record<string, number> = {};
+    activeSelectedMetrics.forEach(k => {
+      let max = 0;
+      dates.forEach(d => { max = Math.max(max, map.get(d)?.[k] || 0); });
+      maxPerMetric[k] = max || 1;
+    });
+
+    return (
+      <div className="overflow-x-auto h-full flex flex-col">
+        <div className="flex-1 min-h-0 overflow-auto">
+          <table className="w-full text-[9px]">
+            <thead className="sticky top-0 z-10">
+              <tr className="bg-card">
+                <th className="text-left py-1.5 px-2 text-muted-foreground font-semibold uppercase tracking-wider sticky left-0 bg-card">Dia</th>
+                {activeSelectedMetrics.map(k => (
+                  <th key={k} className="text-center py-1.5 px-1 text-muted-foreground font-semibold uppercase tracking-wider whitespace-nowrap">
+                    {METRIC_LABELS[k]}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {dates.map(date => {
+                const vals = map.get(date) || {};
+                return (
+                  <tr key={date} className="border-t border-border/30">
+                    <td className="py-1 px-2 text-card-foreground font-medium whitespace-nowrap sticky left-0 bg-card">
+                      {format(parseISO(date), "dd/MM", { locale: ptBR })}
+                    </td>
+                    {activeSelectedMetrics.map(k => {
+                      const val = vals[k] || 0;
+                      const intensity = maxPerMetric[k] > 0 ? val / maxPerMetric[k] : 0;
+                      const color = getColor(k);
+                      return (
+                        <td key={k} className="text-center py-1 px-1">
+                          <div
+                            className="mx-auto w-full max-w-[48px] rounded-md py-0.5 font-bold text-[10px]"
+                            style={{
+                              backgroundColor: `color-mix(in srgb, ${color} ${Math.round(intensity * 70 + 10)}%, transparent)`,
+                              color: intensity > 0.4 ? "white" : "hsl(215, 16%, 55%)",
+                            }}
+                          >
+                            {val}
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
+  const renderFunnel = () => {
+    if (funnelData.length === 0) return <div className="flex items-center justify-center h-full text-muted-foreground text-xs">Sem dados</div>;
+    return (
+      <ResponsiveContainer width="100%" height="100%">
+        <FunnelChart>
+          <Tooltip contentStyle={TOOLTIP_STYLE} />
+          <Funnel dataKey="value" data={funnelData} isAnimationActive>
+            <LabelList position="center" fill="white" fontSize={11} fontWeight="bold"
+              formatter={(value: number) => value} />
+            <LabelList position="right" fill="hsl(215, 16%, 65%)" fontSize={10}
+              dataKey="name" />
+            {funnelData.map((d, i) => <Cell key={i} fill={d.fill} />)}
+          </Funnel>
+        </FunnelChart>
+      </ResponsiveContainer>
+    );
+  };
+
+  const renderBarOrLineOrArea = () => {
+    const isStacked = chartType === "stacked";
+    const ChartComponent = (chartType === "line") ? LineChart : (chartType === "area") ? AreaChart : BarChart;
 
     return (
       <ResponsiveContainer width="100%" height="100%">
-        <ChartComponent data={activeData} barGap={2} barCategoryGap="20%">
+        <ChartComponent data={activeData} barGap={isStacked ? 0 : 2} barCategoryGap="20%">
           <defs>
             {chartType === "area" && dataKeys.map((_, i) => {
-              const metricKey = activeSelectedMetrics[i];
-              const pIdx = getMetricPaletteIndex(metricKey);
+              const color = getColor(activeSelectedMetrics[i]);
               return (
                 <linearGradient key={i} id={`gradient-${i}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={PALETTE[pIdx % PALETTE.length]} stopOpacity={0.4} />
-                  <stop offset="95%" stopColor={PALETTE[pIdx % PALETTE.length]} stopOpacity={0.02} />
+                  <stop offset="0%" stopColor={color} stopOpacity={0.4} />
+                  <stop offset="95%" stopColor={color} stopOpacity={0.02} />
                 </linearGradient>
               );
             })}
@@ -237,25 +332,30 @@ export function AnalyticsCharts({ dailyMetrics, members, weeklyGoals, weeksOfMon
           <Legend wrapperStyle={{ fontSize: 10 }} iconType="circle" iconSize={6} />
 
           {dataKeys.map((key, i) => {
-            const metricKey = activeSelectedMetrics[i];
-            const pIdx = getMetricPaletteIndex(metricKey);
-            const color = PALETTE[pIdx % PALETTE.length];
+            const color = getColor(activeSelectedMetrics[i]);
             if (chartType === "line") {
-              return (
-                <Line key={key} type="monotone" dataKey={key} stroke={color} strokeWidth={2.5}
-                  dot={{ r: 4, fill: color, strokeWidth: 0 }}
-                  activeDot={{ r: 6, strokeWidth: 2, stroke: "hsl(222, 47%, 9%)" }}
-                />
-              );
+              return <Line key={key} type="monotone" dataKey={key} stroke={color} strokeWidth={2.5}
+                dot={{ r: 4, fill: color, strokeWidth: 0 }}
+                activeDot={{ r: 6, strokeWidth: 2, stroke: "hsl(222, 47%, 9%)" }} />;
             }
             if (chartType === "area") {
               return <Area key={key} type="monotone" dataKey={key} stroke={color} strokeWidth={2} fill={`url(#gradient-${i})`} />;
             }
-            return <Bar key={key} dataKey={key} fill={color} radius={[4, 4, 0, 0]} opacity={0.85} />;
+            // bar or stacked
+            return <Bar key={key} dataKey={key} fill={color} radius={isStacked ? [0, 0, 0, 0] : [4, 4, 0, 0]}
+              opacity={0.85} stackId={isStacked ? "stack" : undefined} />;
           })}
         </ChartComponent>
       </ResponsiveContainer>
     );
+  };
+
+  const renderChart = () => {
+    if (chartType === "radar") return renderRadar();
+    if (chartType === "donut") return renderDonut();
+    if (chartType === "heatmap") return renderHeatmap();
+    if (chartType === "funnel") return renderFunnel();
+    return renderBarOrLineOrArea();
   };
 
   return (
@@ -268,13 +368,11 @@ export function AnalyticsCharts({ dailyMetrics, members, weeklyGoals, weeksOfMon
             Análise de Performance
           </h3>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {/* Team filter */}
             <div className="flex items-center gap-0.5 bg-secondary/50 rounded-lg p-0.5">
               {TEAM_FILTERS.map(tf => (
-                <button
-                  key={tf.id}
-                  onClick={() => setTeamFilter(tf.id)}
+                <button key={tf.id} onClick={() => setTeamFilter(tf.id)}
                   className={cn(
                     "px-2.5 py-1 text-[9px] rounded-md font-semibold uppercase tracking-wider transition-all",
                     teamFilter === tf.id
@@ -282,8 +380,7 @@ export function AnalyticsCharts({ dailyMetrics, members, weeklyGoals, weeksOfMon
                         : tf.id === "closer" ? "bg-[hsl(280,65%,60%)] text-white shadow-sm"
                         : "bg-[hsl(45,93%,47%)] text-background shadow-sm"
                       : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
+                  )}>
                   {tf.label}
                 </button>
               ))}
@@ -292,16 +389,11 @@ export function AnalyticsCharts({ dailyMetrics, members, weeklyGoals, weeksOfMon
             {/* View mode */}
             <div className="flex items-center gap-0.5 bg-secondary/50 rounded-lg p-0.5">
               {VIEW_MODES.map(v => (
-                <button
-                  key={v.id}
-                  onClick={() => setViewMode(v.id)}
+                <button key={v.id} onClick={() => setViewMode(v.id)}
                   className={cn(
                     "flex items-center gap-1 px-2.5 py-1 text-[9px] rounded-md font-semibold uppercase tracking-wider transition-all",
-                    viewMode === v.id
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
+                    viewMode === v.id ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  )}>
                   <v.icon size={10} />
                   {v.label}
                 </button>
@@ -311,17 +403,12 @@ export function AnalyticsCharts({ dailyMetrics, members, weeklyGoals, weeksOfMon
             {/* Chart type */}
             <div className="flex items-center gap-0.5 bg-secondary/50 rounded-lg p-0.5">
               {CHART_TYPES.map(ct => (
-                <button
-                  key={ct.id}
-                  onClick={() => setChartType(ct.id)}
+                <button key={ct.id} onClick={() => setChartType(ct.id)}
                   className={cn(
                     "p-1.5 rounded-md transition-all",
-                    chartType === ct.id
-                      ? "bg-accent text-accent-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
+                    chartType === ct.id ? "bg-accent text-accent-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                   )}
-                  title={ct.label}
-                >
+                  title={ct.label}>
                   <ct.icon size={12} />
                 </button>
               ))}
@@ -332,20 +419,14 @@ export function AnalyticsCharts({ dailyMetrics, members, weeklyGoals, weeksOfMon
         {/* Metric selector pills */}
         <div className="flex flex-wrap items-center gap-1 mt-3">
           {availableMetrics.map((k) => {
-            const pIdx = getMetricPaletteIndex(k);
             const isSelected = activeSelectedMetrics.includes(k);
             return (
-              <button
-                key={k}
-                onClick={() => toggleMetric(k)}
+              <button key={k} onClick={() => toggleMetric(k)}
                 className={cn(
                   "px-2 py-0.5 text-[9px] rounded-full font-semibold uppercase tracking-wider transition-all border",
-                  isSelected
-                    ? "border-transparent text-white shadow-sm"
-                    : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 bg-transparent"
+                  isSelected ? "border-transparent text-white shadow-sm" : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 bg-transparent"
                 )}
-                style={isSelected ? { backgroundColor: PALETTE[pIdx % PALETTE.length] } : {}}
-              >
+                style={isSelected ? { backgroundColor: getColor(k) } : {}}>
                 {METRIC_LABELS[k]}
               </button>
             );
@@ -354,8 +435,8 @@ export function AnalyticsCharts({ dailyMetrics, members, weeklyGoals, weeksOfMon
       </div>
 
       {/* Chart */}
-      <div className="p-4 h-80">
-        {activeData.length > 0 || chartType === "radar" ? (
+      <div className={cn("p-4", chartType === "heatmap" ? "h-96" : "h-80")}>
+        {(activeData.length > 0 || ["radar", "donut", "funnel", "heatmap"].includes(chartType)) ? (
           renderChart()
         ) : (
           <div className="flex items-center justify-center h-full text-muted-foreground text-xs">
