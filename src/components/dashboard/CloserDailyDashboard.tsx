@@ -297,6 +297,8 @@ function LeadHistoryPanel({ teamMemberId }: { teamMemberId: string }) {
   const [editValues, setEditValues] = useState<any>({});
   const [deleting, setDeleting] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const queryClient = useQueryClient();
 
   const METRIC_SHORT: Record<string, string> = {
@@ -348,6 +350,64 @@ function LeadHistoryPanel({ teamMemberId }: { teamMemberId: string }) {
     queryClient.invalidateQueries({ queryKey: ["daily-metrics"] });
     toast.success("Registro apagado e métrica ajustada!");
     setDeleting(null);
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredLeads.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredLeads.map((l: any) => l.id)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Apagar ${selectedIds.size} registro(s)? As métricas serão ajustadas.`)) return;
+    setBulkDeleting(true);
+    const entriesToDelete = leads.filter(l => selectedIds.has(l.id));
+    
+    // Delete all from lead_entries
+    const { error } = await supabase.from("lead_entries").delete().in("id", Array.from(selectedIds));
+    if (error) { toast.error("Erro: " + error.message); setBulkDeleting(false); return; }
+    
+    // Decrement metrics grouped by date+metric_type
+    const decrements: Record<string, Record<string, number>> = {};
+    entriesToDelete.forEach((e: any) => {
+      if (!e.metric_type) return;
+      const key = `${e.date}__${e.metric_type}`;
+      if (!decrements[key]) decrements[key] = { date: e.date, metric_type: e.metric_type, count: 0 } as any;
+      (decrements[key] as any).count = ((decrements[key] as any).count || 0) + 1;
+    });
+    
+    for (const key of Object.keys(decrements)) {
+      const { date, metric_type, count } = decrements[key] as any;
+      const { data: metric } = await supabase
+        .from("daily_metrics")
+        .select("*")
+        .eq("member_id", teamMemberId)
+        .eq("date", date)
+        .maybeSingle();
+      if (metric) {
+        const val = (metric as any)[metric_type] || 0;
+        await supabase.from("daily_metrics")
+          .update({ [metric_type]: Math.max(0, val - count) })
+          .eq("id", metric.id);
+      }
+    }
+    
+    setLeads(prev => prev.filter(l => !selectedIds.has(l.id)));
+    setSelectedIds(new Set());
+    queryClient.invalidateQueries({ queryKey: ["daily-metrics"] });
+    toast.success(`${entriesToDelete.length} registros apagados e métricas ajustadas!`);
+    setBulkDeleting(false);
   };
 
   const startEdit = (entry: any) => {
@@ -516,14 +576,47 @@ function LeadHistoryPanel({ teamMemberId }: { teamMemberId: string }) {
                 </div>
               )}
 
+              {/* Bulk delete bar */}
+              {selectedIds.size > 0 && (
+                <div className="flex items-center justify-between bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2">
+                  <span className="text-[10px] font-bold text-destructive">
+                    {selectedIds.size} selecionado(s)
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setSelectedIds(new Set())}
+                      className="text-[9px] text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Limpar
+                    </button>
+                    <button
+                      onClick={handleBulkDelete}
+                      disabled={bulkDeleting}
+                      className="flex items-center gap-1 text-[9px] font-bold text-destructive bg-destructive/15 hover:bg-destructive/25 px-2 py-1 rounded-md transition-colors disabled:opacity-50"
+                    >
+                      {bulkDeleting ? <Loader2 size={10} className="animate-spin" /> : <Trash2 size={10} />}
+                      Apagar selecionados
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Entries list */}
               {filteredLeads.length === 0 ? (
                 <p className="text-[10px] text-muted-foreground text-center py-4">Nenhum registro neste período</p>
               ) : (
                 <div className="rounded-lg border border-border overflow-hidden max-h-[400px] overflow-y-auto">
                   {/* Table header */}
-                  <div className="grid grid-cols-[auto_1fr_60px_50px] gap-0 bg-secondary/40 border-b border-border sticky top-0 z-10">
-                    <div className="px-2 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider">Data</div>
+                  <div className="grid grid-cols-[24px_auto_1fr_60px_50px] gap-0 bg-secondary/40 border-b border-border sticky top-0 z-10">
+                    <div className="flex items-center justify-center py-1.5">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.size === filteredLeads.length && filteredLeads.length > 0}
+                        onChange={toggleSelectAll}
+                        className="w-3 h-3 rounded border-border accent-primary cursor-pointer"
+                      />
+                    </div>
+                    <div className="px-2 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider border-l border-border">Data / Hora</div>
                     <div className="px-2 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider border-l border-border">Registro</div>
                     <div className="px-1 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider border-l border-border text-center">Métrica</div>
                     <div className="px-1 py-1.5 text-[8px] font-bold text-muted-foreground uppercase tracking-wider border-l border-border text-center">Ações</div>
@@ -532,19 +625,36 @@ function LeadHistoryPanel({ teamMemberId }: { teamMemberId: string }) {
                   {filteredLeads.map((entry: any, idx: number) => {
                     const isEditing = editingId === entry.id;
                     const isNumero = entry.metric_type === "numero";
+                    const isSelected = selectedIds.has(entry.id);
+                    const createdAt = entry.created_at ? new Date(entry.created_at) : null;
 
                     return (
                       <div
                         key={entry.id}
                         className={cn(
-                          "grid grid-cols-[auto_1fr_60px_50px] gap-0",
-                          idx % 2 === 0 ? "bg-card" : "bg-secondary/10",
+                          "grid grid-cols-[24px_auto_1fr_60px_50px] gap-0",
+                          isSelected ? "bg-primary/5" : idx % 2 === 0 ? "bg-card" : "bg-secondary/10",
                           idx < filteredLeads.length - 1 && "border-b border-border/30"
                         )}
                       >
-                        {/* Date */}
-                        <div className="px-2 py-1.5 text-[9px] text-muted-foreground tabular-nums whitespace-nowrap">
-                          {format(new Date(entry.date + "T12:00:00"), "dd/MM")}
+                        {/* Checkbox */}
+                        <div className="flex items-center justify-center py-1.5">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleSelect(entry.id)}
+                            className="w-3 h-3 rounded border-border accent-primary cursor-pointer"
+                          />
+                        </div>
+
+                        {/* Date + Time */}
+                        <div className="px-2 py-1.5 text-[9px] text-muted-foreground tabular-nums whitespace-nowrap border-l border-border/30">
+                          <div>{format(new Date(entry.date + "T12:00:00"), "dd/MM")}</div>
+                          {createdAt && (
+                            <div className="text-[7px] text-muted-foreground/60">
+                              {format(createdAt, "HH:mm")}
+                            </div>
+                          )}
                         </div>
 
                         {/* Name / detail */}
