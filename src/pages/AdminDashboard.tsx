@@ -386,64 +386,6 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
         </div>
       </CollapsiblePanel>
 
-      {/* Filters Panel */}
-      <div className="rounded-xl border border-border bg-card p-4">
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center gap-2 text-xs font-semibold text-card-foreground uppercase tracking-wider"
-          >
-            <Filter size={14} className="text-primary" />
-            Filtros Avançados
-            <ChevronDown size={12} className={`transition-transform ${showFilters ? "rotate-180" : ""}`} />
-          </button>
-          {hasActiveFilters && (
-            <button onClick={clearFilters} className="flex items-center gap-1 text-[10px] text-destructive hover:text-destructive/80">
-              <X size={10} /> Limpar filtros
-            </button>
-          )}
-        </div>
-        {showFilters && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-3 mt-3 border-t border-border">
-            <div>
-              <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Data Início</label>
-              <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-border bg-secondary px-2.5 py-1.5 text-xs text-secondary-foreground focus:ring-1 focus:ring-primary outline-none" />
-            </div>
-            <div>
-              <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Data Fim</label>
-              <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-border bg-secondary px-2.5 py-1.5 text-xs text-secondary-foreground focus:ring-1 focus:ring-primary outline-none" />
-            </div>
-            <div>
-              <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Dia da Semana</label>
-              <select value={selectedDayOfWeek || ""} onChange={e => setSelectedDayOfWeek(e.target.value || null)}
-                className="mt-1 w-full rounded-lg border border-border bg-secondary px-2.5 py-1.5 text-xs text-secondary-foreground focus:ring-1 focus:ring-primary outline-none appearance-none">
-                <option value="">Todos</option>
-                {["Seg", "Ter", "Qua", "Qui", "Sex"].map(d => <option key={d} value={d}>{d}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Métrica Mínima</label>
-              <div className="mt-1 flex gap-1">
-                <select
-                  value={minMetricFilter?.key || ""}
-                  onChange={e => setMinMetricFilter(e.target.value ? { key: e.target.value, value: minMetricFilter?.value || 1 } : null)}
-                  className="flex-1 rounded-lg border border-border bg-secondary px-2 py-1.5 text-xs text-secondary-foreground outline-none appearance-none"
-                >
-                  <option value="">—</option>
-                  {METRIC_KEYS.map(k => <option key={k} value={k}>{METRIC_LABELS[k]}</option>)}
-                </select>
-                {minMetricFilter && (
-                  <input type="number" min={1} value={minMetricFilter.value}
-                    onChange={e => setMinMetricFilter({ ...minMetricFilter, value: parseInt(e.target.value) || 1 })}
-                    className="w-14 rounded-lg border border-border bg-secondary px-2 py-1.5 text-xs text-secondary-foreground outline-none" />
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 gap-4">
