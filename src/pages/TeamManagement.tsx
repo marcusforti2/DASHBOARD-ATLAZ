@@ -22,6 +22,7 @@ function CloserFormDialog({
   const [name, setName] = useState(member?.name || "");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [memberRole, setMemberRole] = useState<"sdr" | "closer">("sdr");
   const [saving, setSaving] = useState(false);
   const [welcomeMsg, setWelcomeMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -58,7 +59,7 @@ function CloserFormDialog({
           "Content-Type": "application/json",
           Authorization: `Bearer ${session?.access_token}`,
         },
-        body: JSON.stringify({ name: name.trim(), email: email.trim(), password }),
+        body: JSON.stringify({ name: name.trim(), email: email.trim(), password, member_role: memberRole }),
       });
       const result = await resp.json();
       if (!resp.ok) throw new Error(result.error || "Erro ao criar SDR");
@@ -139,6 +140,19 @@ function CloserFormDialog({
           </div>
           {!isEditing && (
             <>
+              <div>
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Função</label>
+                <div className="flex gap-2 mt-1">
+                  <button type="button" onClick={() => setMemberRole("sdr")}
+                    className={`flex-1 px-3 py-2.5 text-xs font-semibold rounded-lg border transition-colors ${memberRole === "sdr" ? "bg-primary/20 border-primary text-primary" : "bg-secondary border-border text-muted-foreground hover:bg-secondary/80"}`}>
+                    SDR
+                  </button>
+                  <button type="button" onClick={() => setMemberRole("closer")}
+                    className={`flex-1 px-3 py-2.5 text-xs font-semibold rounded-lg border transition-colors ${memberRole === "closer" ? "bg-[hsl(280,65%,60%)]/20 border-[hsl(280,65%,60%)] text-[hsl(280,65%,65%)]" : "bg-secondary border-border text-muted-foreground hover:bg-secondary/80"}`}>
+                    Closer
+                  </button>
+                </div>
+              </div>
               <div>
                 <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Email</label>
                 <input
@@ -544,7 +558,9 @@ export default function TeamManagement() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-bold text-foreground">Gestão de Equipe</h2>
-          <p className="text-xs text-muted-foreground mt-1">{members?.length || 0} SDRs cadastrados</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {members?.filter(m => m.member_role !== 'closer').length || 0} SDRs · {members?.filter(m => m.member_role === 'closer').length || 0} Closers
+          </p>
         </div>
         <div className="flex items-center gap-3">
           {/* Month selector for analyses */}
@@ -565,7 +581,7 @@ export default function TeamManagement() {
             onClick={() => { setEditingMember(null); setShowForm(true); }}
             className="px-4 py-2 text-xs rounded-lg font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors flex items-center gap-1.5"
           >
-            <Plus size={14} /> Novo SDR
+            <Plus size={14} /> Novo Membro
           </button>
         </div>
       </div>
@@ -617,7 +633,16 @@ export default function TeamManagement() {
                     </label>
                   </div>
                   <div>
-                    <h4 className="text-sm font-semibold text-card-foreground">{member.name}</h4>
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-sm font-semibold text-card-foreground">{member.name}</h4>
+                      <span className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                        member.member_role === "closer"
+                          ? "bg-[hsl(280,65%,60%)]/15 text-[hsl(280,65%,65%)]"
+                          : "bg-primary/15 text-primary"
+                      }`}>
+                        {member.member_role === "closer" ? "Closer" : "SDR"}
+                      </span>
+                    </div>
                     <span className={`text-[10px] font-semibold uppercase tracking-wider ${member.active ? "text-accent" : "text-muted-foreground"}`}>
                       {member.active ? "Ativo" : "Inativo"}
                     </span>

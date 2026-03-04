@@ -12,6 +12,7 @@ export interface DbTeamMember {
   name: string;
   active: boolean;
   avatar_url?: string | null;
+  member_role?: string;
 }
 
 export const DEFAULT_AVATARS = [

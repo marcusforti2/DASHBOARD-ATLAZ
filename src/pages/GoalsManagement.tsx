@@ -246,7 +246,7 @@ function MonthGoalsEditor({
 
   const tabs = [
     { id: "team", label: "Time", icon: Users },
-    ...members.map(m => ({ id: m.id, label: m.name, icon: User })),
+    ...members.map(m => ({ id: m.id, label: m.name, icon: User, role: m.member_role })),
   ];
 
   const isViewingTeam = activeTab === "team";
@@ -273,6 +273,14 @@ function MonthGoalsEditor({
                 }`}
               >
                 <Icon size={12} />
+                {tab.label}
+                {'role' in tab && tab.role && (
+                  <span className={`text-[7px] font-bold uppercase px-1 py-0.5 rounded ${
+                    tab.role === "closer" ? "bg-[hsl(280,65%,60%)]/20 text-[hsl(280,65%,65%)]" : "bg-primary/20 text-primary"
+                  }`}>
+                    {tab.role === "closer" ? "C" : "S"}
+                  </span>
+                )}
                 {tab.label}
               </button>
             );
