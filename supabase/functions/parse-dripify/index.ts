@@ -5,6 +5,30 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Map Dripify CSV columns to our metric keys
+const COLUMN_MAP: Record<string, string> = {
+  "invites sent": "conexoes",
+  "invites accepted": "conexoes_aceitas",
+  "messaged": "abordagens",
+  "inmailed": "inmail",
+};
+
+const MONTH_MAP: Record<string, string> = {
+  "Jan": "01", "Feb": "02", "Mar": "03", "Apr": "04",
+  "May": "05", "Jun": "06", "Jul": "07", "Aug": "08",
+  "Sep": "09", "Oct": "10", "Nov": "11", "Dec": "12",
+};
+
+function parseDripifyDate(dateStr: string): string | null {
+  // "Feb 26, 2026" → "2026-02-26"
+  const match = dateStr.trim().replace(/"/g, "").match(/^(\w{3})\s+(\d{1,2}),?\s+(\d{4})$/);
+  if (!match) return null;
+  const [, mon, day, year] = match;
+  const mm = MONTH_MAP[mon];
+  if (!mm) return null;
+  return `${year}-${mm}-${day.padStart(2, "0")}`;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -13,7 +37,6 @@ serve(async (req) => {
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File;
-    const metricType = formData.get("metric_type") as string;
 
     if (!file) {
       return new Response(JSON.stringify({ error: "Arquivo não enviado" }), {
@@ -22,110 +45,120 @@ serve(async (req) => {
       });
     }
 
+    const fileName = file.name?.toLowerCase() || "";
+    const fileType = file.type || "";
+    const isCsv = fileName.endsWith(".csv") || fileType === "text/csv";
+
+    if (isCsv) {
+      // Direct CSV parsing - no AI needed
+      const text = await file.text();
+      const lines = text.split("\n").map(l => l.trim()).filter(l => l);
+
+      if (lines.length < 2) {
+        return new Response(JSON.stringify({ error: "Arquivo CSV vazio ou inválido", daily_data: [] }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Parse header
+      const headers = lines[0].split(",").map(h => h.trim().replace(/"/g, "").toLowerCase());
+      console.log("CSV headers:", headers);
+
+      // Map header indices to our metric keys
+      const colMapping: { index: number; metric: string }[] = [];
+      headers.forEach((h, i) => {
+        if (COLUMN_MAP[h]) {
+          colMapping.push({ index: i, metric: COLUMN_MAP[h] });
+        }
+      });
+
+      if (colMapping.length === 0) {
+        return new Response(JSON.stringify({
+          error: "Não encontrei colunas do Dripify (Invites sent, Invites accepted, Messaged). Verifique o arquivo.",
+          daily_data: [],
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Parse data rows
+      const dailyData: { date: string; metrics: Record<string, number> }[] = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i];
+        // Handle CSV with quoted fields containing commas
+        const values: string[] = [];
+        let current = "";
+        let inQuotes = false;
+        for (const ch of line) {
+          if (ch === '"') { inQuotes = !inQuotes; continue; }
+          if (ch === ',' && !inQuotes) { values.push(current.trim()); current = ""; continue; }
+          current += ch;
+        }
+        values.push(current.trim());
+
+        // Skip "Total:" row
+        if (values[0]?.toLowerCase().startsWith("total")) continue;
+
+        const date = parseDripifyDate(values[0]);
+        if (!date) continue;
+
+        const metrics: Record<string, number> = {};
+        for (const { index, metric } of colMapping) {
+          const val = parseInt(values[index] || "0", 10);
+          metrics[metric] = isNaN(val) ? 0 : val;
+        }
+
+        dailyData.push({ date, metrics });
+      }
+
+      console.log(`Parsed ${dailyData.length} days from CSV`);
+
+      return new Response(JSON.stringify({
+        type: "daily_stats",
+        daily_data: dailyData,
+        total_days: dailyData.length,
+        columns_found: colMapping.map(c => c.metric),
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // For non-CSV files (PDF, images), use AI to extract
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const metricLabels: Record<string, string> = {
-      conexoes: "Conexões enviadas",
-      conexoes_aceitas: "Conexões aceitas",
-      abordagens: "Abordagens/Mensagens enviadas",
-    };
+    const arrayBuffer = await file.arrayBuffer();
+    const uint8 = new Uint8Array(arrayBuffer);
+    const base64 = btoa(String.fromCharCode(...uint8));
+    const mimeType = file.type || "application/octet-stream";
 
     const prompt = `Você é um parser de relatórios do Dripify (ferramenta de automação LinkedIn).
 
-O usuário enviou um relatório do Dripify (pode ser PDF, planilha Excel/CSV, ou imagem/screenshot).
-A métrica que interessa é: ${metricLabels[metricType] || metricType}
+O arquivo contém estatísticas diárias do Dripify. Extraia os dados por dia.
 
-Extraia TODOS os leads/contatos do relatório que se relacionam com essa métrica.
-Para cada lead encontrado, extraia:
-- name: nome completo da pessoa
-- linkedin: URL do perfil LinkedIn (se disponível)
+Mapeamento de colunas:
+- "Invites sent" → "conexoes"
+- "Invites accepted" → "conexoes_aceitas"  
+- "Messaged" → "abordagens"
+- "InMailed" → "inmail"
 
-Responda APENAS com um JSON válido no formato:
+Ignore a linha "Total:".
+
+Responda APENAS com JSON válido:
 {
-  "leads": [
-    { "name": "Nome Completo", "linkedin": "https://linkedin.com/in/..." },
-    { "name": "Outro Nome", "linkedin": "" }
+  "type": "daily_stats",
+  "daily_data": [
+    { "date": "2026-02-26", "metrics": { "conexoes": 0, "conexoes_aceitas": 14, "abordagens": 33 } }
   ],
-  "total_found": 5,
-  "metric_type": "${metricType}"
-}
-
-Se não conseguir extrair dados, retorne: { "leads": [], "total_found": 0, "error": "motivo" }`;
-
-    const arrayBuffer = await file.arrayBuffer();
-    const uint8 = new Uint8Array(arrayBuffer);
-    
-    const fileType = file.type || "application/octet-stream";
-    const fileName = file.name?.toLowerCase() || "";
-    const isPdf = fileType === "application/pdf" || fileName.endsWith(".pdf");
-    const isImage = fileType.startsWith("image/");
-    const isExcel = fileName.endsWith(".xlsx") || fileName.endsWith(".xls") || 
-                    fileType.includes("spreadsheet") || fileType.includes("excel");
-    const isCsv = fileName.endsWith(".csv") || fileType === "text/csv";
-
-    let messages: any[];
-
-    if (isCsv) {
-      // CSV: read as text directly
-      const textContent = new TextDecoder().decode(uint8);
-      messages = [
-        {
-          role: "user",
-          content: `${prompt}\n\nConteúdo do arquivo CSV:\n\n${textContent}`,
-        },
-      ];
-    } else if (isExcel) {
-      // Excel: try to decode as text, if binary send as base64 with explanation
-      let textContent = "";
-      try {
-        textContent = new TextDecoder("utf-8", { fatal: true }).decode(uint8);
-      } catch {
-        // Binary Excel - encode as base64 and ask AI to try
-        const base64 = btoa(String.fromCharCode(...uint8));
-        messages = [
-          {
-            role: "user",
-            content: [
-              { type: "text", text: `${prompt}\n\nO arquivo é um Excel (.xlsx/.xls). Aqui está o conteúdo em base64. Tente extrair os dados:` },
-              {
-                type: "image_url",
-                image_url: { url: `data:${fileType};base64,${base64}` },
-              },
-            ],
-          },
-        ];
-      }
-      if (textContent) {
-        messages = [
-          {
-            role: "user",
-            content: `${prompt}\n\nConteúdo do arquivo:\n\n${textContent}`,
-          },
-        ];
-      }
-    } else {
-      // PDF or Image: send as multimodal content
-      const base64 = btoa(String.fromCharCode(...uint8));
-      const mimeType = isPdf ? "application/pdf" : isImage ? fileType : "application/octet-stream";
-      
-      messages = [
-        {
-          role: "user",
-          content: [
-            { type: "text", text: prompt },
-            {
-              type: "image_url",
-              image_url: { url: `data:${mimeType};base64,${base64}` },
-            },
-          ],
-        },
-      ];
-    }
-
-    console.log(`Processing Dripify file: ${file.name}, type: ${fileType}, size: ${uint8.length}`);
+  "total_days": 7,
+  "columns_found": ["conexoes", "conexoes_aceitas", "abordagens"]
+}`;
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -135,52 +168,42 @@ Se não conseguir extrair dados, retorne: { "leads": [], "total_found": 0, "erro
       },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
-        messages,
+        messages: [{
+          role: "user",
+          content: [
+            { type: "text", text: prompt },
+            { type: "image_url", image_url: { url: `data:${mimeType};base64,${base64}` } },
+          ],
+        }],
         temperature: 0.1,
       }),
     });
 
     if (!aiResponse.ok) {
       const errText = await aiResponse.text();
-      console.error(`AI gateway error: ${aiResponse.status}`, errText);
-      
+      console.error(`AI error: ${aiResponse.status}`, errText);
       if (aiResponse.status === 429) {
-        return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns segundos.", leads: [], total_found: 0 }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        return new Response(JSON.stringify({ error: "Limite de requisições. Tente novamente.", daily_data: [] }), {
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (aiResponse.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos de IA esgotados. Adicione créditos na sua conta.", leads: [], total_found: 0 }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      
-      throw new Error(`AI API error [${aiResponse.status}]: ${errText}`);
+      throw new Error(`AI API error [${aiResponse.status}]`);
     }
 
     const aiData = await aiResponse.json();
     const content = aiData.choices?.[0]?.message?.content || "";
-
-    console.log("AI response content:", content.substring(0, 500));
-
-    // Extract JSON from response
     const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error("Não foi possível extrair dados do relatório. Tente enviar uma captura de tela (screenshot) do relatório.");
-    }
+    if (!jsonMatch) throw new Error("IA não conseguiu extrair dados. Tente um arquivo CSV.");
 
     const parsed = JSON.parse(jsonMatch[0]);
-
     return new Response(JSON.stringify(parsed), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("Erro ao processar relatório Dripify:", error);
+    console.error("Erro parse-dripify:", error);
     return new Response(
-      JSON.stringify({ error: error.message, leads: [], total_found: 0 }),
+      JSON.stringify({ error: error.message, daily_data: [] }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
