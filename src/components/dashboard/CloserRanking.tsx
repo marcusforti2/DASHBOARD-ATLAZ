@@ -1,4 +1,4 @@
-import { DbDailyMetric, DbTeamMember, sumMetrics, METRIC_LABELS, SHORT_TABLE_LABELS, METRIC_KEYS, SDR_METRIC_KEYS, CLOSER_METRIC_KEYS, getMemberAvatar } from "@/lib/db";
+import { DbDailyMetric, DbTeamMember, sumMetrics, METRIC_LABELS, SHORT_TABLE_LABELS, METRIC_KEYS, SDR_METRIC_KEYS, CLOSER_METRIC_KEYS, getMemberAvatar, memberHasRole } from "@/lib/db";
 import { Trophy, Medal, Crown, Flame, Star, ChevronDown } from "lucide-react";
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
@@ -39,8 +39,8 @@ const PODIUM_STYLES = [
 ];
 
 export function CloserRanking({ dailyMetrics, members }: CloserRankingProps) {
-  const sdrMembers = members.filter(m => m.member_role === "sdr");
-  const closerMembers = members.filter(m => m.member_role === "closer");
+  const sdrMembers = members.filter(m => memberHasRole(m, "sdr"));
+  const closerMembers = members.filter(m => memberHasRole(m, "closer"));
 
   return (
     <div className="flex flex-col gap-4">

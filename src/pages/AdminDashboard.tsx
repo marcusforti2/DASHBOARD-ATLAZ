@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useMonths, useTeamMembers, useMonthlyGoals, useWeeklyGoals, useDailyMetrics, useAiReports, useAllMonthlyGoals, useAllWeeklyGoals } from "@/hooks/use-metrics";
-import { sumMetrics, goalToMetrics, METRIC_LABELS, SHORT_TABLE_LABELS, METRIC_KEYS, SDR_METRIC_KEYS, CLOSER_METRIC_KEYS, DbDailyMetric, DbTeamMember, getWorkingDaysCount, getMemberAvatar } from "@/lib/db";
+import { sumMetrics, goalToMetrics, METRIC_LABELS, SHORT_TABLE_LABELS, METRIC_KEYS, SDR_METRIC_KEYS, CLOSER_METRIC_KEYS, DbDailyMetric, DbTeamMember, getWorkingDaysCount, getMemberAvatar, memberHasRole } from "@/lib/db";
 import { getWeeksOfMonth } from "@/lib/calendar-utils";
 import { KpiGrid } from "@/components/dashboard/KpiGrid";
 import { AnalyticsCharts } from "@/components/dashboard/AnalyticsCharts";
@@ -142,8 +142,8 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
   }, [dailyMetrics, allSdrPeriod, allSdrDate, allSdrWeekIdx, weeksOfMonth]);
 
   // All SDRs per-member breakdown — split by role
-  const sdrMembersList = useMemo(() => members?.filter(m => m.member_role === "sdr") || [], [members]);
-  const closerMembersList = useMemo(() => members?.filter(m => m.member_role === "closer") || [], [members]);
+  const sdrMembersList = useMemo(() => members?.filter(m => memberHasRole(m, "sdr")) || [], [members]);
+  const closerMembersList = useMemo(() => members?.filter(m => memberHasRole(m, "closer")) || [], [members]);
 
   const allSdrByRole = useMemo(() => {
     const mapMembers = (list: DbTeamMember[], keys: readonly string[]) =>
@@ -240,7 +240,7 @@ export default function AdminDashboard({ onSignOut, userName, selectedMonthId: e
     if (!members) return {};
     const result: Record<string, Record<string, number>> = {};
     for (const m of members) {
-      const roleKeys = m.member_role === "closer" ? CLOSER_METRIC_KEYS : SDR_METRIC_KEYS;
+      const roleKeys = memberHasRole(m, "closer") ? CLOSER_METRIC_KEYS : SDR_METRIC_KEYS;
       const g = getMemberGoal(m.id, roleKeys);
       if (g) result[m.id] = g;
     }

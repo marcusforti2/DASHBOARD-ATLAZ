@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { motion, AnimatePresence, useMotionValue, useTransform, animate } from "framer-motion";
 import { ArrowLeft, Trophy, Crown, Flame, TrendingUp, Target, Zap, Star, Medal, ChevronDown, Sparkles } from "lucide-react";
 import { useMonths, useDailyMetrics, useTeamMembers } from "@/hooks/use-metrics";
-import { sumMetrics, METRIC_LABELS, SDR_METRIC_KEYS, CLOSER_METRIC_KEYS, getMemberAvatar } from "@/lib/db";
+import { sumMetrics, METRIC_LABELS, SDR_METRIC_KEYS, CLOSER_METRIC_KEYS, getMemberAvatar, memberHasRole, getMemberRoles } from "@/lib/db";
 import { cn } from "@/lib/utils";
 
 interface UserRankingScreenProps {
@@ -86,7 +86,12 @@ function PulseRing({ color, delay = 0 }: { color: string; delay?: number }) {
 }
 
 export function UserRankingScreen({ teamMemberId, memberName, memberRole, onBack }: UserRankingScreenProps) {
-  const metricKeys = memberRole === "closer" ? [...CLOSER_METRIC_KEYS] : [...SDR_METRIC_KEYS];
+  const roles = getMemberRoles({ member_role: memberRole });
+  const hasDualRole = roles.includes("sdr") && roles.includes("closer");
+  const [activeRoleView, setActiveRoleView] = useState<"sdr" | "closer">(roles.includes("sdr") ? "sdr" : "closer");
+  
+  const currentRoleForRanking = hasDualRole ? activeRoleView : (roles.includes("closer") ? "closer" : "sdr");
+  const metricKeys = currentRoleForRanking === "closer" ? [...CLOSER_METRIC_KEYS] : [...SDR_METRIC_KEYS];
   const rankingMetrics = ["_all", ...metricKeys];
   const rankingLabels: Record<string, string> = { _all: "Geral", ...METRIC_LABELS };
   const [selectedMetric, setSelectedMetric] = useState("_all");
@@ -103,9 +108,12 @@ export function UserRankingScreen({ teamMemberId, memberName, memberRole, onBack
     return () => clearTimeout(t);
   }, []);
 
+  // Reset metric selection when switching role view
+  useEffect(() => { setSelectedMetric("_all"); }, [activeRoleView]);
+
   const roleMembers = useMemo(() =>
-    members?.filter(m => m.member_role === memberRole && m.active) || [],
-    [members, memberRole]
+    members?.filter(m => memberHasRole(m, currentRoleForRanking) && m.active) || [],
+    [members, currentRoleForRanking]
   );
 
   const ranked = useMemo(() => {
@@ -167,6 +175,20 @@ export function UserRankingScreen({ teamMemberId, memberName, memberRole, onBack
     >
       {/* Background ambient glow */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[300px] bg-[radial-gradient(ellipse,hsl(45,93%,47%,0.06)_0%,transparent_70%)] pointer-events-none" />
+
+      {/* Dual Role Tab */}
+      {hasDualRole && (
+        <div className="flex items-center gap-1 bg-secondary/50 rounded-xl p-1 mb-4 relative z-10">
+          <button onClick={() => setActiveRoleView("sdr")}
+            className={cn("flex-1 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all",
+              activeRoleView === "sdr" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+            )}>⚡ SDR</button>
+          <button onClick={() => setActiveRoleView("closer")}
+            className={cn("flex-1 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all",
+              activeRoleView === "closer" ? "bg-[hsl(280,65%,60%)] text-white shadow-sm" : "text-muted-foreground hover:text-foreground"
+            )}>🏆 Closer</button>
+        </div>
+      )}
 
       {/* Header */}
       <div className="flex items-center justify-between mb-6 relative z-10">

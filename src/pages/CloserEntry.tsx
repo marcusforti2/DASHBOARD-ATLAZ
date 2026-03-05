@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMonths, useTeamMembers } from "@/hooks/use-metrics";
-import { METRIC_KEYS, METRIC_LABELS, SDR_METRIC_KEYS, CLOSER_METRIC_KEYS } from "@/lib/db";
+import { METRIC_KEYS, METRIC_LABELS, SDR_METRIC_KEYS, CLOSER_METRIC_KEYS, memberHasRole } from "@/lib/db";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Loader2, Save, CheckCircle2, Calendar } from "lucide-react";
@@ -27,7 +27,7 @@ export default function CloserEntry({ teamMemberId, memberName }: CloserEntryPro
 
   // Determine role-specific metrics
   const currentMember = members?.find(m => m.id === teamMemberId);
-  const isCloserRole = currentMember?.member_role === "closer";
+  const isCloserRole = memberHasRole(currentMember, "closer");
   const visibleKeys: readonly string[] = isCloserRole ? CLOSER_METRIC_KEYS : SDR_METRIC_KEYS;
   const roleLabel = isCloserRole ? "Closer" : "SDR";
 

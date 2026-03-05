@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { DbDailyMetric, DbTeamMember, METRIC_LABELS, SDR_METRIC_KEYS, CLOSER_METRIC_KEYS, sumMetrics } from "@/lib/db";
+import { DbDailyMetric, DbTeamMember, METRIC_LABELS, SDR_METRIC_KEYS, CLOSER_METRIC_KEYS, sumMetrics, memberHasRole } from "@/lib/db";
 import { AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
 import { format, subDays } from "date-fns";
 
@@ -45,7 +45,7 @@ export function AlertsPanel({ dailyMetrics, members, goals, memberGoals }: Alert
     // Check metrics below 30% of INDIVIDUAL goals (not team total)
     members.forEach(m => {
       const totals = sumMetrics(dailyMetrics, m.id);
-      const roleKeys = m.member_role === "closer" ? CLOSER_METRIC_KEYS : SDR_METRIC_KEYS;
+      const roleKeys = memberHasRole(m, "closer") ? CLOSER_METRIC_KEYS : SDR_METRIC_KEYS;
       const mGoal = memberGoals?.[m.id];
       if (!mGoal) return;
 
@@ -69,8 +69,8 @@ export function AlertsPanel({ dailyMetrics, members, goals, memberGoals }: Alert
 
     // Check top performer — separate by role
     if (dailyMetrics.length > 0) {
-      const sdrMembers = members.filter(m => m.member_role === "sdr");
-      const closerMembers = members.filter(m => m.member_role === "closer");
+      const sdrMembers = members.filter(m => memberHasRole(m, "sdr"));
+      const closerMembers = members.filter(m => memberHasRole(m, "closer"));
 
       const rankByRole = (list: DbTeamMember[], keys: readonly string[]) => {
         return list.map(m => ({

@@ -8,7 +8,7 @@ import {
 import { parseISO, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { BarChart3, TrendingUp, Waves, Radar as RadarIcon, Users, PieChart as PieIcon, Layers, Grid3X3, ArrowDownNarrowWide } from "lucide-react";
-import { DbDailyMetric, DbTeamMember, DbWeeklyGoal, METRIC_KEYS, SDR_METRIC_KEYS, CLOSER_METRIC_KEYS, METRIC_LABELS, sumMetrics } from "@/lib/db";
+import { DbDailyMetric, DbTeamMember, DbWeeklyGoal, METRIC_KEYS, SDR_METRIC_KEYS, CLOSER_METRIC_KEYS, METRIC_LABELS, sumMetrics, memberHasRole } from "@/lib/db";
 import { cn } from "@/lib/utils";
 
 type ChartType = "bar" | "stacked" | "line" | "area" | "radar" | "donut" | "heatmap" | "funnel";
@@ -69,8 +69,8 @@ export function AnalyticsCharts({ dailyMetrics, members, weeklyGoals, weeksOfMon
   const [selectedMetrics, setSelectedMetrics] = useState<string[]>(["follow_up", "conexoes", "reuniao_realizada"]);
 
   const filteredMembers = useMemo(() => {
-    if (teamFilter === "sdr") return members.filter(m => m.member_role === "sdr");
-    if (teamFilter === "closer") return members.filter(m => m.member_role === "closer");
+    if (teamFilter === "sdr") return members.filter(m => memberHasRole(m, "sdr"));
+    if (teamFilter === "closer") return members.filter(m => memberHasRole(m, "closer"));
     return members;
   }, [members, teamFilter]);
 

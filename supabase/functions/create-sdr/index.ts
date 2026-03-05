@@ -31,7 +31,10 @@ serve(async (req) => {
     if (!isAdmin) throw new Error("Apenas admins podem criar SDRs");
 
     const { name, email, password, member_role } = await req.json();
-    const role = member_role === "closer" ? "closer" : "sdr";
+    // Support comma-separated roles like "sdr,closer"
+    const roles = (member_role || "sdr").split(",").map((r: string) => r.trim()).filter((r: string) => ["sdr", "closer"].includes(r));
+    const primaryRole = roles[0] || "sdr";
+    const memberRoleStr = roles.join(",");
     if (!name?.trim()) throw new Error("Nome é obrigatório");
     if (!email?.trim()) throw new Error("Email é obrigatório");
     if (!password || password.length < 6) throw new Error("Senha deve ter no mínimo 6 caracteres");
@@ -39,7 +42,7 @@ serve(async (req) => {
     // 1. Create team_member
     const { data: teamMember, error: tmError } = await supabaseAdmin
       .from("team_members")
-      .insert({ name: name.trim(), member_role: role })
+      .insert({ name: name.trim(), member_role: memberRoleStr })
       .select("id")
       .single();
 
@@ -64,7 +67,7 @@ serve(async (req) => {
     // 3. Assign role
     const { error: roleError } = await supabaseAdmin
       .from("user_roles")
-      .insert({ user_id: userId, role });
+      .insert({ user_id: userId, role: primaryRole });
 
     if (roleError) {
       await supabaseAdmin.auth.admin.deleteUser(userId);

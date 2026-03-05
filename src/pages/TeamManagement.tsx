@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useTeamMembers, useMonths, useMonthlyGoals, useDailyMetrics } from "@/hooks/use-metrics";
-import { sumMetrics, METRIC_LABELS, METRIC_KEYS, DbTeamMember, getMemberAvatar } from "@/lib/db";
+import { sumMetrics, METRIC_LABELS, METRIC_KEYS, DbTeamMember, getMemberAvatar, memberHasRole, getMemberRoles, isDualRole } from "@/lib/db";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -26,7 +26,7 @@ function MemberFormDialog({
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
-  const [memberRole, setMemberRole] = useState<"sdr" | "closer">("sdr");
+  const [selectedRoles, setSelectedRoles] = useState<Set<string>>(new Set(["sdr"]));
   const [saving, setSaving] = useState(false);
   const [welcomeMsg, setWelcomeMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -78,7 +78,7 @@ function MemberFormDialog({
           "Content-Type": "application/json",
           Authorization: `Bearer ${session?.access_token}`,
         },
-        body: JSON.stringify({ name: name.trim(), email: email.trim(), password, member_role: memberRole }),
+        body: JSON.stringify({ name: name.trim(), email: email.trim(), password, member_role: Array.from(selectedRoles).join(",") }),
       });
       const result = await resp.json();
       if (!resp.ok) throw new Error(result.error || "Erro ao criar membro");
@@ -105,7 +105,7 @@ function MemberFormDialog({
       onSaved();
 
       const appUrl = window.location.origin;
-      const roleName = memberRole === "closer" ? "Closer" : "SDR";
+      const roleName = selectedRoles.has("sdr") && selectedRoles.has("closer") ? "SDR + Closer" : selectedRoles.has("closer") ? "Closer" : "SDR";
       const msg =
 `🎉 *Bem-vindo(a) ao time, ${name.trim()}!*
 
@@ -254,29 +254,46 @@ Faça login e comece a registrar suas métricas. Bora pra cima! 🚀`;
           {/* Role selection */}
           {!isEditing && (
             <div>
-              <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1.5">Função</label>
+              <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1.5">Função(ões)</label>
               <div className="grid grid-cols-2 gap-2">
-                <button type="button" onClick={() => setMemberRole("sdr")}
+                <button type="button" onClick={() => {
+                  const next = new Set(selectedRoles);
+                  if (next.has("sdr")) { if (next.size > 1) next.delete("sdr"); }
+                  else next.add("sdr");
+                  setSelectedRoles(next);
+                }}
                   className={`px-3 py-3 text-xs font-bold rounded-xl border-2 transition-all flex flex-col items-center gap-1 ${
-                    memberRole === "sdr"
+                    selectedRoles.has("sdr")
                       ? "bg-primary/10 border-primary text-primary shadow-[0_0_0_1px_hsl(var(--primary)/0.3)]"
                       : "bg-secondary border-border text-muted-foreground hover:border-muted-foreground/50"
                   }`}>
                   <Zap size={16} />
                   <span>SDR</span>
                   <span className="text-[8px] font-normal opacity-70">Prospecção</span>
+                  {selectedRoles.has("sdr") && <Check size={12} className="absolute top-1.5 right-1.5 text-primary" />}
                 </button>
-                <button type="button" onClick={() => setMemberRole("closer")}
-                  className={`px-3 py-3 text-xs font-bold rounded-xl border-2 transition-all flex flex-col items-center gap-1 ${
-                    memberRole === "closer"
+                <button type="button" onClick={() => {
+                  const next = new Set(selectedRoles);
+                  if (next.has("closer")) { if (next.size > 1) next.delete("closer"); }
+                  else next.add("closer");
+                  setSelectedRoles(next);
+                }}
+                  className={`px-3 py-3 text-xs font-bold rounded-xl border-2 transition-all flex flex-col items-center gap-1 relative ${
+                    selectedRoles.has("closer")
                       ? "bg-[hsl(280,65%,60%)]/10 border-[hsl(280,65%,60%)] text-[hsl(280,65%,65%)] shadow-[0_0_0_1px_hsl(280,65%,60%,0.3)]"
                       : "bg-secondary border-border text-muted-foreground hover:border-muted-foreground/50"
                   }`}>
                   <Shield size={16} />
                   <span>Closer</span>
                   <span className="text-[8px] font-normal opacity-70">Fechamento</span>
+                  {selectedRoles.has("closer") && <Check size={12} className="absolute top-1.5 right-1.5 text-[hsl(280,65%,65%)]" />}
                 </button>
               </div>
+              {selectedRoles.size === 2 && (
+                <p className="text-[9px] text-accent mt-1.5 font-semibold text-center">
+                  ⚡ Função dupla — verá métricas de SDR e Closer
+                </p>
+              )}
             </div>
           )}
 
@@ -573,21 +590,23 @@ function MemberCard({
   months?: { id: string; label: string }[];
 }) {
   const queryClient = useQueryClient();
-  const isCloser = member.member_role === "closer";
+  const isCloser = memberHasRole(member, "closer");
+  const isSdr = memberHasRole(member, "sdr");
+  const hasDualRole = isCloser && isSdr;
   const [selectedMonthId, setSelectedMonthId] = useState<string | undefined>(months?.[0]?.id);
   const activeMonthId = selectedMonthId || months?.[0]?.id;
   const activeMonth = months?.find(m => m.id === activeMonthId);
 
   return (
     <div className={`rounded-xl border overflow-hidden transition-all ${
-      isCloser ? "border-[hsl(280,65%,60%)]/30 bg-card" : "border-primary/30 bg-card"
+      hasDualRole ? "border-accent/30 bg-card" : isCloser ? "border-[hsl(280,65%,60%)]/30 bg-card" : "border-primary/30 bg-card"
     }`}>
       <div className="flex items-center justify-between p-3 sm:p-4 cursor-pointer hover:bg-secondary/20 transition-colors" onClick={onToggle}>
         <div className="flex items-center gap-3">
           {/* Avatar with upload */}
           <div className="relative group">
             <img src={getMemberAvatar(member, members.indexOf(member))} alt={member.name}
-              className={`w-10 h-10 rounded-full object-cover border-2 ${isCloser ? "border-[hsl(280,65%,60%)]/50" : "border-primary/50"}`} />
+              className={`w-10 h-10 rounded-full object-cover border-2 ${hasDualRole ? "border-accent/50" : isCloser ? "border-[hsl(280,65%,60%)]/50" : "border-primary/50"}`} />
             <label className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
               onClick={e => e.stopPropagation()}>
               <Camera size={14} className="text-white" />
@@ -611,11 +630,17 @@ function MemberCard({
           <div>
             <div className="flex items-center gap-2">
               <h4 className="text-sm font-semibold text-card-foreground">{member.name}</h4>
-              <span className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md ${
-                isCloser ? "bg-[hsl(280,65%,60%)]/15 text-[hsl(280,65%,65%)]" : "bg-primary/15 text-primary"
-              }`}>
-                {isCloser ? "CLOSER" : "SDR"}
-              </span>
+              {hasDualRole ? (
+                <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-accent/15 text-accent">
+                  SDR + CLOSER
+                </span>
+              ) : (
+                <span className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md ${
+                  isCloser ? "bg-[hsl(280,65%,60%)]/15 text-[hsl(280,65%,65%)]" : "bg-primary/15 text-primary"
+                }`}>
+                  {isCloser ? "CLOSER" : "SDR"}
+                </span>
+              )}
             </div>
             <span className={`text-[10px] font-medium ${member.active ? "text-accent" : "text-muted-foreground"}`}>
               {member.active ? "● Ativo" : "○ Inativo"}
@@ -675,8 +700,9 @@ export default function TeamManagement() {
   const [editingMember, setEditingMember] = useState<DbTeamMember | null>(null);
   const [expandedMember, setExpandedMember] = useState<string | null>(null);
 
-  const sdrs = members?.filter(m => m.member_role !== "closer") || [];
-  const closers = members?.filter(m => m.member_role === "closer") || [];
+  const sdrs = members?.filter(m => memberHasRole(m, "sdr") && !memberHasRole(m, "closer")) || [];
+  const closers = members?.filter(m => memberHasRole(m, "closer") && !memberHasRole(m, "sdr")) || [];
+  const dualRole = members?.filter(m => memberHasRole(m, "sdr") && memberHasRole(m, "closer")) || [];
 
   const handleToggleActive = async (member: DbTeamMember) => {
     const { error } = await supabase.from("team_members").update({ active: !member.active }).eq("id", member.id);
@@ -719,7 +745,7 @@ export default function TeamManagement() {
             Gestão de Equipe
           </h2>
           <p className="text-xs text-muted-foreground mt-1">
-            <span className="text-primary font-semibold">{sdrs.length}</span> SDRs · <span className="text-[hsl(280,65%,65%)] font-semibold">{closers.length}</span> Closers · <span className="text-accent font-semibold">{members?.filter(m => m.active).length || 0}</span> Ativos
+            <span className="text-primary font-semibold">{sdrs.length}</span> SDRs · <span className="text-[hsl(280,65%,65%)] font-semibold">{closers.length}</span> Closers · {dualRole.length > 0 && <><span className="text-accent font-semibold">{dualRole.length}</span> Dupla Função · </>}<span className="text-accent font-semibold">{members?.filter(m => m.active).length || 0}</span> Ativos
           </p>
         </div>
         <button onClick={() => { setEditingMember(null); setShowForm(true); }}
@@ -762,6 +788,29 @@ export default function TeamManagement() {
           </div>
           <div className="space-y-2">
             {closers.map(member => (
+              <MemberCard key={member.id} member={member} members={members || []}
+                isExpanded={expandedMember === member.id}
+                onToggle={() => setExpandedMember(expandedMember === member.id ? null : member.id)}
+                onEdit={() => { setEditingMember(member); setShowForm(true); }}
+                onToggleActive={() => handleToggleActive(member)}
+                onDelete={() => handleDelete(member)}
+                months={months} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Dual Role Section */}
+      {dualRole.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Sparkles size={14} className="text-accent" />
+            <h3 className="text-xs font-bold text-accent uppercase tracking-wider">Dupla Função — SDR + Closer</h3>
+            <div className="flex-1 h-px bg-accent/20" />
+            <span className="text-[10px] text-muted-foreground font-medium">{dualRole.length} membros</span>
+          </div>
+          <div className="space-y-2">
+            {dualRole.map(member => (
               <MemberCard key={member.id} member={member} members={members || []}
                 isExpanded={expandedMember === member.id}
                 onToggle={() => setExpandedMember(expandedMember === member.id ? null : member.id)}
