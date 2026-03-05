@@ -292,8 +292,14 @@ export default function DnaAdminDashboard({ onViewSubmission }: DnaAdminDashboar
                       <span className="flex items-center gap-1.5">
                         <User className="w-3.5 h-3.5" />
                         {m.name}
-                        <span className={`text-[10px] px-1 rounded ${m.member_role === 'sdr' ? 'bg-blue-500/10 text-blue-500' : 'bg-primary/10 text-primary'}`}>
-                          {m.member_role.toUpperCase()}
+                        <span className={`text-[10px] px-1 rounded ${
+                          m.member_role.includes('sdr') && m.member_role.includes('closer')
+                            ? 'bg-accent/10 text-accent'
+                            : m.member_role.includes('closer')
+                              ? 'bg-primary/10 text-primary'
+                              : 'bg-blue-500/10 text-blue-500'
+                        }`}>
+                          {m.member_role.includes('sdr') && m.member_role.includes('closer') ? 'SDR+CLOSER' : m.member_role.toUpperCase()}
                         </span>
                         {hasWhatsApp && <MessageSquare className="w-3 h-3 text-green-500" />}
                       </span>
