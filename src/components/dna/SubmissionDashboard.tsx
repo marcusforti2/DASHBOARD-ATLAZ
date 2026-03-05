@@ -4,18 +4,28 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   Cell,
 } from 'recharts';
-import { 
-  Zap, Shield, Brain, Target, AlertTriangle, Star, Flame, 
-  TrendingUp, Heart, Eye, Swords, Award, Lightbulb, Lock, Unlock
+import {
+  Zap, Shield, Brain, Target, AlertTriangle, Star, Flame,
+  TrendingUp, Heart, Eye, Swords, Award, Lightbulb, Lock, Unlock,
+  Search, PhoneOff, UserX
 } from 'lucide-react';
 
 interface DashboardData {
   disc: { D: number; I: number; S: number; C: number };
   disc_dominante: string;
   disc_secundario: string;
+  // Closer fields
   closer_type?: string;
-  tendency?: string;
   negotiation_score?: number;
+  // SDR fields
+  sdr_type?: string;
+  resilience_score?: number;
+  prospecting_blocks?: string[];
+  risk_dropout?: number;
+  risk_low_discipline?: number;
+  risk_low_resilience?: number;
+  // Shared
+  tendency?: string;
   maturity_level: number;
   execution_level?: number;
   super_power?: string;
@@ -46,7 +56,7 @@ function ScoreRing({ value, max, label, color, size = 80 }: { value: number; max
   const circ = 2 * Math.PI * r;
   const offset = circ - (pct / 100) * circ;
   return (
-    <div className="flex flex-col items-center gap-1">
+    <div className="flex flex-col items-center gap-1 relative">
       <svg width={size} height={size} className="-rotate-90">
         <circle cx={size / 2} cy={size / 2} r={r} stroke="hsl(var(--border))" strokeWidth="6" fill="none" />
         <motion.circle
@@ -55,7 +65,7 @@ function ScoreRing({ value, max, label, color, size = 80 }: { value: number; max
           transition={{ duration: 1, ease: "easeOut" }}
         />
       </svg>
-      <div className="absolute flex flex-col items-center justify-center" style={{ width: size, height: size }}>
+      <div className="absolute inset-0 flex flex-col items-center justify-center" style={{ width: size, height: size }}>
         <span className="text-lg font-bold text-foreground">{value}</span>
         <span className="text-[9px] text-muted-foreground">/{max}</span>
       </div>
@@ -74,13 +84,8 @@ function TagList({ items, icon: Icon, color, title }: { items: string[]; icon: a
       </div>
       <div className="flex flex-wrap gap-2">
         {items.map((item, i) => (
-          <motion.span
-            key={i} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: i * 0.05 }}
-            className="px-3 py-1.5 text-xs rounded-lg border border-border bg-muted/50 text-foreground"
-          >
-            {item}
-          </motion.span>
+          <motion.span key={i} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.05 }}
+            className="px-3 py-1.5 text-xs rounded-lg border border-border bg-muted/50 text-foreground">{item}</motion.span>
         ))}
       </div>
     </div>
@@ -89,10 +94,7 @@ function TagList({ items, icon: Icon, color, title }: { items: string[]; icon: a
 
 function BigCard({ title, value, subtitle, icon: Icon, color }: { title: string; value: string; subtitle?: string; icon: any; color: string }) {
   return (
-    <motion.div
-      className="bg-card border border-border rounded-xl p-5 flex items-start gap-4"
-      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-    >
+    <motion.div className="bg-card border border-border rounded-xl p-5 flex items-start gap-4" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
       <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${color}15` }}>
         <Icon className="w-5 h-5" style={{ color }} />
       </div>
@@ -105,7 +107,31 @@ function BigCard({ title, value, subtitle, icon: Icon, color }: { title: string;
   );
 }
 
-export default function SubmissionDashboard({ data }: { data: DashboardData }) {
+function RiskGauge({ label, value, icon: Icon }: { label: string; value: number; icon: any }) {
+  const color = value >= 7 ? '#ef4444' : value >= 4 ? '#f59e0b' : '#22c55e';
+  const levelText = value >= 7 ? 'ALTO' : value >= 4 ? 'MÉDIO' : 'BAIXO';
+  return (
+    <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-3">
+      <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${color}15` }}>
+        <Icon className="w-4 h-4" style={{ color }} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-[10px] text-muted-foreground">{label}</p>
+        <div className="flex items-center gap-2 mt-1">
+          <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+            <motion.div className="h-full rounded-full" style={{ backgroundColor: color }} initial={{ width: 0 }} animate={{ width: `${(value / 10) * 100}%` }} transition={{ duration: 0.8 }} />
+          </div>
+          <span className="text-xs font-bold" style={{ color }}>{value}/10</span>
+        </div>
+        <p className="text-[9px] font-medium mt-0.5" style={{ color }}>{levelText}</p>
+      </div>
+    </div>
+  );
+}
+
+export default function SubmissionDashboard({ data, testType = 'closer' }: { data: DashboardData; testType?: string }) {
+  const isSdr = testType === 'sdr';
+
   const discData = [
     { trait: 'Dominância', value: data.disc.D, fullMark: 100 },
     { trait: 'Influência', value: data.disc.I, fullMark: 100 },
@@ -113,20 +139,22 @@ export default function SubmissionDashboard({ data }: { data: DashboardData }) {
     { trait: 'Conformidade', value: data.disc.C, fullMark: 100 },
   ];
 
-  const emotionalData = data.emotional_vices.map(v => ({ name: v.name, valor: v.score }));
+  const emotionalData = (data.emotional_vices || []).map(v => ({ name: v.name, valor: v.score }));
   const emotionalMapData = (data.emotional_map || []).map(e => ({ name: e.area, valor: e.level }));
-  const disciplineData = data.discipline_scores.map(d => ({ name: d.name, valor: d.score }));
+  const disciplineData = (data.discipline_scores || []).map(d => ({ name: d.name, valor: d.score }));
+  const dominantColor = DISC_COLORS[data.disc_dominante] || '#8b5cf6';
 
-  const dominantColor = DISC_COLORS[data.disc_dominante] || 'hsl(var(--primary))';
+  const profileType = isSdr ? (data.sdr_type || 'SDR') : (data.closer_type || data.selling_style);
+  const profileLabel = isSdr ? 'Perfil de SDR' : 'Tipo de Closer';
 
   return (
     <div className="space-y-6">
-      {/* ── TOP: Identity Row ── */}
+      {/* ── TOP: Identity ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <BigCard title="Tipo de Closer" value={data.closer_type || data.selling_style} subtitle={data.tendency} icon={Target} color={dominantColor} />
+        <BigCard title={profileLabel} value={profileType} subtitle={data.tendency} icon={Target} color={dominantColor} />
         <BigCard title="Super Poder" value={data.super_power || '—'} icon={Zap} color="#f59e0b" />
-        <BigCard title="Estilo de Venda" value={data.selling_style} icon={Swords} color="#8b5cf6" />
-        <BigCard title="Recuperação" value={data.recovery_time} icon={Heart} color="#22c55e" />
+        <BigCard title={isSdr ? 'Estilo de Abordagem' : 'Estilo de Venda'} value={data.selling_style || '—'} icon={Swords} color="#8b5cf6" />
+        <BigCard title="Recuperação" value={data.recovery_time || '—'} icon={Heart} color="#22c55e" />
       </div>
 
       {/* ── SCORE RINGS ── */}
@@ -137,11 +165,17 @@ export default function SubmissionDashboard({ data }: { data: DashboardData }) {
             <ScoreRing value={data.maturity_level} max={10} label="Maturidade" color={data.maturity_level >= 7 ? '#22c55e' : data.maturity_level >= 4 ? '#f59e0b' : '#ef4444'} />
           </div>
           <div className="relative">
-            <ScoreRing value={data.execution_level || 0} max={10} label="Execução" color={data.execution_level && data.execution_level >= 7 ? '#22c55e' : '#f59e0b'} />
+            <ScoreRing value={data.execution_level || 0} max={10} label="Execução" color={(data.execution_level || 0) >= 7 ? '#22c55e' : '#f59e0b'} />
           </div>
-          <div className="relative">
-            <ScoreRing value={data.negotiation_score || 0} max={100} label="Negociação" color={data.negotiation_score && data.negotiation_score >= 70 ? '#22c55e' : '#f59e0b'} size={90} />
-          </div>
+          {isSdr ? (
+            <div className="relative">
+              <ScoreRing value={data.resilience_score || 0} max={100} label="Resiliência" color={(data.resilience_score || 0) >= 70 ? '#22c55e' : '#f59e0b'} size={90} />
+            </div>
+          ) : (
+            <div className="relative">
+              <ScoreRing value={data.negotiation_score || 0} max={100} label="Negociação" color={(data.negotiation_score || 0) >= 70 ? '#22c55e' : '#f59e0b'} size={90} />
+            </div>
+          )}
           {Object.entries(data.disc).map(([dim, val]) => (
             <div key={dim} className="relative">
               <ScoreRing value={val} max={100} label={DISC_LABELS[dim] || dim} color={DISC_COLORS[dim] || '#888'} size={70} />
@@ -149,6 +183,15 @@ export default function SubmissionDashboard({ data }: { data: DashboardData }) {
           ))}
         </div>
       </div>
+
+      {/* ── SDR RISK GAUGES ── */}
+      {isSdr && (data.risk_dropout != null || data.risk_low_discipline != null || data.risk_low_resilience != null) && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <RiskGauge label="Risco de Desistência" value={data.risk_dropout || 0} icon={UserX} />
+          <RiskGauge label="Risco de Baixa Disciplina" value={data.risk_low_discipline || 0} icon={PhoneOff} />
+          <RiskGauge label="Risco de Baixa Resiliência" value={data.risk_low_resilience || 0} icon={AlertTriangle} />
+        </div>
+      )}
 
       {/* ── DISC + Emotional Map ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -205,80 +248,84 @@ export default function SubmissionDashboard({ data }: { data: DashboardData }) {
         <TagList items={data.emotional_blocks || []} icon={Heart} color="#ef4444" title="Travas Emocionais" />
       </div>
 
+      {/* ── SDR: PROSPECTING BLOCKS ── */}
+      {isSdr && <TagList items={data.prospecting_blocks || []} icon={Search} color="#f97316" title="Travas de Prospecção" />}
+
       {/* ── VICES & DISCIPLINE ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-card border border-border rounded-xl p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Flame className="w-4 h-4 text-orange-500" />
-            <h3 className="text-sm font-semibold text-foreground">Vícios Emocionais</h3>
+        {emotionalData.length > 0 && (
+          <div className="bg-card border border-border rounded-xl p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Flame className="w-4 h-4 text-orange-500" />
+              <h3 className="text-sm font-semibold text-foreground">Vícios Emocionais</h3>
+            </div>
+            <p className="text-[10px] text-muted-foreground mb-3">Principal: <strong className="text-foreground">{data.principal_vice}</strong></p>
+            <ResponsiveContainer width="100%" height={Math.max(180, emotionalData.length * 36)}>
+              <BarChart data={emotionalData} layout="vertical" margin={{ left: 10 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis type="number" domain={[0, 10]} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} />
+                <YAxis type="category" dataKey="name" width={140} tick={{ fill: 'hsl(var(--foreground))', fontSize: 10 }} />
+                <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '11px' }} />
+                <Bar dataKey="valor" radius={[0, 4, 4, 0]}>
+                  {emotionalData.map((e, i) => (
+                    <Cell key={i} fill={e.valor >= 7 ? '#ef4444' : e.valor >= 4 ? '#f59e0b' : '#22c55e'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </div>
-          <p className="text-[10px] text-muted-foreground mb-3">Principal: <strong className="text-foreground">{data.principal_vice}</strong></p>
-          <ResponsiveContainer width="100%" height={Math.max(180, emotionalData.length * 36)}>
-            <BarChart data={emotionalData} layout="vertical" margin={{ left: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis type="number" domain={[0, 10]} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} />
-              <YAxis type="category" dataKey="name" width={140} tick={{ fill: 'hsl(var(--foreground))', fontSize: 10 }} />
-              <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '11px' }} />
-              <Bar dataKey="valor" radius={[0, 4, 4, 0]}>
-                {emotionalData.map((e, i) => (
-                  <Cell key={i} fill={e.valor >= 7 ? '#ef4444' : e.valor >= 4 ? '#f59e0b' : '#22c55e'} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+        )}
 
-        <div className="bg-card border border-border rounded-xl p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Shield className="w-4 h-4 text-blue-500" />
-            <h3 className="text-sm font-semibold text-foreground">Disciplina & Sustentação</h3>
+        {disciplineData.length > 0 && (
+          <div className="bg-card border border-border rounded-xl p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Shield className="w-4 h-4 text-blue-500" />
+              <h3 className="text-sm font-semibold text-foreground">Disciplina & Sustentação</h3>
+            </div>
+            <ResponsiveContainer width="100%" height={Math.max(180, disciplineData.length * 40)}>
+              <BarChart data={disciplineData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="name" tick={{ fill: 'hsl(var(--foreground))', fontSize: 10 }} />
+                <YAxis domain={[0, 10]} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} />
+                <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '11px' }} />
+                <Bar dataKey="valor" radius={[4, 4, 0, 0]}>
+                  {disciplineData.map((e, i) => (
+                    <Cell key={i} fill={e.valor >= 7 ? '#22c55e' : e.valor >= 4 ? '#f59e0b' : '#ef4444'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </div>
-          <ResponsiveContainer width="100%" height={Math.max(180, disciplineData.length * 40)}>
-            <BarChart data={disciplineData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="name" tick={{ fill: 'hsl(var(--foreground))', fontSize: 10 }} />
-              <YAxis domain={[0, 10]} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} />
-              <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '11px' }} />
-              <Bar dataKey="valor" radius={[4, 4, 0, 0]}>
-                {disciplineData.map((e, i) => (
-                  <Cell key={i} fill={e.valor >= 7 ? '#22c55e' : e.valor >= 4 ? '#f59e0b' : '#ef4444'} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+        )}
       </div>
 
       {/* ── RISK MAP ── */}
-      <div className="bg-card border border-border rounded-xl p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Eye className="w-4 h-4 text-red-500" />
-          <h3 className="text-sm font-semibold text-foreground">Mapa de Risco por Etapa da Venda</h3>
+      {data.sales_risk_stages && data.sales_risk_stages.length > 0 && (
+        <div className="bg-card border border-border rounded-xl p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Eye className="w-4 h-4 text-red-500" />
+            <h3 className="text-sm font-semibold text-foreground">
+              {isSdr ? 'Mapa de Risco por Etapa da Prospecção' : 'Mapa de Risco por Etapa da Venda'}
+            </h3>
+          </div>
+          <div className="space-y-3">
+            {data.sales_risk_stages.map((stage, i) => {
+              const isCritical = stage.stage === data.critical_stage;
+              return (
+                <motion.div key={stage.stage} className="flex items-center gap-3" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}>
+                  <div className="w-28 text-xs text-foreground font-medium truncate">{stage.stage}</div>
+                  <div className="flex-1 h-7 bg-muted rounded-lg overflow-hidden relative">
+                    <motion.div className="h-full rounded-lg" initial={{ width: 0 }} animate={{ width: `${Math.max(stage.risk, 5)}%` }} transition={{ duration: 0.6, delay: i * 0.05 }}
+                      style={{ backgroundColor: stage.risk >= 70 ? '#ef4444' : stage.risk >= 40 ? '#f59e0b' : '#22c55e' }} />
+                    {isCritical && <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white drop-shadow">⚠ CRÍTICO</span>}
+                  </div>
+                  <span className="text-xs text-muted-foreground w-10 text-right font-medium">{stage.risk}%</span>
+                </motion.div>
+              );
+            })}
+          </div>
         </div>
-        <div className="space-y-3">
-          {data.sales_risk_stages.map((stage, i) => {
-            const isCritical = stage.stage === data.critical_stage;
-            return (
-              <motion.div key={stage.stage} className="flex items-center gap-3" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}>
-                <div className="w-28 text-xs text-foreground font-medium truncate">{stage.stage}</div>
-                <div className="flex-1 h-7 bg-muted rounded-lg overflow-hidden relative">
-                  <motion.div
-                    className="h-full rounded-lg"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${Math.max(stage.risk, 5)}%` }}
-                    transition={{ duration: 0.6, delay: i * 0.05 }}
-                    style={{ backgroundColor: stage.risk >= 70 ? '#ef4444' : stage.risk >= 40 ? '#f59e0b' : '#22c55e' }}
-                  />
-                  {isCritical && (
-                    <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white drop-shadow">⚠ CRÍTICO</span>
-                  )}
-                </div>
-                <span className="text-xs text-muted-foreground w-10 text-right font-medium">{stage.risk}%</span>
-              </motion.div>
-            );
-          })}
-        </div>
-      </div>
+      )}
 
       {/* ── ATTENTION POINTS ── */}
       <TagList items={data.attention_points || []} icon={AlertTriangle} color="#f59e0b" title="Pontos de Atenção (Gestor)" />
@@ -292,10 +339,7 @@ export default function SubmissionDashboard({ data }: { data: DashboardData }) {
           </div>
           <div className="space-y-3">
             {data.action_plan.map((action, i) => (
-              <motion.div
-                key={i} className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg border border-border"
-                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}
-              >
+              <motion.div key={i} className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg border border-border" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}>
                 <div className="w-6 h-6 bg-emerald-500/10 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
                   <span className="text-xs font-bold text-emerald-500">{i + 1}</span>
                 </div>

@@ -174,7 +174,7 @@ export default function DnaSubmissionDetail({ submissionId, onBack }: Submission
       </div>
 
       {/* Dashboard Tab */}
-      {tab === 'dashboard' && dashboardData && <SubmissionDashboard data={dashboardData} />}
+      {tab === 'dashboard' && dashboardData && <SubmissionDashboard data={dashboardData} testType={testType} />}
 
       {/* Answers Tab */}
       {tab === 'answers' && (
