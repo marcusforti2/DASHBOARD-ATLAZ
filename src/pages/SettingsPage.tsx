@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   User, Save, Loader2, Link2, ShieldCheck, Trash2, Plus, Mail, Phone, Key,
-  X, Check, Copy, Edit2, MessageCircle
+  X, Check, Copy, Edit2, MessageCircle, Camera
 } from "lucide-react";
 
 export default function SettingsPage() {
@@ -13,6 +13,7 @@ export default function SettingsPage() {
   const queryClient = useQueryClient();
   const [fullName, setFullName] = useState(profile?.full_name || "");
   const [saving, setSaving] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { setFullName(profile?.full_name || ""); }, [profile]);
 
@@ -39,8 +40,37 @@ export default function SettingsPage() {
           <h3 className="text-xs font-semibold text-card-foreground uppercase tracking-wider">Meu Perfil</h3>
         </div>
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-full bg-primary/15 flex items-center justify-center">
-            <span className="text-xl font-bold text-primary">{fullName?.charAt(0)?.toUpperCase() || "U"}</span>
+          <div className="relative group">
+            {profile?.avatar_url ? (
+              <img src={profile.avatar_url} alt={fullName} className="w-16 h-16 rounded-full object-cover" />
+            ) : (
+              <div className="w-16 h-16 rounded-full bg-primary/15 flex items-center justify-center">
+                <span className="text-xl font-bold text-primary">{fullName?.charAt(0)?.toUpperCase() || "U"}</span>
+              </div>
+            )}
+            <label className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+              <Camera size={18} className="text-white" />
+              <input ref={avatarInputRef} type="file" accept="image/*" className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file || !user) return;
+                  if (file.size > 5 * 1024 * 1024) { toast.error("Max 5MB"); return; }
+                  const ext = file.name.split('.').pop();
+                  const filePath = `admin-${user.id}/avatar.${ext}`;
+                  await supabase.storage.from("member-avatars").upload(filePath, file, { upsert: true });
+                  const { data: urlData } = supabase.storage.from("member-avatars").getPublicUrl(filePath);
+                  const newUrl = urlData.publicUrl + "?t=" + Date.now();
+                  await supabase.from("profiles").update({ avatar_url: newUrl }).eq("id", user.id);
+                  // Also update team_member if linked
+                  if (profile?.team_member_id) {
+                    await supabase.from("team_members").update({ avatar_url: newUrl }).eq("id", profile.team_member_id);
+                  }
+                  toast.success("Foto atualizada!");
+                  queryClient.invalidateQueries({ queryKey: ["team-members"] });
+                  // Force re-fetch auth to update sidebar
+                  window.location.reload();
+                }} />
+            </label>
           </div>
           <div className="flex-1 space-y-3">
             <div>
@@ -285,7 +315,7 @@ Faça login para gerenciar a equipe e acompanhar métricas. 🚀`;
 
 // ─── Admin Management Section ────────────────────────────────────────────
 function AdminManagementSection() {
-  const [admins, setAdmins] = useState<{ user_id: string; full_name: string; phone?: string }[]>([]);
+  const [admins, setAdmins] = useState<{ user_id: string; full_name: string; phone?: string; avatar_url?: string | null }[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingAdmin, setEditingAdmin] = useState<{ user_id: string; full_name: string; phone?: string } | null>(null);
@@ -300,13 +330,13 @@ function AdminManagementSection() {
     if (!roles || roles.length === 0) { setAdmins([]); setLoading(false); return; }
     const userIds = roles.map(r => r.user_id);
     const [{ data: profiles }, { data: contacts }] = await Promise.all([
-      supabase.from("profiles").select("id, full_name").in("id", userIds),
+      supabase.from("profiles").select("id, full_name, avatar_url").in("id", userIds),
       supabase.from("whatsapp_contacts").select("user_id, phone").in("user_id", userIds),
     ]);
     setAdmins(userIds.map(uid => {
       const p = profiles?.find(pr => pr.id === uid);
       const c = contacts?.find(ct => ct.user_id === uid);
-      return { user_id: uid, full_name: p?.full_name || "Admin", phone: c?.phone || "" };
+      return { user_id: uid, full_name: p?.full_name || "Admin", phone: c?.phone || "", avatar_url: p?.avatar_url };
     }));
     setLoading(false);
   };
@@ -389,9 +419,13 @@ function AdminManagementSection() {
           {admins.map(a => (
             <div key={a.user_id} className="flex items-center justify-between p-3 rounded-xl bg-secondary/30 border border-border">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center">
-                  <ShieldCheck size={14} className="text-primary" />
-                </div>
+                {a.avatar_url ? (
+                  <img src={a.avatar_url} alt={a.full_name} className="w-9 h-9 rounded-full object-cover" />
+                ) : (
+                  <div className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center">
+                    <ShieldCheck size={14} className="text-primary" />
+                  </div>
+                )}
                 <div>
                   <p className="text-xs font-semibold text-card-foreground">{a.full_name}</p>
                   <div className="flex items-center gap-2">

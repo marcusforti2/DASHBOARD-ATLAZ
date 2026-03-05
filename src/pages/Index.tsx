@@ -207,6 +207,7 @@ export default function Index() {
           onViewChange={handleViewChange}
           userName={profile?.full_name || user.email || ""}
           userRole={isCloserPreview ? "Preview Mode" : role}
+          avatarUrl={profile?.avatar_url}
           onSignOut={signOut}
         />
 
