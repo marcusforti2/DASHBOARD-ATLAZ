@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { questions, MIN_CHARS } from '@/data/dna-questions';
-import { sdrQuestions } from '@/data/sdr-questions';
+import { sdrQuestions, SDR_MIN_CHARS } from '@/data/sdr-questions';
 import { QuestionCard } from '@/components/dna/QuestionCard';
 import { TestProgress } from '@/components/dna/TestProgress';
 import { ChevronLeft, ChevronRight, Brain, Loader2 } from 'lucide-react';
@@ -110,9 +110,10 @@ export default function PublicTestPage() {
 
   const isSdr = testType === 'sdr';
   const testTitle = isSdr ? 'SDR DNA Decoder' : 'Sales DNA Decoder';
-  const testSubtitle = isSdr ? 'Avaliação Comportamental DISC para SDR' : 'Avaliação Comportamental e de Performance';
-  const testDuration = isSdr ? '~10 minutos' : '~25 minutos';
-  const testQuestionCount = isSdr ? '40 perguntas' : '120 perguntas';
+  const testSubtitle = isSdr ? 'Avaliação Comportamental para SDR de Prospecção' : 'Avaliação Comportamental e de Performance';
+  const testDuration = isSdr ? '~20 minutos' : '~25 minutos';
+  const testQuestionCount = isSdr ? '80 perguntas' : '120 perguntas';
+  const minChars = isSdr ? SDR_MIN_CHARS : MIN_CHARS;
 
   if (stage === 'loading') return <div className="min-h-screen bg-background flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>;
   if (stage === 'invalid') return (
@@ -182,7 +183,7 @@ export default function PublicTestPage() {
           <Button variant="ghost" onClick={goPrev} disabled={currentIndex === 0} className="text-muted-foreground"><ChevronLeft className="w-4 h-4 mr-1" /> Anterior</Button>
           <span className="text-sm text-muted-foreground font-medium">{currentIndex + 1} / {totalQuestions}</span>
           {question.type === 'open-text' ? (
-            <Button onClick={goNext} disabled={!currentAnswer || (currentAnswer.length < MIN_CHARS) || submitting}>
+            <Button onClick={goNext} disabled={!currentAnswer || (currentAnswer.length < minChars) || submitting}>
               {submitting ? 'Salvando...' : isLastQuestion ? 'Finalizar' : 'Próxima'}
               {!isLastQuestion && !submitting && <ChevronRight className="w-4 h-4 ml-1" />}
             </Button>
