@@ -53,7 +53,7 @@ interface DnaAdminDashboardProps {
 }
 
 export default function DnaAdminDashboard({ onViewSubmission }: DnaAdminDashboardProps) {
-  const APP_PUBLIC_URL = 'https://system-canvas-pro.lovable.app';
+  const APP_PUBLIC_URL = 'https://dashboard-lsd.learningbrand.com.br';
 
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [testLinks, setTestLinks] = useState<TestLink[]>([]);
