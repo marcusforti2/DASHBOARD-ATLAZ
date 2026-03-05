@@ -81,7 +81,7 @@ const ProcessNodeComponent: React.FC<NodeProps> = ({ id, data, selected }) => {
   if (isStart || isEnd) {
     return (
       <div onClick={handleNodeClick}
-        className={`relative rounded-full border-2 shadow-md transition-all ${bgColor} ${borderColor} ${selected ? 'ring-2 ring-primary ring-offset-2 shadow-lg' : 'hover:shadow-md'} group`}
+        className={`relative rounded-full border-2 shadow-md transition-all ${isStart ? 'bg-green-600 border-green-700' : 'bg-red-600 border-red-700'} ${selected ? 'ring-2 ring-primary ring-offset-2 shadow-lg' : 'hover:shadow-md'} group`}
       >
         {!isStart && <Handle type="target" position={Position.Left} className="!bg-primary !w-2.5 !h-2.5 !border-2 !border-background" />}
         <div className="absolute -top-2 -right-2 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
@@ -89,10 +89,10 @@ const ProcessNodeComponent: React.FC<NodeProps> = ({ id, data, selected }) => {
           <button onClick={handleDelete} className="p-0.5 rounded-full bg-background border shadow-sm hover:bg-destructive hover:text-destructive-foreground" title="Excluir"><Trash2 className="h-2.5 w-2.5" /></button>
         </div>
         <div className="px-6 py-3 flex items-center gap-2.5">
-          <div className={`p-1.5 rounded-full ${isStart ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'}`}>
+          <div className={`p-1.5 rounded-full ${isStart ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
             {Icon && <Icon className="h-4 w-4" />}
           </div>
-          <span className="font-semibold text-sm whitespace-nowrap text-foreground">{nodeData.label}</span>
+          <span className="font-semibold text-sm whitespace-nowrap text-white">{nodeData.label}</span>
         </div>
         {!isEnd && <Handle type="source" position={Position.Right} className="!bg-primary !w-2.5 !h-2.5 !border-2 !border-background" />}
       </div>

@@ -15,6 +15,24 @@ serve(async (req) => {
     const apiKey = Deno.env.get("LOVABLE_API_KEY");
     if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
 
+    // Fetch company knowledge to enrich AI context
+    const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const sb = createClient(supabaseUrl, supabaseKey);
+
+    let knowledgeContext = "";
+    try {
+      const { data: knowledge } = await sb
+        .from("company_knowledge")
+        .select("title, category, content")
+        .eq("active", true)
+        .limit(20);
+      if (knowledge && knowledge.length > 0) {
+        knowledgeContext = `\n\nCONTEXTO DA EMPRESA (use para personalizar o processo com dados reais da empresa - ICP, produtos, objeções, etc):\n${knowledge.map((k: any) => `- [${k.category}] ${k.title}: ${k.content}`).join("\n")}`;
+      }
+    } catch (e) { console.error("Knowledge fetch error:", e); }
+
     const systemPrompt = `Você é um especialista em criação de fluxogramas de processos empresariais. Gere um diagrama organizado e profissional.
 
 IMPORTANTE: O layout deve ser HORIZONTAL (da esquerda para a direita). Use as coordenadas x para avançar horizontalmente e y para ramificações verticais.
@@ -88,7 +106,7 @@ REGRAS DE CONTEÚDO:
         model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Crie um fluxograma de processo para: ${description}` },
+          { role: "user", content: `Crie um fluxograma de processo para: ${description}${knowledgeContext}` },
         ],
         temperature: 0.5,
       }),

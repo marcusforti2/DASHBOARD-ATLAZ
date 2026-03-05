@@ -26,7 +26,6 @@ function ProcessToolbarComponent({ onAddNode, onReset, onSave, onLoad, onExport,
       <Separator orientation="vertical" className="h-6 mx-1" />
       <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="sm" className="h-8 px-2 gap-1" onClick={onAIGenerate}><Sparkles className="h-4 w-4" /><span className="text-xs">IA</span></Button></TooltipTrigger><TooltipContent side="bottom">Gerar com IA</TooltipContent></Tooltip>
       <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="sm" className="h-8 px-2 gap-1" onClick={onLoadTemplate}><LayoutTemplate className="h-4 w-4" /><span className="text-xs">Templates</span></Button></TooltipTrigger><TooltipContent side="bottom">Templates</TooltipContent></Tooltip>
-      <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={onAutoAlign} className="h-8 w-8"><AlignVerticalSpaceAround className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent side="bottom">Auto-alinhar</TooltipContent></Tooltip>
       <Separator orientation="vertical" className="h-6 mx-1" />
       <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={onSave} className="h-8 w-8"><Save className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent side="bottom">Salvar</TooltipContent></Tooltip>
       <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={onLoad} className="h-8 w-8"><FolderOpen className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent side="bottom">Carregar</TooltipContent></Tooltip>
