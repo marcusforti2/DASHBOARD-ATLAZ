@@ -7,6 +7,7 @@ import { getMemberRoles } from "@/lib/db";
 
 interface TrainingViewerProps {
   memberRole: string;
+  previewAll?: boolean;
 }
 
 type Course = { id: string; title: string; description: string; cover_url: string | null; target_role: string; active: boolean; sort_order: number; published: boolean };
@@ -36,16 +37,18 @@ function extractEmbedUrl(url: string, type: string): string {
   return url;
 }
 
-export function TrainingViewer({ memberRole }: TrainingViewerProps) {
+export function TrainingViewer({ memberRole, previewAll }: TrainingViewerProps) {
   const roles = getMemberRoles({ member_role: memberRole });
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [currentLessonIdx, setCurrentLessonIdx] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const { data: courses = [] } = useQuery({
-    queryKey: ["training-courses"],
+    queryKey: ["training-courses", previewAll],
     queryFn: async () => {
-      const { data } = await supabase.from("training_courses").select("*").eq("active", true).eq("published", true).order("sort_order");
+      let q = supabase.from("training_courses").select("*").eq("active", true);
+      if (!previewAll) q = q.eq("published", true);
+      const { data } = await q.order("sort_order");
       return (data || []) as Course[];
     },
   });
