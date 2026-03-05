@@ -58,7 +58,6 @@ export interface DbMonthlyGoal {
   lig_realizada: number;
   reuniao_agendada: number;
   reuniao_realizada: number;
-  indicacoes: number;
 }
 
 export interface DbDailyMetric {
@@ -77,7 +76,6 @@ export interface DbDailyMetric {
   lig_realizada: number;
   reuniao_agendada: number;
   reuniao_realizada: number;
-  indicacoes: number;
 }
 
 export const ALL_WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"] as const;
@@ -106,19 +104,15 @@ export interface DbWeeklyGoal {
   lig_realizada: number;
   reuniao_agendada: number;
   reuniao_realizada: number;
-  indicacoes: number;
 }
 
 export const METRIC_KEYS = [
   "conexoes", "conexoes_aceitas", "abordagens", "inmail", "follow_up",
-  "numero", "lig_agendada", "lig_realizada", "reuniao_agendada", "reuniao_realizada", "indicacoes"
+  "numero", "lig_agendada", "lig_realizada", "reuniao_agendada", "reuniao_realizada"
 ] as const;
 
-export const SDR_METRIC_KEYS = ["conexoes", "conexoes_aceitas", "abordagens", "inmail", "follow_up", "numero", "lig_agendada", "indicacoes"] as const;
-export const CLOSER_METRIC_KEYS = ["lig_realizada", "reuniao_agendada", "reuniao_realizada", "indicacoes"] as const;
-
-/** Metrics shared across all roles */
-export const SHARED_METRIC_KEYS = ["indicacoes"] as const;
+export const SDR_METRIC_KEYS = ["conexoes", "conexoes_aceitas", "abordagens", "inmail", "follow_up", "numero", "lig_agendada"] as const;
+export const CLOSER_METRIC_KEYS = ["lig_realizada", "reuniao_agendada", "reuniao_realizada"] as const;
 
 export const METRIC_LABELS: Record<string, string> = {
   conexoes: "Conexões",
@@ -131,7 +125,6 @@ export const METRIC_LABELS: Record<string, string> = {
   lig_realizada: "Lig. Realizada",
   reuniao_agendada: "Reunião Agend.",
   reuniao_realizada: "Reunião Realiz.",
-  indicacoes: "Indicações",
 };
 
 /** Short labels for compact table headers — avoids truncation issues */
@@ -146,7 +139,6 @@ export const SHORT_TABLE_LABELS: Record<string, string> = {
   lig_realizada: "Lig. Re.",
   reuniao_agendada: "Reun. Ag.",
   reuniao_realizada: "Reun. Re.",
-  indicacoes: "Indicações",
 };
 
 export async function fetchMonths(): Promise<DbMonth[]> {
