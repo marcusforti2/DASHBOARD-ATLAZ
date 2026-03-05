@@ -120,20 +120,59 @@ function ProcessEditorInner() {
   const autoAlignNodes = useCallback(() => {
     if (nodes.length === 0) return;
     saveToHistory();
-    const HS = 300, VS = 150, SX = 100, SY = 200;
-    const adj = new Map<string, string[]>(), ind = new Map<string, number>();
-    nodes.forEach(n => { adj.set(n.id, []); ind.set(n.id, 0); });
-    edges.forEach(e => { adj.get(e.source)?.push(e.target); ind.set(e.target, (ind.get(e.target) || 0) + 1); });
-    const starts = nodes.filter(n => (ind.get(n.id) || 0) === 0);
-    const levels = new Map<string, number>(), rows = new Map<string, number>(), visited = new Set<string>();
-    const queue: { id: string; level: number; row: number }[] = [];
-    starts.forEach((n, i) => queue.push({ id: n.id, level: 0, row: i }));
-    const ln = new Map<number, string[]>();
-    while (queue.length) { const { id, level, row } = queue.shift()!; if (visited.has(id)) continue; visited.add(id); levels.set(id, level); rows.set(id, row); if (!ln.has(level)) ln.set(level, []); ln.get(level)!.push(id); (adj.get(id) || []).forEach((c, i, a) => { if (!visited.has(c)) queue.push({ id: c, level: level + 1, row: row + (a.length > 1 ? i - (a.length - 1) / 2 : 0) }); }); }
-    nodes.forEach(n => { if (!visited.has(n.id)) { levels.set(n.id, Math.max(...Array.from(levels.values()), -1) + 1); rows.set(n.id, 0); } });
-    ln.forEach(ids => ids.forEach((id, i) => rows.set(id, i - (ids.length - 1) / 2)));
-    setNodes(nodes.map(n => ({ ...n, position: { x: SX + (levels.get(n.id) || 0) * HS, y: SY + (rows.get(n.id) || 0) * VS } })));
-    setTimeout(() => fitView({ padding: 0.2 }), 100);
+
+    const H_SPACING = 320, V_SPACING = 180, START_X = 100, CENTER_Y = 300;
+
+    // Build adjacency and in-degree maps
+    const adj = new Map<string, string[]>(), inDeg = new Map<string, number>();
+    nodes.forEach(n => { adj.set(n.id, []); inDeg.set(n.id, 0); });
+    edges.forEach(e => { adj.get(e.source)?.push(e.target); inDeg.set(e.target, (inDeg.get(e.target) || 0) + 1); });
+
+    // BFS topological sort
+    const queue: string[] = [];
+    nodes.forEach(n => { if ((inDeg.get(n.id) || 0) === 0) queue.push(n.id); });
+
+    const level = new Map<string, number>();
+    const visited = new Set<string>();
+    const processOrder: string[] = [];
+
+    while (queue.length > 0) {
+      const id = queue.shift()!;
+      if (visited.has(id)) continue;
+      visited.add(id);
+      processOrder.push(id);
+      if (!level.has(id)) level.set(id, 0);
+      const currentLevel = level.get(id)!;
+      for (const child of (adj.get(id) || [])) {
+        const childLevel = Math.max(level.get(child) || 0, currentLevel + 1);
+        level.set(child, childLevel);
+        const newInDeg = (inDeg.get(child) || 1) - 1;
+        inDeg.set(child, newInDeg);
+        if (newInDeg <= 0) queue.push(child);
+      }
+    }
+
+    // Handle disconnected nodes
+    nodes.forEach(n => { if (!level.has(n.id)) level.set(n.id, (Math.max(...Array.from(level.values()), -1)) + 1); });
+
+    // Group by level
+    const levelGroups = new Map<number, string[]>();
+    level.forEach((l, id) => {
+      if (!levelGroups.has(l)) levelGroups.set(l, []);
+      levelGroups.get(l)!.push(id);
+    });
+
+    // Assign positions: horizontal flow, centered vertical
+    setNodes(nodes.map(n => {
+      const l = level.get(n.id) || 0;
+      const group = levelGroups.get(l) || [n.id];
+      const idx = group.indexOf(n.id);
+      const totalHeight = (group.length - 1) * V_SPACING;
+      const startY = CENTER_Y - totalHeight / 2;
+      return { ...n, position: { x: START_X + l * H_SPACING, y: startY + idx * V_SPACING } };
+    }));
+
+    setTimeout(() => fitView({ padding: 0.2, duration: 400 }), 100);
   }, [nodes, edges, setNodes, saveToHistory, fitView]);
 
   const handleAIGenerate = useCallback((newNodes: Node[], newEdges: Edge[], addToCanvas = false) => {
@@ -142,7 +181,7 @@ function ProcessEditorInner() {
     const on = newNodes.map(n => ({ ...n, position: { x: n.position.x + off.x, y: n.position.y + off.y } }));
     const oe = newEdges.map(e => ({ ...e, type: 'processEdge' }));
     if (addToCanvas) { setNodes(nds => [...nds, ...on]); setEdges(eds => [...eds, ...oe]); } else { setNodes(on); setEdges(oe); setCurrentProcessId(null); setCurrentProcessName(''); setCurrentProcessDescription(''); }
-    setTimeout(() => fitView({ padding: 0.2 }), 100);
+    setTimeout(() => fitView({ padding: 0.3, duration: 500 }), 150);
   }, [setNodes, setEdges, saveToHistory, fitView, getCanvasOffset]);
 
   const handleSave = useCallback(async (name: string, description: string) => {
