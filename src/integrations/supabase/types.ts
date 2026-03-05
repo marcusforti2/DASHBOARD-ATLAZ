@@ -533,6 +533,7 @@ export type Database = {
           id: string
           is_active: boolean
           label: string
+          test_type: string
           token: string
         }
         Insert: {
@@ -540,6 +541,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           label?: string
+          test_type?: string
           token?: string
         }
         Update: {
@@ -547,6 +549,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           label?: string
+          test_type?: string
           token?: string
         }
         Relationships: []
@@ -563,6 +566,7 @@ export type Database = {
           respondent_phone: string | null
           status: string
           test_link_id: string | null
+          test_type: string
         }
         Insert: {
           ai_analysis?: Json | null
@@ -575,6 +579,7 @@ export type Database = {
           respondent_phone?: string | null
           status?: string
           test_link_id?: string | null
+          test_type?: string
         }
         Update: {
           ai_analysis?: Json | null
@@ -587,6 +592,7 @@ export type Database = {
           respondent_phone?: string | null
           status?: string
           test_link_id?: string | null
+          test_type?: string
         }
         Relationships: [
           {
