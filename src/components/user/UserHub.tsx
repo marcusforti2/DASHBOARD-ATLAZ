@@ -1,15 +1,16 @@
 import { useState } from "react";
-import { Target, Bot, LayoutDashboard, LogOut, BarChart3, Trophy, Zap, Shield } from "lucide-react";
+import { Target, Bot, LayoutDashboard, LogOut, BarChart3, Trophy, Zap, Shield, GraduationCap } from "lucide-react";
 import { CloserDailyDashboard } from "@/components/dashboard/CloserDailyDashboard";
 import AdminDashboard from "@/pages/AdminDashboard";
 import { AiChat } from "./AiChat";
 import { AiToolsPanel } from "./AiToolsPanel";
 import { UserRankingScreen } from "./UserRankingScreen";
+import { TrainingViewer } from "@/components/training/TrainingViewer";
 import { cn } from "@/lib/utils";
 import { AnimatePresence } from "framer-motion";
 import { getMemberRoles } from "@/lib/db";
 
-type UserTab = "dashboard" | "ai-chat" | "ai-tools" | "general-dashboard";
+type UserTab = "dashboard" | "ai-chat" | "ai-tools" | "general-dashboard" | "training";
 
 interface UserHubProps {
   teamMemberId: string;
@@ -20,6 +21,7 @@ interface UserHubProps {
 
 const TABS: { id: UserTab; label: string; icon: React.ElementType; mobileLabel: string }[] = [
   { id: "dashboard", label: "Meu Dia", icon: Target, mobileLabel: "Dia" },
+  { id: "training", label: "Treinamentos", icon: GraduationCap, mobileLabel: "Treino" },
   { id: "ai-chat", label: "Coach IA", icon: Bot, mobileLabel: "Coach" },
   { id: "ai-tools", label: "Ferramentas IA", icon: Bot, mobileLabel: "Tools" },
   { id: "general-dashboard", label: "Dashboard", icon: LayoutDashboard, mobileLabel: "Geral" },
@@ -55,6 +57,8 @@ export function UserHub({ teamMemberId, memberName, memberRole, onSignOut }: Use
         );
       case "general-dashboard":
         return <AdminDashboard onSignOut={onSignOut} userName={memberName} />;
+      case "training":
+        return <TrainingViewer memberRole={memberRole} />;
       default:
         return null;
     }

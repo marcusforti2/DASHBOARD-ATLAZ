@@ -1,6 +1,6 @@
 import {
   BarChart3, LayoutDashboard, Users, Target, FileText, Eye, Settings, LogOut,
-  ClipboardList, Sparkles, MessageCircle, BookOpen, Bot, Brain, GitBranch
+  ClipboardList, Sparkles, MessageCircle, BookOpen, Bot, Brain, GitBranch, GraduationCap
 } from "lucide-react";
 import {
   Sidebar,
@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-export type AdminView = "dashboard" | "team" | "goals" | "reports" | "closer-preview" | "settings" | "whatsapp" | "popups" | "knowledge" | "dna-mapping" | "processos";
+export type AdminView = "dashboard" | "team" | "goals" | "reports" | "closer-preview" | "settings" | "whatsapp" | "popups" | "knowledge" | "dna-mapping" | "processos" | "training";
 export type CloserView = "hub";
 
 interface AppSidebarProps {
@@ -39,6 +39,7 @@ const adminMainItems = [
 ];
 
 const adminSecondaryItems = [
+  { id: "training", title: "Treinamentos", icon: GraduationCap },
   { id: "dna-mapping", title: "DNA Vendedor", icon: Brain },
   { id: "processos", title: "Processos", icon: GitBranch },
   { id: "whatsapp", title: "WhatsApp", icon: MessageCircle },

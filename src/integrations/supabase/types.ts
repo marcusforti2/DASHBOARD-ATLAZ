@@ -667,6 +667,124 @@ export type Database = {
           },
         ]
       }
+      training_courses: {
+        Row: {
+          active: boolean
+          cover_url: string | null
+          created_at: string
+          description: string | null
+          id: string
+          sort_order: number
+          target_role: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          sort_order?: number
+          target_role?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          sort_order?: number
+          target_role?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      training_lessons: {
+        Row: {
+          cover_url: string | null
+          created_at: string
+          description: string | null
+          duration_seconds: number | null
+          id: string
+          module_id: string
+          sort_order: number
+          title: string
+          video_type: string
+          video_url: string
+        }
+        Insert: {
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          duration_seconds?: number | null
+          id?: string
+          module_id: string
+          sort_order?: number
+          title: string
+          video_type?: string
+          video_url: string
+        }
+        Update: {
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          duration_seconds?: number | null
+          id?: string
+          module_id?: string
+          sort_order?: number
+          title?: string
+          video_type?: string
+          video_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_lessons_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "training_modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_modules: {
+        Row: {
+          course_id: string
+          created_at: string
+          description: string | null
+          id: string
+          sort_order: number
+          title: string
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          sort_order?: number
+          title: string
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          sort_order?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_modules_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "training_courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
