@@ -7,20 +7,23 @@ export type AppRole = "admin" | "closer" | "sdr";
 interface AuthState {
   user: User | null;
   role: AppRole | null;
+  roles: AppRole[];
   profile: { full_name: string; avatar_url: string | null; team_member_id: string | null } | null;
   loading: boolean;
 }
 
 export function useAuth() {
-  const [state, setState] = useState<AuthState>({ user: null, role: null, profile: null, loading: true });
+  const [state, setState] = useState<AuthState>({ user: null, role: null, roles: [], profile: null, loading: true });
 
   const fetchUserData = useCallback(async (user: User) => {
     const [{ data: roles }, { data: profile }] = await Promise.all([
       supabase.from("user_roles").select("role").eq("user_id", user.id),
       supabase.from("profiles").select("full_name, avatar_url, team_member_id").eq("id", user.id).single(),
     ]);
-    const role = (roles?.[0]?.role as AppRole) || null;
-    setState({ user, role, profile: profile || null, loading: false });
+    const allRoles = (roles?.map(r => r.role as AppRole)) || [];
+    // Primary role: admin takes priority
+    const primaryRole = allRoles.includes("admin") ? "admin" : allRoles[0] || null;
+    setState({ user, role: primaryRole, roles: allRoles, profile: profile || null, loading: false });
   }, []);
 
   useEffect(() => {
@@ -28,7 +31,7 @@ export function useAuth() {
       if (session?.user) {
         fetchUserData(session.user);
       } else {
-        setState({ user: null, role: null, profile: null, loading: false });
+        setState({ user: null, role: null, roles: [], profile: null, loading: false });
       }
     });
 
@@ -36,7 +39,7 @@ export function useAuth() {
       if (session?.user) {
         fetchUserData(session.user);
       } else {
-        setState({ user: null, role: null, profile: null, loading: false });
+        setState({ user: null, role: null, roles: [], profile: null, loading: false });
       }
     });
 
@@ -47,5 +50,13 @@ export function useAuth() {
     await supabase.auth.signOut();
   }, []);
 
-  return { ...state, signOut, isAdmin: state.role === "admin", isCloser: state.role === "closer", isSdr: state.role === "sdr" };
+  return {
+    ...state,
+    signOut,
+    isAdmin: state.roles.includes("admin"),
+    isCloser: state.roles.includes("closer"),
+    isSdr: state.roles.includes("sdr"),
+    isAdminCloser: state.roles.includes("admin") && state.roles.includes("closer"),
+    isAdminSdr: state.roles.includes("admin") && state.roles.includes("sdr"),
+  };
 }
