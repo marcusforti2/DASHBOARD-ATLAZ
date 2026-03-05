@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.generate-knowledge]
 verify_jwt = false
+
+[functions.generate-course]
+verify_jwt = false
