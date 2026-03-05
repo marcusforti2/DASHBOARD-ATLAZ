@@ -1,9 +1,8 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 serve(async (req) => {
@@ -64,14 +63,14 @@ Regras:
 6. Use os tipos adequados para cada etapa
 7. Inclua responsáveis quando relevante`;
 
-    const response = await fetch("https://api.lovable.dev/api/ai/chat", {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Crie um fluxo de processo para: ${description}` },
@@ -82,7 +81,17 @@ Regras:
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error("AI API error:", errText);
+      console.error("AI API error:", response.status, errText);
+      if (response.status === 429) {
+        return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns segundos." }), {
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (response.status === 402) {
+        return new Response(JSON.stringify({ error: "Créditos insuficientes. Adicione créditos ao workspace." }), {
+          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       throw new Error("Erro na API de IA");
     }
 
@@ -94,12 +103,10 @@ Regras:
     const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (jsonMatch) jsonStr = jsonMatch[1];
     
-    // Try to find JSON object directly
     const objMatch = jsonStr.match(/\{[\s\S]*\}/);
     if (objMatch) jsonStr = objMatch[0];
 
     const parsed = JSON.parse(jsonStr.trim());
-
     if (!parsed.nodes || !parsed.edges) throw new Error("Formato inválido");
 
     return new Response(JSON.stringify(parsed), {
