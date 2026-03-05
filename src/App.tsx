@@ -9,6 +9,7 @@ import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 import RegisterAdmin from "./pages/RegisterAdmin";
 import PublicTestPage from "./pages/PublicTestPage";
+import ProcessoPublico from "./pages/ProcessoPublico";
 
 const queryClient = new QueryClient();
 
@@ -24,6 +25,7 @@ const App = () => (
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/register-admin" element={<RegisterAdmin />} />
           <Route path="/t/:token" element={<PublicTestPage />} />
+          <Route path="/processo/publico/:token" element={<ProcessoPublico />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

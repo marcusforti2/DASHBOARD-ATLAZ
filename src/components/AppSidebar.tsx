@@ -1,6 +1,6 @@
 import {
   BarChart3, LayoutDashboard, Users, Target, FileText, Eye, Settings, LogOut,
-  ClipboardList, Sparkles, MessageCircle, BookOpen, Bot, Brain
+  ClipboardList, Sparkles, MessageCircle, BookOpen, Bot, Brain, GitBranch
 } from "lucide-react";
 import {
   Sidebar,
@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-export type AdminView = "dashboard" | "team" | "goals" | "reports" | "closer-preview" | "settings" | "whatsapp" | "popups" | "knowledge" | "dna-mapping";
+export type AdminView = "dashboard" | "team" | "goals" | "reports" | "closer-preview" | "settings" | "whatsapp" | "popups" | "knowledge" | "dna-mapping" | "processos";
 export type CloserView = "hub";
 
 interface AppSidebarProps {
@@ -39,6 +39,7 @@ const adminMainItems = [
 
 const adminSecondaryItems = [
   { id: "dna-mapping", title: "DNA Vendedor", icon: Brain },
+  { id: "processos", title: "Processos", icon: GitBranch },
   { id: "whatsapp", title: "WhatsApp", icon: MessageCircle },
   { id: "popups", title: "Popups", icon: Sparkles },
   { id: "knowledge", title: "Conhecimento IA", icon: BookOpen },
