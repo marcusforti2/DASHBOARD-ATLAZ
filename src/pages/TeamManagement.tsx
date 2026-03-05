@@ -26,7 +26,12 @@ function MemberFormDialog({
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
-  const [selectedRoles, setSelectedRoles] = useState<Set<string>>(new Set(["sdr"]));
+  const [selectedRoles, setSelectedRoles] = useState<Set<string>>(() => {
+    if (member?.member_role) {
+      return new Set(member.member_role.split(",").map(r => r.trim()).filter(Boolean));
+    }
+    return new Set(["sdr"]);
+  });
   const [saving, setSaving] = useState(false);
   const [welcomeMsg, setWelcomeMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -60,7 +65,8 @@ function MemberFormDialog({
     setSaving(true);
 
     if (isEditing) {
-      const { error } = await supabase.from("team_members").update({ name: name.trim() }).eq("id", member.id);
+      const newRole = Array.from(selectedRoles).join(",");
+      const { error } = await supabase.from("team_members").update({ name: name.trim(), member_role: newRole }).eq("id", member.id);
       if (error) toast.error(error.message); else { toast.success("Membro atualizado!"); onSaved(); onClose(); }
       setSaving(false);
       return;
@@ -251,9 +257,8 @@ Faça login e comece a registrar suas métricas. Bora pra cima! 🚀`;
             </div>
           )}
 
-          {/* Role selection */}
-          {!isEditing && (
-            <div>
+          {/* Role selection - available for both new and editing */}
+          <div>
               <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1.5">Função(ões)</label>
               <div className="grid grid-cols-2 gap-2">
                 <button type="button" onClick={() => {
@@ -295,7 +300,6 @@ Faça login e comece a registrar suas métricas. Bora pra cima! 🚀`;
                 </p>
               )}
             </div>
-          )}
 
           {/* Name */}
           <div>
