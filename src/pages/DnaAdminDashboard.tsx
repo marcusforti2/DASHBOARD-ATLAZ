@@ -89,7 +89,11 @@ export default function DnaAdminDashboard({ onViewSubmission }: DnaAdminDashboar
 
   const sendWhatsAppNotification = async (phone: string, memberName: string, testType: string, testUrl: string) => {
     const typeLabel = testType === 'sdr' ? 'SDR' : 'Closer';
-    const message = `🧬 *Sales DNA Decoder — Teste Comportamental ${typeLabel}*\n\nOlá, ${memberName}! 👋\n\nVocê foi selecionado(a) para realizar o *Mapeamento Comportamental ${typeLabel}*.\n\n📋 *O que é?*\nUm teste de 120 perguntas que analisa seu perfil comportamental, pontos fortes, áreas de desenvolvimento e estilo de atuação profissional.\n\n⏱ *Duração estimada:* 15-25 minutos\n\n📌 *Dicas importantes:*\n• Responda com sinceridade — não existem respostas certas ou erradas\n• Reserve um momento tranquilo, sem interrupções\n• Leia cada pergunta com atenção antes de responder\n• O teste salva seu progresso automaticamente\n\n🔗 *Acesse seu teste aqui:*\n${testUrl}\n\n✅ Ao finalizar, sua análise será gerada automaticamente com insights personalizados.\n\nBoa sorte! 🚀`;
+    const roleDescription = testType === 'sdr'
+      ? 'Esse mapeamento vai identificar seu perfil de prospecção (Hunter, Executor, Conversador ou Analítico), seu Score de Resiliência, travas de prospecção e pontos de desenvolvimento como SDR.'
+      : 'Esse mapeamento vai identificar seu perfil de negociação, estilo DISC, Score de Negociação, travas emocionais e pontos de desenvolvimento como Closer.';
+
+    const message = `🧬 *Sales DNA Decoder — Teste Comportamental ${typeLabel}*\n\nOlá, ${memberName}! 👋\n\nVocê foi selecionado(a) para realizar o *Mapeamento Comportamental ${typeLabel}*.\n\n📋 *O que é?*\n${roleDescription}\n\nSão 120 perguntas que analisam seu perfil comportamental completo.\n\n⏱ *Duração estimada:* 15-25 minutos\n\n📌 *Dicas importantes:*\n• Responda com sinceridade — não existem respostas certas ou erradas\n• Reserve um momento tranquilo, sem interrupções\n• Leia cada pergunta com atenção antes de responder\n• O teste salva seu progresso automaticamente\n\n🔗 *Acesse seu teste aqui:*\n${testUrl}\n\n✅ Ao finalizar, sua análise será gerada automaticamente com insights personalizados para o seu perfil de ${typeLabel}.\n\nBoa sorte! 🚀`;
 
     try {
       await supabase.functions.invoke('send-whatsapp', {
@@ -98,8 +102,23 @@ export default function DnaAdminDashboard({ onViewSubmission }: DnaAdminDashboar
       toast.success(`WhatsApp enviado para ${memberName}!`);
     } catch (err) {
       console.error('WhatsApp send error:', err);
-      toast.error('Link criado, mas não foi possível enviar o WhatsApp.');
+      toast.error('Não foi possível enviar o WhatsApp.');
     }
+  };
+
+  const resendWhatsApp = async (link: TestLink) => {
+    if (!link.member_id) {
+      toast.error('Este link não está vinculado a um membro.');
+      return;
+    }
+    const member = teamMembers.find(m => m.id === link.member_id);
+    const contact = whatsappContacts.find(c => c.team_member_id === link.member_id);
+    if (!member || !contact) {
+      toast.error('Membro sem WhatsApp cadastrado.');
+      return;
+    }
+    const testUrl = `${window.location.origin}/t/${link.token}`;
+    await sendWhatsAppNotification(contact.phone, member.name, link.test_type || 'closer', testUrl);
   };
 
   const createLink = async () => {
@@ -313,6 +332,11 @@ export default function DnaAdminDashboard({ onViewSubmission }: DnaAdminDashboar
                     <p className="text-xs text-muted-foreground truncate">{window.location.origin}/t/{link.token}</p>
                   </div>
                   <div className="flex items-center gap-1">
+                    {link.member_id && whatsappContacts.some(c => c.team_member_id === link.member_id) && (
+                      <Button variant="ghost" size="sm" onClick={() => resendWhatsApp(link)} title="Reenviar WhatsApp" className="text-green-600 hover:text-green-700 hover:bg-green-500/10">
+                        <MessageSquare className="w-4 h-4" />
+                      </Button>
+                    )}
                     <Button variant="ghost" size="sm" onClick={() => { setEditingLink(link); setEditLabel(link.label); }}><Pencil className="w-4 h-4" /></Button>
                     <Button variant="ghost" size="sm" onClick={() => setDeletingLinkId(link.id)} className="text-destructive hover:text-destructive"><Trash2 className="w-4 h-4" /></Button>
                     <Button variant="outline" size="sm" onClick={() => copyLink(link.token)}>{copiedToken === link.token ? <Check className="w-4 h-4 text-primary" /> : <Copy className="w-4 h-4" />}</Button>
