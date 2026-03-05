@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { EdgeProps, getBezierPath, EdgeLabelRenderer, useReactFlow } from '@xyflow/react';
+import { EdgeProps, getSmoothStepPath, EdgeLabelRenderer, useReactFlow } from '@xyflow/react';
 import { X } from 'lucide-react';
 import { EdgeColor } from '../types';
 
@@ -25,15 +25,16 @@ export const ProcessEdge: React.FC<EdgeProps> = memo(({
   id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, selected, label
 }) => {
   const { setEdges } = useReactFlow();
-  const [edgePath, labelX, labelY] = getBezierPath({
-    sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition
+  const [edgePath, labelX, labelY] = getSmoothStepPath({
+    sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition,
+    borderRadius: 12,
   });
 
   const edgeData = data as ProcessEdgeData | undefined;
   const edgeColor = edgeData?.color || 'default';
   const thickness = edgeData?.thickness || 2;
   const speed = edgeData?.speed || 1;
-  const animationDuration = 2 / speed;
+  const animationDuration = 3 / speed;
   const edgeLabel = label || edgeData?.label;
 
   const handleDelete = (e: React.MouseEvent) => {
@@ -41,21 +42,42 @@ export const ProcessEdge: React.FC<EdgeProps> = memo(({
     setEdges(eds => eds.filter(edge => edge.id !== id));
   };
 
+  const isDecisionEdge = edgeColor === 'green' || edgeColor === 'red';
+  const strokeColor = edgeColorMap[edgeColor];
+
   return (
     <>
-      <path id={id} d={edgePath} fill="none" stroke={edgeColorMap[edgeColor]}
+      {/* Shadow/glow for selected edges */}
+      {selected && (
+        <path d={edgePath} fill="none" stroke={strokeColor} strokeWidth={thickness + 4}
+          strokeLinecap="round" opacity={0.2}
+        />
+      )}
+      {/* Main edge path */}
+      <path id={id} d={edgePath} fill="none" stroke={strokeColor}
         strokeWidth={selected ? thickness + 1 : thickness} strokeLinecap="round"
-        style={{ filter: selected ? 'drop-shadow(0 0 3px rgba(99, 102, 241, 0.5))' : undefined, transition: 'stroke-width 0.2s ease' }}
+        strokeDasharray={isDecisionEdge ? undefined : undefined}
+        style={{ transition: 'stroke-width 0.2s ease' }}
       />
-      <circle r={4} fill={pulseColorMap[edgeColor]}>
+      {/* Animated dot */}
+      <circle r={3} fill={pulseColorMap[edgeColor]} opacity={0.8}>
         <animateMotion dur={`${animationDuration}s`} repeatCount="indefinite" path={edgePath} />
       </circle>
+      {/* Hit area */}
       <path d={edgePath} fill="none" stroke="transparent" strokeWidth={20} style={{ cursor: 'pointer' }} />
       <EdgeLabelRenderer>
         <div style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`, pointerEvents: 'all' }} className="flex items-center gap-1">
-          {edgeLabel && <span className="bg-background border rounded px-2 py-0.5 text-xs font-medium shadow-sm">{edgeLabel}</span>}
+          {edgeLabel && (
+            <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold shadow-sm border ${
+              edgeColor === 'green' ? 'bg-green-50 text-green-700 border-green-200' :
+              edgeColor === 'red' ? 'bg-red-50 text-red-700 border-red-200' :
+              'bg-background text-foreground border-border'
+            }`}>
+              {edgeLabel}
+            </span>
+          )}
           {selected && (
-            <button onClick={handleDelete} className="p-1 rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-sm" title="Excluir conexão">
+            <button onClick={handleDelete} className="p-0.5 rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-sm" title="Excluir">
               <X className="h-3 w-3" />
             </button>
           )}
