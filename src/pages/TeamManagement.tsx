@@ -695,6 +695,101 @@ function MemberCard({
   );
 }
 
+// ─── Admin Role Card ─────────────────────────────────────────────────────
+interface AdminUser {
+  user_id: string;
+  full_name: string;
+  avatar_url: string | null;
+  team_member_id: string | null;
+  roles: string[];
+}
+
+function AdminRoleCard({ admin, onRolesChanged }: { admin: AdminUser; onRolesChanged: () => void }) {
+  const [saving, setSaving] = useState(false);
+  const hasSdr = admin.roles.includes("sdr");
+  const hasCloser = admin.roles.includes("closer");
+
+  const toggleRole = async (role: "sdr" | "closer") => {
+    setSaving(true);
+    try {
+      const has = admin.roles.includes(role);
+      const { data: { session } } = await supabase.auth.getSession();
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-admin-roles`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({
+          admin_user_id: admin.user_id,
+          ...(has ? { remove_roles: [role] } : { add_roles: [role] }),
+        }),
+      });
+      const result = await resp.json();
+      if (!resp.ok) throw new Error(result.error || "Erro");
+      toast.success(has ? `Função ${role.toUpperCase()} removida` : `Função ${role.toUpperCase()} adicionada`);
+      onRolesChanged();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-[hsl(38,92%,50%)]/30 bg-card p-3 sm:p-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <img
+            src={admin.avatar_url || "/placeholder.svg"}
+            alt={admin.full_name}
+            className="w-10 h-10 rounded-full object-cover border-2 border-[hsl(38,92%,50%)]/50"
+          />
+          <div>
+            <div className="flex items-center gap-2">
+              <h4 className="text-sm font-semibold text-card-foreground">{admin.full_name || "Admin"}</h4>
+              <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-[hsl(38,92%,50%)]/15 text-[hsl(38,92%,50%)]">
+                ADMIN
+              </span>
+              {hasSdr && (
+                <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-primary/15 text-primary">SDR</span>
+              )}
+              {hasCloser && (
+                <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-[hsl(280,65%,60%)]/15 text-[hsl(280,65%,65%)]">CLOSER</span>
+              )}
+            </div>
+            <span className="text-[10px] text-muted-foreground">Gestor{(hasSdr || hasCloser) ? " + " + [hasSdr && "SDR", hasCloser && "Closer"].filter(Boolean).join(" + ") : ""}</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => toggleRole("sdr")}
+            disabled={saving}
+            className={`px-3 py-1.5 text-[10px] rounded-lg font-semibold transition-all flex items-center gap-1 ${
+              hasSdr
+                ? "bg-primary text-primary-foreground hover:bg-primary/80"
+                : "bg-secondary text-muted-foreground hover:bg-secondary/80 border border-border"
+            }`}
+          >
+            <Zap size={10} />
+            {hasSdr ? "SDR ✓" : "+ SDR"}
+          </button>
+          <button
+            onClick={() => toggleRole("closer")}
+            disabled={saving}
+            className={`px-3 py-1.5 text-[10px] rounded-lg font-semibold transition-all flex items-center gap-1 ${
+              hasCloser
+                ? "bg-[hsl(280,65%,60%)] text-white hover:bg-[hsl(280,65%,55%)]"
+                : "bg-secondary text-muted-foreground hover:bg-secondary/80 border border-border"
+            }`}
+          >
+            <Shield size={10} />
+            {hasCloser ? "Closer ✓" : "+ Closer"}
+          </button>
+          {saving && <Loader2 size={14} className="animate-spin text-muted-foreground" />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Team Management Page ───────────────────────────────────────────
 export default function TeamManagement() {
   const { data: members, isLoading } = useTeamMembers();
@@ -703,6 +798,38 @@ export default function TeamManagement() {
   const [showForm, setShowForm] = useState(false);
   const [editingMember, setEditingMember] = useState<DbTeamMember | null>(null);
   const [expandedMember, setExpandedMember] = useState<string | null>(null);
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
+  const [loadingAdmins, setLoadingAdmins] = useState(true);
+
+  const fetchAdmins = async () => {
+    setLoadingAdmins(true);
+    try {
+      // Get all admin user_ids
+      const { data: adminRoles } = await supabase.from("user_roles").select("user_id").eq("role", "admin");
+      if (!adminRoles?.length) { setAdminUsers([]); setLoadingAdmins(false); return; }
+
+      const adminIds = adminRoles.map(r => r.user_id);
+      // Get profiles
+      const { data: profiles } = await supabase.from("profiles").select("id, full_name, avatar_url, team_member_id").in("id", adminIds);
+      // Get all roles for these users
+      const { data: allRoles } = await supabase.from("user_roles").select("user_id, role").in("user_id", adminIds);
+
+      const admins: AdminUser[] = (profiles || []).map(p => ({
+        user_id: p.id,
+        full_name: p.full_name,
+        avatar_url: p.avatar_url,
+        team_member_id: p.team_member_id,
+        roles: (allRoles || []).filter(r => r.user_id === p.id).map(r => r.role),
+      }));
+      setAdminUsers(admins);
+    } catch {
+      console.error("Error fetching admins");
+    } finally {
+      setLoadingAdmins(false);
+    }
+  };
+
+  useEffect(() => { fetchAdmins(); }, []);
 
   const sdrs = members?.filter(m => memberHasRole(m, "sdr") && !memberHasRole(m, "closer")) || [];
   const closers = members?.filter(m => memberHasRole(m, "closer") && !memberHasRole(m, "sdr")) || [];
@@ -757,6 +884,27 @@ export default function TeamManagement() {
           <Plus size={14} /> Novo Membro
         </button>
       </div>
+
+      {/* Admin Section */}
+      {adminUsers.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Medal size={14} className="text-[hsl(38,92%,50%)]" />
+            <h3 className="text-xs font-bold text-[hsl(38,92%,50%)] uppercase tracking-wider">Admins — Gestores</h3>
+            <div className="flex-1 h-px bg-[hsl(38,92%,50%)]/20" />
+            <span className="text-[10px] text-muted-foreground font-medium">{adminUsers.length} admins</span>
+          </div>
+          <p className="text-[10px] text-muted-foreground -mt-1">Adicione funções de SDR ou Closer aos admins para que também registrem métricas.</p>
+          <div className="space-y-2">
+            {adminUsers.map(admin => (
+              <AdminRoleCard key={admin.user_id} admin={admin} onRolesChanged={() => {
+                fetchAdmins();
+                queryClient.invalidateQueries({ queryKey: ["team-members"] });
+              }} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* SDR Section */}
       {sdrs.length > 0 && (
