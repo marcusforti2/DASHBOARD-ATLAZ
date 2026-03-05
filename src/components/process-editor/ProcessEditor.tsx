@@ -227,7 +227,6 @@ function ProcessEditorInner() {
           <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} onNodeClick={onNodeClick} onPaneClick={onPaneClick} onInit={setReactFlowInstance as any} nodeTypes={nodeTypes} edgeTypes={edgeTypes} defaultEdgeOptions={defaultEdgeOptions} fitView snapToGrid snapGrid={[20, 20]} deleteKeyCode={['Backspace', 'Delete']} selectionOnDrag selectionMode={SelectionMode.Partial} connectionLineType={ConnectionLineType.SmoothStep} connectionLineStyle={{ stroke: 'hsl(var(--primary))', strokeWidth: 2 }} proOptions={{ hideAttribution: true }}>
             <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
             <Controls showInteractive={false} />
-            <MiniMap nodeStrokeWidth={3} zoomable pannable className="!bg-background/80" />
           </ReactFlow>
         </div>
         {selectedNode && <ProcessPropertiesPanel node={selectedNode} onUpdate={updateNodeData} onClose={() => setSelectedNode(null)} />}
