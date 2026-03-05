@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { questions } from '@/data/dna-questions';
+import { sdrQuestions } from '@/data/sdr-questions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
@@ -18,6 +19,7 @@ interface Submission {
   completed_at: string | null;
   created_at: string;
   ai_analysis: any;
+  test_type?: string;
 }
 
 interface Answer {
@@ -48,6 +50,10 @@ export default function DnaSubmissionDetail({ submissionId, onBack }: Submission
   const chatEndRef = useRef<HTMLDivElement>(null);
   const analysisRef = useRef<HTMLDivElement>(null);
 
+  const testType = (submission as any)?.test_type || 'closer';
+  const isSdr = testType === 'sdr';
+  const activeQuestions = isSdr ? sdrQuestions : questions;
+
   const aiAnalysis = submission?.ai_analysis;
   const isNewFormat = aiAnalysis && typeof aiAnalysis === 'object' && 'narrative' in (aiAnalysis as any);
   const narrativeText = isNewFormat ? (aiAnalysis as any).narrative : (typeof aiAnalysis === 'string' ? aiAnalysis : aiAnalysis ? JSON.stringify(aiAnalysis, null, 2) : null);
@@ -63,7 +69,7 @@ export default function DnaSubmissionDetail({ submissionId, onBack }: Submission
       supabase.from('test_answers').select('question_id, answer').eq('submission_id', submissionId).order('question_id'),
       supabase.from('dna_chat_messages').select('role, content').eq('submission_id', submissionId).order('created_at'),
     ]);
-    if (sub) setSubmission(sub as Submission);
+    if (sub) setSubmission(sub as any as Submission);
     if (ans) setAnswers(ans as Answer[]);
     if (msgs && (msgs as any[]).length > 0) setChatMessages(msgs as unknown as ChatMessage[]);
     setLoading(false);
@@ -74,11 +80,12 @@ export default function DnaSubmissionDetail({ submissionId, onBack }: Submission
     setAnalyzingAi(true);
     try {
       const formattedAnswers = answers.map(a => {
-        const q = questions.find(q => q.id === a.question_id);
-        return `Pergunta ${a.question_id} (Bloco ${q?.block || '?'} - ${q?.blockTitle || '?'}): ${q?.text || '?'}\nResposta: ${a.answer}`;
+        const q = activeQuestions.find(q => q.id === a.question_id);
+        return `Q${a.question_id} (Bloco ${q?.block || '?'} - ${q?.blockTitle || '?'}): ${q?.text || '?'}\nResposta: ${a.answer}`;
       }).join('\n\n');
 
-      const { data, error } = await supabase.functions.invoke('analyze-test', {
+      const edgeFn = isSdr ? 'analyze-sdr-test' : 'analyze-test';
+      const { data, error } = await supabase.functions.invoke(edgeFn, {
         body: { submissionId: submission.id, answers: formattedAnswers },
       });
       if (error) throw error;
@@ -118,7 +125,7 @@ export default function DnaSubmissionDetail({ submissionId, onBack }: Submission
     const BOM = '\uFEFF';
     const header = 'Bloco;Título do Bloco;Nº Pergunta;Pergunta;Resposta\n';
     const rows = answers.map(a => {
-      const q = questions.find(q => q.id === a.question_id);
+      const q = activeQuestions.find(q => q.id === a.question_id);
       const answerText = q?.type === 'multiple-choice' ? q.options?.find(o => o.value === a.answer)?.label || a.answer : a.answer;
       const clean = (s: string) => `"${(s || '').replace(/"/g, '""').replace(/\n/g, ' ')}"`;
       return `${q?.block || ''};${clean(q?.blockTitle || '')};${a.question_id};${clean(q?.text || '')};${clean(answerText)}`;
@@ -130,6 +137,9 @@ export default function DnaSubmissionDetail({ submissionId, onBack }: Submission
     URL.revokeObjectURL(url);
   };
 
+  // Get unique blocks from the active questions
+  const blockNumbers = [...new Set(activeQuestions.map(q => q.block))].sort();
+
   if (loading) return <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>;
   if (!submission) return <div className="text-center py-12 text-muted-foreground">Submissão não encontrada.</div>;
 
@@ -139,7 +149,12 @@ export default function DnaSubmissionDetail({ submissionId, onBack }: Submission
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={onBack}><ArrowLeft className="w-4 h-4 mr-1" /> Voltar</Button>
         <div className="flex-1 min-w-0">
-          <h2 className="font-bold text-foreground truncate">{submission.respondent_name || 'Sem nome'}</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="font-bold text-foreground truncate">{submission.respondent_name || 'Sem nome'}</h2>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${isSdr ? 'bg-blue-500/10 text-blue-500' : 'bg-primary/10 text-primary'}`}>
+              {testType.toUpperCase()}
+            </span>
+          </div>
           <p className="text-xs text-muted-foreground">{submission.respondent_email} {submission.respondent_phone && `· ${submission.respondent_phone}`}</p>
         </div>
         {submission.status === 'completed' && (
@@ -165,20 +180,22 @@ export default function DnaSubmissionDetail({ submissionId, onBack }: Submission
       {tab === 'answers' && (
         <div className="space-y-6">
           <div className="flex justify-end"><Button onClick={exportCsv} variant="outline" size="sm"><FileSpreadsheet className="w-4 h-4 mr-1" /> CSV</Button></div>
-          {[1, 2, 3, 4, 5, 6, 7].map(block => {
-            const blockAnswers = answers.filter(a => { const q = questions.find(q => q.id === a.question_id); return q?.block === block; });
+          {blockNumbers.map(block => {
+            const blockAnswers = answers.filter(a => { const q = activeQuestions.find(q => q.id === a.question_id); return q?.block === block; });
             if (blockAnswers.length === 0) return null;
-            const blockTitle = questions.find(q => q.block === block)?.blockTitle || '';
+            const blockTitle = activeQuestions.find(q => q.block === block)?.blockTitle || '';
             return (
               <motion.div key={block} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: block * 0.05 }}>
                 <h3 className="text-xs font-semibold text-primary uppercase tracking-wide mb-3">Bloco {block} — {blockTitle}</h3>
                 <div className="space-y-2">
                   {blockAnswers.map(a => {
-                    const q = questions.find(q => q.id === a.question_id);
+                    const q = activeQuestions.find(q => q.id === a.question_id);
                     return (
                       <div key={a.question_id} className="bg-card border border-border rounded-xl p-4">
                         <p className="text-xs text-muted-foreground mb-1">{a.question_id}. {q?.text}</p>
-                        <p className="text-sm text-foreground font-medium">{q?.type === 'multiple-choice' ? q.options?.find(o => o.value === a.answer)?.label || a.answer : a.answer}</p>
+                        <p className="text-sm text-foreground font-medium">
+                          {q?.type === 'scale' ? `${a.answer} / ${q.scaleMax}` : q?.type === 'multiple-choice' ? q.options?.find(o => o.value === a.answer)?.label || a.answer : a.answer}
+                        </p>
                       </div>
                     );
                   })}
@@ -193,7 +210,9 @@ export default function DnaSubmissionDetail({ submissionId, onBack }: Submission
       {tab === 'analysis' && narrativeText && (
         <div ref={analysisRef} className="bg-card border border-border rounded-xl p-6 sm:p-10">
           <div className="text-center mb-8 pb-6 border-b border-border">
-            <h2 className="text-xl sm:text-2xl font-bold text-foreground">Diagnóstico Comportamental e de Performance</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground">
+              {isSdr ? 'Diagnóstico DISC — SDR de Prospecção' : 'Diagnóstico Comportamental e de Performance'}
+            </h2>
             <p className="text-sm text-muted-foreground mt-2">{submission.respondent_name || 'Vendedor'}</p>
           </div>
           <div className="prose prose-sm max-w-none dark:prose-invert">
@@ -211,7 +230,10 @@ export default function DnaSubmissionDetail({ submissionId, onBack }: Submission
                 <Bot className="w-10 h-10 text-muted-foreground mx-auto" />
                 <p className="text-muted-foreground text-sm">Pergunte sobre o perfil de <strong className="text-foreground">{submission.respondent_name}</strong>.</p>
                 <div className="flex flex-wrap gap-2 justify-center">
-                  {['Qual o perfil DISC?', 'Principais pontos de travamento?', 'Que tipo de liderança funciona?'].map(s => (
+                  {(isSdr
+                    ? ['Qual o perfil DISC?', 'Classificação do SDR?', 'Pontos fortes na prospecção?']
+                    : ['Qual o perfil DISC?', 'Principais pontos de travamento?', 'Que tipo de liderança funciona?']
+                  ).map(s => (
                     <Button key={s} variant="outline" size="sm" className="text-xs" onClick={() => setChatInput(s)}>{s}</Button>
                   ))}
                 </div>

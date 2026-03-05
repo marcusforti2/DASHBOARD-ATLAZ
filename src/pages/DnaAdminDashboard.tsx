@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { questions } from '@/data/dna-questions';
+import { sdrQuestions } from '@/data/sdr-questions';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface TestLink {
   id: string;
@@ -16,6 +18,7 @@ interface TestLink {
   label: string;
   is_active: boolean;
   created_at: string;
+  test_type: string;
 }
 
 interface Submission {
@@ -29,6 +32,7 @@ interface Submission {
   respondent_phone: string | null;
   member_id: string | null;
   test_link_id: string | null;
+  test_type: string;
 }
 
 interface DnaAdminDashboardProps {
@@ -41,12 +45,14 @@ export default function DnaAdminDashboard({ onViewSubmission }: DnaAdminDashboar
   const [loading, setLoading] = useState(true);
   const [answers, setAnswers] = useState<Record<string, { question_id: number; answer: string }[]>>({});
   const [newLinkLabel, setNewLinkLabel] = useState('');
+  const [newLinkType, setNewLinkType] = useState<'closer' | 'sdr'>('closer');
   const [creatingLink, setCreatingLink] = useState(false);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const [tab, setTab] = useState<'links' | 'submissions'>('links');
   const [editingLink, setEditingLink] = useState<TestLink | null>(null);
   const [editLabel, setEditLabel] = useState('');
   const [deletingLinkId, setDeletingLinkId] = useState<string | null>(null);
+  const [filterType, setFilterType] = useState<'all' | 'closer' | 'sdr'>('all');
 
   useEffect(() => { loadData(); }, []);
 
@@ -56,16 +62,19 @@ export default function DnaAdminDashboard({ onViewSubmission }: DnaAdminDashboar
       supabase.from('test_submissions').select('*').order('created_at', { ascending: false }),
       supabase.from('test_links').select('*').order('created_at', { ascending: false }),
     ]);
-    setSubmissions((subs as Submission[]) || []);
-    setTestLinks((links as TestLink[]) || []);
+    setSubmissions((subs as any as Submission[]) || []);
+    setTestLinks((links as any as TestLink[]) || []);
     setLoading(false);
   };
 
   const createLink = async () => {
     setCreatingLink(true);
-    const { data, error } = await supabase.from('test_links').insert({ label: newLinkLabel.trim() || 'Sem rótulo' }).select().single();
+    const { data, error } = await supabase.from('test_links').insert({
+      label: newLinkLabel.trim() || 'Sem rótulo',
+      test_type: newLinkType,
+    } as any).select().single();
     if (error) { toast.error(error.message); }
-    else if (data) { setTestLinks(prev => [data as TestLink, ...prev]); setNewLinkLabel(''); toast.success('Link criado!'); }
+    else if (data) { setTestLinks(prev => [data as any as TestLink, ...prev]); setNewLinkLabel(''); toast.success('Link criado!'); }
     setCreatingLink(false);
   };
 
@@ -91,26 +100,31 @@ export default function DnaAdminDashboard({ onViewSubmission }: DnaAdminDashboar
     setDeletingLinkId(null);
   };
 
+  const filteredSubmissions = filterType === 'all' ? submissions : submissions.filter(s => (s.test_type || 'closer') === filterType);
+  const filteredLinks = filterType === 'all' ? testLinks : testLinks.filter(l => (l.test_type || 'closer') === filterType);
+
   const exportCsv = () => {
-    if (submissions.length === 0) return;
-    const allQuestionIds = questions.map(q => q.id);
-    const headers = ['Nome', 'Email', 'Telefone', 'Data', 'Status', ...allQuestionIds.map(id => `Q${id}`)];
-    const rows = submissions.map(sub => {
+    if (filteredSubmissions.length === 0) return;
+    const isExportSdr = filterType === 'sdr';
+    const activeQuestions = isExportSdr ? sdrQuestions : questions;
+    const allQuestionIds = activeQuestions.map(q => q.id);
+    const headers = ['Nome', 'Email', 'Telefone', 'Tipo', 'Data', 'Status', ...allQuestionIds.map(id => `Q${id}`)];
+    const rows = filteredSubmissions.map(sub => {
       const subAnswers = answers[sub.id] || [];
       const answerMap: Record<number, string> = {};
       subAnswers.forEach(a => { answerMap[a.question_id] = a.answer; });
-      return [sub.respondent_name || '', sub.respondent_email || '', sub.respondent_phone || '', sub.completed_at ? new Date(sub.completed_at).toLocaleDateString('pt-BR') : '', sub.status, ...allQuestionIds.map(id => `"${(answerMap[id] || '').replace(/"/g, '""')}"`)];
+      return [sub.respondent_name || '', sub.respondent_email || '', sub.respondent_phone || '', sub.test_type || 'closer', sub.completed_at ? new Date(sub.completed_at).toLocaleDateString('pt-BR') : '', sub.status, ...allQuestionIds.map(id => `"${(answerMap[id] || '').replace(/"/g, '""')}"`)];
     });
     const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = `dna-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+    a.href = url; a.download = `dna-${filterType}-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
     URL.revokeObjectURL(url);
   };
 
   const loadAllAnswersForExport = async () => {
-    const ids = submissions.map(s => s.id);
+    const ids = filteredSubmissions.map(s => s.id);
     if (ids.length === 0) return;
     const { data } = await supabase.from('test_answers').select('submission_id, question_id, answer').in('submission_id', ids).order('question_id');
     if (data) {
@@ -121,16 +135,20 @@ export default function DnaAdminDashboard({ onViewSubmission }: DnaAdminDashboar
     setTimeout(exportCsv, 200);
   };
 
+  const closerSubs = submissions.filter(s => (s.test_type || 'closer') === 'closer');
+  const sdrSubs = submissions.filter(s => (s.test_type || 'closer') === 'sdr');
+
   if (loading) return <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>;
 
   return (
     <div className="space-y-6">
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
         {[
           { label: 'Links Criados', value: testLinks.length, icon: Link2 },
           { label: 'Total de Testes', value: submissions.length, icon: FileText },
-          { label: 'Completos', value: submissions.filter(s => s.status === 'completed').length, icon: FileText },
+          { label: 'Closer', value: closerSubs.filter(s => s.status === 'completed').length, icon: FileText },
+          { label: 'SDR', value: sdrSubs.filter(s => s.status === 'completed').length, icon: FileText },
           { label: 'Com Análise IA', value: submissions.filter(s => s.ai_analysis).length, icon: Brain },
         ].map((stat, i) => (
           <motion.div key={stat.label} className="bg-card border border-border rounded-xl p-4" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
@@ -141,28 +159,48 @@ export default function DnaAdminDashboard({ onViewSubmission }: DnaAdminDashboar
         ))}
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2">
+      {/* Tabs + Filter */}
+      <div className="flex gap-2 flex-wrap">
         <Button variant={tab === 'links' ? 'default' : 'outline'} size="sm" onClick={() => setTab('links')}><Link2 className="w-4 h-4 mr-1" /> Links</Button>
         <Button variant={tab === 'submissions' ? 'default' : 'outline'} size="sm" onClick={() => setTab('submissions')}><FileText className="w-4 h-4 mr-1" /> Submissões</Button>
         <div className="flex-1" />
+        <Select value={filterType} onValueChange={(v: any) => setFilterType(v)}>
+          <SelectTrigger className="w-[130px] h-9 text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos</SelectItem>
+            <SelectItem value="closer">Closer</SelectItem>
+            <SelectItem value="sdr">SDR</SelectItem>
+          </SelectContent>
+        </Select>
         <Button variant="outline" size="sm" onClick={loadAllAnswersForExport}><Download className="w-4 h-4 mr-1" /> CSV</Button>
       </div>
 
       {tab === 'links' && (
         <div className="space-y-4">
           <div className="flex gap-2">
-            <Input value={newLinkLabel} onChange={(e) => setNewLinkLabel(e.target.value)} placeholder="Rótulo do link (ex: João Silva...)" className="bg-card" />
-            <Button onClick={createLink} disabled={creatingLink} className="shrink-0"><Plus className="w-4 h-4 mr-1" /> Criar Link</Button>
+            <Input value={newLinkLabel} onChange={(e) => setNewLinkLabel(e.target.value)} placeholder="Rótulo do link (ex: João Silva...)" className="bg-card flex-1" />
+            <Select value={newLinkType} onValueChange={(v: any) => setNewLinkType(v)}>
+              <SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="closer">Closer</SelectItem>
+                <SelectItem value="sdr">SDR</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button onClick={createLink} disabled={creatingLink} className="shrink-0"><Plus className="w-4 h-4 mr-1" /> Criar</Button>
           </div>
-          {testLinks.length === 0 ? (
+          {filteredLinks.length === 0 ? (
             <div className="bg-card border border-border rounded-xl p-8 text-center"><p className="text-muted-foreground">Nenhum link criado ainda.</p></div>
           ) : (
             <div className="space-y-2">
-              {testLinks.map(link => (
+              {filteredLinks.map(link => (
                 <div key={link.id} className="bg-card border border-border rounded-xl p-4 flex items-center justify-between">
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium text-foreground text-sm">{link.label}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-foreground text-sm">{link.label}</p>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${(link.test_type || 'closer') === 'sdr' ? 'bg-blue-500/10 text-blue-500' : 'bg-primary/10 text-primary'}`}>
+                        {(link.test_type || 'closer').toUpperCase()}
+                      </span>
+                    </div>
                     <p className="text-xs text-muted-foreground truncate">{window.location.origin}/t/{link.token}</p>
                   </div>
                   <div className="flex items-center gap-1">
@@ -179,13 +217,18 @@ export default function DnaAdminDashboard({ onViewSubmission }: DnaAdminDashboar
 
       {tab === 'submissions' && (
         <div className="space-y-3">
-          {submissions.length === 0 ? (
+          {filteredSubmissions.length === 0 ? (
             <div className="bg-card border border-border rounded-xl p-8 text-center"><p className="text-muted-foreground">Nenhuma submissão ainda.</p></div>
-          ) : submissions.map(sub => (
+          ) : filteredSubmissions.map(sub => (
             <motion.div key={sub.id} className="bg-card border border-border rounded-xl overflow-hidden cursor-pointer hover:border-primary/30 transition-colors" initial={{ opacity: 0 }} animate={{ opacity: 1 }} onClick={() => onViewSubmission(sub.id)}>
               <div className="p-4 flex items-center justify-between">
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-foreground truncate">{sub.respondent_name || 'Sem nome'}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-foreground truncate">{sub.respondent_name || 'Sem nome'}</p>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${(sub.test_type || 'closer') === 'sdr' ? 'bg-blue-500/10 text-blue-500' : 'bg-primary/10 text-primary'}`}>
+                      {(sub.test_type || 'closer').toUpperCase()}
+                    </span>
+                  </div>
                   <p className="text-xs text-muted-foreground">{sub.respondent_email} {sub.respondent_phone && `· ${sub.respondent_phone}`} · {sub.completed_at ? new Date(sub.completed_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Em progresso'}</p>
                 </div>
                 <div className="flex items-center gap-2">
