@@ -1,0 +1,1 @@
+ALTER TABLE public.test_links ADD COLUMN member_id uuid REFERENCES public.team_members(id) ON DELETE SET NULL DEFAULT NULL;

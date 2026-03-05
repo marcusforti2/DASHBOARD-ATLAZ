@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import {
-  FileText, Download, Brain, Eye, Loader2, Link2, Plus, Copy, Check, Pencil, Trash2,
+  FileText, Download, Brain, Eye, Loader2, Link2, Plus, Copy, Check, Pencil, Trash2, MessageSquare, User,
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { questions } from '@/data/dna-questions';
@@ -19,6 +19,19 @@ interface TestLink {
   is_active: boolean;
   created_at: string;
   test_type: string;
+  member_id: string | null;
+}
+
+interface TeamMember {
+  id: string;
+  name: string;
+  member_role: string;
+  active: boolean;
+}
+
+interface WhatsAppContact {
+  phone: string;
+  team_member_id: string | null;
 }
 
 interface Submission {
@@ -42,10 +55,13 @@ interface DnaAdminDashboardProps {
 export default function DnaAdminDashboard({ onViewSubmission }: DnaAdminDashboardProps) {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [testLinks, setTestLinks] = useState<TestLink[]>([]);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [whatsappContacts, setWhatsappContacts] = useState<WhatsAppContact[]>([]);
   const [loading, setLoading] = useState(true);
   const [answers, setAnswers] = useState<Record<string, { question_id: number; answer: string }[]>>({});
   const [newLinkLabel, setNewLinkLabel] = useState('');
   const [newLinkType, setNewLinkType] = useState<'closer' | 'sdr'>('closer');
+  const [selectedMemberId, setSelectedMemberId] = useState<string>('free');
   const [creatingLink, setCreatingLink] = useState(false);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const [tab, setTab] = useState<'links' | 'submissions'>('links');
@@ -58,23 +74,64 @@ export default function DnaAdminDashboard({ onViewSubmission }: DnaAdminDashboar
 
   const loadData = async () => {
     setLoading(true);
-    const [{ data: subs }, { data: links }] = await Promise.all([
+    const [{ data: subs }, { data: links }, { data: members }, { data: contacts }] = await Promise.all([
       supabase.from('test_submissions').select('*').order('created_at', { ascending: false }),
       supabase.from('test_links').select('*').order('created_at', { ascending: false }),
+      supabase.from('team_members').select('*').eq('active', true).order('name'),
+      supabase.from('whatsapp_contacts').select('phone, team_member_id').eq('active', true),
     ]);
     setSubmissions((subs as any as Submission[]) || []);
     setTestLinks((links as any as TestLink[]) || []);
+    setTeamMembers((members as TeamMember[]) || []);
+    setWhatsappContacts((contacts as WhatsAppContact[]) || []);
     setLoading(false);
+  };
+
+  const sendWhatsAppNotification = async (phone: string, memberName: string, testType: string, testUrl: string) => {
+    const typeLabel = testType === 'sdr' ? 'SDR' : 'Closer';
+    const message = `🧬 *Sales DNA Decoder — Teste Comportamental ${typeLabel}*\n\nOlá, ${memberName}! 👋\n\nVocê foi selecionado(a) para realizar o *Mapeamento Comportamental ${typeLabel}*.\n\n📋 *O que é?*\nUm teste de 120 perguntas que analisa seu perfil comportamental, pontos fortes, áreas de desenvolvimento e estilo de atuação profissional.\n\n⏱ *Duração estimada:* 15-25 minutos\n\n📌 *Dicas importantes:*\n• Responda com sinceridade — não existem respostas certas ou erradas\n• Reserve um momento tranquilo, sem interrupções\n• Leia cada pergunta com atenção antes de responder\n• O teste salva seu progresso automaticamente\n\n🔗 *Acesse seu teste aqui:*\n${testUrl}\n\n✅ Ao finalizar, sua análise será gerada automaticamente com insights personalizados.\n\nBoa sorte! 🚀`;
+
+    try {
+      await supabase.functions.invoke('send-whatsapp', {
+        body: { phone, message },
+      });
+      toast.success(`WhatsApp enviado para ${memberName}!`);
+    } catch (err) {
+      console.error('WhatsApp send error:', err);
+      toast.error('Link criado, mas não foi possível enviar o WhatsApp.');
+    }
   };
 
   const createLink = async () => {
     setCreatingLink(true);
+    const memberId = selectedMemberId === 'free' ? null : selectedMemberId;
+    const member = memberId ? teamMembers.find(m => m.id === memberId) : null;
+    const label = newLinkLabel.trim() || (member ? member.name : 'Sem rótulo');
+
     const { data, error } = await supabase.from('test_links').insert({
-      label: newLinkLabel.trim() || 'Sem rótulo',
+      label,
       test_type: newLinkType,
+      member_id: memberId,
     } as any).select().single();
-    if (error) { toast.error(error.message); }
-    else if (data) { setTestLinks(prev => [data as any as TestLink, ...prev]); setNewLinkLabel(''); toast.success('Link criado!'); }
+
+    if (error) {
+      toast.error(error.message);
+    } else if (data) {
+      const newLink = data as any as TestLink;
+      setTestLinks(prev => [newLink, ...prev]);
+      setNewLinkLabel('');
+      setSelectedMemberId('free');
+      toast.success('Link criado!');
+
+      // Auto-send WhatsApp if member has a contact
+      if (memberId && member) {
+        const contact = whatsappContacts.find(c => c.team_member_id === memberId);
+        if (contact) {
+          const testUrl = `${window.location.origin}/t/${newLink.token}`;
+          await sendWhatsAppNotification(contact.phone, member.name, newLinkType, testUrl);
+        }
+      }
+    }
     setCreatingLink(false);
   };
 
@@ -177,8 +234,33 @@ export default function DnaAdminDashboard({ onViewSubmission }: DnaAdminDashboar
 
       {tab === 'links' && (
         <div className="space-y-4">
-          <div className="flex gap-2">
-            <Input value={newLinkLabel} onChange={(e) => setNewLinkLabel(e.target.value)} placeholder="Rótulo do link (ex: João Silva...)" className="bg-card flex-1" />
+        <div className="space-y-3">
+          <div className="flex gap-2 flex-wrap">
+            <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Destinatário" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="free">
+                  <span className="flex items-center gap-1.5"><Link2 className="w-3.5 h-3.5" /> Link Livre</span>
+                </SelectItem>
+                {teamMembers.map(m => {
+                  const hasWhatsApp = whatsappContacts.some(c => c.team_member_id === m.id);
+                  return (
+                    <SelectItem key={m.id} value={m.id}>
+                      <span className="flex items-center gap-1.5">
+                        <User className="w-3.5 h-3.5" />
+                        {m.name}
+                        <span className={`text-[10px] px-1 rounded ${m.member_role === 'sdr' ? 'bg-blue-500/10 text-blue-500' : 'bg-primary/10 text-primary'}`}>
+                          {m.member_role.toUpperCase()}
+                        </span>
+                        {hasWhatsApp && <MessageSquare className="w-3 h-3 text-green-500" />}
+                      </span>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
             <Select value={newLinkType} onValueChange={(v: any) => setNewLinkType(v)}>
               <SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -186,8 +268,27 @@ export default function DnaAdminDashboard({ onViewSubmission }: DnaAdminDashboar
                 <SelectItem value="sdr">SDR</SelectItem>
               </SelectContent>
             </Select>
-            <Button onClick={createLink} disabled={creatingLink} className="shrink-0"><Plus className="w-4 h-4 mr-1" /> Criar</Button>
           </div>
+          <div className="flex gap-2">
+            <Input value={newLinkLabel} onChange={(e) => setNewLinkLabel(e.target.value)} placeholder="Rótulo do link (opcional — usa o nome do membro se vazio)" className="bg-card flex-1" />
+            <Button onClick={createLink} disabled={creatingLink} className="shrink-0">
+              {creatingLink ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Plus className="w-4 h-4 mr-1" />}
+              Criar
+            </Button>
+          </div>
+          {selectedMemberId !== 'free' && whatsappContacts.some(c => c.team_member_id === selectedMemberId) && (
+            <p className="text-xs text-green-600 flex items-center gap-1">
+              <MessageSquare className="w-3.5 h-3.5" />
+              WhatsApp será enviado automaticamente ao criar o link
+            </p>
+          )}
+          {selectedMemberId !== 'free' && !whatsappContacts.some(c => c.team_member_id === selectedMemberId) && (
+            <p className="text-xs text-muted-foreground flex items-center gap-1">
+              <MessageSquare className="w-3.5 h-3.5" />
+              Membro sem WhatsApp cadastrado — link será criado sem envio
+            </p>
+          )}
+        </div>
           {filteredLinks.length === 0 ? (
             <div className="bg-card border border-border rounded-xl p-8 text-center"><p className="text-muted-foreground">Nenhum link criado ainda.</p></div>
           ) : (
@@ -200,6 +301,14 @@ export default function DnaAdminDashboard({ onViewSubmission }: DnaAdminDashboar
                       <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${(link.test_type || 'closer') === 'sdr' ? 'bg-blue-500/10 text-blue-500' : 'bg-primary/10 text-primary'}`}>
                         {(link.test_type || 'closer').toUpperCase()}
                       </span>
+                      {link.member_id ? (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground flex items-center gap-1">
+                          <User className="w-3 h-3" />
+                          {teamMembers.find(m => m.id === link.member_id)?.name || 'Membro'}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">Livre</span>
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground truncate">{window.location.origin}/t/{link.token}</p>
                   </div>
