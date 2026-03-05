@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Target, Bot, LayoutDashboard, LogOut, BarChart3, Trophy } from "lucide-react";
+import { Target, Bot, LayoutDashboard, LogOut, BarChart3, Trophy, Zap, Shield } from "lucide-react";
 import { CloserDailyDashboard } from "@/components/dashboard/CloserDailyDashboard";
 import AdminDashboard from "@/pages/AdminDashboard";
 import { AiChat } from "./AiChat";
@@ -7,6 +7,7 @@ import { AiToolsPanel } from "./AiToolsPanel";
 import { UserRankingScreen } from "./UserRankingScreen";
 import { cn } from "@/lib/utils";
 import { AnimatePresence } from "framer-motion";
+import { getMemberRoles } from "@/lib/db";
 
 type UserTab = "dashboard" | "ai-chat" | "ai-tools" | "general-dashboard";
 
@@ -28,7 +29,9 @@ export function UserHub({ teamMemberId, memberName, memberRole, onSignOut }: Use
   const [activeTab, setActiveTab] = useState<UserTab>("dashboard");
   const [showRanking, setShowRanking] = useState(false);
 
-  const roleLabel = memberRole === "closer" ? "Closer" : "SDR";
+  const roles = getMemberRoles({ member_role: memberRole });
+  const hasDualRole = roles.includes("sdr") && roles.includes("closer");
+  const roleLabel = hasDualRole ? "SDR + Closer" : roles.includes("closer") ? "Closer" : "SDR";
 
   const renderContent = () => {
     switch (activeTab) {

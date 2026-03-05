@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useMonths, useDailyMetrics, useWeeklyGoals, useMonthlyGoals } from "@/hooks/use-metrics";
-import { METRIC_KEYS, SDR_METRIC_KEYS, CLOSER_METRIC_KEYS, METRIC_LABELS, sumMetrics, getWorkingDaysCount } from "@/lib/db";
+import { METRIC_KEYS, SDR_METRIC_KEYS, CLOSER_METRIC_KEYS, METRIC_LABELS, sumMetrics, getWorkingDaysCount, getMemberRoles, isDualRole } from "@/lib/db";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -31,9 +31,15 @@ interface CloserDailyDashboardProps {
 }
 
 export function CloserDailyDashboard({ teamMemberId, memberName, memberRole = "sdr" }: CloserDailyDashboardProps) {
-  const roleMetrics = memberRole === "closer"
-    ? (CLOSER_METRIC_KEYS as readonly string[])
-    : (SDR_METRIC_KEYS as readonly string[]);
+  const roles = (memberRole || "sdr").split(",").map(r => r.trim());
+  const hasDualRole = roles.includes("sdr") && roles.includes("closer");
+  const [activeRoleTab, setActiveRoleTab] = useState<"sdr" | "closer">(roles.includes("sdr") ? "sdr" : "closer");
+
+  const roleMetrics = hasDualRole
+    ? (activeRoleTab === "closer" ? CLOSER_METRIC_KEYS as readonly string[] : SDR_METRIC_KEYS as readonly string[])
+    : (roles.includes("closer")
+      ? (CLOSER_METRIC_KEYS as readonly string[])
+      : (SDR_METRIC_KEYS as readonly string[]));
   const { data: months } = useMonths();
   const queryClient = useQueryClient();
   const today = new Date();
@@ -204,6 +210,36 @@ export function CloserDailyDashboard({ teamMemberId, memberName, memberRole = "s
           onSaved={() => queryClient.invalidateQueries({ queryKey: ["daily-metrics", currentMonth?.id] })}
         />
       </div>
+
+      {/* Role Tab for Dual Role */}
+      {hasDualRole && (
+        <div className="flex items-center gap-1 bg-secondary/50 rounded-xl p-1">
+          <button
+            onClick={() => setActiveRoleTab("sdr")}
+            className={cn(
+              "flex-1 px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5",
+              activeRoleTab === "sdr"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+            )}
+          >
+            <Zap size={12} />
+            SDR · Prospecção
+          </button>
+          <button
+            onClick={() => setActiveRoleTab("closer")}
+            className={cn(
+              "flex-1 px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5",
+              activeRoleTab === "closer"
+                ? "bg-[hsl(280,65%,60%)] text-white shadow-sm"
+                : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+            )}
+          >
+            <Trophy size={12} />
+            Closer · Fechamento
+          </button>
+        </div>
+      )}
 
       {/* Period Filter + Metric Cards */}
       <div>

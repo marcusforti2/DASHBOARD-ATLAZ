@@ -15,6 +15,31 @@ export interface DbTeamMember {
   member_role?: string;
 }
 
+/** Check if a member has a specific role (supports comma-separated roles like "sdr,closer") */
+export function memberHasRole(member: { member_role?: string } | undefined | null, role: string): boolean {
+  if (!member?.member_role) return role === "sdr";
+  return member.member_role.split(",").map(r => r.trim()).includes(role);
+}
+
+/** Get all roles for a member */
+export function getMemberRoles(member: { member_role?: string } | undefined | null): string[] {
+  if (!member?.member_role) return ["sdr"];
+  return member.member_role.split(",").map(r => r.trim()).filter(Boolean);
+}
+
+/** Check if member has dual role */
+export function isDualRole(member: { member_role?: string } | undefined | null): boolean {
+  return getMemberRoles(member).length > 1;
+}
+
+/** Get the metric keys for a member based on their roles */
+export function getMemberMetricKeys(member: { member_role?: string } | undefined | null): readonly string[] {
+  const roles = getMemberRoles(member);
+  if (roles.includes("sdr") && roles.includes("closer")) return METRIC_KEYS;
+  if (roles.includes("closer")) return CLOSER_METRIC_KEYS;
+  return SDR_METRIC_KEYS;
+}
+
 export function getMemberAvatar(member: { avatar_url?: string | null }, _index: number): string {
   return member.avatar_url || "/placeholder.svg";
 }

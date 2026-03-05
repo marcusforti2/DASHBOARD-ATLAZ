@@ -251,12 +251,13 @@ function MonthGoalsEditor({
 
   const isViewingTeam = activeTab === "team";
   const activeMember = members.find(m => m.id === activeTab);
-  const activeRole = activeMember?.member_role || "sdr";
   const visibleMetricKeys: readonly string[] = isViewingTeam
     ? METRIC_KEYS
-    : activeRole === "closer"
-      ? CLOSER_METRIC_KEYS
-      : SDR_METRIC_KEYS;
+    : (activeMember?.member_role?.includes("sdr") && activeMember?.member_role?.includes("closer"))
+      ? METRIC_KEYS
+      : activeMember?.member_role?.includes("closer")
+        ? CLOSER_METRIC_KEYS
+        : SDR_METRIC_KEYS;
   const currentMonthly = isViewingTeam ? teamMonthly : (localGoals[activeTab]?.monthly || zeroMetrics());
   const currentWeeks = isViewingTeam ? teamWeeks : (localGoals[activeTab]?.weeks || []);
   const currentWorkingDays = isViewingTeam
