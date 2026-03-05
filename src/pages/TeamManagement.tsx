@@ -706,6 +706,8 @@ interface AdminUser {
 
 function AdminRoleCard({ admin, onRolesChanged }: { admin: AdminUser; onRolesChanged: () => void }) {
   const [saving, setSaving] = useState(false);
+  const avatarRef = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
   const hasSdr = admin.roles.includes("sdr");
   const hasCloser = admin.roles.includes("closer");
 
@@ -737,11 +739,35 @@ function AdminRoleCard({ admin, onRolesChanged }: { admin: AdminUser; onRolesCha
     <div className="rounded-xl border border-[hsl(38,92%,50%)]/30 bg-card p-3 sm:p-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <img
-            src={admin.avatar_url || "/placeholder.svg"}
-            alt={admin.full_name}
-            className="w-10 h-10 rounded-full object-cover border-2 border-[hsl(38,92%,50%)]/50"
-          />
+          <div className="relative group">
+            <img
+              src={admin.avatar_url || "/placeholder.svg"}
+              alt={admin.full_name}
+              className="w-10 h-10 rounded-full object-cover border-2 border-[hsl(38,92%,50%)]/50"
+            />
+            <label className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+              onClick={e => e.stopPropagation()}>
+              <Camera size={14} className="text-white" />
+              <input ref={avatarRef} type="file" accept="image/*" className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  if (file.size > 5 * 1024 * 1024) { toast.error("Max 5MB"); return; }
+                  const ext = file.name.split('.').pop();
+                  const filePath = `admin-${admin.user_id}/avatar.${ext}`;
+                  await supabase.storage.from("member-avatars").upload(filePath, file, { upsert: true });
+                  const { data: urlData } = supabase.storage.from("member-avatars").getPublicUrl(filePath);
+                  const newUrl = urlData.publicUrl + "?t=" + Date.now();
+                  await supabase.from("profiles").update({ avatar_url: newUrl }).eq("id", admin.user_id);
+                  if (admin.team_member_id) {
+                    await supabase.from("team_members").update({ avatar_url: newUrl }).eq("id", admin.team_member_id);
+                  }
+                  toast.success("Foto atualizada!");
+                  onRolesChanged();
+                  queryClient.invalidateQueries({ queryKey: ["team-members"] });
+                }} />
+            </label>
+          </div>
           <div>
             <div className="flex items-center gap-2">
               <h4 className="text-sm font-semibold text-card-foreground">{admin.full_name || "Admin"}</h4>
