@@ -27,6 +27,7 @@ interface AppSidebarProps {
   onViewChange: (view: string) => void;
   userName: string;
   userRole: string;
+  avatarUrl?: string | null;
   onSignOut: () => void;
 }
 
@@ -51,7 +52,7 @@ const closerItems = [
   { id: "hub", title: "Meu Painel", icon: LayoutDashboard },
 ];
 
-export function AppSidebar({ isAdmin, activeView, onViewChange, userName, userRole, onSignOut }: AppSidebarProps) {
+export function AppSidebar({ isAdmin, activeView, onViewChange, userName, userRole, avatarUrl, onSignOut }: AppSidebarProps) {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
 
@@ -149,9 +150,13 @@ export function AppSidebar({ isAdmin, activeView, onViewChange, userName, userRo
           <div className="flex flex-col items-center gap-2">
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/25 to-accent/15 flex items-center justify-center shrink-0 cursor-default">
-                  <span className="text-[10px] font-bold text-primary">{userName?.charAt(0)?.toUpperCase() || "U"}</span>
-                </div>
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt={userName} className="w-8 h-8 rounded-full object-cover shrink-0 cursor-default" />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/25 to-accent/15 flex items-center justify-center shrink-0 cursor-default">
+                    <span className="text-[10px] font-bold text-primary">{userName?.charAt(0)?.toUpperCase() || "U"}</span>
+                  </div>
+                )}
               </TooltipTrigger>
               <TooltipContent side="right" className="text-xs">{userName} — {userRole}</TooltipContent>
             </Tooltip>
@@ -166,9 +171,13 @@ export function AppSidebar({ isAdmin, activeView, onViewChange, userName, userRo
           </div>
         ) : (
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/25 to-accent/15 flex items-center justify-center shrink-0">
-              <span className="text-[10px] font-bold text-primary">{userName?.charAt(0)?.toUpperCase() || "U"}</span>
-            </div>
+            {avatarUrl ? (
+              <img src={avatarUrl} alt={userName} className="w-8 h-8 rounded-full object-cover shrink-0" />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/25 to-accent/15 flex items-center justify-center shrink-0">
+                <span className="text-[10px] font-bold text-primary">{userName?.charAt(0)?.toUpperCase() || "U"}</span>
+              </div>
+            )}
             <div className="flex-1 min-w-0">
               <p className="text-[11px] font-semibold text-sidebar-foreground truncate">{userName}</p>
               <p className="text-[8px] text-primary uppercase font-bold tracking-[0.15em]">{userRole}</p>
