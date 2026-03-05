@@ -33,7 +33,7 @@ type Lesson = {
   assigned_admin_id: string | null;
 };
 type TeamMember = { id: string; name: string; avatar_url: string | null; member_role: string };
-type WhatsAppContact = { id: string; phone: string; team_member_id: string | null };
+type WhatsAppContact = { id: string; phone: string; team_member_id: string | null; user_id: string | null };
 
 // ── Pexels cover search ──
 async function searchPexelCovers(query: string): Promise<{ id: number; url: string; thumb: string; photographer: string }[]> {
@@ -92,6 +92,14 @@ export default function TrainingAdminPage() {
     queryFn: async () => {
       const { data } = await supabase.from("whatsapp_contacts").select("*").eq("active", true);
       return (data || []) as WhatsAppContact[];
+    },
+  });
+
+  const { data: profiles = [] } = useQuery({
+    queryKey: ["profiles-training"],
+    queryFn: async () => {
+      const { data } = await supabase.from("profiles").select("id, team_member_id");
+      return (data || []) as { id: string; team_member_id: string | null }[];
     },
   });
 
@@ -205,7 +213,7 @@ export default function TrainingAdminPage() {
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider">Módulos</p>
                       <div className="flex items-center gap-1">
-                        <SendScriptsButton scope="course" courseTitle={course.title} modules={courseModules} lessons={lessons} teamMembers={teamMembers} whatsappContacts={whatsappContacts} />
+                        <SendScriptsButton scope="course" courseTitle={course.title} modules={courseModules} lessons={lessons} teamMembers={teamMembers} whatsappContacts={whatsappContacts} profiles={profiles} />
                         <AddModuleDialog courseId={course.id} onSaved={invalidateAll} />
                       </div>
                     </div>
@@ -224,7 +232,7 @@ export default function TrainingAdminPage() {
                             <BookOpen size={14} className="text-primary shrink-0" />
                             <p className="text-xs font-semibold flex-1 truncate">{mod.title}</p>
                             <span className="text-[10px] text-muted-foreground shrink-0">{modLessons.length} aulas</span>
-                            <SendScriptsButton scope="module" courseTitle={course.title} moduleTitle={mod.title} lessons={modLessons} teamMembers={teamMembers} whatsappContacts={whatsappContacts} />
+                            <SendScriptsButton scope="module" courseTitle={course.title} moduleTitle={mod.title} lessons={modLessons} teamMembers={teamMembers} whatsappContacts={whatsappContacts} profiles={profiles} />
                             <DeleteButton table="training_modules" id={mod.id} onDeleted={invalidateAll} size="sm" />
                             {modExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                           </div>
@@ -266,7 +274,7 @@ export default function TrainingAdminPage() {
                                       </div>
                                     </div>
                                     <AssignAdminSelect lessonId={lesson.id} currentAdminId={lesson.assigned_admin_id} teamMembers={teamMembers} onSaved={invalidateAll} />
-                                    <SendScriptsButton scope="lesson" courseTitle={course.title} moduleTitle={mod.title} lessons={[lesson]} teamMembers={teamMembers} whatsappContacts={whatsappContacts} assignedAdminId={lesson.assigned_admin_id} />
+                                    <SendScriptsButton scope="lesson" courseTitle={course.title} moduleTitle={mod.title} lessons={[lesson]} teamMembers={teamMembers} whatsappContacts={whatsappContacts} profiles={profiles} assignedAdminId={lesson.assigned_admin_id} />
                                     <ChangeCoverButton itemId={lesson.id} table="training_lessons" currentTitle={lesson.title} onDone={invalidateAll} size="sm" />
                                     <EditLessonDialog lesson={lesson} onSaved={invalidateAll} />
                                     <DeleteButton table="training_lessons" id={lesson.id} onDeleted={invalidateAll} size="sm" />
@@ -1089,7 +1097,7 @@ function AssignAdminSelect({ lessonId, currentAdminId, teamMembers, onSaved }: {
 }
 
 // ── Send Scripts Button ──
-function SendScriptsButton({ scope, courseTitle, moduleTitle, modules, lessons, teamMembers, whatsappContacts, assignedAdminId }: {
+function SendScriptsButton({ scope, courseTitle, moduleTitle, modules, lessons, teamMembers, whatsappContacts, profiles, assignedAdminId }: {
   scope: "course" | "module" | "lesson";
   courseTitle: string;
   moduleTitle?: string;
@@ -1097,6 +1105,7 @@ function SendScriptsButton({ scope, courseTitle, moduleTitle, modules, lessons, 
   lessons: Lesson[];
   teamMembers: TeamMember[];
   whatsappContacts: WhatsAppContact[];
+  profiles: { id: string; team_member_id: string | null }[];
   assignedAdminId?: string | null;
 }) {
   const [open, setOpen] = useState(false);
@@ -1104,8 +1113,16 @@ function SendScriptsButton({ scope, courseTitle, moduleTitle, modules, lessons, 
   const [selectedMemberId, setSelectedMemberId] = useState<string>(assignedAdminId || "");
 
   const getPhoneForMember = (memberId: string): string | null => {
-    const contact = whatsappContacts.find(c => c.team_member_id === memberId);
-    return contact?.phone || null;
+    // 1. Direct match by team_member_id
+    const directContact = whatsappContacts.find(c => c.team_member_id === memberId);
+    if (directContact?.phone) return directContact.phone;
+    // 2. Find via profile: team_member_id -> profile.id (user_id) -> whatsapp_contact.user_id
+    const profile = profiles.find(p => p.team_member_id === memberId);
+    if (profile) {
+      const userContact = whatsappContacts.find(c => c.user_id === profile.id);
+      if (userContact?.phone) return userContact.phone;
+    }
+    return null;
   };
 
   const buildScriptMessage = (lessonsToSend: Lesson[], modTitle?: string): string => {
