@@ -6,6 +6,7 @@ import { AiChat } from "./AiChat";
 import { AiToolsPanel } from "./AiToolsPanel";
 import { UserRankingScreen } from "./UserRankingScreen";
 import { TrainingViewer } from "@/components/training/TrainingViewer";
+import { TrainingNotificationPopup } from "@/components/training/TrainingNotificationPopup";
 import { cn } from "@/lib/utils";
 import { AnimatePresence } from "framer-motion";
 import { getMemberRoles } from "@/lib/db";
@@ -66,6 +67,11 @@ export function UserHub({ teamMemberId, memberName, memberRole, onSignOut }: Use
 
   return (
     <>
+      {/* Training notification popup */}
+      <TrainingNotificationPopup
+        memberRole={memberRole}
+        onGoToTraining={() => { setActiveTab("training"); setShowRanking(false); }}
+      />
       {/* ── Header ── */}
       <header className="h-12 sm:h-14 flex items-center justify-between border-b border-border px-3 sm:px-6 bg-background/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="flex items-center gap-2.5 min-w-0">

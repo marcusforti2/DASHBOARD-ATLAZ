@@ -9,7 +9,7 @@ interface TrainingViewerProps {
   memberRole: string;
 }
 
-type Course = { id: string; title: string; description: string; cover_url: string | null; target_role: string; active: boolean; sort_order: number };
+type Course = { id: string; title: string; description: string; cover_url: string | null; target_role: string; active: boolean; sort_order: number; published: boolean };
 type Module = { id: string; course_id: string; title: string; sort_order: number };
 type Lesson = { id: string; module_id: string; title: string; description: string; video_url: string; video_type: string; cover_url: string | null; sort_order: number };
 
@@ -45,7 +45,7 @@ export function TrainingViewer({ memberRole }: TrainingViewerProps) {
   const { data: courses = [] } = useQuery({
     queryKey: ["training-courses"],
     queryFn: async () => {
-      const { data } = await supabase.from("training_courses").select("*").eq("active", true).order("sort_order");
+      const { data } = await supabase.from("training_courses").select("*").eq("active", true).eq("published", true).order("sort_order");
       return (data || []) as Course[];
     },
   });
