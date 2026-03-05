@@ -1,3 +1,4 @@
+import { forwardRef } from 'react';
 import { motion } from 'framer-motion';
 import {
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
@@ -129,7 +130,7 @@ function RiskGauge({ label, value, icon: Icon }: { label: string; value: number;
   );
 }
 
-export default function SubmissionDashboard({ data, testType = 'closer' }: { data: DashboardData; testType?: string }) {
+const SubmissionDashboard = forwardRef<HTMLDivElement, { data: DashboardData; testType?: string }>(function SubmissionDashboard({ data, testType = 'closer' }, ref) {
   const isSdr = testType === 'sdr';
 
   const discData = [
@@ -148,7 +149,7 @@ export default function SubmissionDashboard({ data, testType = 'closer' }: { dat
   const profileLabel = isSdr ? 'Perfil de SDR' : 'Tipo de Closer';
 
   return (
-    <div className="space-y-6">
+    <div ref={ref} className="space-y-6">
       {/* ── TOP: Identity ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <BigCard title={profileLabel} value={profileType} subtitle={data.tendency} icon={Target} color={dominantColor} />
@@ -351,4 +352,6 @@ export default function SubmissionDashboard({ data, testType = 'closer' }: { dat
       )}
     </div>
   );
-}
+});
+
+export default SubmissionDashboard;
