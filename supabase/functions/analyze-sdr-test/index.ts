@@ -15,7 +15,7 @@ const DISC_QUESTIONS: Record<string, number[]> = {
   C: [31, 32, 33, 34, 35, 36, 37, 38, 39, 40],
 };
 
-const RESILIENCE_QUESTIONS = [41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55];
+const RESILIENCE_QUESTIONS = [81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95];
 
 function calculateDiscScores(answersMap: Record<number, number>) {
   const scores: Record<string, number> = {};
@@ -97,11 +97,12 @@ DADOS CALCULADOS:
 - Perfil Secundário: ${classification.secondary} (${classification.secondaryClassification.label})
 - Score de Resiliência: ${resilienceScore}%
 
-O teste possui 80 perguntas divididas em:
+O teste possui 120 perguntas divididas em:
 - Bloco 1-4: DISC (40 perguntas escala 1-5)
-- Bloco 5: Pressão & Resiliência (15 escala 1-5)
-- Bloco 6: Decisão Prática (15 múltipla escolha — cenários reais)
-- Bloco 7: Maturidade Comercial (10 perguntas abertas)
+- Bloco 5-8: Conhecimento, Estratégia, Rotina e Qualidade (40 perguntas abertas)
+- Bloco 9: Pressão & Resiliência (15 escala 1-5)
+- Bloco 10: Decisão Prática (15 múltipla escolha — cenários reais)
+- Bloco 11: Maturidade Comercial (10 perguntas abertas)
 
 REGRAS DE FORMATAÇÃO:
 - NUNCA cite números de questões ou referências como "(Q1: 4)"
@@ -126,27 +127,39 @@ SEÇÕES DO RELATÓRIO:
 5. **RESILIÊNCIA E PRESSÃO** (Score: ${resilienceScore}%)
    Análise profunda da capacidade de lidar com rejeição, pressão e frustração. Cruze escala + cenários + abertas.
 
-6. **ESTILO NATURAL DE ABORDAGEM**
+6. **CONHECIMENTO TÉCNICO SOBRE SDR**
+   Baseado nas respostas do Bloco 5-6, avalie o nível de conhecimento sobre a função, qualificação de leads e estratégia de abordagem.
+
+7. **ROTINA E ORGANIZAÇÃO**
+   Baseado no Bloco 7, avalie disciplina, organização e consistência na rotina.
+
+8. **PADRÃO DE QUALIDADE**
+   Baseado no Bloco 8, avalie se o SDR tem visão de qualidade, preparo e evolução.
+
+9. **ESTILO NATURAL DE ABORDAGEM**
    Como esse SDR naturalmente aborda leads, conduz conversas e lida com objeções iniciais.
 
-7. **ANÁLISE DE MATURIDADE COMERCIAL**
-   Baseado nas respostas abertas, avalie maturidade profissional, autoconhecimento e visão de longo prazo.
+10. **RESILIÊNCIA E PRESSÃO** (Score: ${resilienceScore}%)
+    Análise profunda cruzando Bloco 9 (escala) + Bloco 10 (cenários) + Bloco 11 (abertas).
 
-8. **INCOERÊNCIAS IDENTIFICADAS**
-   Compare respostas de escala vs cenários vs abertas. Onde o discurso não bate com o comportamento?
+11. **ANÁLISE DE MATURIDADE COMERCIAL**
+    Baseado nas respostas abertas do Bloco 11, avalie maturidade, autoconhecimento e visão de longo prazo.
 
-9. **PLANO DE DESENVOLVIMENTO** (3-5 ações)
-   Ações práticas e específicas para esse SDR melhorar.
+12. **INCOERÊNCIAS IDENTIFICADAS**
+    Compare respostas de escala vs cenários vs abertas. Onde o discurso não bate com o comportamento?
 
-10. **NÍVEL DE MATURIDADE COMO SDR** (1 a 10)
+13. **PLANO DE DESENVOLVIMENTO** (3-5 ações)
+    Ações práticas e específicas para esse SDR melhorar.
+
+14. **NÍVEL DE MATURIDADE COMO SDR** (1 a 10)
     Avaliação geral com justificativa.
 
-11. **SCORE DE RISCO**
+15. **SCORE DE RISCO**
     - Risco de desistência (1-10)
     - Risco de baixa disciplina (1-10)
     - Risco de baixa resiliência (1-10)
 
-${companyContext ? "12. **ALINHAMENTO COM A VISÃO DA EMPRESA**" : ""}
+${companyContext ? "16. **ALINHAMENTO COM A VISÃO DA EMPRESA**" : ""}
 
 Seja direto, preciso e use linguagem de gestor comercial.`;
 
@@ -157,10 +170,10 @@ Seja direto, preciso e use linguagem de gestor comercial.`;
         model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Analise as seguintes respostas do teste comportamental completo de um SDR de prospecção (80 perguntas):\n\n${answers}` },
+          { role: "user", content: `Analise as seguintes respostas do teste comportamental completo de um SDR de prospecção (120 perguntas — DISC + Conhecimento/Rotina/Qualidade + Pressão/Resiliência/Maturidade):\n\n${answers}` },
         ],
         temperature: 0.4,
-        max_tokens: 5000,
+        max_tokens: 6000,
       }),
     });
 
