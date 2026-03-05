@@ -209,7 +209,10 @@ export default function TrainingAdminPage() {
                             <div className="border-t border-border p-2.5 space-y-1.5 bg-secondary/5">
                               <div className="flex items-center justify-between mb-1">
                                 <p className="text-[9px] uppercase font-semibold text-muted-foreground tracking-wider">Aulas</p>
-                                <AddLessonDialog moduleId={mod.id} onSaved={invalidateAll} />
+                                <div className="flex items-center gap-1">
+                                  <AiLessonsDialog moduleId={mod.id} moduleTitle={mod.title} courseTitle={course.title} existingLessons={modLessons} onSaved={invalidateAll} />
+                                  <AddLessonDialog moduleId={mod.id} onSaved={invalidateAll} />
+                                </div>
                               </div>
                               {modLessons.length === 0 && (
                                 <p className="text-[10px] text-muted-foreground/60 text-center py-2">Nenhuma aula</p>
@@ -363,6 +366,7 @@ function AiCourseGeneratorDialog({ onSaved }: { onSaved: () => void }) {
   const [structure, setStructure] = useState<AiCourseStructure | null>(null);
   const [creating, setCreating] = useState(false);
   const [expandedMod, setExpandedMod] = useState<number | null>(0);
+  const [editingField, setEditingField] = useState<string | null>(null);
 
   const handleGenerate = async () => {
     if (!idea.trim()) return;
@@ -386,7 +390,6 @@ function AiCourseGeneratorDialog({ onSaved }: { onSaved: () => void }) {
     if (!structure) return;
     setCreating(true);
     try {
-      // 1. Create course with Pexels cover
       const covers = await searchPexelCovers(structure.title);
       const cover = covers.length > 0 ? covers[0].url : null;
       const { data: course, error: courseErr } = await supabase
@@ -396,7 +399,6 @@ function AiCourseGeneratorDialog({ onSaved }: { onSaved: () => void }) {
         .single();
       if (courseErr || !course) throw courseErr || new Error("Erro ao criar curso");
 
-      // 2. Create modules and lessons
       for (let mi = 0; mi < structure.modules.length; mi++) {
         const mod = structure.modules[mi];
         const { data: modData, error: modErr } = await supabase
@@ -428,6 +430,56 @@ function AiCourseGeneratorDialog({ onSaved }: { onSaved: () => void }) {
       toast.error(e.message || "Erro ao criar curso");
     }
     setCreating(false);
+  };
+
+  // ── Editable helpers ──
+  const updateStructure = (updater: (s: AiCourseStructure) => AiCourseStructure) => {
+    if (structure) setStructure(updater(structure));
+  };
+
+  const updateModuleTitle = (mi: number, val: string) => {
+    updateStructure(s => ({ ...s, modules: s.modules.map((m, i) => i === mi ? { ...m, title: val } : m) }));
+  };
+  const updateModuleDesc = (mi: number, val: string) => {
+    updateStructure(s => ({ ...s, modules: s.modules.map((m, i) => i === mi ? { ...m, description: val } : m) }));
+  };
+  const updateLessonTitle = (mi: number, li: number, val: string) => {
+    updateStructure(s => ({
+      ...s, modules: s.modules.map((m, i) => i === mi ? {
+        ...m, lessons: m.lessons.map((l, j) => j === li ? { ...l, title: val } : l)
+      } : m)
+    }));
+  };
+  const updateLessonDesc = (mi: number, li: number, val: string) => {
+    updateStructure(s => ({
+      ...s, modules: s.modules.map((m, i) => i === mi ? {
+        ...m, lessons: m.lessons.map((l, j) => j === li ? { ...l, description: val } : l)
+      } : m)
+    }));
+  };
+  const removeLesson = (mi: number, li: number) => {
+    updateStructure(s => ({
+      ...s, modules: s.modules.map((m, i) => i === mi ? {
+        ...m, lessons: m.lessons.filter((_, j) => j !== li)
+      } : m)
+    }));
+  };
+  const removeModule = (mi: number) => {
+    updateStructure(s => ({ ...s, modules: s.modules.filter((_, i) => i !== mi) }));
+    if (expandedMod === mi) setExpandedMod(null);
+  };
+  const addLesson = (mi: number) => {
+    updateStructure(s => ({
+      ...s, modules: s.modules.map((m, i) => i === mi ? {
+        ...m, lessons: [...m.lessons, { title: "Nova Aula", description: "Descrição da aula", dica_gravacao: "Defina o formato e duração" }]
+      } : m)
+    }));
+  };
+  const addModule = () => {
+    updateStructure(s => ({
+      ...s, modules: [...s.modules, { title: "Novo Módulo", description: "", lessons: [] }]
+    }));
+    setExpandedMod(structure ? structure.modules.length : 0);
   };
 
   const totalLessons = structure?.modules.reduce((sum, m) => sum + m.lessons.length, 0) || 0;
@@ -474,7 +526,7 @@ function AiCourseGeneratorDialog({ onSaved }: { onSaved: () => void }) {
               <p>• Estrutura completa: módulos e aulas (máx 15 aulas)</p>
               <p>• Descrições práticas para cada item</p>
               <p>• Dicas de como gravar cada aula</p>
-              <p>• Você revisa antes de criar — depois só adiciona os vídeos</p>
+              <p>• Você revisa e edita antes de criar — depois só adiciona os vídeos</p>
             </div>
             <Button onClick={handleGenerate} disabled={generating || !idea.trim()} className="w-full gap-2">
               {generating ? <><Loader2 size={14} className="animate-spin" /> Gerando estrutura...</> : <><Wand2 size={14} /> Gerar Estrutura</>}
@@ -482,53 +534,88 @@ function AiCourseGeneratorDialog({ onSaved }: { onSaved: () => void }) {
           </div>
         ) : (
           <div className="flex-1 overflow-hidden flex flex-col gap-3 pt-2">
-            {/* Header */}
-            <div className="bg-secondary/50 rounded-lg p-3">
-              <h3 className="text-sm font-bold text-foreground">{structure.title}</h3>
-              <p className="text-[11px] text-muted-foreground mt-0.5">{structure.description}</p>
-              <div className="flex gap-3 mt-2">
+            {/* Editable Header */}
+            <div className="bg-secondary/50 rounded-lg p-3 space-y-2">
+              <Input
+                value={structure.title}
+                onChange={e => setStructure({ ...structure, title: e.target.value })}
+                className="text-sm font-bold h-8 bg-background"
+              />
+              <Input
+                value={structure.description}
+                onChange={e => setStructure({ ...structure, description: e.target.value })}
+                className="text-[11px] h-7 bg-background"
+                placeholder="Descrição do curso"
+              />
+              <div className="flex gap-3 mt-1">
                 <Badge variant="outline" className="text-[9px]">{structure.modules.length} módulos</Badge>
                 <Badge variant="outline" className="text-[9px]">{totalLessons} aulas</Badge>
+                <span className="text-[9px] text-muted-foreground flex items-center gap-1"><Edit2 size={8} /> Clique para editar qualquer campo</span>
               </div>
             </div>
 
-            {/* Modules */}
+            {/* Editable Modules */}
             <ScrollArea className="flex-1 max-h-[350px]">
               <div className="space-y-2 pr-3">
                 {structure.modules.map((mod, mi) => (
                   <div key={mi} className="rounded-lg border border-border bg-background">
-                    <button
-                      onClick={() => setExpandedMod(expandedMod === mi ? null : mi)}
-                      className="w-full flex items-center gap-2 p-2.5 text-left hover:bg-secondary/20 transition-colors"
-                    >
+                    <div className="flex items-center gap-2 p-2.5">
                       <BookOpen size={14} className="text-primary shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold truncate">{mod.title}</p>
-                        <p className="text-[10px] text-muted-foreground">{mod.lessons.length} aulas</p>
-                      </div>
-                      {expandedMod === mi ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                    </button>
+                      <input
+                        value={mod.title}
+                        onChange={e => updateModuleTitle(mi, e.target.value)}
+                        className="flex-1 text-xs font-semibold bg-transparent border-none outline-none focus:bg-secondary/30 rounded px-1 -mx-1 transition-colors"
+                      />
+                      <span className="text-[10px] text-muted-foreground shrink-0">{mod.lessons.length} aulas</span>
+                      <button onClick={() => removeModule(mi)} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors" title="Remover módulo">
+                        <Trash2 size={10} />
+                      </button>
+                      <button
+                        onClick={() => setExpandedMod(expandedMod === mi ? null : mi)}
+                        className="p-0.5"
+                      >
+                        {expandedMod === mi ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                      </button>
+                    </div>
                     {expandedMod === mi && (
                       <div className="border-t border-border p-2.5 space-y-1.5 bg-secondary/5">
                         {mod.lessons.map((lesson, li) => (
                           <div key={li} className="rounded-md border border-border/50 bg-background p-2.5">
                             <div className="flex items-start gap-2">
-                              <Play size={10} className="text-primary mt-0.5 shrink-0" />
-                              <div className="flex-1 min-w-0">
-                                <p className="text-[11px] font-semibold">{lesson.title}</p>
-                                <p className="text-[10px] text-muted-foreground mt-0.5">{lesson.description}</p>
-                                <div className="mt-1.5 bg-primary/5 rounded-md p-2 flex gap-1.5">
+                              <Play size={10} className="text-primary mt-1.5 shrink-0" />
+                              <div className="flex-1 min-w-0 space-y-1">
+                                <input
+                                  value={lesson.title}
+                                  onChange={e => updateLessonTitle(mi, li, e.target.value)}
+                                  className="w-full text-[11px] font-semibold bg-transparent border-none outline-none focus:bg-secondary/30 rounded px-1 -mx-1 transition-colors"
+                                />
+                                <textarea
+                                  value={lesson.description}
+                                  onChange={e => updateLessonDesc(mi, li, e.target.value)}
+                                  className="w-full text-[10px] text-muted-foreground bg-transparent border-none outline-none focus:bg-secondary/30 rounded px-1 -mx-1 resize-none transition-colors"
+                                  rows={2}
+                                />
+                                <div className="bg-primary/5 rounded-md p-2 flex gap-1.5">
                                   <Lightbulb size={10} className="text-primary shrink-0 mt-0.5" />
                                   <p className="text-[9px] text-muted-foreground leading-relaxed">{lesson.dica_gravacao}</p>
                                 </div>
                               </div>
+                              <button onClick={() => removeLesson(mi, li)} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors shrink-0" title="Remover aula">
+                                <Trash2 size={9} />
+                              </button>
                             </div>
                           </div>
                         ))}
+                        <button onClick={() => addLesson(mi)} className="w-full flex items-center justify-center gap-1 text-[10px] text-primary hover:bg-primary/5 rounded-md py-1.5 transition-colors">
+                          <Plus size={10} /> Adicionar Aula
+                        </button>
                       </div>
                     )}
                   </div>
                 ))}
+                <button onClick={addModule} className="w-full flex items-center justify-center gap-1 text-[10px] text-primary hover:bg-primary/5 rounded-lg border border-dashed border-primary/30 py-2 transition-colors">
+                  <Plus size={10} /> Adicionar Módulo
+                </button>
               </div>
             </ScrollArea>
 
@@ -677,6 +764,151 @@ function AddModuleDialog({ courseId, onSaved }: { courseId: string; onSaved: () 
           <Input placeholder="Nome do módulo" value={title} onChange={e => setTitle(e.target.value)} />
           <Button onClick={handleSave} disabled={saving || !title.trim()} className="w-full">{saving ? "Criando..." : "Criar Módulo"}</Button>
         </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── AI Lessons Generator Dialog ──
+function AiLessonsDialog({ moduleId, moduleTitle, courseTitle, existingLessons, onSaved }: {
+  moduleId: string; moduleTitle: string; courseTitle: string; existingLessons: Lesson[]; onSaved: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [lessons, setLessons] = useState<{ title: string; description: string; dica_gravacao: string }[]>([]);
+  const [creating, setCreating] = useState(false);
+  const [count, setCount] = useState("3");
+
+  const handleGenerate = async () => {
+    setGenerating(true);
+    setLessons([]);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-lessons", {
+        body: {
+          moduleTitle,
+          courseTitle,
+          existingLessons: existingLessons.map(l => l.title),
+          count: parseInt(count),
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setLessons(data.lessons || []);
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao gerar aulas");
+    }
+    setGenerating(false);
+  };
+
+  const handleCreate = async () => {
+    if (lessons.length === 0) return;
+    setCreating(true);
+    try {
+      const startOrder = existingLessons.length;
+      const inserts = await Promise.all(lessons.map(async (l, i) => {
+        const covers = await searchPexelCovers(l.title);
+        return {
+          module_id: moduleId,
+          title: l.title,
+          description: `${l.description}\n\n💡 Dica de gravação: ${l.dica_gravacao}`,
+          video_url: "",
+          video_type: "youtube" as const,
+          sort_order: startOrder + i,
+          cover_url: covers.length > 0 ? covers[0].url : null,
+        };
+      }));
+      const { error } = await supabase.from("training_lessons").insert(inserts);
+      if (error) throw error;
+      toast.success(`${lessons.length} aulas criadas! Adicione os vídeos.`);
+      setOpen(false);
+      setLessons([]);
+      onSaved();
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao criar aulas");
+    }
+    setCreating(false);
+  };
+
+  const updateTitle = (i: number, val: string) => setLessons(l => l.map((x, j) => j === i ? { ...x, title: val } : x));
+  const updateDesc = (i: number, val: string) => setLessons(l => l.map((x, j) => j === i ? { ...x, description: val } : x));
+  const removeLesson = (i: number) => setLessons(l => l.filter((_, j) => j !== i));
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setLessons([]); }}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="text-[10px] h-6 gap-1 border-primary/30 text-primary hover:bg-primary/10">
+          <Wand2 size={10} /> IA Aulas
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-sm">
+            <Wand2 size={16} className="text-primary" /> Gerar Aulas — {moduleTitle}
+          </DialogTitle>
+        </DialogHeader>
+
+        {lessons.length === 0 ? (
+          <div className="space-y-3 pt-2">
+            <p className="text-xs text-muted-foreground">
+              A IA vai gerar aulas para o módulo "<span className="font-semibold text-foreground">{moduleTitle}</span>"
+              {existingLessons.length > 0 && ` (já tem ${existingLessons.length} aulas)`}.
+            </p>
+            <div>
+              <label className="text-xs font-medium mb-1 block">Quantas aulas gerar?</label>
+              <Select value={count} onValueChange={setCount}>
+                <SelectTrigger className="w-24 h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {[1, 2, 3, 4, 5].map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={handleGenerate} disabled={generating} className="w-full gap-2 text-xs">
+              {generating ? <><Loader2 size={12} className="animate-spin" /> Gerando...</> : <><Wand2 size={12} /> Gerar Aulas</>}
+            </Button>
+          </div>
+        ) : (
+          <div className="flex-1 overflow-hidden flex flex-col gap-3 pt-2">
+            <ScrollArea className="flex-1 max-h-[400px]">
+              <div className="space-y-2 pr-3">
+                {lessons.map((lesson, i) => (
+                  <div key={i} className="rounded-md border border-border bg-background p-2.5">
+                    <div className="flex items-start gap-2">
+                      <Play size={10} className="text-primary mt-1.5 shrink-0" />
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <input
+                          value={lesson.title}
+                          onChange={e => updateTitle(i, e.target.value)}
+                          className="w-full text-[11px] font-semibold bg-transparent border-none outline-none focus:bg-secondary/30 rounded px-1 -mx-1 transition-colors"
+                        />
+                        <textarea
+                          value={lesson.description}
+                          onChange={e => updateDesc(i, e.target.value)}
+                          className="w-full text-[10px] text-muted-foreground bg-transparent border-none outline-none focus:bg-secondary/30 rounded px-1 -mx-1 resize-none transition-colors"
+                          rows={2}
+                        />
+                        <div className="bg-primary/5 rounded-md p-2 flex gap-1.5">
+                          <Lightbulb size={10} className="text-primary shrink-0 mt-0.5" />
+                          <p className="text-[9px] text-muted-foreground leading-relaxed">{lesson.dica_gravacao}</p>
+                        </div>
+                      </div>
+                      <button onClick={() => removeLesson(i)} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors shrink-0">
+                        <Trash2 size={9} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+            <div className="flex gap-2 pt-1">
+              <Button variant="outline" onClick={handleGenerate} disabled={generating} className="flex-1 gap-1.5 text-xs">
+                <RefreshCw size={12} className={generating ? "animate-spin" : ""} /> Gerar Outras
+              </Button>
+              <Button onClick={handleCreate} disabled={creating} className="flex-1 gap-1.5 text-xs">
+                {creating ? <><Loader2 size={12} className="animate-spin" /> Criando...</> : <><Check size={12} /> Criar {lessons.length} Aulas</>}
+              </Button>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
