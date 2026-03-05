@@ -53,6 +53,8 @@ interface DnaAdminDashboardProps {
 }
 
 export default function DnaAdminDashboard({ onViewSubmission }: DnaAdminDashboardProps) {
+  const APP_PUBLIC_URL = 'https://system-canvas-pro.lovable.app';
+
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [testLinks, setTestLinks] = useState<TestLink[]>([]);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
@@ -87,7 +89,11 @@ export default function DnaAdminDashboard({ onViewSubmission }: DnaAdminDashboar
     setLoading(false);
   };
 
-  const sendWhatsAppNotification = async (phone: string, memberName: string, testType: string, testUrl: string) => {
+  const buildTestUrl = (token: string) => `${APP_PUBLIC_URL}/t/${token}`;
+
+  const getTypeFromMember = (member?: TeamMember | null) => (member?.member_role === 'sdr' ? 'sdr' : 'closer');
+
+  const sendWhatsAppNotification = async (phone: string, memberName: string, testType: 'sdr' | 'closer', testUrl: string) => {
     const typeLabel = testType === 'sdr' ? 'SDR' : 'Closer';
     const roleDescription = testType === 'sdr'
       ? 'Esse mapeamento vai identificar seu perfil de prospecção (Hunter, Executor, Conversador ou Analítico), seu Score de Resiliência, travas de prospecção e pontos de desenvolvimento como SDR.'
@@ -111,14 +117,18 @@ export default function DnaAdminDashboard({ onViewSubmission }: DnaAdminDashboar
       toast.error('Este link não está vinculado a um membro.');
       return;
     }
+
     const member = teamMembers.find(m => m.id === link.member_id);
     const contact = whatsappContacts.find(c => c.team_member_id === link.member_id);
+
     if (!member || !contact) {
       toast.error('Membro sem WhatsApp cadastrado.');
       return;
     }
-    const testUrl = `${window.location.origin}/t/${link.token}`;
-    await sendWhatsAppNotification(contact.phone, member.name, link.test_type || 'closer', testUrl);
+
+    const effectiveType = getTypeFromMember(member);
+    const testUrl = buildTestUrl(link.token);
+    await sendWhatsAppNotification(contact.phone, member.name, effectiveType, testUrl);
   };
 
   const createLink = async () => {
@@ -126,10 +136,11 @@ export default function DnaAdminDashboard({ onViewSubmission }: DnaAdminDashboar
     const memberId = selectedMemberId === 'free' ? null : selectedMemberId;
     const member = memberId ? teamMembers.find(m => m.id === memberId) : null;
     const label = newLinkLabel.trim() || (member ? member.name : 'Sem rótulo');
+    const effectiveType: 'closer' | 'sdr' = member ? getTypeFromMember(member) : newLinkType;
 
     const { data, error } = await supabase.from('test_links').insert({
       label,
-      test_type: newLinkType,
+      test_type: effectiveType,
       member_id: memberId,
     } as any).select().single();
 
@@ -146,8 +157,8 @@ export default function DnaAdminDashboard({ onViewSubmission }: DnaAdminDashboar
       if (memberId && member) {
         const contact = whatsappContacts.find(c => c.team_member_id === memberId);
         if (contact) {
-          const testUrl = `${window.location.origin}/t/${newLink.token}`;
-          await sendWhatsAppNotification(contact.phone, member.name, newLinkType, testUrl);
+          const testUrl = buildTestUrl(newLink.token);
+          await sendWhatsAppNotification(contact.phone, member.name, effectiveType, testUrl);
         }
       }
     }
@@ -155,7 +166,7 @@ export default function DnaAdminDashboard({ onViewSubmission }: DnaAdminDashboar
   };
 
   const copyLink = (token: string) => {
-    const url = `${window.location.origin}/t/${token}`;
+    const url = buildTestUrl(token);
     navigator.clipboard.writeText(url);
     setCopiedToken(token);
     setTimeout(() => setCopiedToken(null), 2000);
@@ -255,7 +266,13 @@ export default function DnaAdminDashboard({ onViewSubmission }: DnaAdminDashboar
         <div className="space-y-4">
         <div className="space-y-3">
           <div className="flex gap-2 flex-wrap">
-            <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
+            <Select value={selectedMemberId} onValueChange={(value) => {
+              setSelectedMemberId(value);
+              if (value !== 'free') {
+                const member = teamMembers.find(m => m.id === value);
+                setNewLinkType(getTypeFromMember(member));
+              }
+            }}>
               <SelectTrigger className="w-[200px]">
                 <SelectValue placeholder="Destinatário" />
               </SelectTrigger>
@@ -329,7 +346,7 @@ export default function DnaAdminDashboard({ onViewSubmission }: DnaAdminDashboar
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">Livre</span>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground truncate">{window.location.origin}/t/{link.token}</p>
+                    <p className="text-xs text-muted-foreground truncate">{buildTestUrl(link.token)}</p>
                   </div>
                   <div className="flex items-center gap-1">
                     {link.member_id && whatsappContacts.some(c => c.team_member_id === link.member_id) && (
