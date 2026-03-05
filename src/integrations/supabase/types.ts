@@ -163,6 +163,7 @@ export type Database = {
           day_of_week: string
           follow_up: number
           id: string
+          indicacoes: number
           inmail: number
           lig_agendada: number
           lig_realizada: number
@@ -182,6 +183,7 @@ export type Database = {
           day_of_week: string
           follow_up?: number
           id?: string
+          indicacoes?: number
           inmail?: number
           lig_agendada?: number
           lig_realizada?: number
@@ -201,6 +203,7 @@ export type Database = {
           day_of_week?: string
           follow_up?: number
           id?: string
+          indicacoes?: number
           inmail?: number
           lig_agendada?: number
           lig_realizada?: number
@@ -312,6 +315,7 @@ export type Database = {
           created_at: string
           follow_up: number
           id: string
+          indicacoes: number
           inmail: number
           lig_agendada: number
           lig_realizada: number
@@ -328,6 +332,7 @@ export type Database = {
           created_at?: string
           follow_up?: number
           id?: string
+          indicacoes?: number
           inmail?: number
           lig_agendada?: number
           lig_realizada?: number
@@ -344,6 +349,7 @@ export type Database = {
           created_at?: string
           follow_up?: number
           id?: string
+          indicacoes?: number
           inmail?: number
           lig_agendada?: number
           lig_realizada?: number
@@ -863,6 +869,7 @@ export type Database = {
           end_date: string | null
           follow_up: number
           id: string
+          indicacoes: number
           inmail: number
           lig_agendada: number
           lig_realizada: number
@@ -883,6 +890,7 @@ export type Database = {
           end_date?: string | null
           follow_up?: number
           id?: string
+          indicacoes?: number
           inmail?: number
           lig_agendada?: number
           lig_realizada?: number
@@ -903,6 +911,7 @@ export type Database = {
           end_date?: string | null
           follow_up?: number
           id?: string
+          indicacoes?: number
           inmail?: number
           lig_agendada?: number
           lig_realizada?: number

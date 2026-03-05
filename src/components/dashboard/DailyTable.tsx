@@ -6,7 +6,9 @@ import { cn } from "@/lib/utils";
 
 const SDR_KEYS = ["conexoes", "conexoes_aceitas", "abordagens", "inmail", "follow_up", "numero", "lig_agendada"];
 const CLOSER_KEYS = ["lig_realizada", "reuniao_agendada", "reuniao_realizada"];
+const SHARED_KEYS = ["indicacoes"];
 const FIRST_CLOSER_KEY = CLOSER_KEYS[0];
+const FIRST_SHARED_KEY = SHARED_KEYS[0];
 
 interface DailyTableProps {
   dailyMetrics: DbDailyMetric[];
@@ -31,14 +33,18 @@ export function DailyTable({ dailyMetrics, members, selectedMemberId }: DailyTab
             <TableHead className="text-muted-foreground font-semibold text-[10px] uppercase tracking-wider">Pessoa</TableHead>
             {METRIC_KEYS.map(k => {
               const isCloser = CLOSER_KEYS.includes(k);
+              const isShared = SHARED_KEYS.includes(k);
               const isDivider = k === FIRST_CLOSER_KEY;
+              const isSharedDivider = k === FIRST_SHARED_KEY;
               return (
                 <TableHead
                   key={k}
                   className={cn(
                     "font-semibold text-[10px] uppercase tracking-wider text-right whitespace-nowrap",
+                    isShared ? "text-[hsl(150,65%,60%)] bg-[hsl(150,30%,10%/0.5)]" :
                     isCloser ? "text-[hsl(280,65%,70%)] bg-[hsl(280,30%,10%/0.5)]" : "text-[hsl(217,70%,70%)] bg-[hsl(217,40%,10%/0.3)]",
-                    isDivider && "border-l-2 border-l-[hsl(280,65%,40%)]"
+                    isDivider && "border-l-2 border-l-[hsl(280,65%,40%)]",
+                    isSharedDivider && "border-l-2 border-l-[hsl(150,65%,40%)]"
                   )}
                 >
                   {METRIC_LABELS[k]}
@@ -61,13 +67,15 @@ export function DailyTable({ dailyMetrics, members, selectedMemberId }: DailyTab
                 {METRIC_KEYS.map(k => {
                   const val = (entry as any)[k] || 0;
                   const isDivider = k === FIRST_CLOSER_KEY;
+                  const isSharedDivider = k === FIRST_SHARED_KEY;
                   return (
                     <TableCell
                       key={k}
                       className={cn(
                         "text-xs text-right tabular-nums",
                         val > 0 ? "text-card-foreground" : "text-muted-foreground/30",
-                        isDivider && "border-l-2 border-l-[hsl(280,65%,40%)]"
+                        isDivider && "border-l-2 border-l-[hsl(280,65%,40%)]",
+                        isSharedDivider && "border-l-2 border-l-[hsl(150,65%,40%)]"
                       )}
                     >
                       {val}
