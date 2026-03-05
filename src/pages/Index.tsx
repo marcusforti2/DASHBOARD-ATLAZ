@@ -9,6 +9,7 @@ import WhatsAppPage from "@/pages/WhatsAppPage";
 import AdminPopupsPage from "@/pages/AdminPopupsPage";
 import AdminKnowledgePage from "@/pages/AdminKnowledgePage";
 import DnaMappingPage from "@/pages/DnaMappingPage";
+import ProcessosPage from "@/pages/ProcessosPage";
 import { AppSidebar, AdminView, CloserView } from "@/components/AppSidebar";
 import { AiReportPanel } from "@/components/dashboard/AiReportPanel";
 import { CloserDailyDashboard } from "@/components/dashboard/CloserDailyDashboard";
@@ -190,6 +191,8 @@ export default function Index() {
         return <AdminKnowledgePage />;
       case "dna-mapping":
         return <DnaMappingPage />;
+      case "processos":
+        return <ProcessosPage />;
       default:
         return null;
     }
