@@ -123,6 +123,8 @@ export type Database = {
           category: string
           content: string
           created_at: string
+          file_name: string | null
+          file_url: string | null
           id: string
           title: string
           updated_at: string
@@ -132,6 +134,8 @@ export type Database = {
           category?: string
           content: string
           created_at?: string
+          file_name?: string | null
+          file_url?: string | null
           id?: string
           title: string
           updated_at?: string
@@ -141,6 +145,8 @@ export type Database = {
           category?: string
           content?: string
           created_at?: string
+          file_name?: string | null
+          file_url?: string | null
           id?: string
           title?: string
           updated_at?: string

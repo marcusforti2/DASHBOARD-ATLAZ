@@ -22,7 +22,7 @@ serve(async (req) => {
     // Fetch company knowledge
     const { data: knowledge } = await supabase
       .from("company_knowledge")
-      .select("title, content, category")
+      .select("title, content, category, file_name")
       .eq("active", true);
 
     // Fetch member info if provided
@@ -68,7 +68,7 @@ ${analysis[0].ai_analysis}`;
     }
 
     const knowledgeContext = knowledge?.length
-      ? `\n\nBASE DE CONHECIMENTO DA EMPRESA:\n${knowledge.map(k => `[${k.category.toUpperCase()}] ${k.title}:\n${k.content}`).join("\n\n")}`
+      ? `\n\nBASE DE CONHECIMENTO DA EMPRESA:\n${knowledge.map(k => `[${k.category.toUpperCase()}] ${k.title}${k.file_name ? ` (fonte: ${k.file_name})` : ""}:\n${k.content}`).join("\n\n")}`
       : "";
 
     // Tool-specific system prompts

@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.parse-dripify]
 verify_jwt = false
+
+[functions.generate-knowledge]
+verify_jwt = false
