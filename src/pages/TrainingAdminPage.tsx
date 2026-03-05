@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { toast } from "sonner";
 import {
   Plus, GraduationCap, BookOpen, Play, Trash2, Edit2, ChevronDown, ChevronRight,
-  GripVertical, Video, Link2, Image, Send, Eye, EyeOff
+  GripVertical, Video, Link2, Image, Send, Eye, EyeOff, Loader2, Sparkles
 } from "lucide-react";
 
 // ── Types ──
@@ -28,10 +28,21 @@ type Lesson = {
   video_url: string; video_type: string; cover_url: string | null; sort_order: number;
 };
 
-// ── Cover generator (random from Unsplash) ──
-function generateCover(title: string): string {
-  const keywords = encodeURIComponent(title.split(" ").slice(0, 3).join(" "));
-  return `https://source.unsplash.com/featured/800x450/?${keywords},business,training`;
+// ── AI Cover generator ──
+async function generateCoverAI(title: string, type: "course" | "lesson" = "course"): Promise<string | null> {
+  try {
+    const { data, error } = await supabase.functions.invoke("generate-cover", {
+      body: { title, type },
+    });
+    if (error || !data?.url) {
+      console.error("Cover generation failed:", error || data);
+      return null;
+    }
+    return data.url;
+  } catch (e) {
+    console.error("Cover generation error:", e);
+    return null;
+  }
 }
 
 export default function TrainingAdminPage() {
@@ -216,7 +227,7 @@ function AddCourseDialog({ onSaved }: { onSaved: () => void }) {
   const handleSave = async () => {
     if (!title.trim()) return;
     setSaving(true);
-    const cover = generateCover(title);
+    const cover = await generateCoverAI(title, "course");
     const { error } = await supabase.from("training_courses").insert({
       title: title.trim(), description, target_role: targetRole, cover_url: cover,
     });
@@ -245,9 +256,9 @@ function AddCourseDialog({ onSaved }: { onSaved: () => void }) {
               <SelectItem value="closer">Apenas Closer</SelectItem>
             </SelectContent>
           </Select>
-          <p className="text-[10px] text-muted-foreground flex items-center gap-1"><Image size={10} /> Capa gerada automaticamente</p>
+          <p className="text-[10px] text-muted-foreground flex items-center gap-1"><Sparkles size={10} /> Capa gerada por IA automaticamente</p>
           <Button onClick={handleSave} disabled={saving || !title.trim()} className="w-full">
-            {saving ? "Criando..." : "Criar Curso"}
+            {saving ? <><Loader2 size={14} className="animate-spin mr-1" /> Gerando capa...</> : "Criar Curso"}
           </Button>
         </div>
       </DialogContent>
@@ -268,7 +279,7 @@ function EditCourseDialog({ course, onSaved }: { course: Course; onSaved: () => 
     setSaving(true);
     const coverChanged = title !== course.title;
     const updates: any = { title, description, target_role: targetRole, active };
-    if (coverChanged) updates.cover_url = generateCover(title);
+    if (coverChanged) updates.cover_url = await generateCoverAI(title, "course");
     const { error } = await supabase.from("training_courses").update(updates).eq("id", course.id);
     setSaving(false);
     if (error) { toast.error("Erro ao atualizar"); return; }
@@ -350,7 +361,7 @@ function AddLessonDialog({ moduleId, onSaved }: { moduleId: string; onSaved: () 
   const handleSave = async () => {
     if (!title.trim() || !videoUrl.trim()) return;
     setSaving(true);
-    const cover = generateCover(title);
+    const cover = await generateCoverAI(title, "lesson");
     const { error } = await supabase.from("training_lessons").insert({
       module_id: moduleId, title: title.trim(), video_url: videoUrl.trim(),
       video_type: videoType, cover_url: cover,
@@ -379,9 +390,9 @@ function AddLessonDialog({ moduleId, onSaved }: { moduleId: string; onSaved: () 
             </SelectContent>
           </Select>
           <Input placeholder="Cole o link do vídeo" value={videoUrl} onChange={e => setVideoUrl(e.target.value)} />
-          <p className="text-[10px] text-muted-foreground flex items-center gap-1"><Image size={10} /> Capa gerada automaticamente</p>
+          <p className="text-[10px] text-muted-foreground flex items-center gap-1"><Sparkles size={10} /> Capa gerada por IA automaticamente</p>
           <Button onClick={handleSave} disabled={saving || !title.trim() || !videoUrl.trim()} className="w-full">
-            {saving ? "Criando..." : "Criar Aula"}
+            {saving ? <><Loader2 size={14} className="animate-spin mr-1" /> Gerando capa...</> : "Criar Aula"}
           </Button>
         </div>
       </DialogContent>
@@ -401,7 +412,7 @@ function EditLessonDialog({ lesson, onSaved }: { lesson: Lesson; onSaved: () => 
     setSaving(true);
     const coverChanged = title !== lesson.title;
     const updates: any = { title, video_url: videoUrl, video_type: videoType };
-    if (coverChanged) updates.cover_url = generateCover(title);
+    if (coverChanged) updates.cover_url = await generateCoverAI(title, "lesson");
     const { error } = await supabase.from("training_lessons").update(updates).eq("id", lesson.id);
     setSaving(false);
     if (error) { toast.error("Erro"); return; }

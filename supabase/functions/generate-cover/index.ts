@@ -1,0 +1,76 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  try {
+    const { title, type } = await req.json(); // type: "course" | "lesson"
+    if (!title) throw new Error("Title is required");
+
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not set");
+
+    const prompt = `Create a professional, modern, visually striking cover image for a corporate sales training course titled "${title}". Style: clean corporate design with bold typography overlay showing the title, dark gradient background with accent lighting, professional business aesthetic. The image should look like a premium online course thumbnail. High contrast, cinematic lighting. No people faces.`;
+
+    // Generate image via Lovable AI
+    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-image",
+        messages: [{ role: "user", content: prompt }],
+        modalities: ["image", "text"],
+      }),
+    });
+
+    if (!aiRes.ok) {
+      const errText = await aiRes.text();
+      console.error("AI API error:", errText);
+      throw new Error("Failed to generate image");
+    }
+
+    const aiData = await aiRes.json();
+    const imageBase64 = aiData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+
+    if (!imageBase64) throw new Error("No image generated");
+
+    // Extract base64 data
+    const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
+    const imageBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+
+    // Upload to Supabase Storage
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+    const fileName = `covers/${type || "course"}-${Date.now()}.png`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("member-avatars") // reuse existing public bucket
+      .upload(fileName, imageBytes, { contentType: "image/png", upsert: true });
+
+    if (uploadError) throw uploadError;
+
+    const { data: urlData } = supabase.storage.from("member-avatars").getPublicUrl(fileName);
+    const publicUrl = urlData.publicUrl;
+
+    return new Response(JSON.stringify({ url: publicUrl }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (err) {
+    console.error("Error:", err);
+    return new Response(JSON.stringify({ error: err.message }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+});
