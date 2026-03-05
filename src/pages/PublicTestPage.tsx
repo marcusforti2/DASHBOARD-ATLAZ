@@ -111,8 +111,8 @@ export default function PublicTestPage() {
   const isSdr = testType === 'sdr';
   const testTitle = isSdr ? 'SDR DNA Decoder' : 'Sales DNA Decoder';
   const testSubtitle = isSdr ? 'Avaliação Comportamental para SDR de Prospecção' : 'Avaliação Comportamental e de Performance';
-  const testDuration = isSdr ? '~30 minutos' : '~25 minutos';
-  const testQuestionCount = isSdr ? '120 perguntas' : '80 perguntas';
+  const testDuration = isSdr ? '~30 minutos' : '~30 minutos';
+  const testQuestionCount = isSdr ? '120 perguntas' : '120 perguntas';
   const minChars = isSdr ? SDR_MIN_CHARS : MIN_CHARS;
 
   if (stage === 'loading') return <div className="min-h-screen bg-background flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>;

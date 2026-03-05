@@ -36,6 +36,9 @@ const BLOCK_TITLES = [
   { title: 'Diagnóstico do Cliente', subtitle: 'Capacidade de investigação e escuta' },
   { title: 'Construção de Valor', subtitle: 'Como você conecta problema e solução' },
   { title: 'Condução da Decisão', subtitle: 'Postura no momento de fechar' },
+  { title: 'Postura em Negociação', subtitle: 'Firmeza e controle sob pressão' },
+  { title: 'Cenários de Objeção', subtitle: 'Decisões práticas em situação real' },
+  { title: 'Maturidade Comercial', subtitle: 'Reflexão sobre pressão e resultado' },
 ];
 
 function b(block: number) {
@@ -55,12 +58,18 @@ function scale15() {
   return { type: 'scale' as QuestionType, scaleMin: 1, scaleMax: 5, scaleMinLabel: 'Não me identifico', scaleMaxLabel: 'Me identifico muito' };
 }
 
-function scale(min: number, max: number, minL: string, maxL: string) {
-  return { type: 'scale' as QuestionType, scaleMin: min, scaleMax: max, scaleMinLabel: minL, scaleMaxLabel: maxL };
-}
+// ===================================================================
+// BLOCO 1 — DISC (40 escala, perguntas invertidas: 10, 20, 30, 40)
+// ===================================================================
+// ===================================================================
+// BLOCO 2 — DIAGNÓSTICO, CONDUÇÃO E QUALIDADE (40 abertas)
+// ===================================================================
+// ===================================================================
+// BLOCO 3 — NEGOCIAÇÃO, OBJEÇÃO E PRESSÃO (40 misto)
+// ===================================================================
 
 export const questions: Question[] = [
-  // ===== BLOCO 1 — DOMINÂNCIA (D) — condução e decisão (10) =====
+  // ─── BLOCO 1: DOMINÂNCIA (D) ─── ids 1-10
   { id: 1, ...b(1), text: 'Durante uma reunião de vendas, me sinto confortável conduzindo o rumo da conversa.', ...scale15() },
   { id: 2, ...b(1), text: 'Quando percebo que o cliente está desviando do foco, consigo trazer a conversa de volta ao objetivo.', ...scale15() },
   { id: 3, ...b(1), text: 'Não tenho dificuldade em fazer perguntas diretas quando preciso de clareza.', ...scale15() },
@@ -72,7 +81,7 @@ export const questions: Question[] = [
   { id: 9, ...b(1), text: 'Tenho facilidade em assumir a liderança da conversa quando necessário.', ...scale15() },
   { id: 10, ...b(1), text: 'Prefiro evitar momentos de tensão em uma reunião de vendas.', ...scale15(), reversed: true },
 
-  // ===== BLOCO 2 — INFLUÊNCIA (I) — comunicação e conexão (10) =====
+  // ─── BLOCO 2: INFLUÊNCIA (I) ─── ids 11-20
   { id: 11, ...b(2), text: 'Tenho facilidade em criar conexão com pessoas que acabei de conhecer.', ...scale15() },
   { id: 12, ...b(2), text: 'Consigo adaptar minha comunicação dependendo do perfil do cliente.', ...scale15() },
   { id: 13, ...b(2), text: 'Tenho facilidade em manter uma conversa envolvente durante uma reunião.', ...scale15() },
@@ -84,7 +93,7 @@ export const questions: Question[] = [
   { id: 19, ...b(2), text: 'Tenho facilidade em gerar empatia com diferentes tipos de pessoas.', ...scale15() },
   { id: 20, ...b(2), text: 'Normalmente prefiro deixar o cliente conduzir toda a conversa.', ...scale15(), reversed: true },
 
-  // ===== BLOCO 3 — ESTABILIDADE (S) — controle emocional (10) =====
+  // ─── BLOCO 3: ESTABILIDADE (S) ─── ids 21-30
   { id: 21, ...b(3), text: 'Consigo manter calma mesmo quando a reunião se torna difícil.', ...scale15() },
   { id: 22, ...b(3), text: 'Não deixo pressão por resultado afetar minha clareza durante a conversa.', ...scale15() },
   { id: 23, ...b(3), text: 'Consigo lidar bem com clientes indecisos.', ...scale15() },
@@ -96,7 +105,7 @@ export const questions: Question[] = [
   { id: 29, ...b(3), text: 'Consigo manter consistência no meu desempenho ao longo do tempo.', ...scale15() },
   { id: 30, ...b(3), text: 'Quando uma reunião começa a ficar difícil, prefiro encerrar rapidamente.', ...scale15(), reversed: true },
 
-  // ===== BLOCO 4 — CONFORMIDADE (C) — método e estrutura (10) =====
+  // ─── BLOCO 4: CONFORMIDADE (C) ─── ids 31-40
   { id: 31, ...b(4), text: 'Procuro seguir uma estrutura clara durante reuniões de vendas.', ...scale15() },
   { id: 32, ...b(4), text: 'Antes de apresentar uma solução, procuro entender profundamente o problema do cliente.', ...scale15() },
   { id: 33, ...b(4), text: 'Tenho disciplina para seguir as etapas do processo comercial.', ...scale15() },
@@ -108,7 +117,7 @@ export const questions: Question[] = [
   { id: 39, ...b(4), text: 'Busco melhorar continuamente minha abordagem de vendas.', ...scale15() },
   { id: 40, ...b(4), text: 'Prefiro conduzir reuniões de forma totalmente improvisada.', ...scale15(), reversed: true },
 
-  // ===== BLOCO 5 — PAPEL DO CLOSER (10) =====
+  // ─── BLOCO 5: PAPEL DO CLOSER ─── ids 41-50
   { id: 41, ...b(5), text: 'Na sua visão, qual é o verdadeiro papel de um closer dentro de um processo comercial?', ...ot },
   { id: 42, ...b(5), text: 'O que diferencia uma boa reunião de vendas de uma reunião comum?', ...ot },
   { id: 43, ...b(5), text: 'O que você acredita que um closer precisa entender antes de tentar vender algo?', ...ot },
@@ -120,7 +129,7 @@ export const questions: Question[] = [
   { id: 49, ...b(5), text: 'O que faz uma reunião de vendas parecer profissional para o cliente?', ...ot },
   { id: 50, ...b(5), text: 'Como você definiria uma venda bem conduzida?', ...ot },
 
-  // ===== BLOCO 6 — DIAGNÓSTICO DO CLIENTE (10) =====
+  // ─── BLOCO 6: DIAGNÓSTICO DO CLIENTE ─── ids 51-60
   { id: 51, ...b(6), text: 'Como você costuma começar uma reunião de vendas?', ...ot },
   { id: 52, ...b(6), text: 'Que tipo de perguntas você faz para entender o problema do cliente?', ...ot },
   { id: 53, ...b(6), text: 'Como você identifica se o problema do cliente é realmente importante para ele?', ...ot },
@@ -132,7 +141,7 @@ export const questions: Question[] = [
   { id: 59, ...b(6), text: 'O que você faz quando percebe que o cliente ainda não vê urgência no problema?', ...ot },
   { id: 60, ...b(6), text: 'Como você diferencia um cliente pronto para decisão de um cliente apenas explorando opções?', ...ot },
 
-  // ===== BLOCO 7 — CONSTRUÇÃO DE VALOR (10) =====
+  // ─── BLOCO 7: CONSTRUÇÃO DE VALOR ─── ids 61-70
   { id: 61, ...b(7), text: 'O que significa, para você, construir valor durante uma reunião de vendas?', ...ot },
   { id: 62, ...b(7), text: 'Como você conecta o problema do cliente com a solução que está oferecendo?', ...ot },
   { id: 63, ...b(7), text: 'O que você faz para ajudar o cliente a perceber o impacto do problema que ele tem?', ...ot },
@@ -144,7 +153,7 @@ export const questions: Question[] = [
   { id: 69, ...b(7), text: 'Como você usa exemplos ou casos para reforçar o valor da solução?', ...ot },
   { id: 70, ...b(7), text: 'Como você conduz a transição entre diagnóstico e apresentação da solução?', ...ot },
 
-  // ===== BLOCO 8 — CONDUÇÃO DA DECISÃO (10) =====
+  // ─── BLOCO 8: CONDUÇÃO DA DECISÃO ─── ids 71-80
   { id: 71, ...b(8), text: 'Em que momento você acredita que é correto apresentar o preço ou investimento?', ...ot },
   { id: 72, ...b(8), text: 'Como você conduz a conversa para chegar naturalmente ao momento de decisão?', ...ot },
   { id: 73, ...b(8), text: 'O que você faz quando o cliente diz que precisa pensar?', ...ot },
@@ -155,6 +164,52 @@ export const questions: Question[] = [
   { id: 78, ...b(8), text: 'O que você faz quando percebe que a reunião está perdendo direção?', ...ot },
   { id: 79, ...b(8), text: 'Como você mantém controle da reunião sem parecer agressivo?', ...ot },
   { id: 80, ...b(8), text: 'O que significa, para você, conduzir uma decisão com responsabilidade?', ...ot },
+
+  // ─── BLOCO 9: POSTURA EM NEGOCIAÇÃO (escala) ─── ids 81-95
+  { id: 81, ...b(9), text: 'Me sinto confortável falando sobre investimento ou preço durante uma reunião de vendas.', ...scale15() },
+  { id: 82, ...b(9), text: 'Consigo sustentar silêncio após apresentar o preço.', ...scale15() },
+  { id: 83, ...b(9), text: 'Não sinto necessidade de justificar excessivamente o valor da solução.', ...scale15() },
+  { id: 84, ...b(9), text: 'Consigo manter firmeza quando o cliente pede desconto.', ...scale15() },
+  { id: 85, ...b(9), text: 'Me sinto confortável conduzindo uma decisão com o cliente.', ...scale15() },
+  { id: 86, ...b(9), text: 'Não tenho dificuldade em lidar com objeções durante uma reunião.', ...scale15() },
+  { id: 87, ...b(9), text: 'Consigo manter postura segura mesmo quando o cliente questiona o valor.', ...scale15() },
+  { id: 88, ...b(9), text: 'Não deixo o medo de perder a venda me fazer negociar cedo demais.', ...scale15() },
+  { id: 89, ...b(9), text: 'Consigo manter controle emocional durante negociações difíceis.', ...scale15() },
+  { id: 90, ...b(9), text: 'Me sinto responsável pelo resultado da reunião que estou conduzindo.', ...scale15() },
+  { id: 91, ...b(9), text: 'Consigo diferenciar quando um cliente tem uma dúvida real ou apenas está adiando decisão.', ...scale15() },
+  { id: 92, ...b(9), text: 'Me sinto confortável perguntando diretamente o que está impedindo o cliente de decidir.', ...scale15() },
+  { id: 93, ...b(9), text: 'Consigo manter postura profissional mesmo quando a venda não acontece.', ...scale15() },
+  { id: 94, ...b(9), text: 'Me sinto confortável conduzindo uma conversa que envolve dinheiro.', ...scale15() },
+  { id: 95, ...b(9), text: 'Consigo manter clareza mental mesmo sob pressão para fechar uma venda.', ...scale15() },
+
+  // ─── BLOCO 10: CENÁRIOS DE OBJEÇÃO (múltipla escolha) ─── ids 96-110
+  { id: 96, ...b(10), text: 'O cliente diz: "Preciso pensar melhor antes de decidir." Você:', ...mc(['Pergunta o que exatamente ele precisa avaliar', 'Agenda retorno', 'Aceita e encerra', 'Tenta reforçar valor']) },
+  { id: 97, ...b(10), text: 'O cliente pergunta o preço muito cedo na reunião. Você:', ...mc(['Responde imediatamente', 'Explica que precisa entender melhor o contexto primeiro', 'Dá uma estimativa', 'Tenta mudar de assunto']) },
+  { id: 98, ...b(10), text: 'Após ouvir o preço, o cliente fica em silêncio. Você:', ...mc(['Espera a reação', 'Começa a justificar o valor', 'Pergunta o que ele achou', 'Oferece outra condição']) },
+  { id: 99, ...b(10), text: 'O cliente diz: "Achei caro." Você:', ...mc(['Pergunta caro comparado a quê', 'Explica o valor da solução', 'Oferece desconto', 'Pergunta o orçamento']) },
+  { id: 100, ...b(10), text: 'O cliente demonstra interesse, mas não toma decisão. Você:', ...mc(['Tenta entender o que está travando', 'Agenda nova reunião', 'Envia material', 'Encerra conversa']) },
+  { id: 101, ...b(10), text: 'O cliente pede desconto imediatamente. Você:', ...mc(['Pergunta o motivo', 'Explica valor', 'Oferece desconto', 'Tenta negociar condições']) },
+  { id: 102, ...b(10), text: 'Durante a reunião você percebe que perdeu o controle da conversa. Você:', ...mc(['Reorganiza a conversa', 'Deixa o cliente falar', 'Tenta recuperar direção', 'Encerra o assunto']) },
+  { id: 103, ...b(10), text: 'O cliente diz que precisa falar com outra pessoa antes de decidir. Você:', ...mc(['Pergunta quem participa da decisão', 'Agenda retorno', 'Envia proposta', 'Encerra conversa']) },
+  { id: 104, ...b(10), text: 'O cliente começa a comparar sua solução com concorrentes. Você:', ...mc(['Pergunta o que ele está comparando', 'Explica diferenças', 'Defende sua solução', 'Muda de assunto']) },
+  { id: 105, ...b(10), text: 'O cliente demonstra insegurança na decisão. Você:', ...mc(['Explora a insegurança', 'Reforça benefícios', 'Agenda nova conversa', 'Envia material']) },
+  { id: 106, ...b(10), text: 'O cliente faz várias perguntas sobre preço antes de entender o valor. Você:', ...mc(['Volta para o problema', 'Responde tudo', 'Tenta explicar preço', 'Adia conversa']) },
+  { id: 107, ...b(10), text: 'O cliente diz que já tentou algo parecido antes. Você:', ...mc(['Pergunta o que aconteceu', 'Explica diferença da solução', 'Continua apresentação', 'Muda assunto']) },
+  { id: 108, ...b(10), text: 'O cliente diz que o momento não é ideal. Você:', ...mc(['Pergunta o que mudaria o momento', 'Agenda retorno', 'Aceita resposta', 'Encerra conversa']) },
+  { id: 109, ...b(10), text: 'O cliente demonstra urgência. Você:', ...mc(['Aprofunda problema', 'Agenda próxima etapa', 'Apresenta solução', 'Fala do preço']) },
+  { id: 110, ...b(10), text: 'O cliente parece interessado, mas hesita em decidir. Você:', ...mc(['Pergunta diretamente o que falta', 'Reforça valor', 'Agenda retorno', 'Encerra reunião']) },
+
+  // ─── BLOCO 11: MATURIDADE COMERCIAL (abertas) ─── ids 111-120
+  { id: 111, ...b(11), text: 'Conte uma situação em que você teve que lidar com uma objeção difícil em uma venda.', ...ot },
+  { id: 112, ...b(11), text: 'O que você faz quando um cliente demonstra interesse mas não toma decisão?', ...ot },
+  { id: 113, ...b(11), text: 'Como você diferencia uma objeção real de uma desculpa para adiar decisão?', ...ot },
+  { id: 114, ...b(11), text: 'Qual foi a negociação mais difícil que você já conduziu?', ...ot },
+  { id: 115, ...b(11), text: 'Como você reage quando perde uma venda importante?', ...ot },
+  { id: 116, ...b(11), text: 'O que você faz para melhorar sua capacidade de lidar com objeções?', ...ot },
+  { id: 117, ...b(11), text: 'O que significa, para você, conduzir uma decisão com responsabilidade?', ...ot },
+  { id: 118, ...b(11), text: 'Como você mantém controle emocional em uma negociação difícil?', ...ot },
+  { id: 119, ...b(11), text: 'O que você acredita que faz um cliente confiar na decisão de comprar?', ...ot },
+  { id: 120, ...b(11), text: 'Na sua opinião, o que diferencia um closer comum de um closer excepcional?', ...ot },
 ];
 
 export const MIN_CHARS = 50;
