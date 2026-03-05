@@ -8,12 +8,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import {
   Plus, GraduationCap, BookOpen, Play, Trash2, Edit2, ChevronDown, ChevronRight,
   Video, Send, EyeOff, Loader2, Sparkles, Eye, Search, RefreshCw, X, Image as ImageIcon,
-  Wand2, Check, Lightbulb
+  Wand2, Check, Lightbulb, MessageSquare, User, Users
 } from "lucide-react";
 import { TrainingViewer } from "@/components/training/TrainingViewer";
 
@@ -29,7 +30,10 @@ type Module = {
 type Lesson = {
   id: string; module_id: string; title: string; description: string;
   video_url: string; video_type: string; cover_url: string | null; sort_order: number;
+  assigned_admin_id: string | null;
 };
+type TeamMember = { id: string; name: string; avatar_url: string | null; member_role: string };
+type WhatsAppContact = { id: string; phone: string; team_member_id: string | null };
 
 // ── Pexels cover search ──
 async function searchPexelCovers(query: string): Promise<{ id: number; url: string; thumb: string; photographer: string }[]> {
@@ -72,6 +76,22 @@ export default function TrainingAdminPage() {
     queryFn: async () => {
       const { data } = await supabase.from("training_lessons").select("*").order("sort_order");
       return (data || []) as Lesson[];
+    },
+  });
+
+  const { data: teamMembers = [] } = useQuery({
+    queryKey: ["team-members-training"],
+    queryFn: async () => {
+      const { data } = await supabase.from("team_members").select("*").eq("active", true);
+      return (data || []) as TeamMember[];
+    },
+  });
+
+  const { data: whatsappContacts = [] } = useQuery({
+    queryKey: ["whatsapp-contacts-training"],
+    queryFn: async () => {
+      const { data } = await supabase.from("whatsapp_contacts").select("*").eq("active", true);
+      return (data || []) as WhatsAppContact[];
     },
   });
 
@@ -184,7 +204,10 @@ export default function TrainingAdminPage() {
                   <div className="border-t border-border bg-secondary/10 p-3 space-y-2">
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider">Módulos</p>
-                      <AddModuleDialog courseId={course.id} onSaved={invalidateAll} />
+                      <div className="flex items-center gap-1">
+                        <SendScriptsButton scope="course" courseTitle={course.title} modules={courseModules} lessons={lessons} teamMembers={teamMembers} whatsappContacts={whatsappContacts} />
+                        <AddModuleDialog courseId={course.id} onSaved={invalidateAll} />
+                      </div>
                     </div>
                     {courseModules.length === 0 && (
                       <p className="text-xs text-muted-foreground/60 text-center py-3">Nenhum módulo</p>
@@ -201,6 +224,7 @@ export default function TrainingAdminPage() {
                             <BookOpen size={14} className="text-primary shrink-0" />
                             <p className="text-xs font-semibold flex-1 truncate">{mod.title}</p>
                             <span className="text-[10px] text-muted-foreground shrink-0">{modLessons.length} aulas</span>
+                            <SendScriptsButton scope="module" courseTitle={course.title} moduleTitle={mod.title} lessons={modLessons} teamMembers={teamMembers} whatsappContacts={whatsappContacts} />
                             <DeleteButton table="training_modules" id={mod.id} onDeleted={invalidateAll} size="sm" />
                             {modExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                           </div>
@@ -217,26 +241,38 @@ export default function TrainingAdminPage() {
                               {modLessons.length === 0 && (
                                 <p className="text-[10px] text-muted-foreground/60 text-center py-2">Nenhuma aula</p>
                               )}
-                              {modLessons.map((lesson) => (
-                                <div key={lesson.id} className="flex items-center gap-2 p-2 rounded-md bg-background border border-border/50">
-                                  {lesson.cover_url ? (
-                                    <img src={lesson.cover_url} alt="" className="w-12 h-8 rounded object-cover shrink-0" />
-                                  ) : (
-                                    <div className="w-12 h-8 rounded bg-primary/10 flex items-center justify-center shrink-0">
-                                      <Play size={10} className="text-primary" />
+                              {modLessons.map((lesson) => {
+                                const assignedAdmin = lesson.assigned_admin_id ? teamMembers.find(m => m.id === lesson.assigned_admin_id) : null;
+                                return (
+                                  <div key={lesson.id} className="flex items-center gap-2 p-2 rounded-md bg-background border border-border/50">
+                                    {lesson.cover_url ? (
+                                      <img src={lesson.cover_url} alt="" className="w-12 h-8 rounded object-cover shrink-0" />
+                                    ) : (
+                                      <div className="w-12 h-8 rounded bg-primary/10 flex items-center justify-center shrink-0">
+                                        <Play size={10} className="text-primary" />
+                                      </div>
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-[11px] font-semibold truncate">{lesson.title}</p>
+                                      <div className="flex items-center gap-2">
+                                        <p className="text-[9px] text-muted-foreground truncate flex items-center gap-1">
+                                          <Video size={8} /> {lesson.video_type === "youtube" ? "YouTube" : "Drive"}
+                                        </p>
+                                        {assignedAdmin && (
+                                          <span className="text-[9px] text-primary flex items-center gap-0.5">
+                                            <User size={7} /> {assignedAdmin.name.split(" ")[0]}
+                                          </span>
+                                        )}
+                                      </div>
                                     </div>
-                                  )}
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-[11px] font-semibold truncate">{lesson.title}</p>
-                                    <p className="text-[9px] text-muted-foreground truncate flex items-center gap-1">
-                                      <Video size={8} /> {lesson.video_type === "youtube" ? "YouTube" : "Drive"}
-                                    </p>
+                                    <AssignAdminSelect lessonId={lesson.id} currentAdminId={lesson.assigned_admin_id} teamMembers={teamMembers} onSaved={invalidateAll} />
+                                    <SendScriptsButton scope="lesson" courseTitle={course.title} moduleTitle={mod.title} lessons={[lesson]} teamMembers={teamMembers} whatsappContacts={whatsappContacts} assignedAdminId={lesson.assigned_admin_id} />
+                                    <ChangeCoverButton itemId={lesson.id} table="training_lessons" currentTitle={lesson.title} onDone={invalidateAll} size="sm" />
+                                    <EditLessonDialog lesson={lesson} onSaved={invalidateAll} />
+                                    <DeleteButton table="training_lessons" id={lesson.id} onDeleted={invalidateAll} size="sm" />
                                   </div>
-                                  <ChangeCoverButton itemId={lesson.id} table="training_lessons" currentTitle={lesson.title} onDone={invalidateAll} size="sm" />
-                                  <EditLessonDialog lesson={lesson} onSaved={invalidateAll} />
-                                  <DeleteButton table="training_lessons" id={lesson.id} onDeleted={invalidateAll} size="sm" />
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           )}
                         </div>
@@ -1002,6 +1038,188 @@ function EditLessonDialog({ lesson, onSaved }: { lesson: Lesson; onSaved: () => 
           </Select>
           <Input value={videoUrl} onChange={e => setVideoUrl(e.target.value)} />
           <Button onClick={handleSave} disabled={saving} className="w-full">{saving ? "Salvando..." : "Salvar"}</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Assign Admin Select ──
+function AssignAdminSelect({ lessonId, currentAdminId, teamMembers, onSaved }: {
+  lessonId: string; currentAdminId: string | null; teamMembers: TeamMember[]; onSaved: () => void;
+}) {
+  const [saving, setSaving] = useState(false);
+
+  const handleAssign = async (adminId: string) => {
+    setSaving(true);
+    const val = adminId === "none" ? null : adminId;
+    const { error } = await supabase.from("training_lessons").update({ assigned_admin_id: val } as any).eq("id", lessonId);
+    setSaving(false);
+    if (error) { toast.error("Erro ao vincular"); return; }
+    toast.success(val ? "Responsável vinculado!" : "Responsável removido");
+    onSaved();
+  };
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="shrink-0" onClick={e => e.stopPropagation()}>
+            <Select value={currentAdminId || "none"} onValueChange={handleAssign} disabled={saving}>
+              <SelectTrigger className="h-6 w-6 p-0 border-none bg-transparent justify-center [&>svg]:hidden">
+                <User size={10} className={currentAdminId ? "text-primary" : "text-muted-foreground"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none"><span className="text-xs text-muted-foreground">Sem responsável</span></SelectItem>
+                {teamMembers.map(m => (
+                  <SelectItem key={m.id} value={m.id}>
+                    <span className="text-xs">{m.name}</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-[10px]">
+          {currentAdminId ? `Responsável: ${teamMembers.find(m => m.id === currentAdminId)?.name || "?"}` : "Vincular responsável"}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+// ── Send Scripts Button ──
+function SendScriptsButton({ scope, courseTitle, moduleTitle, modules, lessons, teamMembers, whatsappContacts, assignedAdminId }: {
+  scope: "course" | "module" | "lesson";
+  courseTitle: string;
+  moduleTitle?: string;
+  modules?: Module[];
+  lessons: Lesson[];
+  teamMembers: TeamMember[];
+  whatsappContacts: WhatsAppContact[];
+  assignedAdminId?: string | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [selectedMemberId, setSelectedMemberId] = useState<string>(assignedAdminId || "");
+
+  const getPhoneForMember = (memberId: string): string | null => {
+    const contact = whatsappContacts.find(c => c.team_member_id === memberId);
+    return contact?.phone || null;
+  };
+
+  const buildScriptMessage = (lessonsToSend: Lesson[], modTitle?: string): string => {
+    const header = scope === "course"
+      ? `📚 *ROTEIRO DE GRAVAÇÃO*\n📖 Curso: ${courseTitle}\n${"─".repeat(30)}`
+      : scope === "module"
+        ? `📚 *ROTEIRO DE GRAVAÇÃO*\n📖 Curso: ${courseTitle}\n📂 Módulo: ${moduleTitle || modTitle}\n${"─".repeat(30)}`
+        : `📚 *ROTEIRO DE GRAVAÇÃO*\n📖 Curso: ${courseTitle}\n📂 Módulo: ${moduleTitle}\n${"─".repeat(30)}`;
+
+    const lessonScripts = lessonsToSend.map((l, i) => {
+      return `\n🎬 *Aula ${i + 1}: ${l.title}*\n${l.description || "Sem descrição"}\n`;
+    }).join("\n");
+
+    return `${header}\n${lessonScripts}\n${"─".repeat(30)}\n✅ Grave e envie os links dos vídeos quando estiver pronto!`;
+  };
+
+  const handleSend = async () => {
+    if (!selectedMemberId) { toast.error("Selecione um responsável"); return; }
+    const phone = getPhoneForMember(selectedMemberId);
+    if (!phone) { toast.error("Este membro não possui contato de WhatsApp cadastrado"); return; }
+
+    setSending(true);
+    try {
+      if (scope === "course" && modules) {
+        // Send one message per module
+        for (const mod of modules) {
+          const modLessons = lessons.filter(l => l.module_id === mod.id);
+          if (modLessons.length === 0) continue;
+          const msg = buildScriptMessage(modLessons, mod.title);
+          const fullMsg = msg.replace(
+            `📂 Módulo: ${moduleTitle || mod.title}`,
+            `📂 Módulo: ${mod.title}`
+          );
+          const courseMsg = `📚 *ROTEIRO DE GRAVAÇÃO*\n📖 Curso: ${courseTitle}\n📂 Módulo: ${mod.title}\n${"─".repeat(30)}\n${modLessons.map((l, i) => `\n🎬 *Aula ${i + 1}: ${l.title}*\n${l.description || "Sem descrição"}\n`).join("\n")}\n${"─".repeat(30)}\n✅ Grave e envie os links dos vídeos quando estiver pronto!`;
+          await supabase.functions.invoke("send-whatsapp", { body: { phone, message: courseMsg } });
+          // Delay between messages
+          await new Promise(r => setTimeout(r, 1500));
+        }
+        toast.success("Roteiros do curso enviados por WhatsApp!");
+      } else {
+        const msg = buildScriptMessage(lessons);
+        await supabase.functions.invoke("send-whatsapp", { body: { phone, message: msg } });
+        toast.success(`Roteiro ${scope === "module" ? "do módulo" : "da aula"} enviado por WhatsApp!`);
+      }
+      setOpen(false);
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao enviar");
+    }
+    setSending(false);
+  };
+
+  const iconSize = scope === "lesson" ? 9 : scope === "module" ? 10 : 12;
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <button
+          onClick={e => e.stopPropagation()}
+          className="p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+          title={`Enviar roteiro ${scope === "course" ? "do curso" : scope === "module" ? "do módulo" : "da aula"}`}
+        >
+          <MessageSquare size={iconSize} />
+        </button>
+      </DialogTrigger>
+      <DialogContent className="max-w-md" onClick={e => e.stopPropagation()}>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-sm">
+            <MessageSquare size={16} className="text-primary" />
+            Enviar Roteiro via WhatsApp
+          </DialogTitle>
+          <DialogDescription className="text-xs">
+            {scope === "course" && `Enviar roteiros de todas as aulas do curso "${courseTitle}"`}
+            {scope === "module" && `Enviar roteiros das aulas do módulo "${moduleTitle}"`}
+            {scope === "lesson" && `Enviar roteiro da aula "${lessons[0]?.title}"`}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 pt-2">
+          <div>
+            <label className="text-xs font-medium mb-1.5 block">Enviar para quem?</label>
+            <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
+              <SelectTrigger className="text-xs"><SelectValue placeholder="Selecione o responsável" /></SelectTrigger>
+              <SelectContent>
+                {teamMembers.map(m => {
+                  const hasPhone = !!getPhoneForMember(m.id);
+                  return (
+                    <SelectItem key={m.id} value={m.id} disabled={!hasPhone}>
+                      <span className="text-xs flex items-center gap-1.5">
+                        {m.name}
+                        {!hasPhone && <span className="text-destructive text-[9px]">(sem WhatsApp)</span>}
+                      </span>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Preview */}
+          <div className="bg-secondary/50 rounded-lg p-3 max-h-48 overflow-y-auto">
+            <p className="text-[9px] uppercase font-semibold text-muted-foreground mb-1">Prévia da mensagem</p>
+            <pre className="text-[10px] text-foreground whitespace-pre-wrap font-sans leading-relaxed">
+              {scope === "course" && modules
+                ? `📚 Curso: ${courseTitle}\n${modules.length} módulos serão enviados em mensagens separadas`
+                : buildScriptMessage(lessons)
+              }
+            </pre>
+          </div>
+
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setOpen(false)} className="flex-1 text-xs">Cancelar</Button>
+            <Button onClick={handleSend} disabled={sending || !selectedMemberId} className="flex-1 gap-1.5 text-xs">
+              {sending ? <><Loader2 size={12} className="animate-spin" /> Enviando...</> : <><Send size={12} /> Enviar</>}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
