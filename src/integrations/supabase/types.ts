@@ -533,6 +533,7 @@ export type Database = {
           id: string
           is_active: boolean
           label: string
+          member_id: string | null
           test_type: string
           token: string
         }
@@ -541,6 +542,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           label?: string
+          member_id?: string | null
           test_type?: string
           token?: string
         }
@@ -549,10 +551,19 @@ export type Database = {
           id?: string
           is_active?: boolean
           label?: string
+          member_id?: string | null
           test_type?: string
           token?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "test_links_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       test_submissions: {
         Row: {
