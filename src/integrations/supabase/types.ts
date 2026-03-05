@@ -711,6 +711,7 @@ export type Database = {
       }
       training_lessons: {
         Row: {
+          assigned_admin_id: string | null
           cover_url: string | null
           created_at: string
           description: string | null
@@ -723,6 +724,7 @@ export type Database = {
           video_url: string
         }
         Insert: {
+          assigned_admin_id?: string | null
           cover_url?: string | null
           created_at?: string
           description?: string | null
@@ -735,6 +737,7 @@ export type Database = {
           video_url: string
         }
         Update: {
+          assigned_admin_id?: string | null
           cover_url?: string | null
           created_at?: string
           description?: string | null
@@ -747,6 +750,13 @@ export type Database = {
           video_url?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "training_lessons_assigned_admin_id_fkey"
+            columns: ["assigned_admin_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "training_lessons_module_id_fkey"
             columns: ["module_id"]

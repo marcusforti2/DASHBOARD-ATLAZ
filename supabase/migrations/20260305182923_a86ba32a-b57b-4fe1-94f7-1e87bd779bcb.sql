@@ -1,0 +1,1 @@
+ALTER TABLE public.training_lessons ADD COLUMN assigned_admin_id uuid REFERENCES public.team_members(id) ON DELETE SET NULL DEFAULT NULL;
