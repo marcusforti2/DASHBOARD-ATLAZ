@@ -472,11 +472,7 @@ export function LeadAuditPanel({ memberId, memberName }: LeadAuditPanelProps) {
 
                           {/* Source badge */}
                           <div className="px-1 py-1.5 text-[10px] border-l border-border/30 flex items-center justify-center">
-                            {entry.source === "dripify" ? (
-                              <span className="text-[7px] font-bold text-chart-4 bg-chart-4/10 px-1.5 py-0.5 rounded">DRIP</span>
-                            ) : (
                               <span className="text-[7px] font-bold text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">MAN</span>
-                            )}
                           </div>
 
                           {/* Frequency badge */}
@@ -545,11 +541,8 @@ export function LeadAuditPanel({ memberId, memberName }: LeadAuditPanelProps) {
                                 <span className="text-[7px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded shrink-0">
                                   {METRIC_SHORT[h.metric_type] || h.metric_type || "—"}
                                 </span>
-                                <span className={cn(
-                                  "text-[7px] font-bold px-1 py-0.5 rounded shrink-0",
-                                  h.source === "dripify" ? "text-chart-4 bg-chart-4/10" : "text-muted-foreground bg-secondary"
-                                )}>
-                                  {h.source === "dripify" ? "DRIP" : "MAN"}
+                                <span className="text-[7px] font-bold px-1 py-0.5 rounded shrink-0 text-muted-foreground bg-secondary">
+                                  MAN
                                 </span>
                                 {h.social_link && (
                                   <a href={h.social_link.startsWith("http") ? h.social_link : `https://${h.social_link}`}
