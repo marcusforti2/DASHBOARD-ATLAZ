@@ -91,7 +91,12 @@ export default function DnaAdminDashboard({ onViewSubmission }: DnaAdminDashboar
 
   const buildTestUrl = (token: string) => `${APP_PUBLIC_URL}/t/${token}`;
 
-  const getTypeFromMember = (member?: TeamMember | null) => (member?.member_role === 'sdr' ? 'sdr' : 'closer');
+  const normalizeTestType = (value?: string | null): 'sdr' | 'closer' => {
+    const normalized = (value || '').toLowerCase().trim();
+    return normalized === 'sdr' ? 'sdr' : 'closer';
+  };
+
+  const getTypeFromMember = (member?: TeamMember | null) => normalizeTestType(member?.member_role);
 
   const sendWhatsAppNotification = async (phone: string, memberName: string, testType: 'sdr' | 'closer', testUrl: string) => {
     const typeLabel = testType === 'sdr' ? 'SDR' : 'Closer';
@@ -126,7 +131,7 @@ export default function DnaAdminDashboard({ onViewSubmission }: DnaAdminDashboar
       return;
     }
 
-    const effectiveType = getTypeFromMember(member);
+    const effectiveType = normalizeTestType(link.test_type || member.member_role);
     const testUrl = buildTestUrl(link.token);
     await sendWhatsAppNotification(contact.phone, member.name, effectiveType, testUrl);
   };
@@ -136,7 +141,7 @@ export default function DnaAdminDashboard({ onViewSubmission }: DnaAdminDashboar
     const memberId = selectedMemberId === 'free' ? null : selectedMemberId;
     const member = memberId ? teamMembers.find(m => m.id === memberId) : null;
     const label = newLinkLabel.trim() || (member ? member.name : 'Sem rótulo');
-    const effectiveType: 'closer' | 'sdr' = member ? getTypeFromMember(member) : newLinkType;
+    const effectiveType: 'closer' | 'sdr' = member ? getTypeFromMember(member) : normalizeTestType(newLinkType);
 
     const { data, error } = await supabase.from('test_links').insert({
       label,
@@ -187,8 +192,8 @@ export default function DnaAdminDashboard({ onViewSubmission }: DnaAdminDashboar
     setDeletingLinkId(null);
   };
 
-  const filteredSubmissions = filterType === 'all' ? submissions : submissions.filter(s => (s.test_type || 'closer') === filterType);
-  const filteredLinks = filterType === 'all' ? testLinks : testLinks.filter(l => (l.test_type || 'closer') === filterType);
+  const filteredSubmissions = filterType === 'all' ? submissions : submissions.filter(s => normalizeTestType(s.test_type) === filterType);
+  const filteredLinks = filterType === 'all' ? testLinks : testLinks.filter(l => normalizeTestType(l.test_type) === filterType);
 
   const exportCsv = () => {
     if (filteredSubmissions.length === 0) return;
@@ -222,8 +227,8 @@ export default function DnaAdminDashboard({ onViewSubmission }: DnaAdminDashboar
     setTimeout(exportCsv, 200);
   };
 
-  const closerSubs = submissions.filter(s => (s.test_type || 'closer') === 'closer');
-  const sdrSubs = submissions.filter(s => (s.test_type || 'closer') === 'sdr');
+  const closerSubs = submissions.filter(s => normalizeTestType(s.test_type) === 'closer');
+  const sdrSubs = submissions.filter(s => normalizeTestType(s.test_type) === 'sdr');
 
   if (loading) return <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>;
 
@@ -334,8 +339,8 @@ export default function DnaAdminDashboard({ onViewSubmission }: DnaAdminDashboar
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <p className="font-medium text-foreground text-sm">{link.label}</p>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${(link.test_type || 'closer') === 'sdr' ? 'bg-blue-500/10 text-blue-500' : 'bg-primary/10 text-primary'}`}>
-                        {(link.test_type || 'closer').toUpperCase()}
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${normalizeTestType(link.test_type) === 'sdr' ? 'bg-blue-500/10 text-blue-500' : 'bg-primary/10 text-primary'}`}>
+                        {normalizeTestType(link.test_type).toUpperCase()}
                       </span>
                       {link.member_id ? (
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground flex items-center gap-1">
@@ -375,8 +380,8 @@ export default function DnaAdminDashboard({ onViewSubmission }: DnaAdminDashboar
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="font-medium text-foreground truncate">{sub.respondent_name || 'Sem nome'}</p>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${(sub.test_type || 'closer') === 'sdr' ? 'bg-blue-500/10 text-blue-500' : 'bg-primary/10 text-primary'}`}>
-                      {(sub.test_type || 'closer').toUpperCase()}
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${normalizeTestType(sub.test_type) === 'sdr' ? 'bg-blue-500/10 text-blue-500' : 'bg-primary/10 text-primary'}`}>
+                      {normalizeTestType(sub.test_type).toUpperCase()}
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground">{sub.respondent_email} {sub.respondent_phone && `· ${sub.respondent_phone}`} · {sub.completed_at ? new Date(sub.completed_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Em progresso'}</p>
