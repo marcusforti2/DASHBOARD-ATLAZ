@@ -15,7 +15,35 @@ serve(async (req) => {
     const PEXELS_API_KEY = Deno.env.get("PEXELS_API_KEY");
     if (!PEXELS_API_KEY) throw new Error("PEXELS_API_KEY not set");
 
-    const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=${per_page}&orientation=landscape`;
+    // Translate query to English for better Pexels results
+    let translatedQuery = query;
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (LOVABLE_API_KEY) {
+      try {
+        const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash-lite",
+            messages: [
+              { role: "system", content: "Translate the following text to English for use as a photo search query. Return ONLY the translated keywords, nothing else. If already in English, return as-is." },
+              { role: "user", content: query },
+            ],
+            max_tokens: 50,
+            temperature: 0,
+          }),
+        });
+        if (aiRes.ok) {
+          const aiData = await aiRes.json();
+          const translated = aiData.choices?.[0]?.message?.content?.trim();
+          if (translated) translatedQuery = translated;
+        }
+      } catch (e) {
+        console.error("Translation fallback to original query:", e);
+      }
+    }
+
+    const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(translatedQuery)}&per_page=${per_page}&orientation=landscape`;
     
     const res = await fetch(url, {
       headers: { Authorization: PEXELS_API_KEY },
