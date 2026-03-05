@@ -10,6 +10,7 @@ import AdminPopupsPage from "@/pages/AdminPopupsPage";
 import AdminKnowledgePage from "@/pages/AdminKnowledgePage";
 import DnaMappingPage from "@/pages/DnaMappingPage";
 import ProcessosPage from "@/pages/ProcessosPage";
+import TrainingAdminPage from "@/pages/TrainingAdminPage";
 import { AppSidebar, AdminView, CloserView } from "@/components/AppSidebar";
 import { AiReportPanel } from "@/components/dashboard/AiReportPanel";
 import { CloserDailyDashboard } from "@/components/dashboard/CloserDailyDashboard";
@@ -144,6 +145,7 @@ export default function Index() {
       case "popups": return "Popups Motivacionais";
       case "knowledge": return "Conhecimento IA";
       case "dna-mapping": return "Sales DNA Decoder";
+      case "training": return "Treinamentos";
       case "closer-preview": return "Visualização SDR";
       case "settings": return "Configurações";
       default: return "";
@@ -191,6 +193,8 @@ export default function Index() {
         return <AdminKnowledgePage />;
       case "dna-mapping":
         return <DnaMappingPage />;
+      case "training":
+        return <TrainingAdminPage />;
       case "processos":
         return <ProcessosPage />;
       default:
