@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,7 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { toast } from "sonner";
 import {
   Plus, GraduationCap, BookOpen, Play, Trash2, Edit2, ChevronDown, ChevronRight,
-  Video, Send, EyeOff, Loader2, Sparkles, Eye, Search, RefreshCw, X, Image as ImageIcon
+  Video, Send, EyeOff, Loader2, Sparkles, Eye, Search, RefreshCw, X, Image as ImageIcon,
+  Wand2, Check, Lightbulb
 } from "lucide-react";
 import { TrainingViewer } from "@/components/training/TrainingViewer";
 
@@ -124,6 +126,7 @@ export default function TrainingAdminPage() {
           <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => setPreviewMode(true)}>
             <Eye size={14} /> Visualizar
           </Button>
+          <AiCourseGeneratorDialog onSaved={invalidateAll} />
           <AddCourseDialog onSaved={invalidateAll} />
         </div>
       </div>
@@ -342,6 +345,204 @@ function ChangeCoverButton({ itemId, table, currentTitle, onDone, size = "md" }:
             </p>
           )}
         </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── AI Course Generator Dialog ──
+type AiLesson = { title: string; description: string; dica_gravacao: string };
+type AiModule = { title: string; description: string; lessons: AiLesson[] };
+type AiCourseStructure = { title: string; description: string; modules: AiModule[] };
+
+function AiCourseGeneratorDialog({ onSaved }: { onSaved: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [idea, setIdea] = useState("");
+  const [targetRole, setTargetRole] = useState("all");
+  const [generating, setGenerating] = useState(false);
+  const [structure, setStructure] = useState<AiCourseStructure | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [expandedMod, setExpandedMod] = useState<number | null>(0);
+
+  const handleGenerate = async () => {
+    if (!idea.trim()) return;
+    setGenerating(true);
+    setStructure(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-course", {
+        body: { idea: idea.trim(), targetRole },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setStructure(data);
+      setExpandedMod(0);
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao gerar estrutura");
+    }
+    setGenerating(false);
+  };
+
+  const handleCreate = async () => {
+    if (!structure) return;
+    setCreating(true);
+    try {
+      // 1. Create course with Pexels cover
+      const covers = await searchPexelCovers(structure.title);
+      const cover = covers.length > 0 ? covers[0].url : null;
+      const { data: course, error: courseErr } = await supabase
+        .from("training_courses")
+        .insert({ title: structure.title, description: structure.description, target_role: targetRole, cover_url: cover })
+        .select("id")
+        .single();
+      if (courseErr || !course) throw courseErr || new Error("Erro ao criar curso");
+
+      // 2. Create modules and lessons
+      for (let mi = 0; mi < structure.modules.length; mi++) {
+        const mod = structure.modules[mi];
+        const { data: modData, error: modErr } = await supabase
+          .from("training_modules")
+          .insert({ course_id: course.id, title: mod.title, description: mod.description || "", sort_order: mi })
+          .select("id")
+          .single();
+        if (modErr || !modData) continue;
+
+        const lessonInserts = mod.lessons.map((l, li) => ({
+          module_id: modData.id,
+          title: l.title,
+          description: `${l.description}\n\n💡 Dica de gravação: ${l.dica_gravacao}`,
+          video_url: "",
+          video_type: "youtube" as const,
+          sort_order: li,
+        }));
+        if (lessonInserts.length > 0) {
+          await supabase.from("training_lessons").insert(lessonInserts);
+        }
+      }
+
+      toast.success("Curso criado com sucesso! Agora adicione os links dos vídeos.");
+      setOpen(false);
+      setStructure(null);
+      setIdea("");
+      onSaved();
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao criar curso");
+    }
+    setCreating(false);
+  };
+
+  const totalLessons = structure?.modules.reduce((sum, m) => sum + m.lessons.length, 0) || 0;
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setStructure(null); setIdea(""); } }}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/10">
+          <Wand2 size={14} /> IA Gerar Curso
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Wand2 size={18} className="text-primary" /> Gerar Curso com IA
+          </DialogTitle>
+        </DialogHeader>
+
+        {!structure ? (
+          <div className="space-y-4 pt-2">
+            <div>
+              <label className="text-xs font-medium text-foreground mb-1.5 block">Descreva a ideia do curso</label>
+              <Textarea
+                placeholder="Ex: Curso de cold calling para SDRs iniciantes, ensinando desde a preparação até o fechamento da ligação..."
+                value={idea}
+                onChange={e => setIdea(e.target.value)}
+                rows={4}
+                className="text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-foreground mb-1.5 block">Público-alvo</label>
+              <Select value={targetRole} onValueChange={setTargetRole}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos (SDR + Closer)</SelectItem>
+                  <SelectItem value="sdr">Apenas SDR</SelectItem>
+                  <SelectItem value="closer">Apenas Closer</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="bg-secondary/50 rounded-lg p-3 text-[11px] text-muted-foreground space-y-1">
+              <p className="font-semibold text-foreground flex items-center gap-1"><Sparkles size={12} className="text-primary" /> O que a IA vai gerar:</p>
+              <p>• Estrutura completa: módulos e aulas (máx 15 aulas)</p>
+              <p>• Descrições práticas para cada item</p>
+              <p>• Dicas de como gravar cada aula</p>
+              <p>• Você revisa antes de criar — depois só adiciona os vídeos</p>
+            </div>
+            <Button onClick={handleGenerate} disabled={generating || !idea.trim()} className="w-full gap-2">
+              {generating ? <><Loader2 size={14} className="animate-spin" /> Gerando estrutura...</> : <><Wand2 size={14} /> Gerar Estrutura</>}
+            </Button>
+          </div>
+        ) : (
+          <div className="flex-1 overflow-hidden flex flex-col gap-3 pt-2">
+            {/* Header */}
+            <div className="bg-secondary/50 rounded-lg p-3">
+              <h3 className="text-sm font-bold text-foreground">{structure.title}</h3>
+              <p className="text-[11px] text-muted-foreground mt-0.5">{structure.description}</p>
+              <div className="flex gap-3 mt-2">
+                <Badge variant="outline" className="text-[9px]">{structure.modules.length} módulos</Badge>
+                <Badge variant="outline" className="text-[9px]">{totalLessons} aulas</Badge>
+              </div>
+            </div>
+
+            {/* Modules */}
+            <ScrollArea className="flex-1 max-h-[350px]">
+              <div className="space-y-2 pr-3">
+                {structure.modules.map((mod, mi) => (
+                  <div key={mi} className="rounded-lg border border-border bg-background">
+                    <button
+                      onClick={() => setExpandedMod(expandedMod === mi ? null : mi)}
+                      className="w-full flex items-center gap-2 p-2.5 text-left hover:bg-secondary/20 transition-colors"
+                    >
+                      <BookOpen size={14} className="text-primary shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold truncate">{mod.title}</p>
+                        <p className="text-[10px] text-muted-foreground">{mod.lessons.length} aulas</p>
+                      </div>
+                      {expandedMod === mi ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                    </button>
+                    {expandedMod === mi && (
+                      <div className="border-t border-border p-2.5 space-y-1.5 bg-secondary/5">
+                        {mod.lessons.map((lesson, li) => (
+                          <div key={li} className="rounded-md border border-border/50 bg-background p-2.5">
+                            <div className="flex items-start gap-2">
+                              <Play size={10} className="text-primary mt-0.5 shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[11px] font-semibold">{lesson.title}</p>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">{lesson.description}</p>
+                                <div className="mt-1.5 bg-primary/5 rounded-md p-2 flex gap-1.5">
+                                  <Lightbulb size={10} className="text-primary shrink-0 mt-0.5" />
+                                  <p className="text-[9px] text-muted-foreground leading-relaxed">{lesson.dica_gravacao}</p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+
+            {/* Actions */}
+            <div className="flex gap-2 pt-1">
+              <Button variant="outline" onClick={handleGenerate} disabled={generating} className="flex-1 gap-1.5 text-xs">
+                <RefreshCw size={12} className={generating ? "animate-spin" : ""} /> Gerar Outra
+              </Button>
+              <Button onClick={handleCreate} disabled={creating} className="flex-1 gap-1.5 text-xs">
+                {creating ? <><Loader2 size={12} className="animate-spin" /> Criando...</> : <><Check size={12} /> Aceitar e Criar</>}
+              </Button>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
