@@ -32,12 +32,12 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
 
 export const nodeColorMap: Record<NodeColor, { bg: string; border: string; accent: string }> = {
   default: { bg: '', border: '', accent: '' },
-  red: { bg: 'bg-red-50 dark:bg-red-950/30', border: 'border-red-300 dark:border-red-700', accent: 'bg-red-500' },
-  yellow: { bg: 'bg-yellow-50 dark:bg-yellow-950/30', border: 'border-yellow-300 dark:border-yellow-700', accent: 'bg-yellow-500' },
-  blue: { bg: 'bg-blue-50 dark:bg-blue-950/30', border: 'border-blue-300 dark:border-blue-700', accent: 'bg-blue-500' },
-  green: { bg: 'bg-green-50 dark:bg-green-950/30', border: 'border-green-300 dark:border-green-700', accent: 'bg-green-500' },
-  purple: { bg: 'bg-purple-50 dark:bg-purple-950/30', border: 'border-purple-300 dark:border-purple-700', accent: 'bg-purple-500' },
-  orange: { bg: 'bg-orange-50 dark:bg-orange-950/30', border: 'border-orange-300 dark:border-orange-700', accent: 'bg-orange-500' }
+  red: { bg: 'bg-red-50 dark:bg-red-950/40', border: 'border-red-300 dark:border-red-700', accent: 'bg-red-500' },
+  yellow: { bg: 'bg-yellow-50 dark:bg-yellow-950/40', border: 'border-yellow-300 dark:border-yellow-700', accent: 'bg-yellow-500' },
+  blue: { bg: 'bg-blue-50 dark:bg-blue-950/40', border: 'border-blue-300 dark:border-blue-700', accent: 'bg-blue-500' },
+  green: { bg: 'bg-green-50 dark:bg-green-950/40', border: 'border-green-300 dark:border-green-700', accent: 'bg-green-500' },
+  purple: { bg: 'bg-purple-50 dark:bg-purple-950/40', border: 'border-purple-300 dark:border-purple-700', accent: 'bg-purple-500' },
+  orange: { bg: 'bg-orange-50 dark:bg-orange-950/40', border: 'border-orange-300 dark:border-orange-700', accent: 'bg-orange-500' }
 };
 
 let deleteNodeCallback: ((id: string) => void) | null = null;
@@ -57,8 +57,8 @@ const ProcessNodeComponent: React.FC<NodeProps> = ({ id, data, selected }) => {
   const Icon = iconMap[config?.icon || 'CheckSquare'];
   
   const customColor = nodeData.cor && nodeData.cor !== 'default' ? nodeColorMap[nodeData.cor] : null;
-  const bgColor = customColor?.bg || config?.bgColor || 'bg-card';
-  const borderColor = customColor?.border || config?.borderColor || 'border-border';
+  const bgColor = customColor?.bg || config?.bgColor ? `${config?.bgColor} dark:bg-card` : 'bg-card';
+  const borderColor = customColor?.border || config?.borderColor ? `${config?.borderColor} dark:border-border` : 'border-border';
   const hasLink = Boolean(nodeData.link);
 
   // Special shapes for start/end/decision
@@ -89,10 +89,10 @@ const ProcessNodeComponent: React.FC<NodeProps> = ({ id, data, selected }) => {
           <button onClick={handleDelete} className="p-0.5 rounded-full bg-background border shadow-sm hover:bg-destructive hover:text-destructive-foreground" title="Excluir"><Trash2 className="h-2.5 w-2.5" /></button>
         </div>
         <div className="px-6 py-3 flex items-center gap-2.5">
-          <div className={`p-1.5 rounded-full ${config?.color || ''} ${isStart ? 'bg-green-100 dark:bg-green-900/40' : 'bg-red-100 dark:bg-red-900/40'}`}>
+          <div className={`p-1.5 rounded-full ${isStart ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'}`}>
             {Icon && <Icon className="h-4 w-4" />}
           </div>
-          <span className="font-semibold text-sm whitespace-nowrap">{nodeData.label}</span>
+          <span className="font-semibold text-sm whitespace-nowrap text-foreground">{nodeData.label}</span>
         </div>
         {!isEnd && <Handle type="source" position={Position.Right} className="!bg-primary !w-2.5 !h-2.5 !border-2 !border-background" />}
       </div>
@@ -115,13 +115,13 @@ const ProcessNodeComponent: React.FC<NodeProps> = ({ id, data, selected }) => {
         <div className="h-1 bg-amber-400 rounded-t-md" />
         <div className="p-3">
           <div className="flex items-center gap-2 mb-1.5">
-            <div className="p-1.5 rounded-md bg-amber-100 dark:bg-amber-900/40 text-amber-700">
+            <div className="p-1.5 rounded-md bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">
               <GitBranch className="h-4 w-4" />
             </div>
-            <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Decisão</span>
+            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Decisão</span>
           </div>
-          <h4 className="font-semibold text-sm leading-tight">{nodeData.label}</h4>
-          {nodeData.condicao && <p className="text-[11px] text-amber-700 bg-amber-100/60 px-2 py-1 rounded mt-1.5 italic">{nodeData.condicao}</p>}
+          <h4 className="font-semibold text-sm leading-tight text-foreground">{nodeData.label}</h4>
+          {nodeData.condicao && <p className="text-[11px] text-amber-700 dark:text-amber-300 bg-amber-100/60 dark:bg-amber-900/30 px-2 py-1 rounded mt-1.5 italic">{nodeData.condicao}</p>}
         </div>
         <Handle type="source" position={Position.Right} className="!bg-amber-500 !w-2.5 !h-2.5 !border-2 !border-background" id="a" />
         <Handle type="source" position={Position.Bottom} className="!bg-amber-500 !w-2.5 !h-2.5 !border-2 !border-background" id="b" />
@@ -150,13 +150,13 @@ const ProcessNodeComponent: React.FC<NodeProps> = ({ id, data, selected }) => {
       <div className="p-3 space-y-2">
         {/* Header row */}
         <div className="flex items-center gap-2">
-          <div className={`p-1.5 rounded-lg ${config?.color || ''} bg-opacity-10`} 
-               style={{ backgroundColor: `color-mix(in srgb, currentColor 12%, transparent)` }}>
+          <div className={`p-1.5 rounded-lg ${config?.color || ''} dark:text-foreground bg-opacity-10 dark:bg-muted`} 
+               style={{ backgroundColor: undefined }}>
             {Icon && <Icon className="h-4 w-4" />}
           </div>
           <div className="flex-1 min-w-0">
             <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block">{config?.label || nodeData.type}</span>
-            <h4 className="font-semibold text-[13px] leading-tight truncate">{nodeData.label}</h4>
+            <h4 className="font-semibold text-[13px] leading-tight truncate text-foreground">{nodeData.label}</h4>
           </div>
           {hasLink && <Link className="h-3.5 w-3.5 text-primary shrink-0" />}
         </div>
@@ -175,7 +175,7 @@ const ProcessNodeComponent: React.FC<NodeProps> = ({ id, data, selected }) => {
 
         {/* Condition */}
         {nodeData.condicao && (
-          <div className="text-[11px] text-amber-700 bg-amber-50 dark:bg-amber-900/20 px-2 py-1 rounded-md border border-amber-200/50">
+          <div className="text-[11px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 px-2 py-1 rounded-md border border-amber-200/50 dark:border-amber-700/50">
             {nodeData.condicao}
           </div>
         )}
@@ -184,12 +184,12 @@ const ProcessNodeComponent: React.FC<NodeProps> = ({ id, data, selected }) => {
         {(nodeData.conversao !== undefined || nodeData.valor !== undefined) && (
           <div className="flex gap-1.5">
             {nodeData.conversao !== undefined && (
-              <span className="text-[10px] text-green-700 bg-green-50 dark:bg-green-900/20 px-1.5 py-0.5 rounded-md font-medium">
+              <span className="text-[10px] text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/30 px-1.5 py-0.5 rounded-md font-medium">
                 {nodeData.conversao}% conv.
               </span>
             )}
             {nodeData.valor !== undefined && (
-              <span className="text-[10px] text-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded-md font-medium">
+              <span className="text-[10px] text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded-md font-medium">
                 R$ {nodeData.valor.toLocaleString('pt-BR')}
               </span>
             )}
@@ -210,12 +210,12 @@ const ProcessNodeComponent: React.FC<NodeProps> = ({ id, data, selected }) => {
               </span>
             )}
             {nodeData.sla && (
-              <span className="text-[10px] bg-rose-50 dark:bg-rose-900/20 text-rose-600 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+              <span className="text-[10px] bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-300 px-1.5 py-0.5 rounded-md flex items-center gap-1">
                 <Timer className="h-2.5 w-2.5" />SLA {nodeData.sla}h
               </span>
             )}
             {nodeData.sistemaNome && (
-              <span className="text-[10px] bg-slate-100 dark:bg-slate-800/40 text-slate-600 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+              <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-md flex items-center gap-1">
                 <Server className="h-2.5 w-2.5" />{nodeData.sistemaNome}
               </span>
             )}
