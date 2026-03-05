@@ -1,6 +1,8 @@
+import { useState } from "react";
 import {
-  BarChart3, LayoutDashboard, Users, Target, FileText, Eye, Settings, LogOut,
-  ClipboardList, Sparkles, MessageCircle, BookOpen, Bot, Brain, GitBranch, GraduationCap
+  BarChart3, LayoutDashboard, Users, Target, Sparkles, Eye, Settings, LogOut,
+  MessageCircle, BookOpen, Brain, GitBranch, GraduationCap, ChevronRight,
+  Wrench, FlaskConical, Megaphone
 } from "lucide-react";
 import {
   Sidebar,
@@ -17,6 +19,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 export type AdminView = "dashboard" | "team" | "goals" | "reports" | "closer-preview" | "settings" | "whatsapp" | "popups" | "knowledge" | "dna-mapping" | "processos" | "training";
 export type CloserView = "hub";
@@ -31,25 +34,48 @@ interface AppSidebarProps {
   onSignOut: () => void;
 }
 
-const adminMainItems = [
+type SidebarItem = { id: string; title: string; icon: React.ElementType };
+
+const adminMainItems: SidebarItem[] = [
   { id: "dashboard", title: "Dashboard", icon: LayoutDashboard },
   { id: "team", title: "Equipe", icon: Users },
   { id: "goals", title: "Metas", icon: Target },
   { id: "reports", title: "Relatórios IA", icon: Sparkles },
 ];
 
-const adminSecondaryItems = [
-  { id: "training", title: "Treinamentos", icon: GraduationCap },
-  { id: "dna-mapping", title: "DNA Vendedor", icon: Brain },
-  { id: "processos", title: "Processos", icon: GitBranch },
-  { id: "whatsapp", title: "WhatsApp", icon: MessageCircle },
-  { id: "popups", title: "Popups", icon: Sparkles },
-  { id: "knowledge", title: "Conhecimento IA", icon: BookOpen },
+const toolCategories: { label: string; icon: React.ElementType; items: SidebarItem[] }[] = [
+  {
+    label: "Capacitação",
+    icon: GraduationCap,
+    items: [
+      { id: "training", title: "Treinamentos", icon: GraduationCap },
+      { id: "dna-mapping", title: "DNA Vendedor", icon: Brain },
+    ],
+  },
+  {
+    label: "Automação",
+    icon: Wrench,
+    items: [
+      { id: "processos", title: "Processos", icon: GitBranch },
+      { id: "whatsapp", title: "WhatsApp", icon: MessageCircle },
+    ],
+  },
+  {
+    label: "Conteúdo",
+    icon: FlaskConical,
+    items: [
+      { id: "popups", title: "Popups", icon: Megaphone },
+      { id: "knowledge", title: "Conhecimento IA", icon: BookOpen },
+    ],
+  },
+];
+
+const adminBottomItems: SidebarItem[] = [
   { id: "closer-preview", title: "Ver como SDR", icon: Eye },
   { id: "settings", title: "Configurações", icon: Settings },
 ];
 
-const closerItems = [
+const closerItems: SidebarItem[] = [
   { id: "hub", title: "Meu Painel", icon: LayoutDashboard },
 ];
 
@@ -57,7 +83,7 @@ export function AppSidebar({ isAdmin, activeView, onViewChange, userName, userRo
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
 
-  const renderItem = (item: { id: string; title: string; icon: React.ElementType }) => {
+  const renderItem = (item: SidebarItem) => {
     const isActive = activeView === item.id;
     const button = (
       <SidebarMenuButton
@@ -128,7 +154,25 @@ export function AppSidebar({ isAdmin, activeView, onViewChange, userName, userRo
                 </SidebarGroupLabel>
               )}
               <SidebarGroupContent>
-                <SidebarMenu>{adminSecondaryItems.map(renderItem)}</SidebarMenu>
+                <SidebarMenu>
+                  {toolCategories.map((cat) => (
+                    <CategoryPopover
+                      key={cat.label}
+                      category={cat}
+                      activeView={activeView}
+                      collapsed={collapsed}
+                      onViewChange={onViewChange}
+                    />
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+
+            <SidebarSeparator className="my-1 opacity-30" />
+
+            <SidebarGroup>
+              <SidebarGroupContent>
+                <SidebarMenu>{adminBottomItems.map(renderItem)}</SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
           </>
@@ -190,5 +234,85 @@ export function AppSidebar({ isAdmin, activeView, onViewChange, userName, userRo
         )}
       </SidebarFooter>
     </Sidebar>
+  );
+}
+
+// ── Category Popover ──
+function CategoryPopover({
+  category,
+  activeView,
+  collapsed,
+  onViewChange,
+}: {
+  category: { label: string; icon: React.ElementType; items: SidebarItem[] };
+  activeView: string;
+  collapsed: boolean;
+  onViewChange: (view: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const hasActiveChild = category.items.some((i) => i.id === activeView);
+  const Icon = category.icon;
+
+  const trigger = (
+    <SidebarMenuButton
+      onClick={() => setOpen(!open)}
+      className={`transition-all h-9 ${
+        hasActiveChild
+          ? "bg-primary/15 text-primary font-semibold"
+          : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+      } ${collapsed ? "justify-center px-0" : ""}`}
+    >
+      <Icon size={18} strokeWidth={hasActiveChild ? 2.5 : 1.5} className="shrink-0" />
+      {!collapsed && (
+        <>
+          <span className="text-[11px] tracking-wide flex-1">{category.label}</span>
+          <ChevronRight size={12} className={`shrink-0 text-muted-foreground/50 transition-transform ${open ? "rotate-90" : ""}`} />
+        </>
+      )}
+    </SidebarMenuButton>
+  );
+
+  return (
+    <SidebarMenuItem>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          {collapsed ? (
+            <Tooltip>
+              <TooltipTrigger asChild>{trigger}</TooltipTrigger>
+              <TooltipContent side="right" className="text-xs">{category.label}</TooltipContent>
+            </Tooltip>
+          ) : (
+            trigger
+          )}
+        </PopoverTrigger>
+        <PopoverContent
+          side="right"
+          align="start"
+          sideOffset={8}
+          className="w-48 p-1.5 bg-popover border border-border shadow-xl rounded-xl"
+        >
+          <p className="text-[9px] uppercase font-bold text-muted-foreground/60 tracking-[0.15em] px-2 py-1.5">
+            {category.label}
+          </p>
+          {category.items.map((item) => {
+            const isActive = activeView === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => { onViewChange(item.id); setOpen(false); }}
+                className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-all ${
+                  isActive
+                    ? "bg-primary/15 text-primary font-semibold"
+                    : "text-popover-foreground/70 hover:text-popover-foreground hover:bg-secondary"
+                }`}
+              >
+                <item.icon size={15} strokeWidth={isActive ? 2.5 : 1.5} className="shrink-0" />
+                <span className="text-[11px]">{item.title}</span>
+              </button>
+            );
+          })}
+        </PopoverContent>
+      </Popover>
+    </SidebarMenuItem>
   );
 }
