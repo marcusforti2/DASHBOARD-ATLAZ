@@ -674,6 +674,8 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          published: boolean
+          published_at: string | null
           sort_order: number
           target_role: string
           title: string
@@ -685,6 +687,8 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          published?: boolean
+          published_at?: string | null
           sort_order?: number
           target_role?: string
           title: string
@@ -696,6 +700,8 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          published?: boolean
+          published_at?: string | null
           sort_order?: number
           target_role?: string
           title?: string
@@ -778,6 +784,41 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "training_modules_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "training_courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_notifications: {
+        Row: {
+          course_id: string
+          created_at: string
+          id: string
+          message: string
+          target_role: string
+          title: string
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          id?: string
+          message?: string
+          target_role?: string
+          title: string
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          id?: string
+          message?: string
+          target_role?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_notifications_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "training_courses"

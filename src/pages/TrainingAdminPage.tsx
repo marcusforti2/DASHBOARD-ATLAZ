@@ -11,13 +11,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { toast } from "sonner";
 import {
   Plus, GraduationCap, BookOpen, Play, Trash2, Edit2, ChevronDown, ChevronRight,
-  GripVertical, Video, Link2, Image
+  GripVertical, Video, Link2, Image, Send, Eye, EyeOff
 } from "lucide-react";
 
 // ── Types ──
 type Course = {
   id: string; title: string; description: string; cover_url: string | null;
   target_role: string; sort_order: number; active: boolean; created_at: string;
+  published: boolean; published_at: string | null;
 };
 type Module = {
   id: string; course_id: string; title: string; description: string; sort_order: number;
@@ -113,10 +114,21 @@ export default function TrainingAdminPage() {
                         {course.target_role === "all" ? "Todos" : course.target_role === "sdr" ? "SDR" : "Closer"}
                       </Badge>
                       {!course.active && <Badge variant="secondary" className="text-[9px]">Inativo</Badge>}
+                      {course.published ? (
+                        <Badge className="text-[9px] bg-emerald-500/15 text-emerald-600 border-emerald-500/30 shrink-0">Publicado</Badge>
+                      ) : (
+                        <Badge variant="secondary" className="text-[9px] shrink-0">Rascunho</Badge>
+                      )}
                     </div>
                     <p className="text-[10px] text-muted-foreground">{courseModules.length} módulos</p>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
+                    {!course.published && (
+                      <PublishButton course={course} onPublished={invalidateAll} />
+                    )}
+                    {course.published && (
+                      <UnpublishButton courseId={course.id} onDone={invalidateAll} />
+                    )}
                     <EditCourseDialog course={course} onSaved={invalidateAll} />
                     <DeleteButton table="training_courses" id={course.id} onDeleted={invalidateAll} />
                     {isExpanded ? <ChevronDown size={14} className="text-muted-foreground" /> : <ChevronRight size={14} className="text-muted-foreground" />}
@@ -435,6 +447,62 @@ function DeleteButton({ table, id, onDeleted, size = "md" }: { table: string; id
   return (
     <button onClick={handleDelete} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
       <Trash2 size={size === "sm" ? 10 : 12} />
+    </button>
+  );
+}
+
+// ── Publish Button ──
+function PublishButton({ course, onPublished }: { course: Course; onPublished: () => void }) {
+  const [publishing, setPublishing] = useState(false);
+
+  const handlePublish = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm(`Publicar "${course.title}" para ${course.target_role === "all" ? "toda equipe" : course.target_role === "sdr" ? "SDRs" : "Closers"}?`)) return;
+    setPublishing(true);
+    const now = new Date().toISOString();
+    const { error } = await supabase.from("training_courses").update({ published: true, published_at: now }).eq("id", course.id);
+    if (error) { toast.error("Erro ao publicar"); setPublishing(false); return; }
+    // Create notification for team
+    await supabase.from("training_notifications" as any).insert({
+      course_id: course.id,
+      target_role: course.target_role,
+      title: `🎓 Novo Treinamento!`,
+      message: `O curso "${course.title}" foi publicado. Acesse a aba Treinamentos para assistir!`,
+    });
+    toast.success("Curso publicado! A equipe será notificada.");
+    setPublishing(false);
+    onPublished();
+  };
+
+  return (
+    <button
+      onClick={handlePublish}
+      disabled={publishing}
+      className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+      title="Publicar curso"
+    >
+      <Send size={10} /> {publishing ? "..." : "Publicar"}
+    </button>
+  );
+}
+
+// ── Unpublish Button ──
+function UnpublishButton({ courseId, onDone }: { courseId: string; onDone: () => void }) {
+  const handleUnpublish = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("Despublicar este curso? Ele não será mais visível para a equipe.")) return;
+    await supabase.from("training_courses").update({ published: false, published_at: null }).eq("id", courseId);
+    toast.success("Curso despublicado");
+    onDone();
+  };
+
+  return (
+    <button
+      onClick={handleUnpublish}
+      className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold bg-secondary text-muted-foreground hover:bg-secondary/80 transition-colors"
+      title="Despublicar"
+    >
+      <EyeOff size={10} /> Despublicar
     </button>
   );
 }
