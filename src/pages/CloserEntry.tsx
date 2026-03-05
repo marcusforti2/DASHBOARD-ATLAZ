@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMonths, useTeamMembers } from "@/hooks/use-metrics";
-import { METRIC_KEYS, METRIC_LABELS, SDR_METRIC_KEYS, CLOSER_METRIC_KEYS, memberHasRole } from "@/lib/db";
+import { METRIC_KEYS, METRIC_LABELS, SDR_METRIC_KEYS, CLOSER_METRIC_KEYS, memberHasRole, isDualRole } from "@/lib/db";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Loader2, Save, CheckCircle2, Calendar } from "lucide-react";
+import { Loader2, Save, CheckCircle2, Calendar, Zap, Trophy } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 const DAY_NAMES: Record<number, string> = { 0: "Dom", 1: "Seg", 2: "Ter", 3: "Qua", 4: "Qui", 5: "Sex", 6: "Sáb" };
 
@@ -27,9 +28,16 @@ export default function CloserEntry({ teamMemberId, memberName }: CloserEntryPro
 
   // Determine role-specific metrics
   const currentMember = members?.find(m => m.id === teamMemberId);
-  const isCloserRole = memberHasRole(currentMember, "closer");
-  const visibleKeys: readonly string[] = isCloserRole ? CLOSER_METRIC_KEYS : SDR_METRIC_KEYS;
-  const roleLabel = isCloserRole ? "Closer" : "SDR";
+  const hasDual = isDualRole(currentMember);
+  const isSdr = memberHasRole(currentMember, "sdr");
+  const isCloser = memberHasRole(currentMember, "closer");
+  const [activeRoleTab, setActiveRoleTab] = useState<"sdr" | "closer">(isSdr ? "sdr" : "closer");
+
+  const visibleKeys: readonly string[] = hasDual
+    ? (activeRoleTab === "closer" ? CLOSER_METRIC_KEYS : SDR_METRIC_KEYS)
+    : isCloser ? CLOSER_METRIC_KEYS : SDR_METRIC_KEYS;
+  const roleLabel = hasDual ? (activeRoleTab === "closer" ? "Closer" : "SDR") : isCloser ? "Closer" : "SDR";
+  const isCloserView = hasDual ? activeRoleTab === "closer" : isCloser;
 
   // Find month for selected date
   const dateObj = new Date(selectedDate + "T12:00:00");
@@ -122,11 +130,41 @@ export default function CloserEntry({ teamMemberId, memberName }: CloserEntryPro
         )}
       </div>
 
+      {/* Dual Role Tab */}
+      {hasDual && (
+        <div className="flex items-center gap-1 bg-secondary/50 rounded-xl p-1">
+          <button
+            onClick={() => setActiveRoleTab("sdr")}
+            className={cn(
+              "flex-1 px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5",
+              activeRoleTab === "sdr"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+            )}
+          >
+            <Zap size={12} />
+            SDR · Prospecção
+          </button>
+          <button
+            onClick={() => setActiveRoleTab("closer")}
+            className={cn(
+              "flex-1 px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5",
+              activeRoleTab === "closer"
+                ? "bg-[hsl(280,65%,60%)] text-white shadow-sm"
+                : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+            )}
+          >
+            <Trophy size={12} />
+            Closer · Fechamento
+          </button>
+        </div>
+      )}
+
       {/* Metrics */}
-      <div className={`rounded-xl border bg-card p-5 space-y-4 ${isCloserRole ? "border-[hsl(280,30%,18%)] border-l-[3px] border-l-[hsl(280,65%,60%)]" : "border-border border-l-[3px] border-l-primary"}`}>
+      <div className={`rounded-xl border bg-card p-5 space-y-4 ${isCloserView ? "border-[hsl(280,30%,18%)] border-l-[3px] border-l-[hsl(280,65%,60%)]" : "border-border border-l-[3px] border-l-primary"}`}>
         <div className="flex items-center gap-2">
           <h3 className="text-xs font-semibold text-card-foreground uppercase tracking-wider">Métricas do Dia</h3>
-          <span className={`text-[8px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${isCloserRole ? "text-[hsl(280,65%,80%)] bg-[hsl(280,65%,60%/0.15)] border-[hsl(280,65%,60%/0.3)]" : "text-primary bg-primary/20 border-primary/30"}`}>
+          <span className={`text-[8px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${isCloserView ? "text-[hsl(280,65%,80%)] bg-[hsl(280,65%,60%/0.15)] border-[hsl(280,65%,60%/0.3)]" : "text-primary bg-primary/20 border-primary/30"}`}>
             {roleLabel}
           </span>
         </div>

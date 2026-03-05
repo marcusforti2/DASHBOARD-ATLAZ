@@ -248,12 +248,12 @@ serve(async (req) => {
         case "sdrs": {
           if (!contact.team_member_id) return false;
           const m = (members || []).find((mem: any) => mem.id === contact.team_member_id);
-          return m && (m.member_role || "sdr") === "sdr";
+          return m && (m.member_role || "sdr").includes("sdr");
         }
         case "closers": {
           if (!contact.team_member_id) return false;
           const m = (members || []).find((mem: any) => mem.id === contact.team_member_id);
-          return m && m.member_role === "closer";
+          return m && (m.member_role || "").includes("closer");
         }
         case "team": return !!contact.team_member_id;
         default: return true;
@@ -271,7 +271,7 @@ serve(async (req) => {
       if (!members || members.length === 0) return "Sem dados de ranking";
       const ranked = members.map((m: any) => {
         const role = m.member_role || "sdr";
-        const keys = role === "closer" ? CLOSER_KEYS : SDR_KEYS;
+        const keys = role.includes("closer") ? (role.includes("sdr") ? ALL_KEYS : CLOSER_KEYS) : SDR_KEYS;
         const mMetrics = (allMetrics || []).filter((dm: any) => dm.member_id === m.id);
         const total = keys.reduce((sum, k) => sum + mMetrics.reduce((s: number, dm: any) => s + (dm[k] || 0), 0), 0);
         return { name: m.name, role, total };
@@ -309,7 +309,7 @@ serve(async (req) => {
 
           contactName = member.name;
           contactRole = member.member_role || "sdr";
-          const keys = contactRole === "closer" ? CLOSER_KEYS : SDR_KEYS;
+          const keys = contactRole.includes("closer") ? (contactRole.includes("sdr") ? ALL_KEYS : CLOSER_KEYS) : SDR_KEYS;
 
           const memberToday = todayMetrics.filter((m: any) => m.member_id === member.id);
           const todaySums: Record<string, number> = {};
@@ -319,7 +319,7 @@ serve(async (req) => {
           const monthSums: Record<string, number> = {};
           keys.forEach(k => { monthSums[k] = memberMonth.reduce((sum: number, m: any) => sum + (m[k] || 0), 0); });
 
-          const sameRoleCount = (members || []).filter((m: any) => (m.member_role || "sdr") === contactRole).length || 1;
+          const sameRoleCount = (members || []).filter((m: any) => (m.member_role || "sdr").includes("sdr") === contactRole.includes("sdr") && (m.member_role || "").includes("closer") === contactRole.includes("closer")).length || 1;
           const individualGoal: Record<string, number> = {};
           keys.forEach(k => { individualGoal[k] = teamGoal ? Math.max(1, Math.round((teamGoal[k] || 0) / sameRoleCount)) : 0; });
 
