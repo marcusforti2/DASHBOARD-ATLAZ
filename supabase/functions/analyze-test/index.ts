@@ -8,8 +8,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// DISC question mapping for Closer test (ids 1-40)
-// Reversed questions: 10, 20, 30, 40
 const DISC_MAP = {
   D: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
   I: [11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
@@ -17,24 +15,19 @@ const DISC_MAP = {
   C: [31, 32, 33, 34, 35, 36, 37, 38, 39, 40],
 };
 const REVERSED_QUESTIONS = new Set([10, 20, 30, 40]);
-
-// Negotiation posture questions (ids 81-95) — scale 1-5
 const NEGOTIATION_QUESTIONS = [81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95];
 
 function computeDISC(answersMap: Record<number, string>) {
   const scores: Record<string, number> = { D: 0, I: 0, S: 0, C: 0 };
   const counts: Record<string, number> = { D: 0, I: 0, S: 0, C: 0 };
-
   for (const [dim, ids] of Object.entries(DISC_MAP)) {
     for (const id of ids) {
       const raw = parseInt(answersMap[id]);
       if (isNaN(raw)) continue;
-      const val = REVERSED_QUESTIONS.has(id) ? (6 - raw) : raw;
-      scores[dim] += val;
+      scores[dim] += REVERSED_QUESTIONS.has(id) ? (6 - raw) : raw;
       counts[dim]++;
     }
   }
-
   const result: Record<string, number> = {};
   for (const dim of ["D", "I", "S", "C"]) {
     result[dim] = counts[dim] > 0 ? Math.round((scores[dim] / (counts[dim] * 5)) * 100) : 0;
@@ -43,8 +36,7 @@ function computeDISC(answersMap: Record<number, string>) {
 }
 
 function computeNegotiationScore(answersMap: Record<number, string>) {
-  let total = 0;
-  let count = 0;
+  let total = 0, count = 0;
   for (const id of NEGOTIATION_QUESTIONS) {
     const raw = parseInt(answersMap[id]);
     if (!isNaN(raw)) { total += raw; count++; }
@@ -53,19 +45,15 @@ function computeNegotiationScore(answersMap: Record<number, string>) {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
     const { submissionId, answers } = await req.json();
-
     const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     
     const { data: knowledgeItems } = await sb.from("company_knowledge").select("title, content, category").eq("active", true);
     const companyContext = (knowledgeItems || []).map((k: any) => `[${k.category}] ${k.title}: ${k.content}`).join("\n\n");
 
-    // Parse answers into map
     const answersMap: Record<number, string> = {};
     if (typeof answers === "string") {
       answers.split("\n").forEach((line: string) => {
@@ -79,41 +67,38 @@ Deno.serve(async (req) => {
 
     const systemPrompt = `Você é um especialista em diagnóstico comportamental de vendedores/closers, com profundo conhecimento em DISC, psicologia de vendas, negociação e performance comercial.
 
-${companyContext ? `CONTEXTO DA EMPRESA:\n${companyContext}\n\n` : ""}Analise as respostas do teste completo (120 perguntas) e gere um relatório estruturado.
-
-DADOS CALCULADOS AUTOMATICAMENTE:
+${companyContext ? `CONTEXTO DA EMPRESA:\n${companyContext}\n\n` : ""}DADOS CALCULADOS:
 - DISC: D=${discScores.D}%, I=${discScores.I}%, S=${discScores.S}%, C=${discScores.C}%
-- Score de Postura em Negociação: ${negotiationScore}%
-- Perguntas invertidas (10, 20, 30, 40) já foram corrigidas no cálculo
+- Score de Negociação: ${negotiationScore}%
 
-O TESTE É DIVIDIDO EM 3 GRANDES BLOCOS:
-- Bloco 1 (Q1-40): DISC comportamental com escala 1-5 e perguntas armadilha invertidas
-- Bloco 2 (Q41-80): Diagnóstico, condução e qualidade de venda (40 abertas)
-- Bloco 3 (Q81-120): Negociação, objeção e pressão (15 escala + 15 cenários + 10 abertas)
+O TESTE TEM 120 PERGUNTAS EM 3 BLOCOS:
+- Bloco 1 (Q1-40): DISC com escala 1-5 e perguntas armadilha invertidas
+- Bloco 2 (Q41-80): Diagnóstico, condução e qualidade de venda (abertas)
+- Bloco 3 (Q81-120): Negociação, objeção e pressão (escala + cenários + abertas)
 
-REGRAS DE FORMATAÇÃO:
-- NUNCA cite números de questões ou códigos
-- Escreva parágrafos bem estruturados
-- Use linguagem de gestor comercial
+REGRAS: NUNCA cite números de questões. Linguagem de gestor comercial.
 
-SEÇÕES DO RELATÓRIO:
-
+SEÇÕES:
 1. **PERFIL DISC DO CLOSER**
-2. **CLASSIFICAÇÃO DE CLOSER** (Estruturador / Relacional / Dominante / Analítico)
-3. **CAPACIDADE DE DIAGNÓSTICO** — baseado nas respostas do Bloco 2
-4. **CONSTRUÇÃO DE VALOR** — como conecta problema e solução
-5. **POSTURA EM NEGOCIAÇÃO** — firmeza, relação com dinheiro, silêncio
-6. **CONTROLE EMOCIONAL EM OBJEÇÃO** — como reage a pressão
-7. **VÍCIOS EMOCIONAIS IDENTIFICADOS** — padrões que sabotam vendas
-8. **RISCOS COMPORTAMENTAIS** — onde pode perder vendas
-9. **PONTOS FORTES** — o que diferencia este closer
-10. **PLANO DE DESENVOLVIMENTO** (3 a 5 ações concretas)
-11. **NÍVEL DE MATURIDADE COMERCIAL** (1 a 10)
-${companyContext ? "12. **ALINHAMENTO COM A VISÃO DA EMPRESA**" : ""}
+2. **CLASSIFICAÇÃO** (Estruturador / Relacional / Dominante / Analítico)
+3. **TENDÊNCIA COMPORTAMENTAL** — padrão dominante de atuação
+4. **MAPA EMOCIONAL** — como as emoções influenciam a venda
+5. **PONTOS FORTES** — o que diferencia este closer
+6. **PONTOS FRACOS** — onde perde performance
+7. **VÍCIOS EMOCIONAIS** — padrões automáticos que sabotam
+8. **TRAVAS TÉCNICAS** — gaps de conhecimento/processo
+9. **TRAVAS EMOCIONAIS** — bloqueios psicológicos em venda
+10. **FORÇAS E VIRTUDES** — qualidades naturais
+11. **HABILIDADES DESENVOLVIDAS** — competências adquiridas
+12. **SUPER PODER** — a habilidade excepcional deste closer
+13. **NÍVEL DE EXECUÇÃO** (1-10) — capacidade de executar com consistência
+14. **MATURIDADE COMERCIAL** (1-10)
+15. **POSTURA EM NEGOCIAÇÃO** — firmeza, relação com dinheiro, silêncio
+16. **PONTOS DE ATENÇÃO** — riscos que o gestor deve monitorar
+17. **COMO POTENCIALIZAR** — plano de 3-5 ações para maximizar resultado
+${companyContext ? "18. **ALINHAMENTO COM A EMPRESA**" : ""}`;
 
-Seja direto, preciso e use linguagem de gestor comercial.`;
-
-    // 1) Generate narrative
+    // 1) Narrative
     const narrativeResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: { "Authorization": `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
@@ -121,10 +106,10 @@ Seja direto, preciso e use linguagem de gestor comercial.`;
         model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Analise as seguintes respostas do teste comportamental completo de um closer:\n\n${answers}` },
+          { role: "user", content: `Analise as respostas do teste completo:\n\n${answers}` },
         ],
         temperature: 0.4,
-        max_tokens: 5000,
+        max_tokens: 6000,
       }),
     });
 
@@ -136,21 +121,21 @@ Seja direto, preciso e use linguagem de gestor comercial.`;
     const narrativeData = await narrativeResponse.json();
     const narrativeText = narrativeData.choices?.[0]?.message?.content || "Análise não disponível";
 
-    // 2) Extract structured dashboard data
+    // 2) Structured dashboard data
     const structuredResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: { "Authorization": `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
-          { role: "system", content: "Você é um especialista em DISC e análise comportamental de closers. Extraia dados estruturados para o dashboard." },
-          { role: "user", content: `Respostas:\n${answers}\n\nAnálise:\n${narrativeText}\n\nScores: DISC D=${discScores.D}% I=${discScores.I}% S=${discScores.S}% C=${discScores.C}%, Negociação=${negotiationScore}%\n\nExtraia os dados estruturados.` },
+          { role: "system", content: "Extraia dados estruturados para dashboard visual de um closer. Baseie-se na análise narrativa e respostas." },
+          { role: "user", content: `Análise:\n${narrativeText}\n\nDISC: D=${discScores.D}% I=${discScores.I}% S=${discScores.S}% C=${discScores.C}%, Negociação=${negotiationScore}%\n\nExtraia todos os dados estruturados.` },
         ],
         tools: [{
           type: "function",
           function: {
             name: "generate_dashboard_data",
-            description: "Gera dados estruturados para o dashboard comportamental do closer.",
+            description: "Gera dados completos para dashboard visual do closer.",
             parameters: {
               type: "object",
               properties: {
@@ -158,20 +143,29 @@ Seja direto, preciso e use linguagem de gestor comercial.`;
                 disc_dominante: { type: "string", enum: ["D", "I", "S", "C"] },
                 disc_secundario: { type: "string", enum: ["D", "I", "S", "C"] },
                 closer_type: { type: "string", enum: ["Estruturador", "Relacional", "Dominante", "Analítico"] },
+                tendency: { type: "string", description: "Tendência comportamental dominante em 2-4 palavras" },
                 negotiation_score: { type: "number" },
-                emotional_vices: { type: "array", items: { type: "object", properties: { name: { type: "string" }, score: { type: "number" } }, required: ["name", "score"] } },
+                maturity_level: { type: "number", description: "1-10" },
+                execution_level: { type: "number", description: "1-10" },
+                super_power: { type: "string", description: "A habilidade excepcional em 2-5 palavras" },
+                selling_style: { type: "string" },
+                recovery_time: { type: "string" },
+                emotional_vices: { type: "array", items: { type: "object", properties: { name: { type: "string" }, score: { type: "number", description: "0-10" } }, required: ["name", "score"] } },
                 principal_vice: { type: "string" },
-                discipline_scores: { type: "array", items: { type: "object", properties: { name: { type: "string" }, score: { type: "number" } }, required: ["name", "score"] } },
-                maturity_level: { type: "number" },
+                strengths: { type: "array", items: { type: "string" }, description: "3-5 pontos fortes" },
+                weaknesses: { type: "array", items: { type: "string" }, description: "3-5 pontos fracos" },
+                technical_blocks: { type: "array", items: { type: "string" }, description: "2-4 travas técnicas" },
+                emotional_blocks: { type: "array", items: { type: "string" }, description: "2-4 travas emocionais" },
+                virtues: { type: "array", items: { type: "string" }, description: "3-5 forças e virtudes naturais" },
+                skills: { type: "array", items: { type: "string" }, description: "3-5 habilidades desenvolvidas" },
+                attention_points: { type: "array", items: { type: "string" }, description: "3-5 pontos de atenção para o gestor" },
+                action_plan: { type: "array", items: { type: "string" }, description: "3-5 ações para potencializar" },
+                emotional_map: { type: "array", items: { type: "object", properties: { area: { type: "string" }, level: { type: "number", description: "1-10" } }, required: ["area", "level"] }, description: "Mapa emocional com 4-6 áreas" },
                 sales_risk_stages: { type: "array", items: { type: "object", properties: { stage: { type: "string" }, risk: { type: "number" } }, required: ["stage", "risk"] } },
                 critical_stage: { type: "string" },
-                recovery_time: { type: "string" },
-                selling_style: { type: "string" },
-                risk_negotiation_weakness: { type: "number" },
-                risk_emotional_collapse: { type: "number" },
-                risk_value_disconnect: { type: "number" },
+                discipline_scores: { type: "array", items: { type: "object", properties: { name: { type: "string" }, score: { type: "number" } }, required: ["name", "score"] } },
               },
-              required: ["disc", "disc_dominante", "disc_secundario", "closer_type", "negotiation_score", "emotional_vices", "principal_vice", "discipline_scores", "maturity_level", "sales_risk_stages", "critical_stage", "recovery_time", "selling_style"],
+              required: ["disc", "disc_dominante", "disc_secundario", "closer_type", "tendency", "negotiation_score", "maturity_level", "execution_level", "super_power", "selling_style", "recovery_time", "emotional_vices", "principal_vice", "strengths", "weaknesses", "technical_blocks", "emotional_blocks", "virtues", "skills", "attention_points", "action_plan", "emotional_map", "sales_risk_stages", "critical_stage", "discipline_scores"],
             },
           },
         }],
@@ -185,19 +179,16 @@ Seja direto, preciso e use linguagem de gestor comercial.`;
       const structuredResult = await structuredResponse.json();
       const toolCall = structuredResult.choices?.[0]?.message?.tool_calls?.[0];
       if (toolCall?.function?.arguments) {
-        try { dashboardData = JSON.parse(toolCall.function.arguments); } catch { console.error("Failed to parse dashboard data"); }
+        try { dashboardData = JSON.parse(toolCall.function.arguments); } catch { console.error("Failed to parse"); }
       }
     }
 
-    // Override with calculated scores
     if (dashboardData) {
       dashboardData.disc = discScores;
       dashboardData.negotiation_score = negotiationScore;
     }
 
-    const analysis = { narrative: narrativeText, dashboard: dashboardData };
-
-    return new Response(JSON.stringify({ analysis }), {
+    return new Response(JSON.stringify({ analysis: { narrative: narrativeText, dashboard: dashboardData } }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
