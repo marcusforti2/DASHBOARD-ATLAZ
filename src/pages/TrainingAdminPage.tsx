@@ -27,11 +27,12 @@ type Course = {
 };
 type Module = {
   id: string; course_id: string; title: string; description: string; sort_order: number;
+  drive_folder_id?: string | null;
 };
 type Lesson = {
   id: string; module_id: string; title: string; description: string;
   video_url: string; video_type: string; cover_url: string | null; sort_order: number;
-  assigned_admin_id: string | null;
+  assigned_admin_id: string | null; drive_folder_id?: string | null;
 };
 type TeamMember = { id: string; name: string; avatar_url: string | null; member_role: string };
 type WhatsAppContact = { id: string; phone: string; team_member_id: string | null; user_id: string | null };
