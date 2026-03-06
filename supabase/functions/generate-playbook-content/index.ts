@@ -24,13 +24,19 @@ Seu papel:
 
 Regras de formatação:
 - Use Markdown
-- Use ## para títulos de seção
+- Comece SEMPRE com # Título Principal (h1)
+- Use ## para títulos de seção — cada seção deve ter um emoji relevante no início (ex: ## 🎯 Objetivo)
 - Use ### para subtítulos
-- Use **negrito** para destaques importantes
-- Use > para citações ou dicas pro
-- Use - [ ] para checklists
-- Use --- para separadores entre seções
-- Mantenha parágrafos curtos e objetivos
+- Use **negrito** para destaques importantes e *itálico* para termos-chave
+- Use > para dicas pro, insights e citações inspiradoras
+- Use - [ ] para checklists de ação
+- Use --- para separadores entre seções principais
+- Use listas com - para itens regulares
+- Use tabelas quando fizer sentido comparar dados ou frameworks
+- Use blocos de código para scripts e templates de mensagem
+- Mantenha parágrafos curtos (2-3 frases no máximo)
+- Use emojis moderadamente nos títulos de seção (1 por título h2, não em todo lugar)
+- Termine com uma seção ## 🚀 Próximos Passos ou ## ✅ Checklist Final
 
 ${context ? `\nContexto adicional:\n${context}` : ''}
 ${currentContent ? `\nConteúdo existente no playbook (para continuação/melhoria):\n${currentContent}` : ''}`;
