@@ -75,7 +75,11 @@ export default function AdminCalendarPage() {
         body: { action: "list_connections" },
       });
       if (error) throw error;
-      setConnections(data?.connections || []);
+      const all = data?.connections || [];
+      // Only show members with closer role
+      setConnections(all.filter((c: MemberConnection) => 
+        c.memberRole.split(",").map((r: string) => r.trim()).includes("closer")
+      ));
     } catch (e) {
       console.error("Error fetching connections:", e);
       toast.error("Erro ao carregar conexões");
