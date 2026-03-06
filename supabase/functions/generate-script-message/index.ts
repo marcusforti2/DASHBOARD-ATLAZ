@@ -12,7 +12,20 @@ Deno.serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-    const { memberName, courseTitle, moduleTitle, lessons, deadline, driveFolders } = await req.json();
+    const { memberName, courseTitle, moduleTitle, lessons, deadline, driveFolders, equipment, recordStyle, videoDuration, extraNotes } = await req.json();
+
+    const equipmentMap: Record<string, string> = {
+      celular: "celular/smartphone", webcam: "webcam do notebook/computador",
+      camera_pro: "câmera profissional (DSLR/mirrorless)", tela: "gravação de tela (screencast)",
+    };
+    const styleMap: Record<string, string> = {
+      talking_head: "talking head (rosto na câmera)", screencast: "narração sobre tela",
+      roleplay: "simulação/roleplay de vendas", slides: "apresentação de slides", misto: "formato misto",
+    };
+    const durationMap: Record<string, string> = { "3-5": "3 a 5 minutos", "5-10": "5 a 10 minutos", "10-20": "10 a 20 minutos" };
+    const equipDesc = equipmentMap[equipment] || "celular/smartphone";
+    const styleDesc = styleMap[recordStyle] || "talking head";
+    const durationDesc = durationMap[videoDuration] || "5 a 10 minutos";
 
     const lessonsInfo = lessons.map((l: any, i: number) => {
       const driveLink = l.drive_folder_id ? `https://drive.google.com/drive/folders/${l.drive_folder_id}` : null;
@@ -23,6 +36,12 @@ Deno.serve(async (req) => {
 
     const systemPrompt = `Você é um gestor de treinamentos de equipes comerciais. Escreva uma mensagem de WhatsApp motivacional e profissional para um colaborador que foi ESCOLHIDO para liderar/gravar um treinamento.
 
+CONTEXTO DE GRAVAÇÃO:
+- Equipamento: ${equipDesc}
+- Estilo de vídeo: ${styleDesc}
+- Duração ideal por aula: ${durationDesc}
+${extraNotes ? `- Observações extras do gestor: ${extraNotes}` : ""}
+
 A mensagem deve seguir esta estrutura:
 1. ABERTURA MOTIVACIONAL - "Você foi escolhido(a) para liderar este treinamento!" - destacar a confiança depositada
 2. CONTEXTO DO TREINAMENTO - O que é o curso, por que é importante, qual o impacto no time
@@ -30,7 +49,8 @@ A mensagem deve seguir esta estrutura:
 4. AULAS PARA GRAVAR - Lista cada aula com:
    - Título da aula
    - O que abordar (resumo do conteúdo)
-   - Dicas de gravação específicas
+   - Dicas de gravação específicas considerando o equipamento (${equipDesc}) e estilo (${styleDesc})
+   - Duração ideal: ${durationDesc}
    - Link da pasta no Drive para envio do vídeo (se disponível)
 5. COMO USAR O DRIVE - Explicar que cada aula tem sua própria pasta no Drive, basta gravar e fazer upload do vídeo na pasta correspondente. Incluir o link da pasta do módulo se disponível.
 6. PRAZO - Se houver data limite, destacar de forma clara
