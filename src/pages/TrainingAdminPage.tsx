@@ -578,7 +578,8 @@ function AiCourseGeneratorDialog({ onSaved }: { onSaved: () => void }) {
         </DialogHeader>
 
         {!structure ? (
-          <div className="space-y-3 pt-1">
+          <ScrollArea className="max-h-[60vh]">
+          <div className="space-y-3 pt-1 pr-3">
             <div>
               <label className="text-[11px] font-medium text-foreground mb-1 block">Descreva a ideia do curso</label>
               <Textarea
