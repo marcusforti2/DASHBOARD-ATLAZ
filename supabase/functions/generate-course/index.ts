@@ -64,7 +64,28 @@ ${structureRules}
 - Descrições práticas e diretas (1-2 frases)
 - Cada aula deve ter uma "dica_gravacao" com sugestões práticas de como gravar aquela aula, CONSIDERANDO o equipamento (${equipDesc}), estilo (${styleDesc}) e duração (${formatDesc}). Inclua: setup do equipamento, iluminação, enquadramento, roteiro resumido e duração sugerida.
 - O curso deve ser progressivo (do básico ao avançado)
-- Foque em conteúdo prático e aplicável`;
+- Foque em conteúdo prático e aplicável
+
+Retorne EXATAMENTE um JSON com esta estrutura:
+{
+  "title": "Título do Curso",
+  "description": "Descrição breve do curso",
+  "modules": [
+    {
+      "title": "Nome do Módulo",
+      "description": "Descrição do módulo",
+      "lessons": [
+        {
+          "title": "Nome da Aula",
+          "description": "O que será ensinado",
+          "dica_gravacao": "Dica prática considerando o equipamento e estilo escolhidos"
+        }
+      ]
+    }
+  ]
+}
+
+Responda APENAS com o JSON, sem texto extra.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
