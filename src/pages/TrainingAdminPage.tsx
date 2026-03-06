@@ -420,12 +420,36 @@ function AiCourseGeneratorDialog({ onSaved }: { onSaved: () => void }) {
   const [customModules, setCustomModules] = useState(3);
   const [customLessons, setCustomLessons] = useState(3);
 
+  const [equipment, setEquipment] = useState("celular");
+  const [recordStyle, setRecordStyle] = useState("talking_head");
+  const [videoFormat, setVideoFormat] = useState("curto");
+  const [extraNotes, setExtraNotes] = useState("");
+
+  const equipmentOptions = [
+    { value: "celular", label: "📱 Celular" },
+    { value: "webcam", label: "💻 Webcam/Notebook" },
+    { value: "camera_pro", label: "🎥 Câmera profissional" },
+    { value: "tela", label: "🖥️ Gravação de tela" },
+  ];
+  const styleOptions = [
+    { value: "talking_head", label: "🗣️ Talking Head" },
+    { value: "tela_narrada", label: "🖥️ Tela narrada" },
+    { value: "roleplay", label: "🎭 Roleplay/Simulação" },
+    { value: "slides", label: "📊 Slides com narração" },
+    { value: "misto", label: "🔀 Misto (varia por aula)" },
+  ];
+  const formatOptions = [
+    { value: "curto", label: "⚡ Curto (3-5 min)" },
+    { value: "medio", label: "⏱️ Médio (5-10 min)" },
+    { value: "longo", label: "🕐 Longo (10-20 min)" },
+  ];
   const handleGenerate = async () => {
     if (!idea.trim()) return;
     setGenerating(true);
     setStructure(null);
     try {
-      const body: any = { idea: idea.trim(), targetRole };
+      const body: any = { idea: idea.trim(), targetRole, equipment, recordStyle, videoFormat };
+      if (extraNotes.trim()) body.extraNotes = extraNotes.trim();
       if (structureMode === "manual") {
         body.numModules = customModules;
         body.numLessonsPerModule = customLessons;
