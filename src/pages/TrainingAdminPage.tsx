@@ -1244,6 +1244,10 @@ function SendScriptsButton({ scope, courseTitle, moduleTitle, modules, lessons, 
   const [generatingMsg, setGeneratingMsg] = useState(false);
   const [generatedMsg, setGeneratedMsg] = useState<string>("");
   const [editingMsg, setEditingMsg] = useState(false);
+  const [equipment, setEquipment] = useState("celular");
+  const [recordStyle, setRecordStyle] = useState("talking_head");
+  const [videoDuration, setVideoDuration] = useState("5-10");
+  const [extraNotes, setExtraNotes] = useState("");
 
   const getPhoneForMember = (memberId: string): string | null => {
     const directContact = whatsappContacts.find(c => c.team_member_id === memberId);
@@ -1276,6 +1280,10 @@ function SendScriptsButton({ scope, courseTitle, moduleTitle, modules, lessons, 
           })),
           deadline: deadline ? deadline.toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }) : null,
           driveFolders: { module: modDriveFolderId || null },
+          equipment,
+          recordStyle,
+          videoDuration,
+          extraNotes: extraNotes || null,
         },
       });
       if (error) throw error;
@@ -1411,6 +1419,55 @@ function SendScriptsButton({ scope, courseTitle, moduleTitle, modules, lessons, 
                   </PopoverContent>
                 </Popover>
               </div>
+            </div>
+
+            {/* Recording preferences */}
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="text-[11px] font-medium text-foreground mb-1 block">Equipamento</label>
+                <Select value={equipment} onValueChange={(v) => { setEquipment(v); setGeneratedMsg(""); }}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="celular">📱 Celular</SelectItem>
+                    <SelectItem value="webcam">💻 Webcam</SelectItem>
+                    <SelectItem value="camera_pro">🎥 Câmera Pro</SelectItem>
+                    <SelectItem value="tela">🖥️ Gravação de Tela</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-[11px] font-medium text-foreground mb-1 block">Estilo</label>
+                <Select value={recordStyle} onValueChange={(v) => { setRecordStyle(v); setGeneratedMsg(""); }}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="talking_head">🗣️ Talking Head</SelectItem>
+                    <SelectItem value="screencast">🖥️ Screencast</SelectItem>
+                    <SelectItem value="roleplay">🎭 Roleplay</SelectItem>
+                    <SelectItem value="slides">📊 Slides</SelectItem>
+                    <SelectItem value="misto">🔀 Misto</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-[11px] font-medium text-foreground mb-1 block">Duração</label>
+                <Select value={videoDuration} onValueChange={(v) => { setVideoDuration(v); setGeneratedMsg(""); }}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="3-5">3-5 min</SelectItem>
+                    <SelectItem value="5-10">5-10 min</SelectItem>
+                    <SelectItem value="10-20">10-20 min</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <label className="text-[11px] font-medium text-foreground mb-1 block">Observações extras (opcional)</label>
+              <Input
+                value={extraNotes}
+                onChange={e => { setExtraNotes(e.target.value); setGeneratedMsg(""); }}
+                placeholder="Ex: usar fundo branco, gravar em ambiente silencioso..."
+                className="h-8 text-xs"
+              />
             </div>
 
             {/* Generate / Preview */}
