@@ -1199,18 +1199,11 @@ function SendScriptsButton({ scope, courseTitle, moduleTitle, modules, lessons, 
     setSending(true);
     try {
       if (scope === "course" && modules) {
-        // Send one message per module
         for (const mod of modules) {
           const modLessons = lessons.filter(l => l.module_id === mod.id);
           if (modLessons.length === 0) continue;
-          const msg = buildScriptMessage(modLessons, mod.title);
-          const fullMsg = msg.replace(
-            `📂 Módulo: ${moduleTitle || mod.title}`,
-            `📂 Módulo: ${mod.title}`
-          );
-          const courseMsg = `📚 *ROTEIRO DE GRAVAÇÃO*\n📖 Curso: ${courseTitle}\n📂 Módulo: ${mod.title}\n${"─".repeat(30)}\n${modLessons.map((l, i) => `\n🎬 *Aula ${i + 1}: ${l.title}*\n${l.description || "Sem descrição"}\n`).join("\n")}\n${"─".repeat(30)}\n✅ Grave e envie os links dos vídeos quando estiver pronto!`;
+          const courseMsg = buildScriptMessage(modLessons, mod.title, mod.drive_folder_id);
           await supabase.functions.invoke("send-whatsapp", { body: { phone, message: courseMsg } });
-          // Delay between messages
           await new Promise(r => setTimeout(r, 1500));
         }
         toast.success("Roteiros do curso enviados por WhatsApp!");
