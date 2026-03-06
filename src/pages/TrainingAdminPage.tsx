@@ -642,6 +642,47 @@ function AiCourseGeneratorDialog({ onSaved }: { onSaved: () => void }) {
               </div>
             )}
 
+            {/* Recording preferences */}
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="text-[11px] font-medium text-foreground mb-1 block">Equipamento</label>
+                <Select value={equipment} onValueChange={setEquipment}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {equipmentOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-[11px] font-medium text-foreground mb-1 block">Estilo</label>
+                <Select value={recordStyle} onValueChange={setRecordStyle}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {styleOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-[11px] font-medium text-foreground mb-1 block">Duração</label>
+                <Select value={videoFormat} onValueChange={setVideoFormat}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {formatOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[11px] font-medium text-foreground mb-1 block">Observações extras <span className="text-muted-foreground font-normal">(opcional)</span></label>
+              <Input
+                placeholder="Ex: Usar fundo branco, gravar em português formal, incluir exemplos reais..."
+                value={extraNotes}
+                onChange={e => setExtraNotes(e.target.value)}
+                className="h-8 text-xs"
+              />
+            </div>
+
             <Button onClick={handleGenerate} disabled={generating || !idea.trim()} className="w-full gap-2 h-9 text-xs">
               {generating ? <><Loader2 size={14} className="animate-spin" /> Gerando...</> : <><Wand2 size={14} /> Gerar Estrutura</>}
             </Button>

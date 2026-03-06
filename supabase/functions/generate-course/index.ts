@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-    const { idea, targetRole, numModules, numLessonsPerModule } = await req.json();
+    const { idea, targetRole, numModules, numLessonsPerModule, equipment, recordStyle, videoFormat, extraNotes } = await req.json();
     if (!idea) throw new Error("idea is required");
 
     const hasCustomStructure = numModules && numLessonsPerModule;
@@ -24,38 +24,47 @@ Deno.serve(async (req) => {
 - Cada módulo deve ter 2-5 aulas
 - Máximo de 5 módulos`;
 
+    const equipmentMap: Record<string, string> = {
+      celular: "celular/smartphone",
+      webcam: "webcam ou câmera do notebook",
+      camera_pro: "câmera profissional (DSLR/mirrorless)",
+      tela: "gravação de tela (screencast)",
+    };
+    const styleMap: Record<string, string> = {
+      talking_head: "talking head (pessoa falando para câmera)",
+      tela_narrada: "gravação de tela com narração",
+      roleplay: "roleplay/simulação de cenários reais",
+      slides: "slides com narração em off",
+      misto: "formato misto (variar entre talking head, tela e simulação conforme a aula)",
+    };
+    const formatMap: Record<string, string> = {
+      curto: "3-5 minutos por aula",
+      medio: "5-10 minutos por aula",
+      longo: "10-20 minutos por aula",
+    };
+
+    const equipDesc = equipmentMap[equipment] || "celular/smartphone";
+    const styleDesc = styleMap[recordStyle] || "talking head";
+    const formatDesc = formatMap[videoFormat] || "5-10 minutos por aula";
+
+    const extraSection = extraNotes ? `\n\nINSTRUÇÕES EXTRAS DO GESTOR:\n${extraNotes}` : "";
+
     const systemPrompt = `Você é um especialista em design instrucional para equipes comerciais (SDRs e Closers).
 
 O usuário vai descrever uma ideia de curso e você deve gerar a estrutura completa.
+
+CONTEXTO DE GRAVAÇÃO:
+- Equipamento disponível: ${equipDesc}
+- Estilo de gravação preferido: ${styleDesc}
+- Duração ideal: ${formatDesc}${extraSection}
 
 REGRAS IMPORTANTES:
 ${structureRules}
 - Títulos curtos e objetivos (máx 50 chars)
 - Descrições práticas e diretas (1-2 frases)
-- Cada aula deve ter uma "dica_gravacao" com sugestões práticas de como gravar aquela aula (equipamento, cenário, duração ideal, formato sugerido, roteiro resumido)
+- Cada aula deve ter uma "dica_gravacao" com sugestões práticas de como gravar aquela aula, CONSIDERANDO o equipamento (${equipDesc}), estilo (${styleDesc}) e duração (${formatDesc}). Inclua: setup do equipamento, iluminação, enquadramento, roteiro resumido e duração sugerida.
 - O curso deve ser progressivo (do básico ao avançado)
-- Foque em conteúdo prático e aplicável
-
-Retorne EXATAMENTE um JSON com esta estrutura:
-{
-  "title": "Título do Curso",
-  "description": "Descrição breve do curso",
-  "modules": [
-    {
-      "title": "Nome do Módulo",
-      "description": "Descrição do módulo",
-      "lessons": [
-        {
-          "title": "Nome da Aula",
-          "description": "O que será ensinado",
-          "dica_gravacao": "Dica prática de como gravar: duração sugerida (ex: 5-8 min), formato (talking head, tela compartilhada, roleplay), roteiro resumido, equipamentos mínimos"
-        }
-      ]
-    }
-  ]
-}
-
-Responda APENAS com o JSON, sem texto extra.`;
+- Foque em conteúdo prático e aplicável`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
