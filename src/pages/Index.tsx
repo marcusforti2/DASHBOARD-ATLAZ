@@ -45,6 +45,7 @@ export default function Index() {
   // Inspect mode
   const [showInspectDialog, setShowInspectDialog] = useState(false);
   const [inspectMemberId, setInspectMemberId] = useState<string | null>(null);
+  const [showMetricsEditor, setShowMetricsEditor] = useState(false);
 
   const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
