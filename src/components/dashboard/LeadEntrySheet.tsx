@@ -20,6 +20,8 @@ interface LeadEntrySheetProps {
   currentMonthId: string;
   roleMetrics: readonly string[];
   onSaved: () => void;
+  onDecrement?: (key: string, qty: number) => Promise<void>;
+  currentActual?: number;
 }
 
 const DAY_NAMES: Record<number, string> = { 0: "Dom", 1: "Seg", 2: "Ter", 3: "Qua", 4: "Qui", 5: "Sex", 6: "Sáb" };
