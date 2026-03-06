@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { Target, Zap, Trophy, Calendar, Flame, Loader2 } from "lucide-react";
 import { MetricCard } from "./MetricCard";
 import { LeadEntrySheet } from "./LeadEntrySheet";
+import { LeadHistoryPanel } from "./LeadHistoryPanel";
 
 const DAY_NAMES: Record<number, string> = { 0: "Dom", 1: "Seg", 2: "Ter", 3: "Qua", 4: "Qui", 5: "Sex", 6: "Sáb" };
 
@@ -325,6 +326,8 @@ export function CloserDailyDashboard({ teamMemberId, memberName, memberRole = "s
         </div>
       </div>
 
+      {/* Lead History */}
+      <LeadHistoryPanel teamMemberId={teamMemberId} />
 
       {/* Lead Entry Sheet (for "numero" metric) */}
       {currentMonth?.id && (
