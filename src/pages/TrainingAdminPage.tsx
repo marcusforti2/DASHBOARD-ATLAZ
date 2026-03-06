@@ -27,11 +27,12 @@ type Course = {
 };
 type Module = {
   id: string; course_id: string; title: string; description: string; sort_order: number;
+  drive_folder_id?: string | null;
 };
 type Lesson = {
   id: string; module_id: string; title: string; description: string;
   video_url: string; video_type: string; cover_url: string | null; sort_order: number;
-  assigned_admin_id: string | null;
+  assigned_admin_id: string | null; drive_folder_id?: string | null;
 };
 type TeamMember = { id: string; name: string; avatar_url: string | null; member_role: string };
 type WhatsAppContact = { id: string; phone: string; team_member_id: string | null; user_id: string | null };
@@ -1170,7 +1171,9 @@ function SendScriptsButton({ scope, courseTitle, moduleTitle, modules, lessons, 
     return null;
   };
 
-  const buildScriptMessage = (lessonsToSend: Lesson[], modTitle?: string): string => {
+  const buildDriveLink = (folderId?: string | null) => folderId ? `https://drive.google.com/drive/folders/${folderId}` : null;
+
+  const buildScriptMessage = (lessonsToSend: Lesson[], modTitle?: string, modFolderId?: string | null): string => {
     const header = scope === "course"
       ? `📚 *ROTEIRO DE GRAVAÇÃO*\n📖 Curso: ${courseTitle}\n${"─".repeat(30)}`
       : scope === "module"
@@ -1178,10 +1181,14 @@ function SendScriptsButton({ scope, courseTitle, moduleTitle, modules, lessons, 
         : `📚 *ROTEIRO DE GRAVAÇÃO*\n📖 Curso: ${courseTitle}\n📂 Módulo: ${moduleTitle}\n${"─".repeat(30)}`;
 
     const lessonScripts = lessonsToSend.map((l, i) => {
-      return `\n🎬 *Aula ${i + 1}: ${l.title}*\n${l.description || "Sem descrição"}\n`;
+      const driveLink = buildDriveLink(l.drive_folder_id);
+      return `\n🎬 *Aula ${i + 1}: ${l.title}*\n${l.description || "Sem descrição"}${driveLink ? `\n📁 Envie o vídeo aqui: ${driveLink}` : ""}\n`;
     }).join("\n");
 
-    return `${header}\n${lessonScripts}\n${"─".repeat(30)}\n✅ Grave e envie os links dos vídeos quando estiver pronto!`;
+    const moduleDriveLink = buildDriveLink(modFolderId);
+    const driveSection = moduleDriveLink ? `\n📁 *Pasta do módulo:* ${moduleDriveLink}\n` : "";
+
+    return `${header}\n${lessonScripts}\n${driveSection}${"─".repeat(30)}\n✅ Grave e envie os vídeos nas pastas indicadas acima!`;
   };
 
   const handleSend = async () => {
@@ -1192,18 +1199,11 @@ function SendScriptsButton({ scope, courseTitle, moduleTitle, modules, lessons, 
     setSending(true);
     try {
       if (scope === "course" && modules) {
-        // Send one message per module
         for (const mod of modules) {
           const modLessons = lessons.filter(l => l.module_id === mod.id);
           if (modLessons.length === 0) continue;
-          const msg = buildScriptMessage(modLessons, mod.title);
-          const fullMsg = msg.replace(
-            `📂 Módulo: ${moduleTitle || mod.title}`,
-            `📂 Módulo: ${mod.title}`
-          );
-          const courseMsg = `📚 *ROTEIRO DE GRAVAÇÃO*\n📖 Curso: ${courseTitle}\n📂 Módulo: ${mod.title}\n${"─".repeat(30)}\n${modLessons.map((l, i) => `\n🎬 *Aula ${i + 1}: ${l.title}*\n${l.description || "Sem descrição"}\n`).join("\n")}\n${"─".repeat(30)}\n✅ Grave e envie os links dos vídeos quando estiver pronto!`;
+          const courseMsg = buildScriptMessage(modLessons, mod.title, mod.drive_folder_id);
           await supabase.functions.invoke("send-whatsapp", { body: { phone, message: courseMsg } });
-          // Delay between messages
           await new Promise(r => setTimeout(r, 1500));
         }
         toast.success("Roteiros do curso enviados por WhatsApp!");
