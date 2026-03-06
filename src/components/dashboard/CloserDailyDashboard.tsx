@@ -291,7 +291,17 @@ export function CloserDailyDashboard({ teamMemberId, memberName, memberRole = "s
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-base">{METRIC_ICONS[k]}</span>
-                  {achieved && <CheckCircle2 size={12} className="text-accent" />}
+                  <div className="flex items-center gap-1">
+                    {viewMode === "day" && actual > 0 && (
+                      <QuickDecrementButton
+                        metricKey={k}
+                        teamMemberId={teamMemberId}
+                        todayStr={todayStr}
+                        onDecremented={() => queryClient.invalidateQueries({ queryKey: ["daily-metrics", currentMonth?.id] })}
+                      />
+                    )}
+                    {achieved && <CheckCircle2 size={12} className="text-accent" />}
+                  </div>
                 </div>
                 <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider leading-tight">
                   {METRIC_LABELS[k]}
@@ -332,7 +342,7 @@ function LeadHistoryPanel({ teamMemberId }: { teamMemberId: string }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<any>({});
   const [deleting, setDeleting] = useState<string | null>(null);
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const queryClient = useQueryClient();
