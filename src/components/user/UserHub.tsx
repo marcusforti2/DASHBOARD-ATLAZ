@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Target, Bot, LayoutDashboard, LogOut, BarChart3, Trophy, Zap, Shield, GraduationCap } from "lucide-react";
+import { Target, Bot, LayoutDashboard, LogOut, BarChart3, Trophy, Zap, Shield, GraduationCap, Calendar } from "lucide-react";
 import { CloserDailyDashboard } from "@/components/dashboard/CloserDailyDashboard";
 import AdminDashboard from "@/pages/AdminDashboard";
 import { AiChat } from "./AiChat";
@@ -7,11 +7,12 @@ import { AiToolsPanel } from "./AiToolsPanel";
 import { UserRankingScreen } from "./UserRankingScreen";
 import { TrainingViewer } from "@/components/training/TrainingViewer";
 import { TrainingNotificationPopup } from "@/components/training/TrainingNotificationPopup";
+import { GoogleCalendarPanel } from "./GoogleCalendarPanel";
 import { cn } from "@/lib/utils";
 import { AnimatePresence } from "framer-motion";
 import { getMemberRoles } from "@/lib/db";
 
-type UserTab = "dashboard" | "ai-chat" | "ai-tools" | "general-dashboard" | "training";
+type UserTab = "dashboard" | "ai-chat" | "ai-tools" | "general-dashboard" | "training" | "calendar";
 
 interface UserHubProps {
   teamMemberId: string;
@@ -22,6 +23,7 @@ interface UserHubProps {
 
 const TABS: { id: UserTab; label: string; icon: React.ElementType; mobileLabel: string }[] = [
   { id: "dashboard", label: "Meu Dia", icon: Target, mobileLabel: "Dia" },
+  { id: "calendar", label: "Agenda", icon: Calendar, mobileLabel: "Agenda" },
   { id: "training", label: "Treinamentos", icon: GraduationCap, mobileLabel: "Treino" },
   { id: "ai-chat", label: "Coach IA", icon: Bot, mobileLabel: "Coach" },
   { id: "ai-tools", label: "Ferramentas IA", icon: Bot, mobileLabel: "Tools" },
@@ -60,6 +62,12 @@ export function UserHub({ teamMemberId, memberName, memberRole, onSignOut }: Use
         return <AdminDashboard onSignOut={onSignOut} userName={memberName} />;
       case "training":
         return <TrainingViewer memberRole={memberRole} />;
+      case "calendar":
+        return (
+          <div className="max-w-3xl mx-auto">
+            <GoogleCalendarPanel />
+          </div>
+        );
       default:
         return null;
     }
