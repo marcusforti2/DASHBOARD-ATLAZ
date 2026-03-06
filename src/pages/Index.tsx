@@ -19,7 +19,8 @@ import { MotivationalPopup } from "@/components/user/MotivationalPopup";
 import { useMonthlyGoals, useAiReports, useDailyMetrics } from "@/hooks/use-metrics";
 import { sumMetrics, goalToMetrics } from "@/lib/db";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { BarChart3, Loader2, Maximize, Minimize, ArrowLeft, Users } from "lucide-react";
+import { BarChart3, Loader2, Maximize, Minimize, ArrowLeft, Users, ClipboardEdit } from "lucide-react";
+import { AdminMetricsEditor } from "@/components/admin/AdminMetricsEditor";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Navigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
@@ -44,6 +45,7 @@ export default function Index() {
   // Inspect mode
   const [showInspectDialog, setShowInspectDialog] = useState(false);
   const [inspectMemberId, setInspectMemberId] = useState<string | null>(null);
+  const [showMetricsEditor, setShowMetricsEditor] = useState(false);
 
   const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
@@ -146,17 +148,34 @@ export default function Index() {
             onSignOut={signOut}
           />
 
-          {/* Back to admin button */}
-          <button
-            onClick={() => {
-              setInspectMemberId(null);
-              setAdminView("dashboard");
-            }}
-            className="fixed top-3 right-3 z-[100] flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-lg"
-          >
-            <ArrowLeft size={12} />
-            Voltar Admin
-          </button>
+          {/* Admin floating controls */}
+          <div className="fixed top-3 right-3 z-[100] flex items-center gap-2">
+            <button
+              onClick={() => setShowMetricsEditor(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-accent text-accent-foreground hover:bg-accent/90 transition-colors shadow-lg"
+            >
+              <ClipboardEdit size={12} />
+              Editar Métricas
+            </button>
+            <button
+              onClick={() => {
+                setInspectMemberId(null);
+                setAdminView("dashboard");
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-lg"
+            >
+              <ArrowLeft size={12} />
+              Voltar Admin
+            </button>
+          </div>
+
+          <AdminMetricsEditor
+            open={showMetricsEditor}
+            onOpenChange={setShowMetricsEditor}
+            teamMemberId={inspectMemberId}
+            memberName={inspectMember?.name || ""}
+            memberRole={inspectMember?.member_role || "sdr"}
+          />
         </div>
       </SidebarProvider>
     );
