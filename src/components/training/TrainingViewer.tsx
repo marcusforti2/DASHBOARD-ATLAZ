@@ -236,9 +236,6 @@ export function TrainingViewer({ memberRole, previewAll }: TrainingViewerProps) 
                 <Badge variant="outline" className="text-[9px] gap-1">
                   <BookMarked size={10} /> {playbookCount} {playbookCount === 1 ? "playbook" : "playbooks"}
                 </Badge>
-                <Badge variant="outline" className="text-[9px] gap-1">
-                  <Sparkles size={10} /> Gerado com IA
-                </Badge>
               </div>
             </div>
           </button>
