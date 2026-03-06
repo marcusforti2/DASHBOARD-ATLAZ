@@ -10,12 +10,14 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { toast } from "sonner";
 import {
   Plus, GraduationCap, BookOpen, Play, Trash2, Edit2, ChevronDown, ChevronRight,
   Video, Send, EyeOff, Loader2, Sparkles, Eye, Search, RefreshCw, X, Image as ImageIcon,
   Wand2, Check, Lightbulb, MessageSquare, User, Users, FolderPlus, FolderSync, HardDrive,
-  Link2, Unlink
+  Link2, Unlink, CalendarDays
 } from "lucide-react";
 import { TrainingViewer } from "@/components/training/TrainingViewer";
 
@@ -1238,12 +1240,14 @@ function SendScriptsButton({ scope, courseTitle, moduleTitle, modules, lessons, 
   const [open, setOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState<string>(assignedAdminId || "");
+  const [deadline, setDeadline] = useState<Date | undefined>(undefined);
+  const [generatingMsg, setGeneratingMsg] = useState(false);
+  const [generatedMsg, setGeneratedMsg] = useState<string>("");
+  const [editingMsg, setEditingMsg] = useState(false);
 
   const getPhoneForMember = (memberId: string): string | null => {
-    // 1. Direct match by team_member_id
     const directContact = whatsappContacts.find(c => c.team_member_id === memberId);
     if (directContact?.phone) return directContact.phone;
-    // 2. Find via profile: team_member_id -> profile.id (user_id) -> whatsapp_contact.user_id
     const profile = profiles.find(p => p.team_member_id === memberId);
     if (profile) {
       const userContact = whatsappContacts.find(c => c.user_id === profile.id);
@@ -1252,24 +1256,56 @@ function SendScriptsButton({ scope, courseTitle, moduleTitle, modules, lessons, 
     return null;
   };
 
-  const buildDriveLink = (folderId?: string | null) => folderId ? `https://drive.google.com/drive/folders/${folderId}` : null;
+  const getMemberName = (id: string) => teamMembers.find(m => m.id === id)?.name || "Colaborador";
 
-  const buildScriptMessage = (lessonsToSend: Lesson[], modTitle?: string, modFolderId?: string | null): string => {
-    const header = scope === "course"
-      ? `📚 *ROTEIRO DE GRAVAÇÃO*\n📖 Curso: ${courseTitle}\n${"─".repeat(30)}`
-      : scope === "module"
-        ? `📚 *ROTEIRO DE GRAVAÇÃO*\n📖 Curso: ${courseTitle}\n📂 Módulo: ${moduleTitle || modTitle}\n${"─".repeat(30)}`
-        : `📚 *ROTEIRO DE GRAVAÇÃO*\n📖 Curso: ${courseTitle}\n📂 Módulo: ${moduleTitle}\n${"─".repeat(30)}`;
+  const getModuleForLesson = (lessonModuleId: string) => modules?.find(m => m.id === lessonModuleId);
 
-    const lessonScripts = lessonsToSend.map((l, i) => {
-      const driveLink = buildDriveLink(l.drive_folder_id);
-      return `\n🎬 *Aula ${i + 1}: ${l.title}*\n${l.description || "Sem descrição"}${driveLink ? `\n📁 Envie o vídeo aqui: ${driveLink}` : ""}\n`;
-    }).join("\n");
+  const handleGenerateMessage = async (modLessons: Lesson[], modTitle?: string, modDriveFolderId?: string | null) => {
+    if (!selectedMemberId) { toast.error("Selecione o responsável primeiro"); return null; }
+    setGeneratingMsg(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-script-message", {
+        body: {
+          memberName: getMemberName(selectedMemberId),
+          courseTitle,
+          moduleTitle: modTitle || moduleTitle || "Módulo",
+          lessons: modLessons.map(l => ({
+            title: l.title,
+            description: l.description,
+            drive_folder_id: l.drive_folder_id,
+          })),
+          deadline: deadline ? deadline.toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }) : null,
+          driveFolders: { module: modDriveFolderId || null },
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data.message || "";
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao gerar mensagem");
+      return null;
+    } finally {
+      setGeneratingMsg(false);
+    }
+  };
 
-    const moduleDriveLink = buildDriveLink(modFolderId);
-    const driveSection = moduleDriveLink ? `\n📁 *Pasta do módulo:* ${moduleDriveLink}\n` : "";
-
-    return `${header}\n${lessonScripts}\n${driveSection}${"─".repeat(30)}\n✅ Grave e envie os vídeos nas pastas indicadas acima!`;
+  const handlePreview = async () => {
+    if (scope === "course" && modules) {
+      // For course scope, generate for first module as preview
+      const firstMod = modules[0];
+      if (!firstMod) return;
+      const modLessons = lessons.filter(l => l.module_id === firstMod.id);
+      const msg = await handleGenerateMessage(modLessons, firstMod.title, firstMod.drive_folder_id);
+      if (msg) { setGeneratedMsg(msg); setEditingMsg(false); }
+    } else if (scope === "lesson") {
+      const parentMod = getModuleForLesson(lessons[0]?.module_id);
+      const msg = await handleGenerateMessage(lessons, parentMod?.title, parentMod?.drive_folder_id);
+      if (msg) { setGeneratedMsg(msg); setEditingMsg(false); }
+    } else {
+      const parentMod = modules?.find(m => lessons.some(l => l.module_id === m.id));
+      const msg = await handleGenerateMessage(lessons, moduleTitle, parentMod?.drive_folder_id);
+      if (msg) { setGeneratedMsg(msg); setEditingMsg(false); }
+    }
   };
 
   const handleSend = async () => {
@@ -1283,17 +1319,22 @@ function SendScriptsButton({ scope, courseTitle, moduleTitle, modules, lessons, 
         for (const mod of modules) {
           const modLessons = lessons.filter(l => l.module_id === mod.id);
           if (modLessons.length === 0) continue;
-          const courseMsg = buildScriptMessage(modLessons, mod.title, mod.drive_folder_id);
-          await supabase.functions.invoke("send-whatsapp", { body: { phone, message: courseMsg } });
-          await new Promise(r => setTimeout(r, 1500));
+          const msg = await handleGenerateMessage(modLessons, mod.title, mod.drive_folder_id);
+          if (msg) {
+            await supabase.functions.invoke("send-whatsapp", { body: { phone, message: msg } });
+            await new Promise(r => setTimeout(r, 2000));
+          }
         }
-        toast.success("Roteiros do curso enviados por WhatsApp!");
+        toast.success("Mensagens do curso enviadas por WhatsApp!");
       } else {
-        const msg = buildScriptMessage(lessons);
-        await supabase.functions.invoke("send-whatsapp", { body: { phone, message: msg } });
-        toast.success(`Roteiro ${scope === "module" ? "do módulo" : "da aula"} enviado por WhatsApp!`);
+        const msg = generatedMsg || await handleGenerateMessage(lessons);
+        if (msg) {
+          await supabase.functions.invoke("send-whatsapp", { body: { phone, message: msg } });
+          toast.success("Mensagem enviada por WhatsApp!");
+        }
       }
       setOpen(false);
+      setGeneratedMsg("");
     } catch (e: any) {
       toast.error(e.message || "Erro ao enviar");
     }
@@ -1303,7 +1344,7 @@ function SendScriptsButton({ scope, courseTitle, moduleTitle, modules, lessons, 
   const iconSize = scope === "lesson" ? 9 : scope === "module" ? 10 : 12;
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setGeneratedMsg(""); setEditingMsg(false); } }}>
       <DialogTrigger asChild>
         <button
           onClick={e => e.stopPropagation()}
@@ -1313,57 +1354,123 @@ function SendScriptsButton({ scope, courseTitle, moduleTitle, modules, lessons, 
           <MessageSquare size={iconSize} />
         </button>
       </DialogTrigger>
-      <DialogContent className="max-w-md" onClick={e => e.stopPropagation()}>
+      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-sm">
             <MessageSquare size={16} className="text-primary" />
             Enviar Roteiro via WhatsApp
           </DialogTitle>
           <DialogDescription className="text-xs">
-            {scope === "course" && `Enviar roteiros de todas as aulas do curso "${courseTitle}"`}
-            {scope === "module" && `Enviar roteiros das aulas do módulo "${moduleTitle}"`}
-            {scope === "lesson" && `Enviar roteiro da aula "${lessons[0]?.title}"`}
+            {scope === "course" && `Curso "${courseTitle}" — ${modules?.length || 0} módulos (1 mensagem por módulo)`}
+            {scope === "module" && `Módulo "${moduleTitle}" do curso "${courseTitle}"`}
+            {scope === "lesson" && `Aula "${lessons[0]?.title}"`}
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-3 pt-2">
-          <div>
-            <label className="text-xs font-medium mb-1.5 block">Enviar para quem?</label>
-            <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
-              <SelectTrigger className="text-xs"><SelectValue placeholder="Selecione o responsável" /></SelectTrigger>
-              <SelectContent>
-                {teamMembers.map(m => {
-                  const hasPhone = !!getPhoneForMember(m.id);
-                  return (
-                    <SelectItem key={m.id} value={m.id} disabled={!hasPhone}>
-                      <span className="text-xs flex items-center gap-1.5">
-                        {m.name}
-                        {!hasPhone && <span className="text-destructive text-[9px]">(sem WhatsApp)</span>}
-                      </span>
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-          </div>
 
-          {/* Preview */}
-          <div className="bg-secondary/50 rounded-lg p-3 max-h-48 overflow-y-auto">
-            <p className="text-[9px] uppercase font-semibold text-muted-foreground mb-1">Prévia da mensagem</p>
-            <pre className="text-[10px] text-foreground whitespace-pre-wrap font-sans leading-relaxed">
-              {scope === "course" && modules
-                ? `📚 Curso: ${courseTitle}\n${modules.length} módulos serão enviados em mensagens separadas`
-                : buildScriptMessage(lessons)
-              }
-            </pre>
-          </div>
+        <ScrollArea className="flex-1 max-h-[65vh]">
+          <div className="space-y-3 pt-1 pr-3">
+            {/* Member + Deadline row */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[11px] font-medium text-foreground mb-1 block">Enviar para</label>
+                <Select value={selectedMemberId} onValueChange={(v) => { setSelectedMemberId(v); setGeneratedMsg(""); }}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    {teamMembers.map(m => {
+                      const hasPhone = !!getPhoneForMember(m.id);
+                      return (
+                        <SelectItem key={m.id} value={m.id} disabled={!hasPhone}>
+                          <span className="text-xs flex items-center gap-1.5">
+                            {m.name}
+                            {!hasPhone && <span className="text-destructive text-[9px]">(sem WhatsApp)</span>}
+                          </span>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-[11px] font-medium text-foreground mb-1 block">Prazo de entrega</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={`h-8 w-full text-xs justify-start font-normal ${!deadline ? "text-muted-foreground" : ""}`}>
+                      <CalendarDays size={12} className="mr-1.5 shrink-0" />
+                      {deadline ? deadline.toLocaleDateString("pt-BR") : "Sem prazo"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={deadline}
+                      onSelect={(d) => { setDeadline(d); setGeneratedMsg(""); }}
+                      disabled={(date) => date < new Date()}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
 
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setOpen(false)} className="flex-1 text-xs">Cancelar</Button>
-            <Button onClick={handleSend} disabled={sending || !selectedMemberId} className="flex-1 gap-1.5 text-xs">
-              {sending ? <><Loader2 size={12} className="animate-spin" /> Enviando...</> : <><Send size={12} /> Enviar</>}
-            </Button>
+            {/* Generate / Preview */}
+            {!generatedMsg ? (
+              <Button
+                onClick={handlePreview}
+                disabled={generatingMsg || !selectedMemberId}
+                variant="outline"
+                className="w-full gap-2 h-9 text-xs border-primary/30 text-primary hover:bg-primary/10"
+              >
+                {generatingMsg ? <><Loader2 size={12} className="animate-spin" /> Gerando mensagem com IA...</> : <><Sparkles size={12} /> Gerar mensagem com IA</>}
+              </Button>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] uppercase font-semibold text-muted-foreground flex items-center gap-1">
+                    <Sparkles size={10} className="text-primary" /> Prévia da mensagem
+                  </p>
+                  <div className="flex gap-1">
+                    <button onClick={() => setEditingMsg(!editingMsg)} className="text-[10px] text-primary hover:underline flex items-center gap-0.5">
+                      <Edit2 size={9} /> {editingMsg ? "Visualizar" : "Editar"}
+                    </button>
+                    <button onClick={() => { setGeneratedMsg(""); handlePreview(); }} className="text-[10px] text-muted-foreground hover:text-primary flex items-center gap-0.5 ml-2">
+                      <RefreshCw size={9} /> Regerar
+                    </button>
+                  </div>
+                </div>
+                {editingMsg ? (
+                  <Textarea
+                    value={generatedMsg}
+                    onChange={e => setGeneratedMsg(e.target.value)}
+                    rows={12}
+                    className="text-[10px] font-mono leading-relaxed"
+                  />
+                ) : (
+                  <div className="bg-secondary/50 rounded-lg p-3 max-h-64 overflow-y-auto">
+                    <pre className="text-[10px] text-foreground whitespace-pre-wrap font-sans leading-relaxed">{generatedMsg}</pre>
+                  </div>
+                )}
+                {scope === "course" && modules && modules.length > 1 && (
+                  <p className="text-[9px] text-muted-foreground bg-secondary/30 rounded p-2">
+                    ℹ️ Esta é a prévia do 1º módulo. Ao enviar, a IA gerará uma mensagem personalizada para cada um dos {modules.length} módulos.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-2 pt-1">
+              <Button variant="outline" onClick={() => setOpen(false)} className="flex-1 text-xs h-9">Cancelar</Button>
+              <Button
+                onClick={handleSend}
+                disabled={sending || !selectedMemberId || (!generatedMsg && scope !== "course")}
+                className="flex-1 gap-1.5 text-xs h-9"
+              >
+                {sending ? <><Loader2 size={12} className="animate-spin" /> Enviando...</> : <><Send size={12} /> Enviar</>}
+              </Button>
+            </div>
           </div>
-        </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );
