@@ -572,6 +572,27 @@ function BehavioralAnalysis({ member, monthId }: { member: DbTeamMember; monthId
   );
 }
 
+function TeamMemberMetricsButton({ memberId, memberName, memberRole }: { memberId: string; memberName: string; memberRole: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="w-full flex items-center justify-center gap-2 py-3 text-xs font-bold text-primary hover:bg-primary/5 transition-colors rounded-lg"
+      >
+        <ClipboardEdit size={14} />
+        Ver e Editar Métricas
+      </button>
+      <AdminMetricsEditor
+        open={open}
+        onOpenChange={setOpen}
+        teamMemberId={memberId}
+        memberName={memberName}
+        memberRole={memberRole}
+      />
+    </>
+  );
+}
 
 
 // ─── Member Card ─────────────────────────────────────────────────────────
