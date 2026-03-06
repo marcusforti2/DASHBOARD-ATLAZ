@@ -180,12 +180,16 @@ export default function Index() {
         if (!previewMemberId) return null;
         const previewMember = members?.find(m => m.id === previewMemberId);
         return (
-          <UserHub
-            teamMemberId={previewMemberId}
-            memberName={previewMember?.name || ""}
-            memberRole={previewMember?.member_role || "sdr"}
-            onSignOut={signOut}
-          />
+          <SidebarProvider>
+            <div className="flex w-full min-h-[calc(100vh-7rem)]">
+              <UserHub
+                teamMemberId={previewMemberId}
+                memberName={previewMember?.name || ""}
+                memberRole={previewMember?.member_role || "sdr"}
+                onSignOut={signOut}
+              />
+            </div>
+          </SidebarProvider>
         );
       case "settings":
         return <SettingsPage />;
