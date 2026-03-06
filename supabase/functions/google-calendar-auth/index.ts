@@ -19,6 +19,7 @@ serve(async (req) => {
     const scopes = [
       "https://www.googleapis.com/auth/calendar.readonly",
       "https://www.googleapis.com/auth/calendar.events",
+      "https://www.googleapis.com/auth/drive",
     ].join(" ");
 
     // Get user from auth header to pass as state
