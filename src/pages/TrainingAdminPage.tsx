@@ -146,163 +146,159 @@ export default function TrainingAdminPage() {
           <h1 className="text-lg font-bold text-foreground flex items-center gap-2">
             <GraduationCap size={20} className="text-primary" /> Treinamentos
           </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">Gerencie cursos, módulos e aulas para sua equipe</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Gerencie cursos, módulos, aulas e playbooks para sua equipe</p>
         </div>
         <div className="flex items-center gap-2">
-          <DriveConnectionStatus />
-          {/* Preview buttons */}
-          <Select value={previewRole} onValueChange={setPreviewRole}>
-            <SelectTrigger className="w-[100px] h-8 text-[10px]"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="sdr">SDR</SelectItem>
-              <SelectItem value="closer">Closer</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => setPreviewMode(true)}>
-            <Eye size={14} /> Visualizar
-          </Button>
-          <AiCourseGeneratorDialog onSaved={invalidateAll} />
-          <AddCourseDialog onSaved={invalidateAll} />
+          {activeTab === "cursos" && (
+            <>
+              <DriveConnectionStatus />
+              <Select value={previewRole} onValueChange={setPreviewRole}>
+                <SelectTrigger className="w-[100px] h-8 text-[10px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="sdr">SDR</SelectItem>
+                  <SelectItem value="closer">Closer</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => setPreviewMode(true)}>
+                <Eye size={14} /> Visualizar
+              </Button>
+              <AiCourseGeneratorDialog onSaved={invalidateAll} />
+              <AddCourseDialog onSaved={invalidateAll} />
+            </>
+          )}
         </div>
       </div>
 
-      {courses.length === 0 ? (
-        <Card className="p-8 text-center">
-          <GraduationCap size={40} className="text-muted-foreground/30 mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground">Nenhum curso criado ainda</p>
-          <p className="text-xs text-muted-foreground/60 mt-1">Clique em "Novo Curso" para começar</p>
-        </Card>
-      ) : (
-        <div className="space-y-3">
-          {courses.map((course) => {
-            const courseModules = modules.filter(m => m.course_id === course.id);
-            const isExpanded = expandedCourse === course.id;
-            return (
-              <Card key={course.id} className="overflow-hidden">
-                <div
-                  className="flex items-center gap-3 p-3 cursor-pointer hover:bg-secondary/30 transition-colors"
-                  onClick={() => setExpandedCourse(isExpanded ? null : course.id)}
-                >
-                  {course.cover_url ? (
-                    <img src={course.cover_url} alt="" className="w-16 h-10 rounded-md object-cover shrink-0" />
-                  ) : (
-                    <div className="w-16 h-10 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
-                      <GraduationCap size={16} className="text-primary" />
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold text-foreground truncate">{course.title}</p>
-                      <Badge variant="outline" className="text-[9px] shrink-0">
-                        {course.target_role === "all" ? "Todos" : course.target_role === "sdr" ? "SDR" : "Closer"}
-                      </Badge>
-                      {!course.active && <Badge variant="secondary" className="text-[9px]">Inativo</Badge>}
-                      {course.published ? (
-                        <Badge className="text-[9px] bg-emerald-500/15 text-emerald-600 border-emerald-500/30 shrink-0">Publicado</Badge>
-                      ) : (
-                        <Badge variant="secondary" className="text-[9px] shrink-0">Rascunho</Badge>
-                      )}
-                    </div>
-                    <p className="text-[10px] text-muted-foreground">{courseModules.length} módulos</p>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <ChangeCoverButton itemId={course.id} table="training_courses" currentTitle={course.title} onDone={invalidateAll} />
-                    {!course.published && <PublishButton course={course} onPublished={invalidateAll} />}
-                    {course.published && <UnpublishButton courseId={course.id} onDone={invalidateAll} />}
-                    <EditCourseDialog course={course} onSaved={invalidateAll} />
-                    <DeleteButton table="training_courses" id={course.id} onDeleted={invalidateAll} />
-                    {isExpanded ? <ChevronDown size={14} className="text-muted-foreground" /> : <ChevronRight size={14} className="text-muted-foreground" />}
-                  </div>
-                </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="h-9">
+          <TabsTrigger value="cursos" className="text-xs gap-1.5">
+            <GraduationCap size={14} /> Cursos
+          </TabsTrigger>
+          <TabsTrigger value="playbooks" className="text-xs gap-1.5">
+            <BookOpen size={14} /> Playbooks
+          </TabsTrigger>
+        </TabsList>
 
-                {isExpanded && (
-                  <div className="border-t border-border bg-secondary/10 p-3 space-y-2">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider">Módulos</p>
+        <TabsContent value="cursos" className="mt-4">
+          {courses.length === 0 ? (
+            <Card className="p-8 text-center">
+              <GraduationCap size={40} className="text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground">Nenhum curso criado ainda</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">Clique em "Novo Curso" para começar</p>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {courses.map((course) => {
+                const courseModules = modules.filter(m => m.course_id === course.id);
+                const isExpanded = expandedCourse === course.id;
+                return (
+                  <Card key={course.id} className="overflow-hidden">
+                    <div
+                      className="flex items-center gap-3 p-3 cursor-pointer hover:bg-secondary/30 transition-colors"
+                      onClick={() => setExpandedCourse(isExpanded ? null : course.id)}
+                    >
+                      {course.cover_url ? (
+                        <img src={course.cover_url} alt="" className="w-16 h-10 rounded-md object-cover shrink-0" />
+                      ) : (
+                        <div className="w-16 h-10 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                          <GraduationCap size={16} className="text-primary" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold text-foreground truncate">{course.title}</p>
+                          <Badge variant="outline" className="text-[9px] shrink-0">
+                            {course.target_role === "all" ? "Todos" : course.target_role === "sdr" ? "SDR" : "Closer"}
+                          </Badge>
+                          {!course.active && <Badge variant="secondary" className="text-[9px]">Inativo</Badge>}
+                          {course.published ? (
+                            <Badge className="text-[9px] bg-emerald-500/15 text-emerald-600 border-emerald-500/30 shrink-0">Publicado</Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-[9px]">Rascunho</Badge>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{courseModules.length} módulos • {lessons.filter(l => courseModules.some(m => m.id === l.module_id)).length} aulas</p>
+                      </div>
                       <div className="flex items-center gap-1">
+                        <PublishButton course={course} onPublished={invalidateAll} />
                         <DriveCreateFoldersButton courseId={course.id} courseTitle={course.title} onDone={invalidateAll} />
                         <DriveSyncButton courseId={course.id} courseTitle={course.title} onDone={invalidateAll} />
                         <SendScriptsButton scope="course" courseTitle={course.title} modules={courseModules} lessons={lessons} teamMembers={teamMembers} whatsappContacts={whatsappContacts} profiles={profiles} />
                         <AddModuleDialog courseId={course.id} onSaved={invalidateAll} />
                       </div>
+                      <ChangeCoverButton itemId={course.id} table="training_courses" currentTitle={course.title} onDone={invalidateAll} />
+                      <DeleteButton table="training_courses" id={course.id} onDeleted={invalidateAll} />
+                      {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                     </div>
-                    {courseModules.length === 0 && (
-                      <p className="text-xs text-muted-foreground/60 text-center py-3">Nenhum módulo</p>
-                    )}
-                    {courseModules.map((mod) => {
-                      const modLessons = lessons.filter(l => l.module_id === mod.id);
-                      const modExpanded = expandedModule === mod.id;
-                      return (
-                        <div key={mod.id} className="rounded-lg border border-border bg-background">
-                          <div
-                            className="flex items-center gap-2 p-2.5 cursor-pointer hover:bg-secondary/20 transition-colors"
-                            onClick={() => setExpandedModule(modExpanded ? null : mod.id)}
-                          >
-                            <BookOpen size={14} className="text-primary shrink-0" />
-                            <p className="text-xs font-semibold flex-1 truncate">{mod.title}</p>
-                            <span className="text-[10px] text-muted-foreground shrink-0">{modLessons.length} aulas</span>
-                            <SendScriptsButton scope="module" courseTitle={course.title} moduleTitle={mod.title} lessons={modLessons} teamMembers={teamMembers} whatsappContacts={whatsappContacts} profiles={profiles} />
-                            <DeleteButton table="training_modules" id={mod.id} onDeleted={invalidateAll} size="sm" />
-                            {modExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                          </div>
 
-                          {modExpanded && (
-                            <div className="border-t border-border p-2.5 space-y-1.5 bg-secondary/5">
-                              <div className="flex items-center justify-between mb-1">
-                                <p className="text-[9px] uppercase font-semibold text-muted-foreground tracking-wider">Aulas</p>
-                                <div className="flex items-center gap-1">
-                                  <AiLessonsDialog moduleId={mod.id} moduleTitle={mod.title} courseTitle={course.title} existingLessons={modLessons} onSaved={invalidateAll} />
-                                  <AddLessonDialog moduleId={mod.id} onSaved={invalidateAll} />
-                                </div>
+                    {isExpanded && (
+                      <div className="border-t border-border bg-secondary/10 p-3 space-y-2">
+                        {courseModules.length === 0 ? (
+                          <p className="text-xs text-muted-foreground text-center py-2">Nenhum módulo — clique no + para adicionar</p>
+                        ) : courseModules.map((mod) => {
+                          const modLessons = lessons.filter(l => l.module_id === mod.id);
+                          const modExpanded = expandedModule === mod.id;
+                          return (
+                            <div key={mod.id} className="rounded-lg border border-border bg-card">
+                              <div
+                                className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-secondary/20 transition-colors"
+                                onClick={() => setExpandedModule(modExpanded ? null : mod.id)}
+                              >
+                                <BookOpen size={12} className="text-primary shrink-0" />
+                                <p className="text-xs font-semibold flex-1 truncate">{mod.title}</p>
+                                <span className="text-[10px] text-muted-foreground shrink-0">{modLessons.length} aulas</span>
+                                <SendScriptsButton scope="module" courseTitle={course.title} moduleTitle={mod.title} lessons={modLessons} teamMembers={teamMembers} whatsappContacts={whatsappContacts} profiles={profiles} />
+                                <DeleteButton table="training_modules" id={mod.id} onDeleted={invalidateAll} size="sm" />
+                                {modExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                               </div>
-                              {modLessons.length === 0 && (
-                                <p className="text-[10px] text-muted-foreground/60 text-center py-2">Nenhuma aula</p>
-                              )}
-                              {modLessons.map((lesson) => {
-                                const assignedAdmin = lesson.assigned_admin_id ? teamMembers.find(m => m.id === lesson.assigned_admin_id) : null;
-                                return (
-                                  <div key={lesson.id} className="flex items-center gap-2 p-2 rounded-md bg-background border border-border/50">
-                                    {lesson.cover_url ? (
-                                      <img src={lesson.cover_url} alt="" className="w-12 h-8 rounded object-cover shrink-0" />
-                                    ) : (
-                                      <div className="w-12 h-8 rounded bg-primary/10 flex items-center justify-center shrink-0">
-                                        <Play size={10} className="text-primary" />
+
+                              {modExpanded && (
+                                <div className="border-t border-border p-2 space-y-1">
+                                  {modLessons.length === 0 ? (
+                                    <p className="text-[10px] text-muted-foreground text-center py-2">Nenhuma aula neste módulo</p>
+                                  ) : modLessons.map((lesson) => (
+                                    <div
+                                      key={lesson.id}
+                                      className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-secondary/20 transition-colors group"
+                                    >
+                                      {lesson.cover_url ? (
+                                        <img src={lesson.cover_url} alt="" className="w-12 h-7 rounded object-cover shrink-0" />
+                                      ) : (
+                                        <div className="w-12 h-7 rounded bg-primary/10 flex items-center justify-center shrink-0">
+                                          <Play size={10} className="text-primary" />
+                                        </div>
+                                      )}
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-[11px] font-medium text-foreground truncate">{lesson.title}</p>
+                                        <p className="text-[9px] text-muted-foreground truncate">{lesson.video_url || "Sem vídeo"}</p>
                                       </div>
-                                    )}
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-[11px] font-semibold truncate">{lesson.title}</p>
-                                      <div className="flex items-center gap-2">
-                                        <p className="text-[9px] text-muted-foreground truncate flex items-center gap-1">
-                                          <Video size={8} /> {lesson.video_type === "youtube" ? "YouTube" : "Drive"}
-                                        </p>
-                                        {assignedAdmin && (
-                                          <span className="text-[9px] text-primary flex items-center gap-0.5">
-                                            <User size={7} /> {assignedAdmin.name.split(" ")[0]}
-                                          </span>
-                                        )}
-                                      </div>
+                                      <AssignAdminSelect lessonId={lesson.id} currentAdminId={lesson.assigned_admin_id} teamMembers={teamMembers} onSaved={invalidateAll} />
+                                      <SendScriptsButton scope="lesson" courseTitle={course.title} moduleTitle={mod.title} lessons={[lesson]} teamMembers={teamMembers} whatsappContacts={whatsappContacts} profiles={profiles} assignedAdminId={lesson.assigned_admin_id} />
+                                      <ChangeCoverButton itemId={lesson.id} table="training_lessons" currentTitle={lesson.title} onDone={invalidateAll} size="sm" />
+                                      <EditLessonDialog lesson={lesson} onSaved={invalidateAll} />
+                                      <DeleteButton table="training_lessons" id={lesson.id} onDeleted={invalidateAll} size="sm" />
                                     </div>
-                                    <AssignAdminSelect lessonId={lesson.id} currentAdminId={lesson.assigned_admin_id} teamMembers={teamMembers} onSaved={invalidateAll} />
-                                    <SendScriptsButton scope="lesson" courseTitle={course.title} moduleTitle={mod.title} lessons={[lesson]} teamMembers={teamMembers} whatsappContacts={whatsappContacts} profiles={profiles} assignedAdminId={lesson.assigned_admin_id} />
-                                    <ChangeCoverButton itemId={lesson.id} table="training_lessons" currentTitle={lesson.title} onDone={invalidateAll} size="sm" />
-                                    <EditLessonDialog lesson={lesson} onSaved={invalidateAll} />
-                                    <DeleteButton table="training_lessons" id={lesson.id} onDeleted={invalidateAll} size="sm" />
-                                  </div>
-                                );
-                              })}
+                                  ))}
+                                  <AddLessonDialog moduleId={mod.id} existingCount={modLessons.length} onSaved={invalidateAll} />
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </Card>
-            );
-          })}
-        </div>
-      )}
+                          );
+                        })}
+                      </div>
+                    )}
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="playbooks" className="mt-4">
+          <PlaybooksHub />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
