@@ -11,6 +11,7 @@ import {
   MessageCircle, ClipboardList, FileSpreadsheet
 } from "lucide-react";
 import { AdminMetricsEditor } from "@/components/admin/AdminMetricsEditor";
+import { ClipboardEdit } from "lucide-react";
 
 // ─── Registration Form Dialog ────────────────────────────────────────────
 function MemberFormDialog({
