@@ -1171,7 +1171,9 @@ function SendScriptsButton({ scope, courseTitle, moduleTitle, modules, lessons, 
     return null;
   };
 
-  const buildScriptMessage = (lessonsToSend: Lesson[], modTitle?: string): string => {
+  const buildDriveLink = (folderId?: string | null) => folderId ? `https://drive.google.com/drive/folders/${folderId}` : null;
+
+  const buildScriptMessage = (lessonsToSend: Lesson[], modTitle?: string, modFolderId?: string | null): string => {
     const header = scope === "course"
       ? `📚 *ROTEIRO DE GRAVAÇÃO*\n📖 Curso: ${courseTitle}\n${"─".repeat(30)}`
       : scope === "module"
@@ -1179,10 +1181,14 @@ function SendScriptsButton({ scope, courseTitle, moduleTitle, modules, lessons, 
         : `📚 *ROTEIRO DE GRAVAÇÃO*\n📖 Curso: ${courseTitle}\n📂 Módulo: ${moduleTitle}\n${"─".repeat(30)}`;
 
     const lessonScripts = lessonsToSend.map((l, i) => {
-      return `\n🎬 *Aula ${i + 1}: ${l.title}*\n${l.description || "Sem descrição"}\n`;
+      const driveLink = buildDriveLink(l.drive_folder_id);
+      return `\n🎬 *Aula ${i + 1}: ${l.title}*\n${l.description || "Sem descrição"}${driveLink ? `\n📁 Envie o vídeo aqui: ${driveLink}` : ""}\n`;
     }).join("\n");
 
-    return `${header}\n${lessonScripts}\n${"─".repeat(30)}\n✅ Grave e envie os links dos vídeos quando estiver pronto!`;
+    const moduleDriveLink = buildDriveLink(modFolderId);
+    const driveSection = moduleDriveLink ? `\n📁 *Pasta do módulo:* ${moduleDriveLink}\n` : "";
+
+    return `${header}\n${lessonScripts}\n${driveSection}${"─".repeat(30)}\n✅ Grave e envie os vídeos nas pastas indicadas acima!`;
   };
 
   const handleSend = async () => {
