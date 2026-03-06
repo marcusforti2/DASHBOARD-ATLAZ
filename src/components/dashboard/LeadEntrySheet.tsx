@@ -35,6 +35,8 @@ export function LeadEntrySheet({
   currentMonthId,
   roleMetrics,
   onSaved,
+  onDecrement,
+  currentActual = 0,
 }: LeadEntrySheetProps) {
   const [rows, setRows] = useState<{ lead_name: string; whatsapp: string; social_link: string; fromExisting?: boolean }[]>([
     { lead_name: "", whatsapp: "", social_link: "" },
