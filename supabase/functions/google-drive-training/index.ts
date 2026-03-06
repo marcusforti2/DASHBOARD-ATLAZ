@@ -33,7 +33,7 @@ serve(async (req) => {
       .maybeSingle();
     if (!adminRole) throw new Error("Unauthorized: admin only");
 
-    // Get admin's Google tokens
+    // Get admin's Google Drive tokens (from separate drive tokens table)
     const accessToken = await getAccessToken(serviceClient, user.id);
 
     const body = await req.json();
@@ -66,7 +66,7 @@ serve(async (req) => {
 // ── Get access token (with refresh) ──
 async function getAccessToken(serviceClient: ReturnType<typeof createClient>, userId: string): Promise<string> {
   const { data: tokenRow, error } = await serviceClient
-    .from("google_calendar_tokens")
+    .from("google_drive_tokens")
     .select("*")
     .eq("user_id", userId)
     .single();
@@ -91,7 +91,7 @@ async function getAccessToken(serviceClient: ReturnType<typeof createClient>, us
 
     const expiresAt = new Date(Date.now() + data.expires_in * 1000).toISOString();
     await serviceClient
-      .from("google_calendar_tokens")
+      .from("google_drive_tokens")
       .update({ access_token: data.access_token, token_expires_at: expiresAt })
       .eq("user_id", userId);
 

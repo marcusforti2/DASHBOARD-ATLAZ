@@ -41,3 +41,9 @@ verify_jwt = false
 
 [functions.google-drive-training]
 verify_jwt = false
+
+[functions.google-drive-auth]
+verify_jwt = false
+
+[functions.google-drive-callback]
+verify_jwt = false
