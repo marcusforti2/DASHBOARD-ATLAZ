@@ -840,6 +840,127 @@ function LeadHistoryPanel({ teamMemberId }: { teamMemberId: string }) {
     </div>
   );
 }
+/* ========== Today's Activity Log (inside dialog) ========== */
+
+function TodayActivityLog({
+  teamMemberId,
+  todayStr,
+  currentMonthId,
+  onChanged,
+}: {
+  teamMemberId: string;
+  todayStr: string;
+  currentMonthId?: string;
+  onChanged: () => void;
+}) {
+  const [entries, setEntries] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    supabase
+      .from("lead_entries")
+      .select("*")
+      .eq("member_id", teamMemberId)
+      .eq("date", todayStr)
+      .order("created_at", { ascending: false })
+      .then(({ data }) => {
+        setEntries(data || []);
+        setLoading(false);
+      });
+  }, [teamMemberId, todayStr]);
+
+  const handleQuickDelete = async (entry: any) => {
+    setDeletingId(entry.id);
+    
+    // Delete the lead entry
+    await supabase.from("lead_entries").delete().eq("id", entry.id);
+    
+    // Decrement the metric
+    if (entry.metric_type) {
+      const { data: metric } = await supabase
+        .from("daily_metrics")
+        .select("*")
+        .eq("member_id", teamMemberId)
+        .eq("date", todayStr)
+        .maybeSingle();
+      if (metric) {
+        const val = (metric as any)[entry.metric_type] || 0;
+        if (val > 0) {
+          await supabase.from("daily_metrics")
+            .update({ [entry.metric_type]: val - 1 })
+            .eq("id", metric.id);
+        }
+      }
+    }
+
+    setEntries(prev => prev.filter(e => e.id !== entry.id));
+    queryClient.invalidateQueries({ queryKey: ["daily-metrics"] });
+    onChanged();
+    toast.success("Registro removido!");
+    setDeletingId(null);
+  };
+
+  if (loading || entries.length === 0) return null;
+
+  const METRIC_SHORT: Record<string, string> = {
+    conexoes: "Conexão", conexoes_aceitas: "Aceita", abordagens: "Abordagem",
+    inmail: "InMail", follow_up: "Follow-up", numero: "Número",
+    lig_agendada: "Lig.Agend", lig_realizada: "Lig.Real",
+    reuniao_agendada: "Reun.Agend", reuniao_realizada: "Reun.Real",
+  };
+
+  // Group by metric_type for summary
+  const grouped: Record<string, any[]> = {};
+  entries.forEach(e => {
+    const key = e.metric_type || "other";
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(e);
+  });
+
+  return (
+    <div className="border border-border rounded-xl overflow-hidden mt-1">
+      <div className="px-3 py-2 bg-secondary/40 border-b border-border flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <ClipboardList size={11} className="text-primary" />
+          <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Registros de hoje</span>
+        </div>
+        <span className="text-[9px] font-bold text-accent bg-accent/10 px-1.5 py-0.5 rounded-md">{entries.length}</span>
+      </div>
+      <div className="max-h-[200px] overflow-y-auto divide-y divide-border/30">
+        {entries.slice(0, 30).map(entry => {
+          const createdAt = entry.created_at ? new Date(entry.created_at) : null;
+          return (
+            <div
+              key={entry.id}
+              className="flex items-center gap-2 px-3 py-1.5 hover:bg-secondary/20 transition-colors group"
+            >
+              <span className="text-[8px] font-mono text-muted-foreground/50 w-10 shrink-0">
+                {createdAt ? format(createdAt, "HH:mm") : "—"}
+              </span>
+              <span className="text-[8px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded shrink-0">
+                {METRIC_SHORT[entry.metric_type] || entry.metric_type || "—"}
+              </span>
+              <span className="text-[10px] text-card-foreground truncate flex-1">
+                {entry.lead_name || "—"}
+              </span>
+              <button
+                onClick={() => handleQuickDelete(entry)}
+                disabled={deletingId === entry.id}
+                className="p-1 rounded text-muted-foreground/20 hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover:opacity-100 disabled:opacity-50 shrink-0"
+                title="Apagar e ajustar métrica"
+              >
+                {deletingId === entry.id ? <Loader2 size={10} className="animate-spin" /> : <Trash2 size={10} />}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 type EntryStep = "select-metric" | "quantity-picker" | "lead-sheet" | "uploading";
 
 function DataEntryDialog({
