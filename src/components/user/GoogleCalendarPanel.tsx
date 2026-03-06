@@ -593,6 +593,20 @@ export function GoogleCalendarPanel({ teamMemberId, memberRole }: GoogleCalendar
           </div>
         </div>
         <div className="flex items-center gap-1.5">
+          {/* Disconnect button — only for own calendar */}
+          {isCloser && selectedCloser?.memberId === teamMemberId && (
+            <DisconnectCalendarButton onDisconnected={() => {
+              setConnected(false);
+              setCalendarEmail(null);
+              setEvents([]);
+              // Refresh closers list
+              supabase.functions.invoke("google-calendar-events", {
+                body: { action: "list_connected_closers" },
+              }).then(({ data }) => {
+                if (data?.closers) setConnectedClosers(data.closers);
+              });
+            }} />
+          )}
           <Button variant="ghost" size="sm" onClick={fetchEvents} className="h-7 w-7 p-0" title="Atualizar">
             <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
           </Button>
