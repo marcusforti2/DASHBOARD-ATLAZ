@@ -139,8 +139,8 @@ async function handleCreateFolders(
     .single();
   if (!course) throw new Error("Course not found");
 
-  // Find or create root "Treinamentos" folder
-  let rootFolderId = await findOrCreateRootFolder(accessToken);
+  // Use fixed root folder
+  const rootFolderId = TRAINING_ROOT_FOLDER_ID;
 
   // Create course folder if not exists
   let courseFolderId = course.drive_folder_id;
@@ -188,22 +188,8 @@ async function handleCreateFolders(
   return json({ success: true, folders: createdFolders });
 }
 
-// ── Find or create root "Treinamentos" folder ──
-async function findOrCreateRootFolder(accessToken: string): Promise<string> {
-  const searchUrl = new URL("https://www.googleapis.com/drive/v3/files");
-  searchUrl.searchParams.set("q", "name='📁 Treinamentos' and mimeType='application/vnd.google-apps.folder' and trashed=false");
-  searchUrl.searchParams.set("fields", "files(id,name)");
-  searchUrl.searchParams.set("spaces", "drive");
-
-  const res = await fetch(searchUrl.toString(), {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  const data = await res.json();
-
-  if (data.files?.length > 0) return data.files[0].id;
-
-  return await createDriveFolder(accessToken, "📁 Treinamentos");
-}
+// ── Fixed root folder for trainings ──
+const TRAINING_ROOT_FOLDER_ID = "1aDDLgU1n4Y5I157QoXyWJCypxCZyFh1U";
 
 // ── Sync videos from Drive folders to lessons ──
 async function handleSyncVideos(
