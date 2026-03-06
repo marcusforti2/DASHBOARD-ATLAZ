@@ -12,17 +12,24 @@ Deno.serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-    const { idea, targetRole } = await req.json();
+    const { idea, targetRole, numModules, numLessonsPerModule } = await req.json();
     if (!idea) throw new Error("idea is required");
+
+    const hasCustomStructure = numModules && numLessonsPerModule;
+    const structureRules = hasCustomStructure
+      ? `- Crie EXATAMENTE ${numModules} módulos
+- Cada módulo deve ter EXATAMENTE ${numLessonsPerModule} aulas
+- Total de aulas: ${numModules * numLessonsPerModule}`
+      : `- Máximo de 15 aulas no total (distribuídas entre os módulos)
+- Cada módulo deve ter 2-5 aulas
+- Máximo de 5 módulos`;
 
     const systemPrompt = `Você é um especialista em design instrucional para equipes comerciais (SDRs e Closers).
 
 O usuário vai descrever uma ideia de curso e você deve gerar a estrutura completa.
 
 REGRAS IMPORTANTES:
-- Máximo de 15 aulas no total (distribuídas entre os módulos)
-- Cada módulo deve ter 2-5 aulas
-- Máximo de 5 módulos
+${structureRules}
 - Títulos curtos e objetivos (máx 50 chars)
 - Descrições práticas e diretas (1-2 frases)
 - Cada aula deve ter uma "dica_gravacao" com sugestões práticas de como gravar aquela aula (equipamento, cenário, duração ideal, formato sugerido, roteiro resumido)
