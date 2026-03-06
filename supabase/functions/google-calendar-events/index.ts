@@ -1,0 +1,141 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  try {
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+    const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    // Authenticate user
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader) throw new Error("Unauthorized");
+
+    const anonClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user }, error: userError } = await anonClient.auth.getUser();
+    if (userError || !user) throw new Error("Unauthorized");
+
+    // Get tokens
+    const serviceClient = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+    const { data: tokenRow, error: tokenError } = await serviceClient
+      .from("google_calendar_tokens")
+      .select("*")
+      .eq("user_id", user.id)
+      .single();
+
+    if (tokenError || !tokenRow) {
+      return new Response(JSON.stringify({ error: "not_connected", message: "Google Calendar não conectado" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Refresh token if expired
+    let accessToken = tokenRow.access_token;
+    if (new Date(tokenRow.token_expires_at) <= new Date()) {
+      accessToken = await refreshAccessToken(tokenRow.refresh_token, serviceClient, user.id);
+    }
+
+    const body = req.method === "POST" ? await req.json() : {};
+    const action = body.action || "list";
+
+    if (action === "list") {
+      const timeMin = body.timeMin || new Date().toISOString();
+      const timeMax = body.timeMax || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+      const calUrl = new URL("https://www.googleapis.com/calendar/v3/calendars/primary/events");
+      calUrl.searchParams.set("timeMin", timeMin);
+      calUrl.searchParams.set("timeMax", timeMax);
+      calUrl.searchParams.set("singleEvents", "true");
+      calUrl.searchParams.set("orderBy", "startTime");
+      calUrl.searchParams.set("maxResults", "50");
+
+      const res = await fetch(calUrl.toString(), {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(`Google API error: ${JSON.stringify(data)}`);
+
+      return new Response(JSON.stringify({ events: data.items || [] }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "create") {
+      const { summary, description, startDateTime, endDateTime, attendees } = body;
+      if (!summary || !startDateTime || !endDateTime) throw new Error("Missing required fields");
+
+      const event: Record<string, unknown> = {
+        summary,
+        description: description || "",
+        start: { dateTime: startDateTime, timeZone: "America/Sao_Paulo" },
+        end: { dateTime: endDateTime, timeZone: "America/Sao_Paulo" },
+      };
+      if (attendees?.length) {
+        event.attendees = attendees.map((email: string) => ({ email }));
+      }
+
+      const res = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events?sendUpdates=all", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(event),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(`Google API error: ${JSON.stringify(data)}`);
+
+      return new Response(JSON.stringify({ event: data }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    throw new Error(`Unknown action: ${action}`);
+  } catch (e) {
+    console.error("google-calendar-events error:", e);
+    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+});
+
+async function refreshAccessToken(refreshToken: string, serviceClient: ReturnType<typeof createClient>, userId: string): Promise<string> {
+  const CLIENT_ID = Deno.env.get("GOOGLE_CLIENT_ID")!;
+  const CLIENT_SECRET = Deno.env.get("GOOGLE_CLIENT_SECRET")!;
+
+  const res = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: CLIENT_ID,
+      client_secret: CLIENT_SECRET,
+      refresh_token: refreshToken,
+      grant_type: "refresh_token",
+    }),
+  });
+
+  const data = await res.json();
+  if (!res.ok) throw new Error(`Token refresh failed: ${JSON.stringify(data)}`);
+
+  const expiresAt = new Date(Date.now() + data.expires_in * 1000).toISOString();
+
+  await serviceClient
+    .from("google_calendar_tokens")
+    .update({
+      access_token: data.access_token,
+      token_expires_at: expiresAt,
+    })
+    .eq("user_id", userId);
+
+  return data.access_token;
+}
