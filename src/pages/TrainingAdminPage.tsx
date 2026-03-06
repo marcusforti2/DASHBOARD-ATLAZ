@@ -500,7 +500,21 @@ function AiCourseGeneratorDialog({ onSaved }: { onSaved: () => void }) {
         }
       }
 
-      toast.success("Curso criado com sucesso! Agora adicione os links dos vídeos.");
+      // Auto-create Drive folders
+      try {
+        const { data: driveData, error: driveErr } = await supabase.functions.invoke("google-drive-training", {
+          body: { action: "create_folders", courseId: course.id },
+        });
+        if (driveErr || driveData?.error) {
+          console.warn("Drive folders not created:", driveErr?.message || driveData?.error);
+          toast.success("Curso criado! ⚠️ Pastas do Drive não foram criadas (conecte o Drive para criar).");
+        } else {
+          toast.success(`Curso criado com ${driveData.folders?.length || 0} pastas no Drive! 🎉`);
+        }
+      } catch {
+        toast.success("Curso criado! ⚠️ Conecte o Drive para criar as pastas automaticamente.");
+      }
+
       setOpen(false);
       setStructure(null);
       setIdea("");
