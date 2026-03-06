@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   Calendar as CalendarIcon, Plus, RefreshCw, Link2, Loader2, Clock, MapPin,
   Users, ExternalLink, ChevronLeft, ChevronRight, List, LayoutGrid, Columns,
-  Search, Filter, Video, Phone, Bell, UserPlus, X
+  Search, Video, Phone, Bell, UserPlus, X, User as UserIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,11 +15,12 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
   format, parseISO, addHours, addDays, startOfWeek, endOfWeek, startOfDay,
-  endOfDay, isSameDay, isWithinInterval, eachDayOfInterval, eachHourOfInterval,
-  setHours, setMinutes, getHours, getMinutes, differenceInMinutes, subDays, subWeeks, addWeeks
+  endOfDay, isSameDay, eachDayOfInterval,
+  getHours, differenceInMinutes, subWeeks, addWeeks
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -39,13 +40,21 @@ interface CalendarEvent {
 
 type ViewMode = "day" | "week" | "list";
 
-interface TeamMember {
-  id: string;
-  name: string;
-  member_role: string;
+interface ConnectedCloser {
+  memberId: string;
+  memberName: string;
+  memberRole: string;
+  userId: string | null;
+  connected: boolean;
+  calendarEmail: string | null;
 }
 
-const HOURS = Array.from({ length: 15 }, (_, i) => i + 7); // 7h - 21h
+interface GoogleCalendarPanelProps {
+  teamMemberId?: string;
+  memberRole?: string;
+}
+
+const HOURS = Array.from({ length: 15 }, (_, i) => i + 7);
 
 const REMINDER_OPTIONS = [
   { label: "24h antes", value: "24h", minutes: 1440 },
@@ -56,18 +65,21 @@ const REMINDER_OPTIONS = [
   { label: "Na hora", value: "0min", minutes: 0 },
 ];
 
-export function GoogleCalendarPanel() {
+export function GoogleCalendarPanel({ teamMemberId, memberRole }: GoogleCalendarPanelProps) {
+  const [connectedClosers, setConnectedClosers] = useState<ConnectedCloser[]>([]);
+  const [selectedCloserId, setSelectedCloserId] = useState<string | null>(null);
+  const [loadingClosers, setLoadingClosers] = useState(true);
+
   const [connected, setConnected] = useState<boolean | null>(null);
   const [calendarEmail, setCalendarEmail] = useState<string | null>(null);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [creating, setCreating] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("week");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [searchQuery, setSearchQuery] = useState("");
-  const [showFilters, setShowFilters] = useState(false);
 
   // New event form
   const [newTitle, setNewTitle] = useState("");
@@ -81,50 +93,56 @@ export function GoogleCalendarPanel() {
   const [leadPhone, setLeadPhone] = useState("");
   const [enableReminders, setEnableReminders] = useState(true);
   const [selectedReminders, setSelectedReminders] = useState<string[]>(["24h", "1h", "5min"]);
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
 
+  const isCloser = memberRole === "closer" || memberRole === "sdr_closer";
+  const isSdr = memberRole === "sdr" && !isCloser;
+
   const dateRange = useMemo(() => {
-    if (viewMode === "day") {
-      return { start: startOfDay(currentDate), end: endOfDay(currentDate) };
-    }
-    if (viewMode === "week") {
-      return {
-        start: startOfWeek(currentDate, { weekStartsOn: 0 }),
-        end: endOfWeek(currentDate, { weekStartsOn: 0 }),
-      };
-    }
-    // list: 14 days
+    if (viewMode === "day") return { start: startOfDay(currentDate), end: endOfDay(currentDate) };
+    if (viewMode === "week") return { start: startOfWeek(currentDate, { weekStartsOn: 0 }), end: endOfWeek(currentDate, { weekStartsOn: 0 }) };
     return { start: startOfDay(currentDate), end: endOfDay(addDays(currentDate, 13)) };
   }, [viewMode, currentDate]);
 
-  const checkConnection = useCallback(async () => {
-    const { data } = await supabase
-      .from("google_calendar_tokens")
-      .select("calendar_email")
-      .maybeSingle();
-    setConnected(!!data);
-    setCalendarEmail(data?.calendar_email || null);
-    return !!data;
-  }, []);
-
-  // Fetch only closers for selector (each closer = one calendar/agenda)
+  // Fetch connected closers
   useEffect(() => {
-    supabase.from("team_members").select("id, name, member_role").eq("active", true).order("name")
-      .then(({ data }) => {
-        if (data) {
-          const closers = data.filter(m => m.member_role === "closer" || m.member_role === "sdr_closer");
-          setTeamMembers(closers);
+    const fetchClosers = async () => {
+      setLoadingClosers(true);
+      try {
+        const { data, error } = await supabase.functions.invoke("google-calendar-events", {
+          body: { action: "list_connected_closers" },
+        });
+        if (error) throw error;
+        const closers: ConnectedCloser[] = data?.closers || [];
+        setConnectedClosers(closers);
+
+        // Auto-select: closer sees own calendar, SDR picks first connected
+        const connectedOnes = closers.filter(c => c.connected);
+        if (isCloser) {
+          const own = connectedOnes.find(c => c.memberId === teamMemberId);
+          setSelectedCloserId(own?.memberId || connectedOnes[0]?.memberId || null);
+        } else {
+          setSelectedCloserId(connectedOnes[0]?.memberId || null);
         }
-      });
-  }, []);
+      } catch (e) {
+        console.error("Error fetching closers:", e);
+      } finally {
+        setLoadingClosers(false);
+      }
+    };
+    fetchClosers();
+  }, [teamMemberId, isCloser]);
+
+  const selectedCloser = connectedClosers.find(c => c.memberId === selectedCloserId);
 
   const fetchEvents = useCallback(async () => {
+    if (!selectedCloser?.userId) return;
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("google-calendar-events", {
         body: {
           action: "list",
+          targetUserId: selectedCloser.userId,
           timeMin: dateRange.start.toISOString(),
           timeMax: dateRange.end.toISOString(),
         },
@@ -136,19 +154,22 @@ export function GoogleCalendarPanel() {
       }
       setEvents(data?.events || []);
       setConnected(true);
+      setCalendarEmail(selectedCloser.calendarEmail || null);
     } catch (e) {
       console.error("Error fetching events:", e);
     } finally {
       setLoading(false);
     }
-  }, [dateRange]);
+  }, [dateRange, selectedCloser]);
 
   useEffect(() => {
-    checkConnection().then(ok => {
-      if (ok) fetchEvents();
-      else setLoading(false);
-    });
-  }, [checkConnection, fetchEvents]);
+    if (selectedCloser?.connected) {
+      fetchEvents();
+    } else {
+      setEvents([]);
+      setConnected(selectedCloser ? false : null);
+    }
+  }, [selectedCloser, fetchEvents]);
 
   const handleConnect = async () => {
     setConnecting(true);
@@ -159,12 +180,20 @@ export function GoogleCalendarPanel() {
         window.open(data.url, "_blank", "width=600,height=700");
         toast.info("Complete a autorização na janela do Google");
         const interval = setInterval(async () => {
-          const isConnected = await checkConnection();
-          if (isConnected) {
+          const { data: check } = await supabase.from("google_calendar_tokens").select("calendar_email").maybeSingle();
+          if (check) {
             clearInterval(interval);
             setConnecting(false);
             toast.success("Google Calendar conectado!");
-            fetchEvents();
+            // Refetch closers
+            const { data: refreshed } = await supabase.functions.invoke("google-calendar-events", {
+              body: { action: "list_connected_closers" },
+            });
+            if (refreshed?.closers) {
+              setConnectedClosers(refreshed.closers);
+              const own = (refreshed.closers as ConnectedCloser[]).find(c => c.memberId === teamMemberId && c.connected);
+              if (own) setSelectedCloserId(own.memberId);
+            }
           }
         }, 3000);
         setTimeout(() => { clearInterval(interval); setConnecting(false); }, 120000);
@@ -177,68 +206,53 @@ export function GoogleCalendarPanel() {
 
   const handleCreateEvent = async () => {
     if (!newTitle || !newStartDate) { toast.error("Preencha título e data"); return; }
+    if (!selectedCloser?.userId) { toast.error("Selecione uma agenda"); return; }
     setCreating(true);
     try {
       const startDateTime = `${newStartDate}T${newStartTime}:00`;
       const endDateTime = `${newStartDate}T${newEndTime}:00`;
       const attendees = newAttendees.split(",").map(e => e.trim()).filter(e => e.includes("@"));
       const { data, error } = await supabase.functions.invoke("google-calendar-events", {
-        body: { action: "create", summary: newTitle, description: newDescription, startDateTime, endDateTime, attendees, addMeet },
+        body: {
+          action: "create",
+          targetUserId: selectedCloser.userId,
+          summary: newTitle,
+          description: newDescription,
+          startDateTime, endDateTime, attendees, addMeet,
+        },
       });
       if (error) throw error;
 
       const eventId = data?.event?.id || "";
       const eventStartAt = new Date(`${newStartDate}T${newStartTime}:00`);
 
-      // Create WhatsApp reminders if enabled
+      // Create WhatsApp reminders
       if (enableReminders && (leadPhone || selectedMembers.length > 0)) {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           const reminders: any[] = [];
-          
           for (const reminderValue of selectedReminders) {
             const opt = REMINDER_OPTIONS.find(r => r.value === reminderValue);
             if (!opt) continue;
             const remindAt = new Date(eventStartAt.getTime() - opt.minutes * 60000);
-
-            // Lead reminder
             if (leadPhone) {
               reminders.push({
-                event_google_id: eventId,
-                event_title: newTitle,
-                event_description: newDescription,
-                event_start_at: eventStartAt.toISOString(),
-                lead_name: leadName,
-                lead_phone: leadPhone,
-                team_member_ids: selectedMembers,
-                remind_at: remindAt.toISOString(),
-                reminder_type: "lead",
-                reminder_label: reminderValue,
-                created_by: user.id,
+                event_google_id: eventId, event_title: newTitle, event_description: newDescription,
+                event_start_at: eventStartAt.toISOString(), lead_name: leadName, lead_phone: leadPhone,
+                team_member_ids: selectedMembers, remind_at: remindAt.toISOString(),
+                reminder_type: "lead", reminder_label: reminderValue, created_by: user.id,
               });
             }
-
-            // Team member reminder
             if (selectedMembers.length > 0) {
               reminders.push({
-                event_google_id: eventId,
-                event_title: newTitle,
-                event_description: newDescription,
-                event_start_at: eventStartAt.toISOString(),
-                lead_name: leadName,
-                lead_phone: leadPhone,
-                team_member_ids: selectedMembers,
-                remind_at: remindAt.toISOString(),
-                reminder_type: "team",
-                reminder_label: reminderValue,
-                created_by: user.id,
+                event_google_id: eventId, event_title: newTitle, event_description: newDescription,
+                event_start_at: eventStartAt.toISOString(), lead_name: leadName, lead_phone: leadPhone,
+                team_member_ids: selectedMembers, remind_at: remindAt.toISOString(),
+                reminder_type: "team", reminder_label: reminderValue, created_by: user.id,
               });
             }
           }
-
-          if (reminders.length > 0) {
-            await supabase.from("event_reminders").insert(reminders);
-          }
+          if (reminders.length > 0) await supabase.from("event_reminders").insert(reminders);
         }
       }
 
@@ -246,14 +260,14 @@ export function GoogleCalendarPanel() {
       if (meetLink) {
         toast.success(
           <div className="space-y-1">
-            <p className="font-semibold">Evento criado com Google Meet!</p>
+            <p className="font-semibold">Evento criado na agenda de {selectedCloser.memberName}!</p>
             <a href={meetLink} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline break-all">{meetLink}</a>
             {enableReminders && leadPhone && <p className="text-[10px] text-muted-foreground">📱 Lembretes WhatsApp agendados</p>}
           </div>,
           { duration: 8000 }
         );
       } else {
-        toast.success(enableReminders && leadPhone ? "Evento criado! Lembretes WhatsApp agendados 📱" : "Evento criado!");
+        toast.success(`Evento criado na agenda de ${selectedCloser.memberName}!`);
       }
       setDialogOpen(false);
       setNewTitle(""); setNewDescription(""); setNewAttendees("");
@@ -302,23 +316,51 @@ export function GoogleCalendarPanel() {
     }
   };
 
-  // Not connected state
-  if (connected === false) {
+  const connectedClosersList = connectedClosers.filter(c => c.connected);
+
+  // ── Loading closers ──
+  if (loadingClosers) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="animate-spin text-primary" size={24} />
+      </div>
+    );
+  }
+
+  // ── Closer without connection: show connect button ──
+  if (isCloser && !connectedClosers.find(c => c.memberId === teamMemberId)?.connected) {
     return (
       <div className="flex flex-col items-center justify-center py-16 space-y-6">
         <div className="p-4 rounded-2xl bg-primary/10">
           <CalendarIcon className="text-primary" size={40} />
         </div>
         <div className="text-center space-y-2">
-          <h3 className="text-lg font-bold text-foreground">Conectar Google Calendar</h3>
+          <h3 className="text-lg font-bold text-foreground">Conectar sua Agenda</h3>
           <p className="text-sm text-muted-foreground max-w-xs">
-            Sincronize suas reuniões e crie eventos diretamente pela plataforma
+            Conecte seu Google Calendar para que o time possa agendar reuniões na sua agenda
           </p>
         </div>
         <Button onClick={handleConnect} disabled={connecting} className="gap-2">
           {connecting ? <Loader2 size={16} className="animate-spin" /> : <Link2 size={16} />}
           {connecting ? "Conectando..." : "Conectar Google Calendar"}
         </Button>
+      </div>
+    );
+  }
+
+  // ── SDR/anyone: no connected closers ──
+  if (connectedClosersList.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 space-y-4">
+        <div className="p-4 rounded-2xl bg-muted">
+          <CalendarIcon className="text-muted-foreground" size={40} />
+        </div>
+        <div className="text-center space-y-2">
+          <h3 className="text-lg font-bold text-foreground">Nenhuma agenda disponível</h3>
+          <p className="text-sm text-muted-foreground max-w-xs">
+            Nenhum closer conectou sua agenda ainda. Peça aos closers para conectar o Google Calendar.
+          </p>
+        </div>
       </div>
     );
   }
@@ -333,7 +375,69 @@ export function GoogleCalendarPanel() {
     return `${format(currentDate, "dd MMM", { locale: ptBR })} — ${format(addDays(currentDate, 13), "dd MMM yyyy", { locale: ptBR })}`;
   };
 
-  // ---- VIEWS ----
+  // ── VIEWS ──
+
+  const EventChip = ({ event }: { event: CalendarEvent }) => {
+    const start = getEventStart(event);
+    const end = getEventEnd(event);
+    const duration = differenceInMinutes(end, start);
+    const meetLink = event.hangoutLink || event.conferenceData?.entryPoints?.find(e => e.entryPointType === "video")?.uri;
+
+    return (
+      <div className="group flex items-start gap-3 p-2.5 rounded-lg bg-primary/5 border border-primary/10 hover:bg-primary/10 transition-colors cursor-default">
+        <div className="w-1 self-stretch rounded-full bg-primary shrink-0" />
+        <div className="flex-1 min-w-0 space-y-0.5">
+          <h4 className="text-sm font-semibold text-foreground truncate">{event.summary}</h4>
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+              <Clock size={10} />
+              {format(start, "HH:mm")} — {format(end, "HH:mm")}
+              <span className="text-muted-foreground/60">({duration}min)</span>
+            </span>
+            {event.location && (
+              <span className="flex items-center gap-1 text-[11px] text-muted-foreground truncate max-w-[180px]">
+                <MapPin size={10} />
+                {event.location}
+              </span>
+            )}
+            {meetLink && (
+              <a href={meetLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[11px] text-primary hover:underline">
+                <Video size={10} /> Google Meet
+              </a>
+            )}
+          </div>
+          {event.attendees && event.attendees.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap mt-1">
+              <Users size={10} className="text-muted-foreground" />
+              {event.attendees.slice(0, 4).map(a => (
+                <Badge key={a.email} variant="outline" className={cn("text-[9px] h-4 px-1.5", getStatusColor(a.responseStatus))}>
+                  {a.email.split("@")[0]}
+                </Badge>
+              ))}
+              {event.attendees.length > 4 && <span className="text-[9px] text-muted-foreground">+{event.attendees.length - 4}</span>}
+            </div>
+          )}
+        </div>
+        {event.htmlLink && (
+          <a href={event.htmlLink} target="_blank" rel="noopener noreferrer" className="p-1 rounded text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+            <ExternalLink size={12} />
+          </a>
+        )}
+      </div>
+    );
+  };
+
+  const EventChipSmall = ({ event }: { event: CalendarEvent }) => {
+    const start = getEventStart(event);
+    return (
+      <a href={event.htmlLink} target="_blank" rel="noopener noreferrer"
+        className="block text-[9px] leading-tight font-medium text-primary-foreground bg-primary/80 hover:bg-primary rounded px-1 py-0.5 truncate"
+        title={`${event.summary} · ${format(start, "HH:mm")}`}
+      >
+        {format(start, "HH:mm")} {event.summary}
+      </a>
+    );
+  };
 
   const renderDayView = () => {
     const dayEvents = filteredEvents.filter(e => isSameDay(getEventStart(e), currentDate));
@@ -341,19 +445,14 @@ export function GoogleCalendarPanel() {
       <div className="relative border border-border rounded-xl overflow-hidden bg-card">
         <div className="overflow-y-auto max-h-[600px] scrollbar-none">
           {HOURS.map(hour => {
-            const hourEvents = dayEvents.filter(e => {
-              const h = getHours(getEventStart(e));
-              return h === hour;
-            });
+            const hourEvents = dayEvents.filter(e => getHours(getEventStart(e)) === hour);
             return (
               <div key={hour} className="flex border-b border-border/50 min-h-[60px]">
                 <div className="w-14 shrink-0 py-2 pr-2 text-right text-[10px] font-medium text-muted-foreground border-r border-border/50">
                   {`${hour.toString().padStart(2, "0")}:00`}
                 </div>
                 <div className="flex-1 relative py-1 px-2 space-y-1">
-                  {hourEvents.map(ev => (
-                    <EventChip key={ev.id} event={ev} />
-                  ))}
+                  {hourEvents.map(ev => <EventChip key={ev.id} event={ev} />)}
                 </div>
               </div>
             );
@@ -370,31 +469,15 @@ export function GoogleCalendarPanel() {
 
     return (
       <div className="border border-border rounded-xl overflow-hidden bg-card">
-        {/* Day headers */}
         <div className="grid grid-cols-[56px_repeat(7,1fr)] border-b border-border">
           <div className="border-r border-border/50" />
           {days.map(day => (
-            <div
-              key={day.toISOString()}
-              className={cn(
-                "text-center py-2 border-r border-border/50 last:border-r-0",
-                isSameDay(day, today) && "bg-primary/10"
-              )}
-            >
-              <div className="text-[10px] uppercase text-muted-foreground font-medium">
-                {format(day, "EEE", { locale: ptBR })}
-              </div>
-              <div className={cn(
-                "text-sm font-bold",
-                isSameDay(day, today) ? "text-primary" : "text-foreground"
-              )}>
-                {format(day, "dd")}
-              </div>
+            <div key={day.toISOString()} className={cn("text-center py-2 border-r border-border/50 last:border-r-0", isSameDay(day, today) && "bg-primary/10")}>
+              <div className="text-[10px] uppercase text-muted-foreground font-medium">{format(day, "EEE", { locale: ptBR })}</div>
+              <div className={cn("text-sm font-bold", isSameDay(day, today) ? "text-primary" : "text-foreground")}>{format(day, "dd")}</div>
             </div>
           ))}
         </div>
-
-        {/* Time grid */}
         <div className="overflow-y-auto max-h-[520px] scrollbar-none">
           {HOURS.map(hour => (
             <div key={hour} className="grid grid-cols-[56px_repeat(7,1fr)] border-b border-border/50 min-h-[52px]">
@@ -408,9 +491,7 @@ export function GoogleCalendarPanel() {
                 });
                 return (
                   <div key={day.toISOString()} className="border-r border-border/50 last:border-r-0 px-0.5 py-0.5">
-                    {cellEvents.map(ev => (
-                      <EventChipSmall key={ev.id} event={ev} />
-                    ))}
+                    {cellEvents.map(ev => <EventChipSmall key={ev.id} event={ev} />)}
                   </div>
                 );
               })}
@@ -449,25 +530,17 @@ export function GoogleCalendarPanel() {
             <div className="flex items-center gap-2 mb-2">
               <div className={cn(
                 "flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold",
-                isSameDay(parseISO(dateKey), new Date())
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary text-secondary-foreground"
+                isSameDay(parseISO(dateKey), new Date()) ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
               )}>
                 {format(parseISO(dateKey), "dd")}
               </div>
               <div>
-                <p className="text-xs font-semibold text-foreground capitalize">
-                  {format(parseISO(dateKey), "EEEE", { locale: ptBR })}
-                </p>
-                <p className="text-[10px] text-muted-foreground">
-                  {format(parseISO(dateKey), "MMMM yyyy", { locale: ptBR })}
-                </p>
+                <p className="text-xs font-semibold text-foreground capitalize">{format(parseISO(dateKey), "EEEE", { locale: ptBR })}</p>
+                <p className="text-[10px] text-muted-foreground">{format(parseISO(dateKey), "MMMM yyyy", { locale: ptBR })}</p>
               </div>
             </div>
             <div className="space-y-1.5 ml-11">
-              {dayEvents.map(ev => (
-                <EventChip key={ev.id} event={ev} />
-              ))}
+              {dayEvents.map(ev => <EventChip key={ev.id} event={ev} />)}
             </div>
           </div>
         ))}
@@ -475,92 +548,46 @@ export function GoogleCalendarPanel() {
     );
   };
 
-  const EventChip = ({ event }: { event: CalendarEvent }) => {
-    const start = getEventStart(event);
-    const end = getEventEnd(event);
-    const duration = differenceInMinutes(end, start);
-    const meetLink = event.hangoutLink || event.conferenceData?.entryPoints?.find(e => e.entryPointType === "video")?.uri;
-
-    return (
-      <div className="group flex items-start gap-3 p-2.5 rounded-lg bg-primary/5 border border-primary/10 hover:bg-primary/10 transition-colors cursor-default">
-        <div className="w-1 self-stretch rounded-full bg-primary shrink-0" />
-        <div className="flex-1 min-w-0 space-y-0.5">
-          <h4 className="text-sm font-semibold text-foreground truncate">{event.summary}</h4>
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-              <Clock size={10} />
-              {format(start, "HH:mm")} — {format(end, "HH:mm")}
-              <span className="text-muted-foreground/60">({duration}min)</span>
-            </span>
-            {event.location && (
-              <span className="flex items-center gap-1 text-[11px] text-muted-foreground truncate max-w-[180px]">
-                <MapPin size={10} />
-                {event.location}
-              </span>
-            )}
-            {meetLink && (
-              <a
-                href={meetLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1 text-[11px] text-primary hover:underline"
-              >
-                <Video size={10} />
-                Google Meet
-              </a>
-            )}
-          </div>
-          {event.attendees && event.attendees.length > 0 && (
-            <div className="flex items-center gap-1.5 flex-wrap mt-1">
-              <Users size={10} className="text-muted-foreground" />
-              {event.attendees.slice(0, 4).map(a => (
-                <Badge key={a.email} variant="outline" className={cn("text-[9px] h-4 px-1.5", getStatusColor(a.responseStatus))}>
-                  {a.email.split("@")[0]}
-                </Badge>
-              ))}
-              {event.attendees.length > 4 && (
-                <span className="text-[9px] text-muted-foreground">+{event.attendees.length - 4}</span>
-              )}
-            </div>
-          )}
-        </div>
-        {event.htmlLink && (
-          <a
-            href={event.htmlLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="p-1 rounded text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-          >
-            <ExternalLink size={12} />
-          </a>
-        )}
-      </div>
-    );
-  };
-
-  const EventChipSmall = ({ event }: { event: CalendarEvent }) => {
-    const start = getEventStart(event);
-    return (
-      <a
-        href={event.htmlLink}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="block text-[9px] leading-tight font-medium text-primary-foreground bg-primary/80 hover:bg-primary rounded px-1 py-0.5 truncate"
-        title={`${event.summary} · ${format(start, "HH:mm")}`}
-      >
-        {format(start, "HH:mm")} {event.summary}
-      </a>
-    );
-  };
-
   return (
     <div className="space-y-3">
-      {/* Top bar */}
+      {/* ── Closer Selector ── */}
+      <div className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card">
+        <UserIcon size={16} className="text-primary shrink-0" />
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] text-muted-foreground font-medium mb-1">
+            {isSdr ? "Selecione a agenda do closer" : "Sua agenda"}
+          </p>
+          <Select value={selectedCloserId || ""} onValueChange={setSelectedCloserId}>
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue placeholder="Selecione um closer..." />
+            </SelectTrigger>
+            <SelectContent>
+              {connectedClosersList.map(c => (
+                <SelectItem key={c.memberId} value={c.memberId}>
+                  <div className="flex items-center gap-2">
+                    <span>{c.memberName}</span>
+                    {c.calendarEmail && (
+                      <span className="text-[10px] text-muted-foreground">({c.calendarEmail})</span>
+                    )}
+                    {c.memberId === teamMemberId && (
+                      <Badge variant="outline" className="text-[8px] h-3.5 px-1">Você</Badge>
+                    )}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* ── Top bar ── */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2">
           <CalendarIcon size={18} className="text-primary" />
           <div>
-            <h3 className="text-sm font-bold text-foreground leading-none">Agenda</h3>
+            <h3 className="text-sm font-bold text-foreground leading-none">
+              Agenda de {selectedCloser?.memberName || "..."}
+            </h3>
             {calendarEmail && <p className="text-[10px] text-muted-foreground">{calendarEmail}</p>}
           </div>
         </div>
@@ -575,136 +602,132 @@ export function GoogleCalendarPanel() {
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-md max-h-[90vh]">
-              <DialogHeader><DialogTitle>Criar Evento</DialogTitle></DialogHeader>
+              <DialogHeader>
+                <DialogTitle>Criar Evento — {selectedCloser?.memberName}</DialogTitle>
+              </DialogHeader>
               <ScrollArea className="max-h-[70vh] pr-3">
-              <div className="space-y-3">
-                <div>
-                  <Label className="text-xs">Título *</Label>
-                  <Input value={newTitle} onChange={e => setNewTitle(e.target.value)} placeholder="Reunião com cliente" />
-                </div>
-                <div>
-                  <Label className="text-xs">Data *</Label>
-                  <Input type="date" value={newStartDate} onChange={e => setNewStartDate(e.target.value)} min={format(new Date(), "yyyy-MM-dd")} />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div><Label className="text-xs">Início</Label><Input type="time" value={newStartTime} onChange={e => setNewStartTime(e.target.value)} /></div>
-                  <div><Label className="text-xs">Fim</Label><Input type="time" value={newEndTime} onChange={e => setNewEndTime(e.target.value)} /></div>
-                </div>
-                <div>
-                  <Label className="text-xs">Descrição</Label>
-                  <Textarea value={newDescription} onChange={e => setNewDescription(e.target.value)} placeholder="Detalhes da reunião, contexto do lead..." rows={2} />
-                </div>
-
-                {/* Team member selector */}
-                <div className="rounded-lg border border-border p-3 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <UserPlus size={14} className="text-primary" />
-                    <Label className="text-xs font-semibold">Para quem é o agendamento?</Label>
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-xs">Título *</Label>
+                    <Input value={newTitle} onChange={e => setNewTitle(e.target.value)} placeholder="Reunião com cliente" />
                   </div>
-                  <div className="grid grid-cols-2 gap-1.5 max-h-[120px] overflow-y-auto scrollbar-none">
-                    {teamMembers.map(m => (
-                      <label key={m.id} className={cn(
-                        "flex items-center gap-2 p-1.5 rounded-md cursor-pointer transition-colors text-xs",
-                        selectedMembers.includes(m.id) ? "bg-primary/10 text-primary" : "hover:bg-secondary text-foreground"
-                      )}>
-                        <Checkbox
-                          checked={selectedMembers.includes(m.id)}
-                          onCheckedChange={(checked) => {
-                            setSelectedMembers(prev =>
-                              checked ? [...prev, m.id] : prev.filter(id => id !== m.id)
-                            );
-                          }}
-                          className="h-3.5 w-3.5"
-                        />
-                        <span className="truncate">{m.name}</span>
-                        <Badge variant="outline" className="text-[8px] h-3.5 px-1 ml-auto shrink-0">
-                          {m.member_role === "closer" ? "C" : m.member_role === "sdr" ? "S" : "S+C"}
-                        </Badge>
-                      </label>
-                    ))}
+                  <div>
+                    <Label className="text-xs">Data *</Label>
+                    <Input type="date" value={newStartDate} onChange={e => setNewStartDate(e.target.value)} min={format(new Date(), "yyyy-MM-dd")} />
                   </div>
-                </div>
-
-                {/* Lead info */}
-                <div className="rounded-lg border border-border p-3 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Phone size={14} className="text-accent" />
-                    <Label className="text-xs font-semibold">Dados do Lead (WhatsApp)</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div><Label className="text-xs">Início</Label><Input type="time" value={newStartTime} onChange={e => setNewStartTime(e.target.value)} /></div>
+                    <div><Label className="text-xs">Fim</Label><Input type="time" value={newEndTime} onChange={e => setNewEndTime(e.target.value)} /></div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Label className="text-[10px] text-muted-foreground">Nome</Label>
-                      <Input value={leadName} onChange={e => setLeadName(e.target.value)} placeholder="João Silva" className="h-8 text-xs" />
-                    </div>
-                    <div>
-                      <Label className="text-[10px] text-muted-foreground">WhatsApp</Label>
-                      <Input value={leadPhone} onChange={e => setLeadPhone(e.target.value)} placeholder="5511999999999" className="h-8 text-xs" />
-                    </div>
+                  <div>
+                    <Label className="text-xs">Descrição</Label>
+                    <Textarea value={newDescription} onChange={e => setNewDescription(e.target.value)} placeholder="Detalhes da reunião, contexto do lead..." rows={2} />
                   </div>
-                </div>
 
-                <div>
-                  <Label className="text-xs">Convidados (e-mails separados por vírgula)</Label>
-                  <Input value={newAttendees} onChange={e => setNewAttendees(e.target.value)} placeholder="joao@email.com, maria@email.com" />
-                </div>
-
-                {/* Google Meet toggle */}
-                <div className="flex items-center justify-between rounded-lg border border-border p-3">
-                  <div className="flex items-center gap-2">
-                    <Video size={16} className="text-primary" />
-                    <div>
-                      <p className="text-xs font-medium text-foreground">Google Meet</p>
-                      <p className="text-[10px] text-muted-foreground">Gerar link de videoconferência</p>
-                    </div>
-                  </div>
-                  <Switch checked={addMeet} onCheckedChange={setAddMeet} />
-                </div>
-
-                {/* WhatsApp Reminders */}
-                <div className="rounded-lg border border-border p-3 space-y-2">
-                  <div className="flex items-center justify-between">
+                  {/* Team member selector - only closers */}
+                  <div className="rounded-lg border border-border p-3 space-y-2">
                     <div className="flex items-center gap-2">
-                      <Bell size={14} className="text-[hsl(38,92%,50%)]" />
+                      <UserPlus size={14} className="text-primary" />
+                      <Label className="text-xs font-semibold">Notificar closers do agendamento</Label>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5 max-h-[120px] overflow-y-auto scrollbar-none">
+                      {connectedClosersList.map(m => (
+                        <label key={m.memberId} className={cn(
+                          "flex items-center gap-2 p-1.5 rounded-md cursor-pointer transition-colors text-xs",
+                          selectedMembers.includes(m.memberId) ? "bg-primary/10 text-primary" : "hover:bg-secondary text-foreground"
+                        )}>
+                          <Checkbox
+                            checked={selectedMembers.includes(m.memberId)}
+                            onCheckedChange={(checked) => {
+                              setSelectedMembers(prev =>
+                                checked ? [...prev, m.memberId] : prev.filter(id => id !== m.memberId)
+                              );
+                            }}
+                            className="h-3.5 w-3.5"
+                          />
+                          <span className="truncate">{m.memberName}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Lead info */}
+                  <div className="rounded-lg border border-border p-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Phone size={14} className="text-accent" />
+                      <Label className="text-xs font-semibold">Dados do Lead (WhatsApp)</Label>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <p className="text-xs font-medium text-foreground">Lembretes WhatsApp</p>
-                        <p className="text-[10px] text-muted-foreground">Anti-noshow com IA · horário comercial</p>
+                        <Label className="text-[10px] text-muted-foreground">Nome</Label>
+                        <Input value={leadName} onChange={e => setLeadName(e.target.value)} placeholder="João Silva" className="h-8 text-xs" />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] text-muted-foreground">WhatsApp</Label>
+                        <Input value={leadPhone} onChange={e => setLeadPhone(e.target.value)} placeholder="5511999999999" className="h-8 text-xs" />
                       </div>
                     </div>
-                    <Switch checked={enableReminders} onCheckedChange={setEnableReminders} />
                   </div>
-                  {enableReminders && (
-                    <div className="flex flex-wrap gap-1.5 pt-1">
-                      {REMINDER_OPTIONS.map(opt => (
-                        <label
-                          key={opt.value}
-                          className={cn(
+
+                  <div>
+                    <Label className="text-xs">Convidados (e-mails separados por vírgula)</Label>
+                    <Input value={newAttendees} onChange={e => setNewAttendees(e.target.value)} placeholder="joao@email.com, maria@email.com" />
+                  </div>
+
+                  {/* Google Meet toggle */}
+                  <div className="flex items-center justify-between rounded-lg border border-border p-3">
+                    <div className="flex items-center gap-2">
+                      <Video size={16} className="text-primary" />
+                      <div>
+                        <p className="text-xs font-medium text-foreground">Google Meet</p>
+                        <p className="text-[10px] text-muted-foreground">Gerar link de videoconferência</p>
+                      </div>
+                    </div>
+                    <Switch checked={addMeet} onCheckedChange={setAddMeet} />
+                  </div>
+
+                  {/* WhatsApp Reminders */}
+                  <div className="rounded-lg border border-border p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Bell size={14} className="text-[hsl(38,92%,50%)]" />
+                        <div>
+                          <p className="text-xs font-medium text-foreground">Lembretes WhatsApp</p>
+                          <p className="text-[10px] text-muted-foreground">Anti-noshow com IA · horário comercial</p>
+                        </div>
+                      </div>
+                      <Switch checked={enableReminders} onCheckedChange={setEnableReminders} />
+                    </div>
+                    {enableReminders && (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {REMINDER_OPTIONS.map(opt => (
+                          <label key={opt.value} className={cn(
                             "flex items-center gap-1 px-2 py-1 rounded-full text-[10px] cursor-pointer transition-colors border",
                             selectedReminders.includes(opt.value)
                               ? "bg-primary/10 border-primary/30 text-primary"
                               : "border-border text-muted-foreground hover:border-primary/20"
-                          )}
-                        >
-                          <Checkbox
-                            checked={selectedReminders.includes(opt.value)}
-                            onCheckedChange={(checked) => {
-                              setSelectedReminders(prev =>
-                                checked ? [...prev, opt.value] : prev.filter(v => v !== opt.value)
-                              );
-                            }}
-                            className="h-3 w-3"
-                          />
-                          {opt.label}
-                        </label>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                          )}>
+                            <Checkbox
+                              checked={selectedReminders.includes(opt.value)}
+                              onCheckedChange={(checked) => {
+                                setSelectedReminders(prev =>
+                                  checked ? [...prev, opt.value] : prev.filter(v => v !== opt.value)
+                                );
+                              }}
+                              className="h-3 w-3"
+                            />
+                            {opt.label}
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
-                <Button onClick={handleCreateEvent} disabled={creating} className="w-full gap-2">
-                  {creating ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                  {creating ? "Criando..." : "Criar Evento"}
-                </Button>
-              </div>
+                  <Button onClick={handleCreateEvent} disabled={creating} className="w-full gap-2">
+                    {creating ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                    {creating ? "Criando..." : "Criar Evento"}
+                  </Button>
+                </div>
               </ScrollArea>
             </DialogContent>
           </Dialog>
@@ -729,10 +752,7 @@ export function GoogleCalendarPanel() {
             { mode: "week" as ViewMode, icon: Columns, label: "Semana" },
             { mode: "list" as ViewMode, icon: List, label: "Lista" },
           ]).map(v => (
-            <Button
-              key={v.mode}
-              variant="ghost"
-              size="sm"
+            <Button key={v.mode} variant="ghost" size="sm"
               className={cn(
                 "h-6 px-2 text-[10px] gap-1 rounded-md",
                 viewMode === v.mode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
@@ -749,12 +769,8 @@ export function GoogleCalendarPanel() {
       {/* Search */}
       <div className="relative">
         <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-          placeholder="Buscar evento, local ou convidado..."
-          className="h-8 pl-8 text-xs bg-secondary border-border"
-        />
+        <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+          placeholder="Buscar evento, local ou convidado..." className="h-8 pl-8 text-xs bg-secondary border-border" />
       </div>
 
       {/* Content */}
