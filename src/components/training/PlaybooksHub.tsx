@@ -557,3 +557,231 @@ function AIPlaybookWriter({ open, onOpenChange, onInsert, currentContent }: {
     </Dialog>
   );
 }
+
+// ── AI Generate Playbook (full creation flow) ──
+function AIGeneratePlaybookDialog({ open, onOpenChange, onCreated }: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onCreated: (pb: Playbook) => void;
+}) {
+  const qc = useQueryClient();
+  const [prompt, setPrompt] = useState("");
+  const [context, setContext] = useState("");
+  const [category, setCategory] = useState("geral");
+  const [targetRole, setTargetRole] = useState("all");
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [result, setResult] = useState("");
+  const [saving, setSaving] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const handleGenerate = async (customPrompt?: string) => {
+    const finalPrompt = customPrompt || prompt;
+    if (!finalPrompt.trim()) { toast.error("Descreva o playbook que deseja gerar"); return; }
+
+    setIsStreaming(true);
+    setResult("");
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    try {
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-playbook-content`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ prompt: finalPrompt, context: context || undefined }),
+          signal: controller.signal,
+        }
+      );
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ error: "Erro desconhecido" }));
+        throw new Error(err.error || `Erro ${resp.status}`);
+      }
+      if (!resp.body) throw new Error("No stream body");
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let accumulated = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let newlineIdx: number;
+        while ((newlineIdx = buffer.indexOf("\n")) !== -1) {
+          let line = buffer.slice(0, newlineIdx);
+          buffer = buffer.slice(newlineIdx + 1);
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (!line.startsWith("data: ")) continue;
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") break;
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) { accumulated += content; setResult(accumulated); }
+          } catch {
+            buffer = line + "\n" + buffer;
+            break;
+          }
+        }
+      }
+    } catch (err: any) {
+      if (err.name !== "AbortError") toast.error(err.message || "Erro ao gerar");
+    } finally {
+      setIsStreaming(false);
+      abortRef.current = null;
+    }
+  };
+
+  const handleAcceptAndSave = async () => {
+    if (!result.trim()) return;
+    setSaving(true);
+    // Extract title from first heading or first line
+    const titleMatch = result.match(/^#\s+(.+)/m) || result.match(/^##\s+(.+)/m);
+    const autoTitle = titleMatch ? titleMatch[1].replace(/\*\*/g, "").trim() : prompt.slice(0, 60);
+
+    const { data, error } = await supabase
+      .from("training_playbooks")
+      .insert({
+        title: autoTitle,
+        description: prompt.slice(0, 200),
+        content: result,
+        category,
+        target_role: targetRole,
+      })
+      .select()
+      .single();
+    setSaving(false);
+    if (error) { toast.error("Erro ao salvar"); return; }
+    toast.success("Playbook criado com IA! ✨");
+    qc.invalidateQueries({ queryKey: ["training-playbooks"] });
+    onOpenChange(false);
+    setPrompt(""); setContext(""); setResult("");
+    if (data) onCreated(data as Playbook);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (isStreaming) return; onOpenChange(v); if (!v) { setResult(""); } }}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline" className="gap-1.5 text-xs h-8 border-primary/30 text-primary hover:bg-primary/10">
+          <Sparkles size={14} /> Gerar com IA
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-sm">
+            <Sparkles size={16} className="text-primary" />
+            Gerar Playbook com IA
+          </DialogTitle>
+          <DialogDescription className="text-xs">
+            Descreva o tema ou escolha um modelo — a IA cria o playbook completo para você
+          </DialogDescription>
+        </DialogHeader>
+
+        {!result ? (
+          <ScrollArea className="flex-1 max-h-[65vh]">
+            <div className="space-y-4 pr-3">
+              {/* Quick prompts */}
+              <div>
+                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block font-medium">Modelos rápidos</label>
+                <div className="flex flex-wrap gap-2">
+                  {QUICK_PROMPTS.map((qp) => (
+                    <Badge
+                      key={qp.label}
+                      variant="outline"
+                      className="cursor-pointer hover:bg-primary/10 hover:border-primary/30 transition-colors px-3 py-1.5 text-xs"
+                      onClick={() => { setPrompt(qp.prompt); handleGenerate(qp.prompt); }}
+                    >
+                      {qp.label}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+
+              {/* Custom prompt */}
+              <div>
+                <label className="text-xs font-medium mb-1 block">O que deseja gerar?</label>
+                <Textarea
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  placeholder="Ex: Crie um playbook de prospecção ativa com scripts para LinkedIn, WhatsApp e cold calling..."
+                  className="min-h-[100px] text-sm"
+                />
+              </div>
+
+              {/* Context */}
+              <div>
+                <label className="text-xs font-medium mb-1 block">Contexto do negócio (opcional)</label>
+                <Textarea
+                  value={context}
+                  onChange={(e) => setContext(e.target.value)}
+                  placeholder="Ex: Vendemos SaaS B2B para PMEs, ticket médio R$2.000/mês..."
+                  className="min-h-[50px] text-xs"
+                />
+              </div>
+
+              {/* Category & Role */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium mb-1 block">Categoria</label>
+                  <Select value={category} onValueChange={setCategory}>
+                    <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {CATEGORIES.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium mb-1 block">Público</label>
+                  <Select value={targetRole} onValueChange={setTargetRole}>
+                    <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="sdr">SDR</SelectItem>
+                      <SelectItem value="closer">Closer</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <Button onClick={() => handleGenerate()} disabled={!prompt.trim() || isStreaming} className="w-full gap-2">
+                {isStreaming ? <><Loader2 size={14} className="animate-spin" /> Gerando...</> : <><Wand2 size={14} /> Gerar Playbook</>}
+              </Button>
+            </div>
+          </ScrollArea>
+        ) : (
+          <div className="flex flex-col flex-1 min-h-0 gap-3">
+            <ScrollArea className="flex-1 border border-border rounded-lg p-4 bg-muted/20 max-h-[50vh]">
+              <div className="prose prose-sm max-w-none dark:prose-invert">
+                <ReactMarkdown>{result}</ReactMarkdown>
+              </div>
+              {isStreaming && <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-0.5" />}
+            </ScrollArea>
+
+            <div className="flex gap-2">
+              {isStreaming ? (
+                <Button variant="outline" onClick={() => { abortRef.current?.abort(); setIsStreaming(false); }} className="flex-1 text-xs">
+                  Parar geração
+                </Button>
+              ) : (
+                <>
+                  <Button variant="outline" onClick={() => setResult("")} className="gap-1.5 text-xs">
+                    <RefreshCw size={12} /> Gerar novamente
+                  </Button>
+                  <Button onClick={handleAcceptAndSave} disabled={saving} className="flex-1 gap-1.5 text-xs">
+                    {saving ? <><Loader2 size={12} className="animate-spin" /> Salvando...</> : <><Check size={12} /> Aceitar e Criar Playbook</>}
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
