@@ -10,7 +10,7 @@ import {
   Camera, Copy, Check, Shield, Zap, Phone, Mail, Key, Image as ImageIcon,
   MessageCircle, ClipboardList, FileSpreadsheet
 } from "lucide-react";
-import { LeadAuditPanel } from "@/components/admin/LeadAuditPanel";
+import { AdminMetricsEditor } from "@/components/admin/AdminMetricsEditor";
 
 // ─── Registration Form Dialog ────────────────────────────────────────────
 function MemberFormDialog({
@@ -688,7 +688,7 @@ function MemberCard({
 
           <AiCloserAnalysis member={member} monthId={activeMonthId} monthLabel={activeMonth?.label} />
           <div className="h-px bg-border" />
-          <LeadAuditPanel memberId={member.id} memberName={member.name} />
+          <AdminMetricsEditorInline memberId={member.id} memberName={member.name} memberRole={member.member_role || "sdr"} />
         </div>
       )}
     </div>
