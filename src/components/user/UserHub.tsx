@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Target, Bot, LayoutDashboard, LogOut, BarChart3, Trophy, GraduationCap, Calendar } from "lucide-react";
 import { CloserDailyDashboard } from "@/components/dashboard/CloserDailyDashboard";
 import AdminDashboard from "@/pages/AdminDashboard";
@@ -8,6 +8,7 @@ import { UserRankingScreen } from "./UserRankingScreen";
 import { TrainingViewer } from "@/components/training/TrainingViewer";
 import { TrainingNotificationPopup } from "@/components/training/TrainingNotificationPopup";
 import { GoogleCalendarPanel } from "./GoogleCalendarPanel";
+import { CalendarConnectPopup } from "./CalendarConnectPopup";
 import { AnimatePresence } from "framer-motion";
 import { getMemberRoles } from "@/lib/db";
 import {
@@ -106,6 +107,12 @@ export function UserHub({ teamMemberId, memberName, memberRole, onSignOut }: Use
       <TrainingNotificationPopup
         memberRole={memberRole}
         onGoToTraining={() => setActiveTab("training")}
+      />
+
+      <CalendarConnectPopup
+        teamMemberId={teamMemberId}
+        memberRole={memberRole}
+        onGoToCalendar={() => setActiveTab("calendar")}
       />
 
       <UserHubSidebar
