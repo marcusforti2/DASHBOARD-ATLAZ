@@ -328,6 +328,74 @@ export function CloserDailyDashboard({ teamMemberId, memberName, memberRole = "s
   );
 }
 
+/* ========== Quick Decrement Button on metric cards ========== */
+
+function QuickDecrementButton({
+  metricKey,
+  teamMemberId,
+  todayStr,
+  onDecremented,
+}: {
+  metricKey: string;
+  teamMemberId: string;
+  todayStr: string;
+  onDecremented: () => void;
+}) {
+  const [loading, setLoading] = useState(false);
+
+  const handleDecrement = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm(`Remover 1 ${METRIC_LABELS[metricKey]} de hoje?`)) return;
+    setLoading(true);
+
+    // Decrement daily_metrics
+    const { data: metric } = await supabase
+      .from("daily_metrics")
+      .select("*")
+      .eq("member_id", teamMemberId)
+      .eq("date", todayStr)
+      .maybeSingle();
+
+    if (metric) {
+      const val = (metric as any)[metricKey] || 0;
+      if (val > 0) {
+        await supabase.from("daily_metrics")
+          .update({ [metricKey]: val - 1 })
+          .eq("id", metric.id);
+      }
+    }
+
+    // Also remove latest lead_entry of this type for today
+    const { data: entries } = await supabase
+      .from("lead_entries")
+      .select("id")
+      .eq("member_id", teamMemberId)
+      .eq("date", todayStr)
+      .eq("metric_type", metricKey)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (entries?.length) {
+      await supabase.from("lead_entries").delete().eq("id", entries[0].id);
+    }
+
+    toast.success(`-1 ${METRIC_LABELS[metricKey]} removido`);
+    onDecremented();
+    setLoading(false);
+  };
+
+  return (
+    <button
+      onClick={handleDecrement}
+      disabled={loading}
+      className="p-0.5 rounded text-muted-foreground/30 hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
+      title={`Remover 1 ${METRIC_LABELS[metricKey]}`}
+    >
+      {loading ? <Loader2 size={10} className="animate-spin" /> : <Trash2 size={10} />}
+    </button>
+  );
+}
+
 /* ========== Audit / History Panel ========== */
 
 type AuditFilterMode = "day" | "week" | "month";
