@@ -213,6 +213,8 @@ export default function TrainingAdminPage() {
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider">Módulos</p>
                       <div className="flex items-center gap-1">
+                        <DriveCreateFoldersButton courseId={course.id} courseTitle={course.title} onDone={invalidateAll} />
+                        <DriveSyncButton courseId={course.id} courseTitle={course.title} onDone={invalidateAll} />
                         <SendScriptsButton scope="course" courseTitle={course.title} modules={courseModules} lessons={lessons} teamMembers={teamMembers} whatsappContacts={whatsappContacts} profiles={profiles} />
                         <AddModuleDialog courseId={course.id} onSaved={invalidateAll} />
                       </div>
