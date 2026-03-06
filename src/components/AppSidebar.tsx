@@ -2,7 +2,7 @@ import { useState } from "react";
 import {
   BarChart3, LayoutDashboard, Users, Target, Sparkles, Eye, Settings, LogOut,
   MessageCircle, BookOpen, Brain, GitBranch, GraduationCap, ChevronRight,
-  Wrench, FlaskConical, Megaphone
+  Wrench, FlaskConical, Megaphone, Calendar
 } from "lucide-react";
 import {
   Sidebar,
@@ -21,7 +21,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
-export type AdminView = "dashboard" | "team" | "goals" | "reports" | "closer-preview" | "settings" | "whatsapp" | "popups" | "knowledge" | "dna-mapping" | "processos" | "training";
+export type AdminView = "dashboard" | "team" | "goals" | "reports" | "closer-preview" | "settings" | "whatsapp" | "popups" | "knowledge" | "dna-mapping" | "processos" | "training" | "calendars";
 export type CloserView = "hub";
 
 interface AppSidebarProps {
@@ -40,6 +40,7 @@ const adminMainItems: SidebarItem[] = [
   { id: "dashboard", title: "Dashboard", icon: LayoutDashboard },
   { id: "team", title: "Equipe", icon: Users },
   { id: "goals", title: "Metas", icon: Target },
+  { id: "calendars", title: "Agendas", icon: Calendar },
   { id: "reports", title: "Relatórios IA", icon: Sparkles },
 ];
 
