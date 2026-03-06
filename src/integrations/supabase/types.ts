@@ -760,6 +760,7 @@ export type Database = {
           cover_url: string | null
           created_at: string
           description: string | null
+          drive_folder_id: string | null
           id: string
           published: boolean
           published_at: string | null
@@ -773,6 +774,7 @@ export type Database = {
           cover_url?: string | null
           created_at?: string
           description?: string | null
+          drive_folder_id?: string | null
           id?: string
           published?: boolean
           published_at?: string | null
@@ -786,6 +788,7 @@ export type Database = {
           cover_url?: string | null
           created_at?: string
           description?: string | null
+          drive_folder_id?: string | null
           id?: string
           published?: boolean
           published_at?: string | null
@@ -802,6 +805,7 @@ export type Database = {
           cover_url: string | null
           created_at: string
           description: string | null
+          drive_folder_id: string | null
           duration_seconds: number | null
           id: string
           module_id: string
@@ -815,6 +819,7 @@ export type Database = {
           cover_url?: string | null
           created_at?: string
           description?: string | null
+          drive_folder_id?: string | null
           duration_seconds?: number | null
           id?: string
           module_id: string
@@ -828,6 +833,7 @@ export type Database = {
           cover_url?: string | null
           created_at?: string
           description?: string | null
+          drive_folder_id?: string | null
           duration_seconds?: number | null
           id?: string
           module_id?: string
@@ -858,6 +864,7 @@ export type Database = {
           course_id: string
           created_at: string
           description: string | null
+          drive_folder_id: string | null
           id: string
           sort_order: number
           title: string
@@ -866,6 +873,7 @@ export type Database = {
           course_id: string
           created_at?: string
           description?: string | null
+          drive_folder_id?: string | null
           id?: string
           sort_order?: number
           title: string
@@ -874,6 +882,7 @@ export type Database = {
           course_id?: string
           created_at?: string
           description?: string | null
+          drive_folder_id?: string | null
           id?: string
           sort_order?: number
           title?: string
