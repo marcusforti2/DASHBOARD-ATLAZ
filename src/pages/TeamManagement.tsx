@@ -688,7 +688,7 @@ function MemberCard({
 
           <AiCloserAnalysis member={member} monthId={activeMonthId} monthLabel={activeMonth?.label} />
           <div className="h-px bg-border" />
-          <AdminMetricsEditorInline memberId={member.id} memberName={member.name} memberRole={member.member_role || "sdr"} />
+          <TeamMemberMetricsButton memberId={member.id} memberName={member.name} memberRole={member.member_role || "sdr"} />
         </div>
       )}
     </div>
