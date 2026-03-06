@@ -163,11 +163,10 @@ export function CloserDailyDashboard({ teamMemberId, memberName, memberRole = "s
     invalidateMetrics();
   };
 
-  // ── Decrement handler (- button on card) ──
-  const handleDecrement = async (metricKey: string) => {
+  // ── Decrement handler (supports qty) ──
+  const handleDecrement = async (metricKey: string, qty: number = 1) => {
     if (!currentMonth?.id) return;
 
-    // Decrement daily_metrics
     const { data: metric } = await supabase
       .from("daily_metrics").select("*")
       .eq("member_id", teamMemberId).eq("date", todayStr)
@@ -175,22 +174,21 @@ export function CloserDailyDashboard({ teamMemberId, memberName, memberRole = "s
 
     if (metric) {
       const val = (metric as any)[metricKey] || 0;
-      if (val > 0) {
-        await supabase.from("daily_metrics").update({ [metricKey]: val - 1 }).eq("id", metric.id);
-      }
+      const newVal = Math.max(0, val - qty);
+      await supabase.from("daily_metrics").update({ [metricKey]: newVal }).eq("id", metric.id);
     }
 
-    // Remove latest lead_entry
+    // Remove latest N lead_entries
     const { data: entries } = await supabase
       .from("lead_entries").select("id")
       .eq("member_id", teamMemberId).eq("date", todayStr).eq("metric_type", metricKey)
-      .order("created_at", { ascending: false }).limit(1);
+      .order("created_at", { ascending: false }).limit(qty);
 
     if (entries?.length) {
-      await supabase.from("lead_entries").delete().eq("id", entries[0].id);
+      await supabase.from("lead_entries").delete().in("id", entries.map(e => e.id));
     }
 
-    toast(`-1 ${METRIC_LABELS[metricKey]} removido`, { description: "Métrica e registro ajustados" });
+    toast(`-${qty} ${METRIC_LABELS[metricKey]} removido(s)`, { description: "Métrica e registros ajustados" });
     invalidateMetrics();
   };
 

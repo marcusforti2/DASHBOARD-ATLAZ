@@ -15,9 +15,8 @@ interface MetricCardProps {
   actual: number;
   goal: number;
   onIncrement: (key: string, qty: number) => Promise<void>;
-  onDecrement: (key: string) => Promise<void>;
+  onDecrement: (key: string, qty: number) => Promise<void>;
   onOpenLeadSheet?: (key: string) => void;
-  onDeleteAll?: (key: string) => Promise<void>;
   isCloserView?: boolean;
 }
 
@@ -28,12 +27,13 @@ export function MetricCard({
   onIncrement,
   onDecrement,
   onOpenLeadSheet,
-  onDeleteAll,
 }: MetricCardProps) {
   const [popupOpen, setPopupOpen] = useState(false);
   const [qty, setQty] = useState(1);
+  const [deleteQty, setDeleteQty] = useState(1);
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showDeletePicker, setShowDeletePicker] = useState(false);
 
   const pct = goal > 0 ? Math.min(Math.round((actual / goal) * 100), 100) : 0;
   const achieved = goal > 0 && actual >= goal;
@@ -45,6 +45,8 @@ export function MetricCard({
       return;
     }
     setQty(1);
+    setDeleteQty(1);
+    setShowDeletePicker(false);
     setPopupOpen(true);
   };
 
@@ -56,22 +58,13 @@ export function MetricCard({
     setPopupOpen(false);
   };
 
-  const handleDecrementOne = async () => {
-    if (actual <= 0 || loading) return;
-    setLoading(true);
-    await onDecrement(metricKey);
-    setLoading(false);
-  };
-
-  const handleDeleteAll = async () => {
-    if (actual <= 0 || deleting) return;
+  const handleDelete = async () => {
+    if (deleteQty < 1 || deleting || actual <= 0) return;
+    const toRemove = Math.min(deleteQty, actual);
     setDeleting(true);
-    // Decrement all by calling onDecrement `actual` times → or better, pass actual as qty
-    // We'll use a loop approach since onDecrement does -1 each time
-    for (let i = 0; i < actual; i++) {
-      await onDecrement(metricKey);
-    }
+    await onDecrement(metricKey, toRemove);
     setDeleting(false);
+    setShowDeletePicker(false);
     setPopupOpen(false);
   };
 
@@ -90,9 +83,7 @@ export function MetricCard({
       >
         <div className="flex items-center justify-between mb-2">
           <span className="text-base">{METRIC_ICONS[metricKey]}</span>
-          <div className="flex items-center gap-1">
-            {achieved && <CheckCircle2 size={12} className="text-accent" />}
-          </div>
+          {achieved && <CheckCircle2 size={12} className="text-accent" />}
         </div>
 
         <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider leading-tight">
@@ -111,97 +102,104 @@ export function MetricCard({
         )}
       </button>
 
-      {/* Popup for quantity */}
+      {/* Popup */}
       <Dialog open={popupOpen} onOpenChange={setPopupOpen}>
         <DialogContent className="sm:max-w-[320px] bg-card border-border p-5">
           <div className="flex flex-col items-center gap-4">
-            {/* Header */}
             <div className="flex items-center gap-2">
               <span className="text-xl">{METRIC_ICONS[metricKey]}</span>
               <span className="text-sm font-bold text-card-foreground">{METRIC_LABELS[metricKey]}</span>
             </div>
 
-            {/* Current value */}
             {actual > 0 && (
               <p className="text-[10px] text-muted-foreground">
                 Atual hoje: <span className="font-bold text-card-foreground">{actual}</span>
               </p>
             )}
 
-            {/* Qty picker */}
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setQty(q => Math.max(1, q - 1))}
-                className="w-10 h-10 rounded-xl border border-border bg-secondary/50 hover:bg-secondary text-lg font-bold text-card-foreground transition-all active:scale-95"
-              >
-                −
-              </button>
-              <input
-                type="number"
-                min={1}
-                value={qty}
-                onChange={e => setQty(Math.max(1, parseInt(e.target.value) || 1))}
-                className="text-3xl font-black tabular-nums text-primary w-16 text-center bg-transparent border-b-2 border-primary/30 focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              />
-              <button
-                onClick={() => setQty(q => q + 1)}
-                className="w-10 h-10 rounded-xl border border-border bg-secondary/50 hover:bg-secondary text-lg font-bold text-card-foreground transition-all active:scale-95"
-              >
-                +
-              </button>
-            </div>
+            {/* Add section */}
+            {!showDeletePicker && (
+              <>
+                <div className="flex items-center gap-3">
+                  <button onClick={() => setQty(q => Math.max(1, q - 1))} className="w-10 h-10 rounded-xl border border-border bg-secondary/50 hover:bg-secondary text-lg font-bold text-card-foreground transition-all active:scale-95">−</button>
+                  <input
+                    type="number" min={1} value={qty}
+                    onChange={e => setQty(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="text-3xl font-black tabular-nums text-primary w-16 text-center bg-transparent border-b-2 border-primary/30 focus:border-primary outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  <button onClick={() => setQty(q => q + 1)} className="w-10 h-10 rounded-xl border border-border bg-secondary/50 hover:bg-secondary text-lg font-bold text-card-foreground transition-all active:scale-95">+</button>
+                </div>
 
-            {/* Presets */}
-            <div className="flex gap-1.5">
-              {presets.map(n => (
+                <div className="flex gap-1.5">
+                  {presets.map(n => (
+                    <button key={n} onClick={() => setQty(n)} className={cn("px-3 py-1 rounded-lg text-xs font-bold transition-all", qty === n ? "bg-primary text-primary-foreground" : "bg-secondary/50 text-muted-foreground hover:bg-secondary")}>
+                      {n}
+                    </button>
+                  ))}
+                </div>
+
                 <button
-                  key={n}
-                  onClick={() => setQty(n)}
-                  className={cn(
-                    "px-3 py-1 rounded-lg text-xs font-bold transition-all",
-                    qty === n
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-secondary/50 text-muted-foreground hover:bg-secondary"
-                  )}
+                  onClick={handleSave}
+                  disabled={loading}
+                  className="w-full rounded-xl py-2.5 text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
                 >
-                  {n}
+                  {loading ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+                  Adicionar +{qty}
                 </button>
-              ))}
-            </div>
 
-            {/* Actions */}
-            <div className="flex gap-2 w-full mt-1">
-              {actual > 0 && (
-                <button
-                  onClick={handleDecrementOne}
-                  disabled={loading || deleting}
-                  className="flex items-center justify-center gap-1 px-3 py-2.5 rounded-xl text-[10px] font-bold border border-destructive/30 text-destructive hover:bg-destructive/10 transition-all disabled:opacity-50"
-                  title="Remover 1"
-                >
-                  {loading ? <Loader2 size={12} className="animate-spin" /> : <Minus size={12} />}
-                  -1
-                </button>
-              )}
-              <button
-                onClick={handleSave}
-                disabled={loading || deleting}
-                className="flex-1 rounded-xl py-2.5 text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
-              >
-                {loading ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
-                Adicionar +{qty}
-              </button>
-            </div>
+                {/* Toggle to delete mode */}
+                {actual > 0 && (
+                  <button
+                    onClick={() => { setShowDeletePicker(true); setDeleteQty(1); }}
+                    className="flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground/50 hover:text-destructive transition-colors mt-1"
+                  >
+                    <Trash2 size={10} />
+                    Excluir registros
+                  </button>
+                )}
+              </>
+            )}
 
-            {/* Delete all button (small) */}
-            {actual > 0 && (
-              <button
-                onClick={handleDeleteAll}
-                disabled={deleting || loading}
-                className="flex items-center gap-1.5 text-[9px] font-medium text-muted-foreground/50 hover:text-destructive transition-colors disabled:opacity-50 mt-1"
-              >
-                {deleting ? <Loader2 size={10} className="animate-spin" /> : <Trash2 size={10} />}
-                Excluir todos ({actual})
-              </button>
+            {/* Delete section */}
+            {showDeletePicker && actual > 0 && (
+              <>
+                <p className="text-[10px] font-bold text-destructive uppercase tracking-wider">Excluir quantos?</p>
+                <div className="flex items-center gap-3">
+                  <button onClick={() => setDeleteQty(q => Math.max(1, q - 1))} className="w-10 h-10 rounded-xl border border-destructive/30 bg-destructive/5 hover:bg-destructive/10 text-lg font-bold text-destructive transition-all active:scale-95">−</button>
+                  <input
+                    type="number" min={1} max={actual} value={deleteQty}
+                    onChange={e => setDeleteQty(Math.max(1, Math.min(actual, parseInt(e.target.value) || 1)))}
+                    className="text-3xl font-black tabular-nums text-destructive w-16 text-center bg-transparent border-b-2 border-destructive/30 focus:border-destructive outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  <button onClick={() => setDeleteQty(q => Math.min(actual, q + 1))} className="w-10 h-10 rounded-xl border border-destructive/30 bg-destructive/5 hover:bg-destructive/10 text-lg font-bold text-destructive transition-all active:scale-95">+</button>
+                </div>
+
+                {/* Quick delete presets */}
+                <div className="flex gap-1.5">
+                  {[1, 5, 10].filter(n => n <= actual).concat(actual > 10 ? [actual] : []).map(n => (
+                    <button key={n} onClick={() => setDeleteQty(n)} className={cn("px-3 py-1 rounded-lg text-xs font-bold transition-all", deleteQty === n ? "bg-destructive text-white" : "bg-destructive/10 text-destructive hover:bg-destructive/20")}>
+                      {n === actual ? `Todos (${n})` : n}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex gap-2 w-full">
+                  <button
+                    onClick={() => setShowDeletePicker(false)}
+                    className="flex-1 rounded-xl py-2.5 text-xs font-bold border border-border text-muted-foreground hover:bg-secondary transition-all"
+                  >
+                    Voltar
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="flex-1 rounded-xl py-2.5 text-xs font-bold bg-destructive text-white hover:bg-destructive/90 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
+                  >
+                    {deleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                    Excluir −{Math.min(deleteQty, actual)}
+                  </button>
+                </div>
+              </>
             )}
           </div>
         </DialogContent>
