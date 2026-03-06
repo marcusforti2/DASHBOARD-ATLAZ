@@ -1117,6 +1117,14 @@ function DataEntryDialog({
                 );
               })}
             </div>
+
+            {/* Today's activity log */}
+            <TodayActivityLog
+              teamMemberId={teamMemberId}
+              todayStr={todayStr}
+              currentMonthId={currentMonthId}
+              onChanged={onSaved}
+            />
           </>
         ) : step === "quantity-picker" ? (
           <>
