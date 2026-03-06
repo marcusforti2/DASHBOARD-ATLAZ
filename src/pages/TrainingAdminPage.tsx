@@ -1418,3 +1418,121 @@ function DriveSyncButton({ courseId, courseTitle, onDone }: { courseId: string; 
     </TooltipProvider>
   );
 }
+
+// ── Google Drive Connection Status ──
+function DriveConnectionStatus() {
+  const [connected, setConnected] = useState(false);
+  const [driveEmail, setDriveEmail] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [connecting, setConnecting] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+
+  const checkConnection = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke("google-drive-training", {
+        body: { action: "check_connection" },
+      });
+      if (!error && data?.connected) {
+        setConnected(true);
+        // Try to get email
+        const { data: tokenData } = await supabase
+          .from("google_drive_tokens" as any)
+          .select("drive_email")
+          .maybeSingle();
+        if (tokenData?.drive_email) setDriveEmail(tokenData.drive_email);
+      } else {
+        setConnected(false);
+      }
+    } catch {
+      setConnected(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useState(() => { checkConnection(); });
+
+  const handleConnect = async () => {
+    setConnecting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("google-drive-auth");
+      if (error) throw error;
+      if (data?.url) {
+        window.open(data.url, "_blank", "width=600,height=700");
+        toast.info("Complete a autorização na janela do Google");
+        const interval = setInterval(async () => {
+          const { data: check } = await supabase
+            .from("google_drive_tokens" as any)
+            .select("drive_email")
+            .maybeSingle();
+          if (check) {
+            clearInterval(interval);
+            setConnecting(false);
+            setConnected(true);
+            setDriveEmail(check.drive_email);
+            toast.success("Google Drive conectado! 🎉");
+          }
+        }, 3000);
+        setTimeout(() => { clearInterval(interval); setConnecting(false); }, 120000);
+      }
+    } catch {
+      toast.error("Erro ao conectar com Google Drive");
+      setConnecting(false);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    if (!confirm("Desconectar o Google Drive?")) return;
+    setDisconnecting(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+      const { error } = await supabase
+        .from("google_drive_tokens" as any)
+        .delete()
+        .eq("user_id", user.id);
+      if (error) throw error;
+      setConnected(false);
+      setDriveEmail(null);
+      toast.success("Google Drive desconectado");
+    } catch {
+      toast.error("Erro ao desconectar");
+    } finally {
+      setDisconnecting(false);
+    }
+  };
+
+  if (loading) return null;
+
+  if (connected) {
+    return (
+      <div className="flex items-center gap-1.5">
+        <Badge variant="outline" className="text-[9px] gap-1 bg-emerald-500/10 text-emerald-600 border-emerald-500/30">
+          <HardDrive size={10} />
+          {driveEmail ? `Drive: ${driveEmail}` : "Drive conectado"}
+        </Badge>
+        <button
+          onClick={handleDisconnect}
+          disabled={disconnecting}
+          className="p-1 rounded hover:bg-secondary text-muted-foreground/50 hover:text-destructive transition-colors"
+          title="Desconectar Google Drive"
+        >
+          {disconnecting ? <Loader2 size={12} className="animate-spin" /> : <Unlink size={12} />}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      className="text-xs gap-1.5"
+      onClick={handleConnect}
+      disabled={connecting}
+    >
+      {connecting ? <Loader2 size={14} className="animate-spin" /> : <Link2 size={14} />}
+      {connecting ? "Conectando..." : "Conectar Drive"}
+    </Button>
+  );
+}
