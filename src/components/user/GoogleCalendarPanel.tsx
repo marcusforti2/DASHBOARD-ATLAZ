@@ -593,6 +593,20 @@ export function GoogleCalendarPanel({ teamMemberId, memberRole }: GoogleCalendar
           </div>
         </div>
         <div className="flex items-center gap-1.5">
+          {/* Disconnect button — only for own calendar */}
+          {isCloser && selectedCloser?.memberId === teamMemberId && (
+            <DisconnectCalendarButton onDisconnected={() => {
+              setConnected(false);
+              setCalendarEmail(null);
+              setEvents([]);
+              // Refresh closers list
+              supabase.functions.invoke("google-calendar-events", {
+                body: { action: "list_connected_closers" },
+              }).then(({ data }) => {
+                if (data?.closers) setConnectedClosers(data.closers);
+              });
+            }} />
+          )}
           <Button variant="ghost" size="sm" onClick={fetchEvents} className="h-7 w-7 p-0" title="Atualizar">
             <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
           </Button>
@@ -794,6 +808,71 @@ export function GoogleCalendarPanel({ teamMemberId, memberRole }: GoogleCalendar
           <span>{dateLabel()}</span>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Disconnect Calendar Button ──
+function DisconnectCalendarButton({ onDisconnected }: { onDisconnected: () => void }) {
+  const [loading, setLoading] = useState(false);
+  const [confirm, setConfirm] = useState(false);
+
+  const handleDisconnect = async () => {
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { error } = await supabase
+        .from("google_calendar_tokens")
+        .delete()
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+      toast.success("Google Calendar desconectado!");
+      onDisconnected();
+    } catch (err: any) {
+      toast.error("Erro ao desconectar: " + (err?.message || ""));
+    } finally {
+      setLoading(false);
+      setConfirm(false);
+    }
+  };
+
+  if (!confirm) {
+    return (
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-7 gap-1 text-xs px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+        onClick={() => setConfirm(true)}
+        title="Desconectar Google Calendar"
+      >
+        <X size={12} /> Desconectar
+      </Button>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1">
+      <span className="text-[10px] text-destructive">Tem certeza?</span>
+      <Button
+        variant="destructive"
+        size="sm"
+        className="h-6 text-[10px] px-2"
+        onClick={handleDisconnect}
+        disabled={loading}
+      >
+        {loading ? <Loader2 size={10} className="animate-spin" /> : "Sim"}
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-6 text-[10px] px-2"
+        onClick={() => setConfirm(false)}
+      >
+        Não
+      </Button>
     </div>
   );
 }
