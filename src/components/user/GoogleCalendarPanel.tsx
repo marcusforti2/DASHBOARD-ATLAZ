@@ -95,8 +95,9 @@ export function GoogleCalendarPanel({ teamMemberId, memberRole }: GoogleCalendar
   const [selectedReminders, setSelectedReminders] = useState<string[]>(["24h", "1h", "5min"]);
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
 
-  const isCloser = memberRole === "closer" || memberRole === "sdr_closer";
-  const isSdr = memberRole === "sdr" && !isCloser;
+  const memberRoles = (memberRole || "").split(",").map(r => r.trim());
+  const isCloser = memberRoles.includes("closer");
+  const isSdr = memberRoles.includes("sdr") && !isCloser;
 
   const dateRange = useMemo(() => {
     if (viewMode === "day") return { start: startOfDay(currentDate), end: endOfDay(currentDate) };
