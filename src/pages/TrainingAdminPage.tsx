@@ -415,15 +415,21 @@ function AiCourseGeneratorDialog({ onSaved }: { onSaved: () => void }) {
   const [creating, setCreating] = useState(false);
   const [expandedMod, setExpandedMod] = useState<number | null>(0);
   const [editingField, setEditingField] = useState<string | null>(null);
+  const [structureMode, setStructureMode] = useState<"auto" | "manual">("auto");
+  const [customModules, setCustomModules] = useState(3);
+  const [customLessons, setCustomLessons] = useState(3);
 
   const handleGenerate = async () => {
     if (!idea.trim()) return;
     setGenerating(true);
     setStructure(null);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-course", {
-        body: { idea: idea.trim(), targetRole },
-      });
+      const body: any = { idea: idea.trim(), targetRole };
+      if (structureMode === "manual") {
+        body.numModules = customModules;
+        body.numLessonsPerModule = customLessons;
+      }
+      const { data, error } = await supabase.functions.invoke("generate-course", { body });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       setStructure(data);
@@ -569,9 +575,59 @@ function AiCourseGeneratorDialog({ onSaved }: { onSaved: () => void }) {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Structure mode */}
+            <div>
+              <label className="text-xs font-medium text-foreground mb-1.5 block">Estrutura do curso</label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setStructureMode("auto")}
+                  className={`flex-1 rounded-lg border p-2.5 text-xs text-left transition-all ${structureMode === "auto" ? "border-primary bg-primary/10 text-foreground" : "border-border bg-background text-muted-foreground hover:border-primary/30"}`}
+                >
+                  <span className="font-semibold flex items-center gap-1.5"><Sparkles size={12} /> IA decide</span>
+                  <span className="block text-[10px] mt-0.5 opacity-70">A IA escolhe a melhor quantidade</span>
+                </button>
+                <button
+                  onClick={() => setStructureMode("manual")}
+                  className={`flex-1 rounded-lg border p-2.5 text-xs text-left transition-all ${structureMode === "manual" ? "border-primary bg-primary/10 text-foreground" : "border-border bg-background text-muted-foreground hover:border-primary/30"}`}
+                >
+                  <span className="font-semibold flex items-center gap-1.5"><Edit2 size={12} /> Personalizar</span>
+                  <span className="block text-[10px] mt-0.5 opacity-70">Defina módulos e aulas</span>
+                </button>
+              </div>
+            </div>
+
+            {structureMode === "manual" && (
+              <div className="grid grid-cols-2 gap-3 bg-secondary/30 rounded-lg p-3">
+                <div>
+                  <label className="text-[10px] font-medium text-muted-foreground mb-1 block">Nº de Módulos</label>
+                  <Select value={String(customModules)} onValueChange={v => setCustomModules(Number(v))}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {[1, 2, 3, 4, 5, 6, 7, 8].map(n => (
+                        <SelectItem key={n} value={String(n)}>{n} {n === 1 ? "módulo" : "módulos"}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-medium text-muted-foreground mb-1 block">Aulas por módulo</label>
+                  <Select value={String(customLessons)} onValueChange={v => setCustomLessons(Number(v))}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {[1, 2, 3, 4, 5, 6, 7, 8].map(n => (
+                        <SelectItem key={n} value={String(n)}>{n} {n === 1 ? "aula" : "aulas"}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p className="col-span-2 text-[10px] text-muted-foreground">Total estimado: <strong className="text-foreground">{customModules * customLessons} aulas</strong></p>
+              </div>
+            )}
+
             <div className="bg-secondary/50 rounded-lg p-3 text-[11px] text-muted-foreground space-y-1">
               <p className="font-semibold text-foreground flex items-center gap-1"><Sparkles size={12} className="text-primary" /> O que a IA vai gerar:</p>
-              <p>• Estrutura completa: módulos e aulas (máx 15 aulas)</p>
+              <p>• Estrutura completa: módulos e aulas{structureMode === "manual" ? ` (${customModules} módulos × ${customLessons} aulas)` : " (IA decide)"}</p>
               <p>• Descrições práticas para cada item</p>
               <p>• Dicas de como gravar cada aula</p>
               <p>• Você revisa e edita antes de criar — depois só adiciona os vídeos</p>
