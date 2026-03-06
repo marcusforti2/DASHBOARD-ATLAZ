@@ -137,7 +137,7 @@ serve(async (req) => {
     }
 
     if (action === "create") {
-      const { summary, description, startDateTime, endDateTime, attendees } = body;
+      const { summary, description, startDateTime, endDateTime, attendees, addMeet } = body;
       if (!summary || !startDateTime || !endDateTime) throw new Error("Missing required fields");
 
       const event: Record<string, unknown> = {
@@ -149,8 +149,18 @@ serve(async (req) => {
       if (attendees?.length) {
         event.attendees = attendees.map((email: string) => ({ email }));
       }
+      // Add Google Meet conference if requested
+      if (addMeet !== false) {
+        event.conferenceData = {
+          createRequest: {
+            requestId: crypto.randomUUID(),
+            conferenceSolutionKey: { type: "hangoutsMeet" },
+          },
+        };
+      }
 
-      const res = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events?sendUpdates=all", {
+      const createUrl = "https://www.googleapis.com/calendar/v3/calendars/primary/events?sendUpdates=all&conferenceDataVersion=1";
+      const res = await fetch(createUrl, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${accessToken}`,
