@@ -11,24 +11,94 @@ serve(async (req) => {
 
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+    const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
     const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
     // Authenticate user
     const authHeader = req.headers.get("authorization");
     if (!authHeader) throw new Error("Unauthorized");
 
-    const anonClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
+    const anonClient = createClient(SUPABASE_URL, ANON_KEY, {
       global: { headers: { Authorization: authHeader } },
     });
     const { data: { user }, error: userError } = await anonClient.auth.getUser();
     if (userError || !user) throw new Error("Unauthorized");
 
-    // Get tokens
     const serviceClient = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+    const body = req.method === "POST" ? await req.json() : {};
+    const action = body.action || "list";
+
+    // Check if admin is requesting another user's calendar
+    const targetUserId = body.targetUserId || user.id;
+    let isAdmin = false;
+
+    if (targetUserId !== user.id) {
+      // Verify requester is admin
+      const { data: adminRole } = await serviceClient
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .eq("role", "admin")
+        .maybeSingle();
+
+      if (!adminRole) throw new Error("Unauthorized: admin access required");
+      isAdmin = true;
+    }
+
+    // Action: list connected members (admin only)
+    if (action === "list_connections") {
+      const { data: adminRole } = await serviceClient
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .eq("role", "admin")
+        .maybeSingle();
+
+      if (!adminRole) throw new Error("Unauthorized: admin access required");
+
+      // Get all tokens with profile info
+      const { data: tokens } = await serviceClient
+        .from("google_calendar_tokens")
+        .select("user_id, calendar_email, created_at");
+
+      // Get profiles for those users
+      const userIds = tokens?.map(t => t.user_id) || [];
+      const { data: profiles } = await serviceClient
+        .from("profiles")
+        .select("id, full_name, team_member_id")
+        .in("id", userIds.length > 0 ? userIds : ["none"]);
+
+      // Get all team members for reference
+      const { data: members } = await serviceClient
+        .from("team_members")
+        .select("id, name, member_role, active")
+        .eq("active", true);
+
+      const connections = (members || []).map(member => {
+        const profile = profiles?.find(p => p.team_member_id === member.id);
+        const token = profile ? tokens?.find(t => t.user_id === profile.id) : null;
+        return {
+          memberId: member.id,
+          memberName: member.name,
+          memberRole: member.member_role,
+          userId: profile?.id || null,
+          connected: !!token,
+          calendarEmail: token?.calendar_email || null,
+          connectedAt: token?.created_at || null,
+        };
+      });
+
+      return new Response(JSON.stringify({ connections }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Get tokens for target user
     const { data: tokenRow, error: tokenError } = await serviceClient
       .from("google_calendar_tokens")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("user_id", targetUserId)
       .single();
 
     if (tokenError || !tokenRow) {
@@ -41,11 +111,8 @@ serve(async (req) => {
     // Refresh token if expired
     let accessToken = tokenRow.access_token;
     if (new Date(tokenRow.token_expires_at) <= new Date()) {
-      accessToken = await refreshAccessToken(tokenRow.refresh_token, serviceClient, user.id);
+      accessToken = await refreshAccessToken(tokenRow.refresh_token, serviceClient, targetUserId);
     }
-
-    const body = req.method === "POST" ? await req.json() : {};
-    const action = body.action || "list";
 
     if (action === "list") {
       const timeMin = body.timeMin || new Date().toISOString();
