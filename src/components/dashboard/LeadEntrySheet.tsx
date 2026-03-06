@@ -45,6 +45,9 @@ export function LeadEntrySheet({
   const [existingLeads, setExistingLeads] = useState<any[]>([]);
   const [showExisting, setShowExisting] = useState(false);
   const [existingSearch, setExistingSearch] = useState("");
+  const [showDeleteMode, setShowDeleteMode] = useState(false);
+  const [deleteQty, setDeleteQty] = useState(1);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!open) return;
