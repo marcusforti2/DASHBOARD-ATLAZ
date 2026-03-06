@@ -545,95 +545,80 @@ function AiCourseGeneratorDialog({ onSaved }: { onSaved: () => void }) {
           <Wand2 size={14} /> IA Gerar Curso
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+       <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Wand2 size={18} className="text-primary" /> Gerar Curso com IA
+          <DialogTitle className="flex items-center gap-2 text-sm">
+            <Wand2 size={16} className="text-primary" /> Gerar Curso com IA
           </DialogTitle>
         </DialogHeader>
 
         {!structure ? (
-          <div className="space-y-4 pt-2">
+          <div className="space-y-3 pt-1">
             <div>
-              <label className="text-xs font-medium text-foreground mb-1.5 block">Descreva a ideia do curso</label>
+              <label className="text-[11px] font-medium text-foreground mb-1 block">Descreva a ideia do curso</label>
               <Textarea
-                placeholder="Ex: Curso de cold calling para SDRs iniciantes, ensinando desde a preparação até o fechamento da ligação..."
+                placeholder="Ex: Curso de cold calling para SDRs iniciantes..."
                 value={idea}
                 onChange={e => setIdea(e.target.value)}
-                rows={4}
-                className="text-sm"
+                rows={2}
+                className="text-xs resize-none"
               />
             </div>
-            <div>
-              <label className="text-xs font-medium text-foreground mb-1.5 block">Público-alvo</label>
-              <Select value={targetRole} onValueChange={setTargetRole}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos (SDR + Closer)</SelectItem>
-                  <SelectItem value="sdr">Apenas SDR</SelectItem>
-                  <SelectItem value="closer">Apenas Closer</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
 
-            {/* Structure mode */}
-            <div>
-              <label className="text-xs font-medium text-foreground mb-1.5 block">Estrutura do curso</label>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setStructureMode("auto")}
-                  className={`flex-1 rounded-lg border p-2.5 text-xs text-left transition-all ${structureMode === "auto" ? "border-primary bg-primary/10 text-foreground" : "border-border bg-background text-muted-foreground hover:border-primary/30"}`}
-                >
-                  <span className="font-semibold flex items-center gap-1.5"><Sparkles size={12} /> IA decide</span>
-                  <span className="block text-[10px] mt-0.5 opacity-70">A IA escolhe a melhor quantidade</span>
-                </button>
-                <button
-                  onClick={() => setStructureMode("manual")}
-                  className={`flex-1 rounded-lg border p-2.5 text-xs text-left transition-all ${structureMode === "manual" ? "border-primary bg-primary/10 text-foreground" : "border-border bg-background text-muted-foreground hover:border-primary/30"}`}
-                >
-                  <span className="font-semibold flex items-center gap-1.5"><Edit2 size={12} /> Personalizar</span>
-                  <span className="block text-[10px] mt-0.5 opacity-70">Defina módulos e aulas</span>
-                </button>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[11px] font-medium text-foreground mb-1 block">Público-alvo</label>
+                <Select value={targetRole} onValueChange={setTargetRole}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="sdr">SDR</SelectItem>
+                    <SelectItem value="closer">Closer</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-[11px] font-medium text-foreground mb-1 block">Estrutura</label>
+                <Select value={structureMode} onValueChange={(v: "auto" | "manual") => setStructureMode(v)}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">✨ IA decide</SelectItem>
+                    <SelectItem value="manual">✏️ Personalizar</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
             {structureMode === "manual" && (
-              <div className="grid grid-cols-2 gap-3 bg-secondary/30 rounded-lg p-3">
+              <div className="grid grid-cols-3 gap-2 bg-secondary/30 rounded-lg p-2.5 items-end">
                 <div>
-                  <label className="text-[10px] font-medium text-muted-foreground mb-1 block">Nº de Módulos</label>
+                  <label className="text-[10px] font-medium text-muted-foreground mb-1 block">Módulos</label>
                   <Select value={String(customModules)} onValueChange={v => setCustomModules(Number(v))}>
-                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {[1, 2, 3, 4, 5, 6, 7, 8].map(n => (
-                        <SelectItem key={n} value={String(n)}>{n} {n === 1 ? "módulo" : "módulos"}</SelectItem>
+                        <SelectItem key={n} value={String(n)}>{n}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-medium text-muted-foreground mb-1 block">Aulas por módulo</label>
+                  <label className="text-[10px] font-medium text-muted-foreground mb-1 block">Aulas/módulo</label>
                   <Select value={String(customLessons)} onValueChange={v => setCustomLessons(Number(v))}>
-                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {[1, 2, 3, 4, 5, 6, 7, 8].map(n => (
-                        <SelectItem key={n} value={String(n)}>{n} {n === 1 ? "aula" : "aulas"}</SelectItem>
+                        <SelectItem key={n} value={String(n)}>{n}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-                <p className="col-span-2 text-[10px] text-muted-foreground">Total estimado: <strong className="text-foreground">{customModules * customLessons} aulas</strong></p>
+                <p className="text-[10px] text-muted-foreground pb-1">= <strong className="text-foreground">{customModules * customLessons}</strong> aulas</p>
               </div>
             )}
 
-            <div className="bg-secondary/50 rounded-lg p-3 text-[11px] text-muted-foreground space-y-1">
-              <p className="font-semibold text-foreground flex items-center gap-1"><Sparkles size={12} className="text-primary" /> O que a IA vai gerar:</p>
-              <p>• Estrutura completa: módulos e aulas{structureMode === "manual" ? ` (${customModules} módulos × ${customLessons} aulas)` : " (IA decide)"}</p>
-              <p>• Descrições práticas para cada item</p>
-              <p>• Dicas de como gravar cada aula</p>
-              <p>• Você revisa e edita antes de criar — depois só adiciona os vídeos</p>
-            </div>
-            <Button onClick={handleGenerate} disabled={generating || !idea.trim()} className="w-full gap-2">
-              {generating ? <><Loader2 size={14} className="animate-spin" /> Gerando estrutura...</> : <><Wand2 size={14} /> Gerar Estrutura</>}
+            <Button onClick={handleGenerate} disabled={generating || !idea.trim()} className="w-full gap-2 h-9 text-xs">
+              {generating ? <><Loader2 size={14} className="animate-spin" /> Gerando...</> : <><Wand2 size={14} /> Gerar Estrutura</>}
             </Button>
           </div>
         ) : (
