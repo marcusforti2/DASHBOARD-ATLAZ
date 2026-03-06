@@ -20,6 +20,8 @@ import {
   Link2, Unlink, CalendarDays
 } from "lucide-react";
 import { TrainingViewer } from "@/components/training/TrainingViewer";
+import PlaybooksHub from "@/components/training/PlaybooksHub";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // ── Types ──
 type Course = {
@@ -58,6 +60,7 @@ export default function TrainingAdminPage() {
   const [expandedModule, setExpandedModule] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState(false);
   const [previewRole, setPreviewRole] = useState("all");
+  const [activeTab, setActiveTab] = useState("cursos");
 
   const { data: courses = [] } = useQuery({
     queryKey: ["training-courses"],

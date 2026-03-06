@@ -47,3 +47,9 @@ verify_jwt = false
 
 [functions.google-drive-callback]
 verify_jwt = false
+
+[functions.generate-playbook-content]
+verify_jwt = false
+
+[functions.generate-script-message]
+verify_jwt = false
