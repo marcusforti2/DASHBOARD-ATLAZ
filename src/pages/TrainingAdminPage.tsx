@@ -420,12 +420,36 @@ function AiCourseGeneratorDialog({ onSaved }: { onSaved: () => void }) {
   const [customModules, setCustomModules] = useState(3);
   const [customLessons, setCustomLessons] = useState(3);
 
+  const [equipment, setEquipment] = useState("celular");
+  const [recordStyle, setRecordStyle] = useState("talking_head");
+  const [videoFormat, setVideoFormat] = useState("curto");
+  const [extraNotes, setExtraNotes] = useState("");
+
+  const equipmentOptions = [
+    { value: "celular", label: "📱 Celular" },
+    { value: "webcam", label: "💻 Webcam/Notebook" },
+    { value: "camera_pro", label: "🎥 Câmera profissional" },
+    { value: "tela", label: "🖥️ Gravação de tela" },
+  ];
+  const styleOptions = [
+    { value: "talking_head", label: "🗣️ Talking Head" },
+    { value: "tela_narrada", label: "🖥️ Tela narrada" },
+    { value: "roleplay", label: "🎭 Roleplay/Simulação" },
+    { value: "slides", label: "📊 Slides com narração" },
+    { value: "misto", label: "🔀 Misto (varia por aula)" },
+  ];
+  const formatOptions = [
+    { value: "curto", label: "⚡ Curto (3-5 min)" },
+    { value: "medio", label: "⏱️ Médio (5-10 min)" },
+    { value: "longo", label: "🕐 Longo (10-20 min)" },
+  ];
   const handleGenerate = async () => {
     if (!idea.trim()) return;
     setGenerating(true);
     setStructure(null);
     try {
-      const body: any = { idea: idea.trim(), targetRole };
+      const body: any = { idea: idea.trim(), targetRole, equipment, recordStyle, videoFormat };
+      if (extraNotes.trim()) body.extraNotes = extraNotes.trim();
       if (structureMode === "manual") {
         body.numModules = customModules;
         body.numLessonsPerModule = customLessons;
@@ -554,7 +578,8 @@ function AiCourseGeneratorDialog({ onSaved }: { onSaved: () => void }) {
         </DialogHeader>
 
         {!structure ? (
-          <div className="space-y-3 pt-1">
+          <ScrollArea className="max-h-[60vh]">
+          <div className="space-y-3 pt-1 pr-3">
             <div>
               <label className="text-[11px] font-medium text-foreground mb-1 block">Descreva a ideia do curso</label>
               <Textarea
@@ -618,10 +643,52 @@ function AiCourseGeneratorDialog({ onSaved }: { onSaved: () => void }) {
               </div>
             )}
 
+            {/* Recording preferences */}
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="text-[11px] font-medium text-foreground mb-1 block">Equipamento</label>
+                <Select value={equipment} onValueChange={setEquipment}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {equipmentOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-[11px] font-medium text-foreground mb-1 block">Estilo</label>
+                <Select value={recordStyle} onValueChange={setRecordStyle}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {styleOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-[11px] font-medium text-foreground mb-1 block">Duração</label>
+                <Select value={videoFormat} onValueChange={setVideoFormat}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {formatOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[11px] font-medium text-foreground mb-1 block">Observações extras <span className="text-muted-foreground font-normal">(opcional)</span></label>
+              <Input
+                placeholder="Ex: Usar fundo branco, gravar em português formal, incluir exemplos reais..."
+                value={extraNotes}
+                onChange={e => setExtraNotes(e.target.value)}
+                className="h-8 text-xs"
+              />
+            </div>
+
             <Button onClick={handleGenerate} disabled={generating || !idea.trim()} className="w-full gap-2 h-9 text-xs">
               {generating ? <><Loader2 size={14} className="animate-spin" /> Gerando...</> : <><Wand2 size={14} /> Gerar Estrutura</>}
             </Button>
           </div>
+          </ScrollArea>
         ) : (
           <div className="flex-1 overflow-hidden flex flex-col gap-3 pt-2">
             {/* Editable Header */}
