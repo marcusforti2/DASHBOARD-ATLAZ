@@ -340,6 +340,8 @@ export function CloserDailyDashboard({ teamMemberId, memberName, memberRole = "s
           currentMonthId={currentMonth.id}
           roleMetrics={roleMetrics}
           onSaved={invalidateMetrics}
+          onDecrement={handleDecrement}
+          currentActual={currentActuals?.[leadSheetMetric] || 0}
         />
       )}
     </div>

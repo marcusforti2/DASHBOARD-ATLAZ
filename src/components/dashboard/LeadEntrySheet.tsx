@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { METRIC_LABELS } from "@/lib/db";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, X, User, UserPlus, Save, Loader2 } from "lucide-react";
+import { Plus, X, User, UserPlus, Save, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +20,8 @@ interface LeadEntrySheetProps {
   currentMonthId: string;
   roleMetrics: readonly string[];
   onSaved: () => void;
+  onDecrement?: (key: string, qty: number) => Promise<void>;
+  currentActual?: number;
 }
 
 const DAY_NAMES: Record<number, string> = { 0: "Dom", 1: "Seg", 2: "Ter", 3: "Qua", 4: "Qui", 5: "Sex", 6: "Sáb" };
@@ -33,6 +35,8 @@ export function LeadEntrySheet({
   currentMonthId,
   roleMetrics,
   onSaved,
+  onDecrement,
+  currentActual = 0,
 }: LeadEntrySheetProps) {
   const [rows, setRows] = useState<{ lead_name: string; whatsapp: string; social_link: string; fromExisting?: boolean }[]>([
     { lead_name: "", whatsapp: "", social_link: "" },
@@ -41,6 +45,9 @@ export function LeadEntrySheet({
   const [existingLeads, setExistingLeads] = useState<any[]>([]);
   const [showExisting, setShowExisting] = useState(false);
   const [existingSearch, setExistingSearch] = useState("");
+  const [showDeleteMode, setShowDeleteMode] = useState(false);
+  const [deleteQty, setDeleteQty] = useState(1);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -224,6 +231,61 @@ export function LeadEntrySheet({
               )}
             </div>
           </div>
+        )}
+
+        {/* Delete section */}
+        {currentActual > 0 && onDecrement && (
+          <>
+            {!showDeleteMode ? (
+              <button
+                onClick={() => { setShowDeleteMode(true); setDeleteQty(1); }}
+                className="flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground/50 hover:text-destructive transition-colors"
+              >
+                <Trash2 size={10} />
+                Excluir registros ({currentActual})
+              </button>
+            ) : (
+              <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 space-y-3 animate-in fade-in slide-in-from-top-2">
+                <p className="text-[10px] font-bold text-destructive uppercase tracking-wider text-center">Excluir quantos?</p>
+                <div className="flex items-center justify-center gap-3">
+                  <button onClick={() => setDeleteQty(q => Math.max(1, q - 1))} className="w-9 h-9 rounded-xl border border-destructive/30 bg-destructive/5 hover:bg-destructive/10 text-lg font-bold text-destructive transition-all active:scale-95">−</button>
+                  <input
+                    type="number" min={1} max={currentActual} value={deleteQty}
+                    onChange={e => setDeleteQty(Math.max(1, Math.min(currentActual, parseInt(e.target.value) || 1)))}
+                    className="text-2xl font-black tabular-nums text-destructive w-14 text-center bg-transparent border-b-2 border-destructive/30 focus:border-destructive outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  <button onClick={() => setDeleteQty(q => Math.min(currentActual, q + 1))} className="w-9 h-9 rounded-xl border border-destructive/30 bg-destructive/5 hover:bg-destructive/10 text-lg font-bold text-destructive transition-all active:scale-95">+</button>
+                </div>
+                <div className="flex gap-1.5 justify-center">
+                  {[1, 5, 10].filter(n => n <= currentActual).concat(currentActual > 10 ? [currentActual] : []).map(n => (
+                    <button key={n} onClick={() => setDeleteQty(n)} className={cn("px-3 py-1 rounded-lg text-xs font-bold transition-all", deleteQty === n ? "bg-destructive text-white" : "bg-destructive/10 text-destructive hover:bg-destructive/20")}>
+                      {n === currentActual ? `Todos (${n})` : n}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => setShowDeleteMode(false)} className="flex-1 rounded-xl py-2 text-xs font-bold border border-border text-muted-foreground hover:bg-secondary transition-all">
+                    Voltar
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!onDecrement || deleting) return;
+                      setDeleting(true);
+                      await onDecrement(metricKey, Math.min(deleteQty, currentActual));
+                      setDeleting(false);
+                      setShowDeleteMode(false);
+                      onOpenChange(false);
+                    }}
+                    disabled={deleting}
+                    className="flex-1 rounded-xl py-2 text-xs font-bold bg-destructive text-white hover:bg-destructive/90 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
+                  >
+                    {deleting ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                    Excluir −{Math.min(deleteQty, currentActual)}
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {/* Save */}
