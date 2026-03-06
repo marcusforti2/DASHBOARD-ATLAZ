@@ -201,11 +201,6 @@ export function LeadEntrySheet({
           <button onClick={addRow} className="flex items-center gap-1.5 text-[10px] font-bold text-primary hover:text-primary/80 transition-all px-3 py-2 rounded-lg bg-primary/10 hover:bg-primary/15 border border-primary/20">
             <Plus size={12} /> Adicionar Linha
           </button>
-          {existingLeads.length > 0 && (
-            <button onClick={() => setShowExisting(!showExisting)} className="flex items-center gap-1.5 text-[10px] font-bold text-accent hover:text-accent/80 transition-all px-3 py-2 rounded-lg bg-accent/10 hover:bg-accent/15 border border-accent/20">
-              <UserPlus size={12} /> Lead já cadastrado
-            </button>
-          )}
         </div>
 
         {/* Existing lead picker */}
