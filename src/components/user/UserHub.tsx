@@ -65,7 +65,7 @@ export function UserHub({ teamMemberId, memberName, memberRole, onSignOut }: Use
       case "calendar":
         return (
           <div className="max-w-3xl mx-auto">
-            <GoogleCalendarPanel />
+            <GoogleCalendarPanel teamMemberId={teamMemberId} memberRole={memberRole} />
           </div>
         );
       default:
