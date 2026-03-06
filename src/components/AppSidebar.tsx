@@ -21,7 +21,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
-export type AdminView = "dashboard" | "team" | "goals" | "reports" | "closer-preview" | "settings" | "whatsapp" | "popups" | "knowledge" | "dna-mapping" | "processos" | "training" | "calendars";
+export type AdminView = "dashboard" | "team" | "goals" | "reports" | "inspect-team" | "settings" | "whatsapp" | "popups" | "knowledge" | "dna-mapping" | "processos" | "training" | "calendars";
 export type CloserView = "hub";
 
 interface AppSidebarProps {
@@ -72,7 +72,7 @@ const toolCategories: { label: string; icon: React.ElementType; items: SidebarIt
 ];
 
 const adminBottomItems: SidebarItem[] = [
-  { id: "closer-preview", title: "Ver como SDR", icon: Eye },
+  { id: "inspect-team", title: "Inspecionar Equipe", icon: Eye },
   { id: "settings", title: "Configurações", icon: Settings },
 ];
 

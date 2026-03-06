@@ -12,19 +12,23 @@ import DnaMappingPage from "@/pages/DnaMappingPage";
 import ProcessosPage from "@/pages/ProcessosPage";
 import AdminCalendarPage from "@/pages/AdminCalendarPage";
 import TrainingAdminPage from "@/pages/TrainingAdminPage";
-import { AppSidebar, AdminView, CloserView } from "@/components/AppSidebar";
+import { AppSidebar, AdminView } from "@/components/AppSidebar";
 import { AiReportPanel } from "@/components/dashboard/AiReportPanel";
-import { CloserDailyDashboard } from "@/components/dashboard/CloserDailyDashboard";
-import CloserEntry from "@/pages/CloserEntry";
 import { UserHub } from "@/components/user/UserHub";
 import { MotivationalPopup } from "@/components/user/MotivationalPopup";
 import { useMonthlyGoals, useAiReports, useDailyMetrics } from "@/hooks/use-metrics";
 import { sumMetrics, goalToMetrics } from "@/lib/db";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { BarChart3, Loader2, Eye, Shield, Maximize, Minimize } from "lucide-react";
+import { BarChart3, Loader2, Maximize, Minimize, ArrowLeft, Users } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Navigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export default function Index() {
   const { user, role, profile, loading, signOut, isAdmin } = useAuth();
@@ -33,11 +37,13 @@ export default function Index() {
   const queryClient = useQueryClient();
 
   const [adminView, setAdminView] = useState<AdminView>("dashboard");
-  const [previewMemberId, setPreviewMemberId] = useState<string | null>(null);
-  const [previewCloserView, setPreviewCloserView] = useState<"entry" | "daily-goals">("entry");
   const [selectedMonthId, setSelectedMonthId] = useState<string | undefined>();
   const [isFullscreen, setIsFullscreen] = useState(false);
   const mainRef = useRef<HTMLDivElement>(null);
+
+  // Inspect mode
+  const [showInspectDialog, setShowInspectDialog] = useState(false);
+  const [inspectMemberId, setInspectMemberId] = useState<string | null>(null);
 
   const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
@@ -127,15 +133,44 @@ export default function Index() {
     );
   }
 
+  // ── INSPECT MODE: Full-screen view of a team member ──
+  if (inspectMemberId) {
+    const inspectMember = members?.find(m => m.id === inspectMemberId);
+    return (
+      <SidebarProvider>
+        <div className="min-h-screen flex w-full bg-background relative">
+          <UserHub
+            teamMemberId={inspectMemberId}
+            memberName={inspectMember?.name || ""}
+            memberRole={inspectMember?.member_role || "sdr"}
+            onSignOut={signOut}
+          />
+
+          {/* Back to admin button */}
+          <button
+            onClick={() => {
+              setInspectMemberId(null);
+              setAdminView("dashboard");
+            }}
+            className="fixed top-3 right-3 z-[100] flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-lg"
+          >
+            <ArrowLeft size={12} />
+            Voltar Admin
+          </button>
+        </div>
+      </SidebarProvider>
+    );
+  }
+
   // ── Admin: sidebar layout ──
   const activeView = adminView;
-  const isCloserPreview = adminView === "closer-preview";
 
   const handleViewChange = (view: string) => {
-    setAdminView(view as AdminView);
-    if (view === "closer-preview" && !previewMemberId && members?.[0]) {
-      setPreviewMemberId(members[0].id);
+    if (view === "inspect-team") {
+      setShowInspectDialog(true);
+      return;
     }
+    setAdminView(view as AdminView);
   };
 
   const getHeaderTitle = () => {
@@ -150,7 +185,6 @@ export default function Index() {
       case "dna-mapping": return "Sales DNA Decoder";
       case "training": return "Treinamentos";
       case "calendars": return "Agendas";
-      case "closer-preview": return "Visualização SDR";
       case "settings": return "Configurações";
       default: return "";
     }
@@ -176,21 +210,6 @@ export default function Index() {
             onReportGenerated={() => queryClient.invalidateQueries({ queryKey: ["ai-reports", activeMonthId] })}
           />
         ) : null;
-      case "closer-preview":
-        if (!previewMemberId) return null;
-        const previewMember = members?.find(m => m.id === previewMemberId);
-        return (
-          <SidebarProvider>
-            <div className="flex w-full min-h-[calc(100vh-7rem)]">
-              <UserHub
-                teamMemberId={previewMemberId}
-                memberName={previewMember?.name || ""}
-                memberRole={previewMember?.member_role || "sdr"}
-                onSignOut={signOut}
-              />
-            </div>
-          </SidebarProvider>
-        );
       case "settings":
         return <SettingsPage />;
       case "whatsapp":
@@ -212,6 +231,11 @@ export default function Index() {
     }
   };
 
+  const handleInspectMember = (memberId: string) => {
+    setShowInspectDialog(false);
+    setInspectMemberId(memberId);
+  };
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
@@ -220,7 +244,7 @@ export default function Index() {
           activeView={activeView}
           onViewChange={handleViewChange}
           userName={profile?.full_name || user.email || ""}
-          userRole={isCloserPreview ? "Preview Mode" : role}
+          userRole={role}
           avatarUrl={profile?.avatar_url}
           onSignOut={signOut}
         />
@@ -249,48 +273,52 @@ export default function Index() {
                   {isFullscreen ? "Sair da tela cheia" : "Tela cheia"} <kbd className="ml-1 px-1 py-0.5 rounded bg-muted text-[9px] font-mono">Ctrl+Shift+F</kbd>
                 </TooltipContent>
               </Tooltip>
-
-              {isCloserPreview && members && (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Eye size={12} className="text-[hsl(38,92%,50%)]" />
-                  <span className="text-[10px] text-[hsl(38,92%,50%)] font-semibold uppercase tracking-wider mr-1">Simular:</span>
-                  {members.map(m => (
-                    <button
-                      key={m.id}
-                      onClick={() => setPreviewMemberId(m.id)}
-                      className={`px-2.5 py-1 text-[10px] rounded-lg font-semibold uppercase tracking-wider transition-colors ${
-                        previewMemberId === m.id
-                          ? "bg-[hsl(38,92%,50%)] text-background"
-                          : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                      }`}
-                    >
-                      {m.name}
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
           </header>
-
-          {isCloserPreview && (
-            <div className="bg-[hsl(38,92%,50%)]/10 border-b border-[hsl(38,92%,50%)]/30 px-4 py-2 flex items-center justify-between">
-              <span className="text-[10px] font-semibold text-[hsl(38,92%,50%)] uppercase tracking-wider">
-                Modo visualização SDR — {members?.find(m => m.id === previewMemberId)?.name}
-              </span>
-              <button
-                onClick={() => setAdminView("dashboard")}
-                className="flex items-center gap-1.5 px-3 py-1 text-[10px] rounded-lg font-semibold bg-[hsl(38,92%,50%)] text-background hover:bg-[hsl(38,92%,55%)] transition-colors"
-              >
-                <Shield size={10} /> Voltar ao Admin
-              </button>
-            </div>
-          )}
 
           <main className="flex-1 p-2 sm:p-4 lg:p-6 max-w-[1600px] mx-auto w-full">
             {renderAdminContent()}
           </main>
         </div>
       </div>
+
+      {/* Inspect Team Dialog */}
+      <Dialog open={showInspectDialog} onOpenChange={setShowInspectDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-sm">
+              <Users size={16} className="text-primary" />
+              Inspecionar Equipe
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">
+            Selecione um membro para visualizar a tela dele como se fosse o próprio usuário.
+          </p>
+          <div className="grid gap-2 mt-2 max-h-[50vh] overflow-y-auto">
+            {members?.filter(m => m.active).map(member => (
+              <button
+                key={member.id}
+                onClick={() => handleInspectMember(member.id)}
+                className="flex items-center gap-3 p-3 rounded-xl border border-border hover:border-primary/50 hover:bg-primary/5 transition-all text-left group"
+              >
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary/25 to-accent/15 flex items-center justify-center shrink-0">
+                  {member.avatar_url ? (
+                    <img src={member.avatar_url} alt={member.name} className="w-9 h-9 rounded-full object-cover" />
+                  ) : (
+                    <span className="text-xs font-bold text-primary">{member.name?.charAt(0)?.toUpperCase()}</span>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors">{member.name}</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                    {member.member_role === "closer" ? "Closer" : member.member_role === "sdr_closer" ? "SDR + Closer" : "SDR"}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </SidebarProvider>
   );
 }
