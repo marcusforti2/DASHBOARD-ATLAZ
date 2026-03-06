@@ -51,6 +51,7 @@ export default function PlaybooksHub() {
   const [search, setSearch] = useState("");
   const [selectedPlaybook, setSelectedPlaybook] = useState<Playbook | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [aiGenerateOpen, setAiGenerateOpen] = useState(false);
 
   const { data: playbooks = [], isLoading } = useQuery({
     queryKey: ["training-playbooks"],
