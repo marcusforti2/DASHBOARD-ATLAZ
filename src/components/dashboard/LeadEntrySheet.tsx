@@ -203,30 +203,6 @@ export function LeadEntrySheet({
           </button>
         </div>
 
-        {/* Existing lead picker */}
-        {showExisting && (
-          <div className="rounded-xl border border-accent/30 bg-accent/5 p-3 space-y-2 animate-in fade-in slide-in-from-top-2">
-            <input value={existingSearch} onChange={e => setExistingSearch(e.target.value)} placeholder="Buscar lead existente..." className="w-full text-[10px] bg-secondary border border-border rounded-lg px-2.5 py-1.5 text-secondary-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-accent" autoFocus />
-            <div className="max-h-[150px] overflow-y-auto space-y-0.5">
-              {filteredExisting.length === 0 ? (
-                <p className="text-[10px] text-muted-foreground text-center py-2">Nenhum lead encontrado</p>
-              ) : (
-                filteredExisting.map((lead: any) => (
-                  <button key={lead.id} onClick={() => addExistingLead(lead)} className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left hover:bg-accent/10 transition-colors group">
-                    <div className="w-6 h-6 rounded-full bg-accent/15 flex items-center justify-center shrink-0">
-                      <User size={10} className="text-accent" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[10px] font-semibold text-card-foreground truncate">{lead.lead_name}</p>
-                      <p className="text-[8px] text-muted-foreground truncate">{lead.whatsapp || lead.social_link || "Sem contato"}</p>
-                    </div>
-                    <Plus size={10} className="text-accent opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-        )}
 
         {/* Delete section */}
         {currentActual > 0 && onDecrement && (
