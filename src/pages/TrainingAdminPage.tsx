@@ -14,7 +14,8 @@ import { toast } from "sonner";
 import {
   Plus, GraduationCap, BookOpen, Play, Trash2, Edit2, ChevronDown, ChevronRight,
   Video, Send, EyeOff, Loader2, Sparkles, Eye, Search, RefreshCw, X, Image as ImageIcon,
-  Wand2, Check, Lightbulb, MessageSquare, User, Users, FolderPlus, FolderSync, HardDrive
+  Wand2, Check, Lightbulb, MessageSquare, User, Users, FolderPlus, FolderSync, HardDrive,
+  Link2, Unlink
 } from "lucide-react";
 import { TrainingViewer } from "@/components/training/TrainingViewer";
 
@@ -142,6 +143,7 @@ export default function TrainingAdminPage() {
           <p className="text-xs text-muted-foreground mt-0.5">Gerencie cursos, módulos e aulas para sua equipe</p>
         </div>
         <div className="flex items-center gap-2">
+          <DriveConnectionStatus />
           {/* Preview buttons */}
           <Select value={previewRole} onValueChange={setPreviewRole}>
             <SelectTrigger className="w-[100px] h-8 text-[10px]"><SelectValue /></SelectTrigger>
@@ -1335,7 +1337,7 @@ function DriveCreateFoldersButton({ courseId, courseTitle, onDone }: { courseId:
     } catch (err: any) {
       const msg = err?.message || "";
       if (msg.includes("not_connected")) {
-        toast.error("Conecte seu Google Calendar/Drive primeiro (com as permissões de Drive)");
+        toast.error("Conecte o Google Drive primeiro (botão no topo da página)");
       } else {
         toast.error("Erro ao criar pastas: " + msg);
       }
@@ -1387,7 +1389,7 @@ function DriveSyncButton({ courseId, courseTitle, onDone }: { courseId: string; 
     } catch (err: any) {
       const msg = err?.message || "";
       if (msg.includes("not_connected")) {
-        toast.error("Conecte seu Google Calendar/Drive primeiro");
+        toast.error("Conecte o Google Drive primeiro (botão no topo da página)");
       } else {
         toast.error("Erro ao sincronizar: " + msg);
       }
