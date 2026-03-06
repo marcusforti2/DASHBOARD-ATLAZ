@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import ReactMarkdown from "react-markdown";
+import { PlaybookMarkdown } from "./PlaybookMarkdown";
 import {
   Plus, BookOpen, Trash2, Edit2, Loader2, Sparkles, Eye, Search,
   Wand2, Copy, Check, RefreshCw, BookMarked, Globe, Lock, FileText,
@@ -339,10 +339,8 @@ function PlaybookEditor({ playbook, onBack }: { playbook: Playbook; onBack: () =
 
       {/* Editor or Preview */}
       {isPreview ? (
-        <Card className="p-6 min-h-[50vh]">
-          <div className="prose prose-sm max-w-none dark:prose-invert">
-            <ReactMarkdown>{content || "*Playbook vazio — use o editor ou a IA para começar*"}</ReactMarkdown>
-          </div>
+        <Card className="p-6 sm:p-8 min-h-[50vh]">
+          <PlaybookMarkdown content={content || "*Playbook vazio — use o editor ou a IA para começar*"} />
         </Card>
       ) : (
         <Textarea
@@ -526,9 +524,7 @@ function AIPlaybookWriter({ open, onOpenChange, onInsert, currentContent }: {
         ) : (
           <div className="flex flex-col flex-1 min-h-0 gap-3">
             <ScrollArea className="flex-1 border border-border rounded-lg p-4 bg-muted/20 max-h-[50vh]">
-              <div className="prose prose-sm max-w-none dark:prose-invert">
-                <ReactMarkdown>{result}</ReactMarkdown>
-              </div>
+              <PlaybookMarkdown content={result} />
               {isStreaming && <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-0.5" />}
             </ScrollArea>
 
@@ -757,9 +753,7 @@ function AIGeneratePlaybookDialog({ open, onOpenChange, onCreated }: {
         ) : (
           <div className="flex flex-col flex-1 min-h-0 gap-3">
             <ScrollArea className="flex-1 border border-border rounded-lg p-4 bg-muted/20 max-h-[50vh]">
-              <div className="prose prose-sm max-w-none dark:prose-invert">
-                <ReactMarkdown>{result}</ReactMarkdown>
-              </div>
+              <PlaybookMarkdown content={result} />
               {isStreaming && <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-0.5" />}
             </ScrollArea>
 
