@@ -109,6 +109,12 @@ export function UserHub({ teamMemberId, memberName, memberRole, onSignOut }: Use
         onGoToTraining={() => setActiveTab("training")}
       />
 
+      <CalendarConnectPopup
+        teamMemberId={teamMemberId}
+        memberRole={memberRole}
+        onGoToCalendar={() => setActiveTab("calendar")}
+      />
+
       <UserHubSidebar
         activeTab={activeTab}
         onTabChange={setActiveTab}
