@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import {
   Plus, GraduationCap, BookOpen, Play, Trash2, Edit2, ChevronDown, ChevronRight,
   Video, Send, EyeOff, Loader2, Sparkles, Eye, Search, RefreshCw, X, Image as ImageIcon,
-  Wand2, Check, Lightbulb, MessageSquare, User, Users
+  Wand2, Check, Lightbulb, MessageSquare, User, Users, FolderPlus, FolderSync, HardDrive
 } from "lucide-react";
 import { TrainingViewer } from "@/components/training/TrainingViewer";
 
