@@ -14,14 +14,14 @@ serve(async (req) => {
     if (!CLIENT_ID) throw new Error("GOOGLE_CLIENT_ID not configured");
 
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-    const redirectUri = `${SUPABASE_URL}/functions/v1/google-calendar-callback`;
+    const redirectUri = `${SUPABASE_URL}/functions/v1/google-drive-callback`;
 
+    // Drive-only scopes
     const scopes = [
-      "https://www.googleapis.com/auth/calendar.readonly",
-      "https://www.googleapis.com/auth/calendar.events",
+      "https://www.googleapis.com/auth/drive",
+      "https://www.googleapis.com/auth/userinfo.email",
     ].join(" ");
 
-    // Get user from auth header to pass as state
     const authHeader = req.headers.get("authorization");
     if (!authHeader) throw new Error("Unauthorized");
 
@@ -48,7 +48,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
-    console.error("google-calendar-auth error:", e);
+    console.error("google-drive-auth error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
