@@ -14,7 +14,6 @@ serve(async (req) => {
     const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
     const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Authenticate user
     const authHeader = req.headers.get("authorization");
     if (!authHeader) throw new Error("Unauthorized");
 
@@ -25,74 +24,22 @@ serve(async (req) => {
     if (userError || !user) throw new Error("Unauthorized");
 
     const serviceClient = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-
     const body = req.method === "POST" ? await req.json() : {};
     const action = body.action || "list";
 
-    // Check if admin is requesting another user's calendar
-    const targetUserId = body.targetUserId || user.id;
-    let isAdmin = false;
-
-    if (targetUserId !== user.id) {
-      // Verify requester is admin
-      const { data: adminRole } = await serviceClient
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .eq("role", "admin")
-        .maybeSingle();
-
-      if (!adminRole) throw new Error("Unauthorized: admin access required");
-      isAdmin = true;
+    // ── Action: list connected closers (any authenticated user) ──
+    if (action === "list_connected_closers") {
+      return await handleListConnectedClosers(serviceClient);
     }
 
-    // Action: list connected members (admin only)
+    // ── Action: list_connections (admin only) ──
     if (action === "list_connections") {
-      const { data: adminRole } = await serviceClient
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .eq("role", "admin")
-        .maybeSingle();
-
-      if (!adminRole) throw new Error("Unauthorized: admin access required");
-
-      // Get all tokens with profile info
-      const { data: tokens } = await serviceClient
-        .from("google_calendar_tokens")
-        .select("user_id, calendar_email, created_at");
-
-      // Get profiles for those users
-      const userIds = tokens?.map(t => t.user_id) || [];
-      const { data: profiles } = await serviceClient
-        .from("profiles")
-        .select("id, full_name, team_member_id")
-        .in("id", userIds.length > 0 ? userIds : ["none"]);
-
-      // Get all team members for reference
-      const { data: members } = await serviceClient
-        .from("team_members")
-        .select("id, name, member_role, active")
-        .eq("active", true);
-
-      const connections = (members || []).map(member => {
-        const profile = profiles?.find(p => p.team_member_id === member.id);
-        const token = profile ? tokens?.find(t => t.user_id === profile.id) : null;
-        return {
-          memberId: member.id,
-          memberName: member.name,
-          memberRole: member.member_role,
-          userId: profile?.id || null,
-          connected: !!token,
-          calendarEmail: token?.calendar_email || null,
-          connectedAt: token?.created_at || null,
-        };
-      });
-
-      return new Response(JSON.stringify({ connections }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return await handleListConnections(serviceClient, user.id);
     }
+
+    // Determine whose calendar to access
+    // Any authenticated user can view a closer's calendar
+    const targetUserId = body.targetUserId || user.id;
 
     // Get tokens for target user
     const { data: tokenRow, error: tokenError } = await serviceClient
@@ -115,65 +62,11 @@ serve(async (req) => {
     }
 
     if (action === "list") {
-      const timeMin = body.timeMin || new Date().toISOString();
-      const timeMax = body.timeMax || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-
-      const calUrl = new URL("https://www.googleapis.com/calendar/v3/calendars/primary/events");
-      calUrl.searchParams.set("timeMin", timeMin);
-      calUrl.searchParams.set("timeMax", timeMax);
-      calUrl.searchParams.set("singleEvents", "true");
-      calUrl.searchParams.set("orderBy", "startTime");
-      calUrl.searchParams.set("maxResults", "50");
-
-      const res = await fetch(calUrl.toString(), {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(`Google API error: ${JSON.stringify(data)}`);
-
-      return new Response(JSON.stringify({ events: data.items || [] }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return await handleListEvents(accessToken, body);
     }
 
     if (action === "create") {
-      const { summary, description, startDateTime, endDateTime, attendees, addMeet } = body;
-      if (!summary || !startDateTime || !endDateTime) throw new Error("Missing required fields");
-
-      const event: Record<string, unknown> = {
-        summary,
-        description: description || "",
-        start: { dateTime: startDateTime, timeZone: "America/Sao_Paulo" },
-        end: { dateTime: endDateTime, timeZone: "America/Sao_Paulo" },
-      };
-      if (attendees?.length) {
-        event.attendees = attendees.map((email: string) => ({ email }));
-      }
-      // Add Google Meet conference if requested
-      if (addMeet !== false) {
-        event.conferenceData = {
-          createRequest: {
-            requestId: crypto.randomUUID(),
-            conferenceSolutionKey: { type: "hangoutsMeet" },
-          },
-        };
-      }
-
-      const createUrl = "https://www.googleapis.com/calendar/v3/calendars/primary/events?sendUpdates=all&conferenceDataVersion=1";
-      const res = await fetch(createUrl, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(event),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(`Google API error: ${JSON.stringify(data)}`);
-
-      return new Response(JSON.stringify({ event: data }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return await handleCreateEvent(accessToken, body);
     }
 
     throw new Error(`Unknown action: ${action}`);
@@ -185,6 +78,157 @@ serve(async (req) => {
     });
   }
 });
+
+// ── Handlers ──
+
+async function handleListConnectedClosers(serviceClient: ReturnType<typeof createClient>) {
+  // Get all closers
+  const { data: members } = await serviceClient
+    .from("team_members")
+    .select("id, name, member_role")
+    .eq("active", true)
+    .order("name");
+
+  const closers = (members || []).filter(m =>
+    m.member_role === "closer" || m.member_role === "sdr_closer"
+  );
+
+  // Get profiles linked to these closers
+  const closerIds = closers.map(c => c.id);
+  const { data: profiles } = await serviceClient
+    .from("profiles")
+    .select("id, team_member_id")
+    .in("team_member_id", closerIds.length > 0 ? closerIds : ["none"]);
+
+  // Get tokens
+  const userIds = profiles?.map(p => p.id) || [];
+  const { data: tokens } = await serviceClient
+    .from("google_calendar_tokens")
+    .select("user_id, calendar_email")
+    .in("user_id", userIds.length > 0 ? userIds : ["none"]);
+
+  const result = closers.map(closer => {
+    const profile = profiles?.find(p => p.team_member_id === closer.id);
+    const token = profile ? tokens?.find(t => t.user_id === profile.id) : null;
+    return {
+      memberId: closer.id,
+      memberName: closer.name,
+      memberRole: closer.member_role,
+      userId: profile?.id || null,
+      connected: !!token,
+      calendarEmail: token?.calendar_email || null,
+    };
+  });
+
+  return new Response(JSON.stringify({ closers: result }), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+async function handleListConnections(serviceClient: ReturnType<typeof createClient>, requesterId: string) {
+  const { data: adminRole } = await serviceClient
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", requesterId)
+    .eq("role", "admin")
+    .maybeSingle();
+
+  if (!adminRole) throw new Error("Unauthorized: admin access required");
+
+  const { data: tokens } = await serviceClient
+    .from("google_calendar_tokens")
+    .select("user_id, calendar_email, created_at");
+
+  const userIds = tokens?.map(t => t.user_id) || [];
+  const { data: profiles } = await serviceClient
+    .from("profiles")
+    .select("id, full_name, team_member_id")
+    .in("id", userIds.length > 0 ? userIds : ["none"]);
+
+  const { data: members } = await serviceClient
+    .from("team_members")
+    .select("id, name, member_role, active")
+    .eq("active", true);
+
+  const connections = (members || []).map(member => {
+    const profile = profiles?.find(p => p.team_member_id === member.id);
+    const token = profile ? tokens?.find(t => t.user_id === profile.id) : null;
+    return {
+      memberId: member.id,
+      memberName: member.name,
+      memberRole: member.member_role,
+      userId: profile?.id || null,
+      connected: !!token,
+      calendarEmail: token?.calendar_email || null,
+      connectedAt: token?.created_at || null,
+    };
+  });
+
+  return new Response(JSON.stringify({ connections }), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+async function handleListEvents(accessToken: string, body: Record<string, unknown>) {
+  const timeMin = (body.timeMin as string) || new Date().toISOString();
+  const timeMax = (body.timeMax as string) || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  const calUrl = new URL("https://www.googleapis.com/calendar/v3/calendars/primary/events");
+  calUrl.searchParams.set("timeMin", timeMin);
+  calUrl.searchParams.set("timeMax", timeMax);
+  calUrl.searchParams.set("singleEvents", "true");
+  calUrl.searchParams.set("orderBy", "startTime");
+  calUrl.searchParams.set("maxResults", "50");
+
+  const res = await fetch(calUrl.toString(), {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(`Google API error: ${JSON.stringify(data)}`);
+
+  return new Response(JSON.stringify({ events: data.items || [] }), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+async function handleCreateEvent(accessToken: string, body: Record<string, unknown>) {
+  const { summary, description, startDateTime, endDateTime, attendees, addMeet } = body as {
+    summary?: string; description?: string; startDateTime?: string; endDateTime?: string;
+    attendees?: string[]; addMeet?: boolean;
+  };
+  if (!summary || !startDateTime || !endDateTime) throw new Error("Missing required fields");
+
+  const event: Record<string, unknown> = {
+    summary,
+    description: description || "",
+    start: { dateTime: startDateTime, timeZone: "America/Sao_Paulo" },
+    end: { dateTime: endDateTime, timeZone: "America/Sao_Paulo" },
+  };
+  if (attendees?.length) {
+    event.attendees = attendees.map((email: string) => ({ email }));
+  }
+  if (addMeet !== false) {
+    event.conferenceData = {
+      createRequest: {
+        requestId: crypto.randomUUID(),
+        conferenceSolutionKey: { type: "hangoutsMeet" },
+      },
+    };
+  }
+
+  const createUrl = "https://www.googleapis.com/calendar/v3/calendars/primary/events?sendUpdates=all&conferenceDataVersion=1";
+  const res = await fetch(createUrl, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify(event),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(`Google API error: ${JSON.stringify(data)}`);
+
+  return new Response(JSON.stringify({ event: data }), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
 
 async function refreshAccessToken(refreshToken: string, serviceClient: ReturnType<typeof createClient>, userId: string): Promise<string> {
   const CLIENT_ID = Deno.env.get("GOOGLE_CLIENT_ID")!;
@@ -205,13 +249,9 @@ async function refreshAccessToken(refreshToken: string, serviceClient: ReturnTyp
   if (!res.ok) throw new Error(`Token refresh failed: ${JSON.stringify(data)}`);
 
   const expiresAt = new Date(Date.now() + data.expires_in * 1000).toISOString();
-
   await serviceClient
     .from("google_calendar_tokens")
-    .update({
-      access_token: data.access_token,
-      token_expires_at: expiresAt,
-    })
+    .update({ access_token: data.access_token, token_expires_at: expiresAt })
     .eq("user_id", userId);
 
   return data.access_token;
