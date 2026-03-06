@@ -108,10 +108,15 @@ export function GoogleCalendarPanel() {
     return !!data;
   }, []);
 
-  // Fetch team members for selector
+  // Fetch only closers for selector (each closer = one calendar/agenda)
   useEffect(() => {
     supabase.from("team_members").select("id, name, member_role").eq("active", true).order("name")
-      .then(({ data }) => { if (data) setTeamMembers(data); });
+      .then(({ data }) => {
+        if (data) {
+          const closers = data.filter(m => m.member_role === "closer" || m.member_role === "sdr_closer");
+          setTeamMembers(closers);
+        }
+      });
   }, []);
 
   const fetchEvents = useCallback(async () => {
