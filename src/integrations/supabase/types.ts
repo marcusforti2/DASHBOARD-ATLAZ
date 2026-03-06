@@ -965,6 +965,42 @@ export type Database = {
           },
         ]
       }
+      training_playbooks: {
+        Row: {
+          category: string
+          content: string
+          created_at: string
+          description: string | null
+          id: string
+          is_published: boolean
+          target_role: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          content?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_published?: boolean
+          target_role?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          content?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_published?: boolean
+          target_role?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
