@@ -2,15 +2,18 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Calendar as CalendarIcon, Plus, RefreshCw, Loader2, Clock, MapPin, Users,
-  ExternalLink, CheckCircle2, XCircle, ChevronDown, ChevronUp
+  ExternalLink, CheckCircle2, XCircle, ChevronDown, ChevronUp, Trash2, Phone,
+  MessageCircle, Sparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { format, parseISO, addHours } from "date-fns";
 
@@ -35,6 +38,13 @@ interface CalendarEvent {
   location?: string;
 }
 
+interface Attendee {
+  name: string;
+  email: string;
+  phone: string;
+  type: "closer" | "client";
+}
+
 export default function AdminCalendarPage() {
   const [connections, setConnections] = useState<MemberConnection[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,7 +62,11 @@ export default function AdminCalendarPage() {
   const [newStartDate, setNewStartDate] = useState("");
   const [newStartTime, setNewStartTime] = useState("09:00");
   const [newEndTime, setNewEndTime] = useState("10:00");
-  const [newAttendees, setNewAttendees] = useState("");
+
+  // Attendees with WhatsApp
+  const [attendees, setAttendees] = useState<Attendee[]>([]);
+  const [sendWhatsApp, setSendWhatsApp] = useState(true);
+  const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
 
   const fetchConnections = useCallback(async () => {
     setLoading(true);
@@ -93,6 +107,18 @@ export default function AdminCalendarPage() {
     }
   };
 
+  const addAttendee = () => {
+    setAttendees(prev => [...prev, { name: "", email: "", phone: "", type: "client" }]);
+  };
+
+  const updateAttendee = (index: number, field: keyof Attendee, value: string) => {
+    setAttendees(prev => prev.map((a, i) => i === index ? { ...a, [field]: value } : a));
+  };
+
+  const removeAttendee = (index: number) => {
+    setAttendees(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleCreateEvent = async () => {
     if (!newTitle || !newStartDate || !createForUserId) {
       toast.error("Preencha título e data");
@@ -100,8 +126,10 @@ export default function AdminCalendarPage() {
     }
     setCreating(true);
     try {
-      const attendees = newAttendees.split(",").map(e => e.trim()).filter(e => e.includes("@"));
-      const { error } = await supabase.functions.invoke("google-calendar-events", {
+      const emails = attendees.filter(a => a.email).map(a => a.email);
+
+      // 1. Create Google Calendar event
+      const { data, error } = await supabase.functions.invoke("google-calendar-events", {
         body: {
           action: "create",
           targetUserId: createForUserId,
@@ -109,14 +137,46 @@ export default function AdminCalendarPage() {
           description: newDescription,
           startDateTime: `${newStartDate}T${newStartTime}:00`,
           endDateTime: `${newStartDate}T${newEndTime}:00`,
-          attendees,
+          attendees: emails,
         },
       });
       if (error) throw error;
-      toast.success(`Evento criado na agenda de ${createForName}!`);
+      toast.success("Evento criado no Google Calendar!");
+
+      // 2. Send WhatsApp confirmations
+      const attendeesWithPhone = attendees.filter(a => a.phone && a.name);
+      if (sendWhatsApp && attendeesWithPhone.length > 0) {
+        setSendingWhatsApp(true);
+        try {
+          const { data: whatsData, error: whatsError } = await supabase.functions.invoke("event-whatsapp-confirm", {
+            body: {
+              attendees: attendeesWithPhone,
+              event: {
+                title: newTitle,
+                date: newStartDate,
+                startTime: newStartTime,
+                endTime: newEndTime,
+                description: newDescription,
+                organizerName: createForName,
+              },
+            },
+          });
+          if (whatsError) throw whatsError;
+          const results = whatsData?.results || [];
+          const sent = results.filter((r: any) => r.success).length;
+          const failed = results.filter((r: any) => !r.success).length;
+          if (sent > 0) toast.success(`📱 ${sent} confirmação(ões) enviada(s) via WhatsApp`);
+          if (failed > 0) toast.error(`${failed} envio(s) falharam`);
+        } catch (e) {
+          console.error("WhatsApp error:", e);
+          toast.error("Erro ao enviar confirmações WhatsApp");
+        } finally {
+          setSendingWhatsApp(false);
+        }
+      }
+
       setDialogOpen(false);
       resetForm();
-      // Refresh events for this member
       const conn = connections.find(c => c.userId === createForUserId);
       if (conn) fetchMemberEvents(createForUserId, conn.memberId);
     } catch (e) {
@@ -130,10 +190,11 @@ export default function AdminCalendarPage() {
   const resetForm = () => {
     setNewTitle("");
     setNewDescription("");
-    setNewAttendees("");
     setNewStartDate("");
     setNewStartTime("09:00");
     setNewEndTime("10:00");
+    setAttendees([]);
+    setSendWhatsApp(true);
   };
 
   const openCreateDialog = (userId: string, name: string) => {
@@ -215,7 +276,6 @@ export default function AdminCalendarPage() {
         {connections.map(conn => (
           <Card key={conn.memberId} className="overflow-hidden">
             <CardContent className="p-0">
-              {/* Member header */}
               <div className="flex items-center justify-between p-3">
                 <div className="flex items-center gap-3 min-w-0">
                   {conn.connected ? (
@@ -268,7 +328,6 @@ export default function AdminCalendarPage() {
                 </div>
               </div>
 
-              {/* Expanded events */}
               {expandedMember === conn.memberId && conn.userId && (
                 <div className="border-t border-border bg-secondary/30 p-3 space-y-2">
                   {loadingEvents === conn.memberId ? (
@@ -302,12 +361,8 @@ export default function AdminCalendarPage() {
                           </div>
                         </div>
                         {event.htmlLink && (
-                          <a
-                            href={event.htmlLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-1 rounded text-muted-foreground hover:text-primary shrink-0"
-                          >
+                          <a href={event.htmlLink} target="_blank" rel="noopener noreferrer"
+                            className="p-1 rounded text-muted-foreground hover:text-primary shrink-0">
                             <ExternalLink size={10} />
                           </a>
                         )}
@@ -323,42 +378,141 @@ export default function AdminCalendarPage() {
 
       {/* Create Event Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-sm">
               Criar evento para <span className="text-primary">{createForName}</span>
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <Label className="text-xs">Título *</Label>
-              <Input value={newTitle} onChange={e => setNewTitle(e.target.value)} placeholder="Reunião com cliente" />
-            </div>
-            <div>
-              <Label className="text-xs">Data *</Label>
-              <Input type="date" value={newStartDate} onChange={e => setNewStartDate(e.target.value)} min={today} />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-4">
+            {/* Event details */}
+            <div className="space-y-3">
               <div>
-                <Label className="text-xs">Início</Label>
-                <Input type="time" value={newStartTime} onChange={e => setNewStartTime(e.target.value)} />
+                <Label className="text-xs">Título *</Label>
+                <Input value={newTitle} onChange={e => setNewTitle(e.target.value)} placeholder="Reunião com cliente" />
               </div>
               <div>
-                <Label className="text-xs">Fim</Label>
-                <Input type="time" value={newEndTime} onChange={e => setNewEndTime(e.target.value)} />
+                <Label className="text-xs">Data *</Label>
+                <Input type="date" value={newStartDate} onChange={e => setNewStartDate(e.target.value)} min={today} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Início</Label>
+                  <Input type="time" value={newStartTime} onChange={e => setNewStartTime(e.target.value)} />
+                </div>
+                <div>
+                  <Label className="text-xs">Fim</Label>
+                  <Input type="time" value={newEndTime} onChange={e => setNewEndTime(e.target.value)} />
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs">Descrição</Label>
+                <Textarea value={newDescription} onChange={e => setNewDescription(e.target.value)} placeholder="Detalhes da reunião..." rows={2} />
               </div>
             </div>
-            <div>
-              <Label className="text-xs">Descrição</Label>
-              <Textarea value={newDescription} onChange={e => setNewDescription(e.target.value)} placeholder="Detalhes..." rows={2} />
+
+            {/* Attendees section */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold flex items-center gap-1.5">
+                  <Users size={12} /> Convidados
+                </Label>
+                <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={addAttendee}>
+                  <Plus size={10} /> Adicionar
+                </Button>
+              </div>
+
+              {attendees.length === 0 && (
+                <p className="text-[10px] text-muted-foreground text-center py-2">
+                  Nenhum convidado adicionado
+                </p>
+              )}
+
+              {attendees.map((att, idx) => (
+                <Card key={idx} className="border-dashed">
+                  <CardContent className="p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Badge variant={att.type === "closer" ? "default" : "secondary"} className="text-[9px] h-5">
+                          {att.type === "closer" ? "🏢 Closer" : "👤 Cliente"}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Select value={att.type} onValueChange={v => updateAttendee(idx, "type", v)}>
+                          <SelectTrigger className="h-6 text-[10px] w-24">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="closer" className="text-xs">Closer</SelectItem>
+                            <SelectItem value="client" className="text-xs">Cliente</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive" onClick={() => removeAttendee(idx)}>
+                          <Trash2 size={10} />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        placeholder="Nome"
+                        value={att.name}
+                        onChange={e => updateAttendee(idx, "name", e.target.value)}
+                        className="h-8 text-xs"
+                      />
+                      <Input
+                        placeholder="E-mail"
+                        value={att.email}
+                        onChange={e => updateAttendee(idx, "email", e.target.value)}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Phone size={10} className="text-muted-foreground shrink-0" />
+                      <Input
+                        placeholder="WhatsApp (ex: 11999998888)"
+                        value={att.phone}
+                        onChange={e => updateAttendee(idx, "phone", e.target.value)}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
-            <div>
-              <Label className="text-xs">Convidados (e-mails separados por vírgula)</Label>
-              <Input value={newAttendees} onChange={e => setNewAttendees(e.target.value)} placeholder="joao@email.com" />
-            </div>
-            <Button onClick={handleCreateEvent} disabled={creating} className="w-full gap-2">
-              {creating ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-              {creating ? "Criando..." : "Criar Evento"}
+
+            {/* WhatsApp toggle */}
+            {attendees.some(a => a.phone) && (
+              <div className="flex items-center justify-between p-3 rounded-lg bg-accent/5 border border-accent/20">
+                <div className="flex items-center gap-2">
+                  <MessageCircle size={14} className="text-accent" />
+                  <div>
+                    <p className="text-xs font-semibold text-foreground">Enviar confirmação via WhatsApp</p>
+                    <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                      <Sparkles size={8} /> Mensagem gerada por IA para cada convidado
+                    </p>
+                  </div>
+                </div>
+                <Switch checked={sendWhatsApp} onCheckedChange={setSendWhatsApp} />
+              </div>
+            )}
+
+            <Button
+              onClick={handleCreateEvent}
+              disabled={creating || sendingWhatsApp}
+              className="w-full gap-2"
+            >
+              {creating || sendingWhatsApp ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Plus size={14} />
+              )}
+              {sendingWhatsApp
+                ? "Enviando WhatsApp..."
+                : creating
+                ? "Criando evento..."
+                : attendees.some(a => a.phone) && sendWhatsApp
+                ? "Criar Evento + Enviar WhatsApp"
+                : "Criar Evento"}
             </Button>
           </div>
         </DialogContent>

@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.google-calendar-events]
 verify_jwt = false
+
+[functions.event-whatsapp-confirm]
+verify_jwt = false
