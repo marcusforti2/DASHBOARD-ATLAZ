@@ -1316,3 +1316,103 @@ function UnpublishButton({ courseId, onDone }: { courseId: string; onDone: () =>
     </button>
   );
 }
+
+// ── Google Drive: Create Folders ──
+function DriveCreateFoldersButton({ courseId, courseTitle, onDone }: { courseId: string; courseTitle: string; onDone: () => void }) {
+  const [loading, setLoading] = useState(false);
+
+  const handleCreate = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("google-drive-training", {
+        body: { action: "create_folders", courseId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(`${data.folders?.length || 0} pastas criadas no Google Drive!`);
+      onDone();
+    } catch (err: any) {
+      const msg = err?.message || "";
+      if (msg.includes("not_connected")) {
+        toast.error("Conecte seu Google Calendar/Drive primeiro (com as permissões de Drive)");
+      } else {
+        toast.error("Erro ao criar pastas: " + msg);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            onClick={handleCreate}
+            disabled={loading}
+            className="p-1.5 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+            title="Criar pastas no Google Drive"
+          >
+            {loading ? <Loader2 size={12} className="animate-spin" /> : <FolderPlus size={12} />}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-[10px]">
+          Criar pastas no Drive para "{courseTitle}"
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+// ── Google Drive: Sync Videos ──
+function DriveSyncButton({ courseId, courseTitle, onDone }: { courseId: string; courseTitle: string; onDone: () => void }) {
+  const [loading, setLoading] = useState(false);
+
+  const handleSync = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("google-drive-training", {
+        body: { action: "sync_videos", courseId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (data.synced === 0) {
+        toast.info("Nenhum vídeo novo encontrado nas pastas do Drive");
+      } else {
+        toast.success(`${data.synced} vídeo(s) sincronizado(s)!`);
+      }
+      onDone();
+    } catch (err: any) {
+      const msg = err?.message || "";
+      if (msg.includes("not_connected")) {
+        toast.error("Conecte seu Google Calendar/Drive primeiro");
+      } else {
+        toast.error("Erro ao sincronizar: " + msg);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            onClick={handleSync}
+            disabled={loading}
+            className="p-1.5 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+            title="Sincronizar vídeos do Drive"
+          >
+            {loading ? <Loader2 size={12} className="animate-spin" /> : <HardDrive size={12} />}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-[10px]">
+          Sincronizar vídeos do Drive para "{courseTitle}"
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
