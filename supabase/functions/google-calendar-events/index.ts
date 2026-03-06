@@ -89,9 +89,10 @@ async function handleListConnectedClosers(serviceClient: ReturnType<typeof creat
     .eq("active", true)
     .order("name");
 
-  const closers = (members || []).filter(m =>
-    m.member_role === "closer" || m.member_role === "sdr_closer"
-  );
+  const closers = (members || []).filter(m => {
+    const roles = (m.member_role || "").split(",").map((r: string) => r.trim());
+    return roles.includes("closer");
+  });
 
   // Get profiles linked to these closers
   const closerIds = closers.map(c => c.id);
