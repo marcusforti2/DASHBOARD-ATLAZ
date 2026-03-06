@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { GraduationCap, Play, BookOpen, X, ChevronLeft, CheckCircle2 } from "lucide-react";
+import { GraduationCap, Play, BookOpen, X, ChevronLeft, CheckCircle2, BookMarked } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getMemberRoles } from "@/lib/db";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { PlaybookViewerUser } from "./PlaybookViewerUser";
 
 interface TrainingViewerProps {
   memberRole: string;
@@ -138,54 +140,68 @@ export function TrainingViewer({ memberRole, previewAll }: TrainingViewerProps) 
   if (!selectedCourse) {
     return (
       <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <GraduationCap size={18} className="text-primary" />
-          <h2 className="text-sm font-bold text-foreground">Treinamentos</h2>
-        </div>
-
-        {visibleCourses.length === 0 ? (
-          <div className="text-center py-12">
-            <GraduationCap size={36} className="text-muted-foreground/20 mx-auto mb-3" />
-            <p className="text-xs text-muted-foreground">Nenhum treinamento disponível</p>
+        <Tabs defaultValue="courses">
+          <div className="flex items-center justify-between mb-4">
+            <TabsList className="h-9">
+              <TabsTrigger value="courses" className="text-xs gap-1.5 px-4">
+                <GraduationCap size={14} /> Cursos
+              </TabsTrigger>
+              <TabsTrigger value="playbooks" className="text-xs gap-1.5 px-4">
+                <BookMarked size={14} /> Playbooks
+              </TabsTrigger>
+            </TabsList>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {visibleCourses.map((course) => {
-              const courseModCount = modules.filter(m => m.course_id === course.id).length;
-              const courseLessonCount = modules
-                .filter(m => m.course_id === course.id)
-                .reduce((sum, mod) => sum + lessons.filter(l => l.module_id === mod.id).length, 0);
 
-              return (
-                <button
-                  key={course.id}
-                  onClick={() => { setSelectedCourse(course); setCurrentLessonIdx(0); }}
-                  className="group relative overflow-hidden rounded-xl border border-border bg-card hover:border-primary/40 transition-all text-left"
-                >
-                  {course.cover_url ? (
-                    <div className="relative h-36 overflow-hidden">
-                      <img src={course.cover_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-                      <div className="absolute bottom-3 left-3 right-3">
-                        <p className="text-white font-bold text-sm drop-shadow-lg">{course.title}</p>
-                        <p className="text-white/70 text-[10px] mt-0.5">{courseModCount} módulos · {courseLessonCount} aulas</p>
-                      </div>
-                      <div className="absolute top-3 right-3 w-8 h-8 rounded-full bg-primary/90 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Play size={14} className="text-primary-foreground ml-0.5" />
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="p-4 h-36 flex flex-col justify-end bg-gradient-to-br from-primary/5 to-primary/15">
-                      <GraduationCap size={24} className="text-primary mb-2" />
-                      <p className="font-bold text-sm">{course.title}</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">{courseModCount} módulos · {courseLessonCount} aulas</p>
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        )}
+          <TabsContent value="courses">
+            {visibleCourses.length === 0 ? (
+              <div className="text-center py-12">
+                <GraduationCap size={36} className="text-muted-foreground/20 mx-auto mb-3" />
+                <p className="text-xs text-muted-foreground">Nenhum treinamento disponível</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {visibleCourses.map((course) => {
+                  const courseModCount = modules.filter(m => m.course_id === course.id).length;
+                  const courseLessonCount = modules
+                    .filter(m => m.course_id === course.id)
+                    .reduce((sum, mod) => sum + lessons.filter(l => l.module_id === mod.id).length, 0);
+
+                  return (
+                    <button
+                      key={course.id}
+                      onClick={() => { setSelectedCourse(course); setCurrentLessonIdx(0); }}
+                      className="group relative overflow-hidden rounded-xl border border-border bg-card hover:border-primary/40 transition-all text-left"
+                    >
+                      {course.cover_url ? (
+                        <div className="relative h-36 overflow-hidden">
+                          <img src={course.cover_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                          <div className="absolute bottom-3 left-3 right-3">
+                            <p className="text-white font-bold text-sm drop-shadow-lg">{course.title}</p>
+                            <p className="text-white/70 text-[10px] mt-0.5">{courseModCount} módulos · {courseLessonCount} aulas</p>
+                          </div>
+                          <div className="absolute top-3 right-3 w-8 h-8 rounded-full bg-primary/90 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Play size={14} className="text-primary-foreground ml-0.5" />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-4 h-36 flex flex-col justify-end bg-gradient-to-br from-primary/5 to-primary/15">
+                          <GraduationCap size={24} className="text-primary mb-2" />
+                          <p className="font-bold text-sm">{course.title}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">{courseModCount} módulos · {courseLessonCount} aulas</p>
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="playbooks">
+            <PlaybookViewerUser memberRole={memberRole} />
+          </TabsContent>
+        </Tabs>
       </div>
     );
   }
