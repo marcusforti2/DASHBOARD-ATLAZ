@@ -1438,7 +1438,7 @@ function DriveConnectionStatus() {
         const { data: tokenData } = await supabase
           .from("google_drive_tokens" as any)
           .select("drive_email")
-          .maybeSingle();
+          .maybeSingle() as any;
         if (tokenData?.drive_email) setDriveEmail(tokenData.drive_email);
       } else {
         setConnected(false);
@@ -1464,12 +1464,12 @@ function DriveConnectionStatus() {
           const { data: check } = await supabase
             .from("google_drive_tokens" as any)
             .select("drive_email")
-            .maybeSingle();
+            .maybeSingle() as any;
           if (check) {
             clearInterval(interval);
             setConnecting(false);
             setConnected(true);
-            setDriveEmail(check.drive_email);
+            setDriveEmail(check?.drive_email || null);
             toast.success("Google Drive conectado! 🎉");
           }
         }, 3000);
