@@ -688,6 +688,7 @@ function AiCourseGeneratorDialog({ onSaved }: { onSaved: () => void }) {
               {generating ? <><Loader2 size={14} className="animate-spin" /> Gerando...</> : <><Wand2 size={14} /> Gerar Estrutura</>}
             </Button>
           </div>
+          </ScrollArea>
         ) : (
           <div className="flex-1 overflow-hidden flex flex-col gap-3 pt-2">
             {/* Editable Header */}
