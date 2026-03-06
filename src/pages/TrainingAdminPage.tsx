@@ -280,7 +280,7 @@ export default function TrainingAdminPage() {
                                       <DeleteButton table="training_lessons" id={lesson.id} onDeleted={invalidateAll} size="sm" />
                                     </div>
                                   ))}
-                                  <AddLessonDialog moduleId={mod.id} existingCount={modLessons.length} onSaved={invalidateAll} />
+                                  <AddLessonDialog moduleId={mod.id} onSaved={invalidateAll} />
                                 </div>
                               )}
                             </div>
