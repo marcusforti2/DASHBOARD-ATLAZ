@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   Calendar as CalendarIcon, Plus, RefreshCw, Link2, Loader2, Clock, MapPin,
   Users, ExternalLink, ChevronLeft, ChevronRight, List, LayoutGrid, Columns,
-  Search, Filter
+  Search, Filter, Video
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import {
   format, parseISO, addHours, addDays, startOfWeek, endOfWeek, startOfDay,
@@ -30,6 +31,8 @@ interface CalendarEvent {
   attendees?: { email: string; responseStatus?: string }[];
   htmlLink?: string;
   location?: string;
+  hangoutLink?: string;
+  conferenceData?: { entryPoints?: { entryPointType: string; uri: string }[] };
 }
 
 type ViewMode = "day" | "week" | "list";
@@ -56,6 +59,7 @@ export function GoogleCalendarPanel() {
   const [newStartTime, setNewStartTime] = useState("09:00");
   const [newEndTime, setNewEndTime] = useState("10:00");
   const [newAttendees, setNewAttendees] = useState("");
+  const [addMeet, setAddMeet] = useState(true);
 
   const dateRange = useMemo(() => {
     if (viewMode === "day") {
@@ -144,11 +148,22 @@ export function GoogleCalendarPanel() {
       const startDateTime = `${newStartDate}T${newStartTime}:00`;
       const endDateTime = `${newStartDate}T${newEndTime}:00`;
       const attendees = newAttendees.split(",").map(e => e.trim()).filter(e => e.includes("@"));
-      const { error } = await supabase.functions.invoke("google-calendar-events", {
-        body: { action: "create", summary: newTitle, description: newDescription, startDateTime, endDateTime, attendees },
+      const { data, error } = await supabase.functions.invoke("google-calendar-events", {
+        body: { action: "create", summary: newTitle, description: newDescription, startDateTime, endDateTime, attendees, addMeet },
       });
       if (error) throw error;
-      toast.success("Evento criado!");
+      const meetLink = data?.event?.hangoutLink;
+      if (meetLink) {
+        toast.success(
+          <div className="space-y-1">
+            <p className="font-semibold">Evento criado com Google Meet!</p>
+            <a href={meetLink} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline break-all">{meetLink}</a>
+          </div>,
+          { duration: 8000 }
+        );
+      } else {
+        toast.success("Evento criado!");
+      }
       setDialogOpen(false);
       setNewTitle(""); setNewDescription(""); setNewAttendees("");
       fetchEvents();
@@ -372,6 +387,7 @@ export function GoogleCalendarPanel() {
     const start = getEventStart(event);
     const end = getEventEnd(event);
     const duration = differenceInMinutes(end, start);
+    const meetLink = event.hangoutLink || event.conferenceData?.entryPoints?.find(e => e.entryPointType === "video")?.uri;
 
     return (
       <div className="group flex items-start gap-3 p-2.5 rounded-lg bg-primary/5 border border-primary/10 hover:bg-primary/10 transition-colors cursor-default">
@@ -389,6 +405,17 @@ export function GoogleCalendarPanel() {
                 <MapPin size={10} />
                 {event.location}
               </span>
+            )}
+            {meetLink && (
+              <a
+                href={meetLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-[11px] text-primary hover:underline"
+              >
+                <Video size={10} />
+                Google Meet
+              </a>
             )}
           </div>
           {event.attendees && event.attendees.length > 0 && (
@@ -477,6 +504,16 @@ export function GoogleCalendarPanel() {
                 <div>
                   <Label className="text-xs">Convidados (e-mails separados por vírgula)</Label>
                   <Input value={newAttendees} onChange={e => setNewAttendees(e.target.value)} placeholder="joao@email.com, maria@email.com" />
+                </div>
+                <div className="flex items-center justify-between rounded-lg border border-border p-3">
+                  <div className="flex items-center gap-2">
+                    <Video size={16} className="text-primary" />
+                    <div>
+                      <p className="text-xs font-medium text-foreground">Google Meet</p>
+                      <p className="text-[10px] text-muted-foreground">Gerar link de videoconferência</p>
+                    </div>
+                  </div>
+                  <Switch checked={addMeet} onCheckedChange={setAddMeet} />
                 </div>
                 <Button onClick={handleCreateEvent} disabled={creating} className="w-full gap-2">
                   {creating ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
