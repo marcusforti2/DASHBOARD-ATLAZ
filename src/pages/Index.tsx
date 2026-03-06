@@ -113,15 +113,17 @@ export default function Index() {
     }
     const memberRole = members?.find(m => m.id === profile.team_member_id)?.member_role || "sdr";
     return (
-      <div className="min-h-screen flex flex-col bg-background">
-        <UserHub
-          teamMemberId={profile.team_member_id}
-          memberName={profile.full_name || ""}
-          memberRole={memberRole}
-          onSignOut={signOut}
-        />
-        <MotivationalPopup userRole={role} />
-      </div>
+      <SidebarProvider>
+        <div className="min-h-screen flex w-full bg-background">
+          <UserHub
+            teamMemberId={profile.team_member_id}
+            memberName={profile.full_name || ""}
+            memberRole={memberRole}
+            onSignOut={signOut}
+          />
+          <MotivationalPopup userRole={role} />
+        </div>
+      </SidebarProvider>
     );
   }
 
