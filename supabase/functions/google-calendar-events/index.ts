@@ -151,7 +151,10 @@ async function handleListConnections(serviceClient: ReturnType<typeof createClie
     .select("id, name, member_role, active")
     .eq("active", true);
 
-  const connections = (members || []).map(member => {
+  const connections = (members || []).filter(member => {
+    const roles = (member.member_role || "").split(",").map((r: string) => r.trim());
+    return roles.includes("closer");
+  }).map(member => {
     const profile = profiles?.find(p => p.team_member_id === member.id);
     const token = profile ? tokens?.find(t => t.user_id === profile.id) : null;
     return {
