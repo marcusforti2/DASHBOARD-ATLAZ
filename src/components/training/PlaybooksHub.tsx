@@ -114,6 +114,11 @@ export default function PlaybooksHub() {
               className="h-8 text-xs pl-8 w-48"
             />
           </div>
+          <AIGeneratePlaybookDialog
+            open={aiGenerateOpen}
+            onOpenChange={setAiGenerateOpen}
+            onCreated={(pb) => { setSelectedPlaybook(pb); }}
+          />
           <CreatePlaybookDialog
             open={createOpen}
             onOpenChange={setCreateOpen}
