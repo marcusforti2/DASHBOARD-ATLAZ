@@ -260,6 +260,60 @@ export type Database = {
           },
         ]
       }
+      event_reminders: {
+        Row: {
+          created_at: string
+          created_by: string
+          event_description: string | null
+          event_google_id: string
+          event_start_at: string
+          event_title: string
+          id: string
+          lead_name: string | null
+          lead_phone: string | null
+          remind_at: string
+          reminder_label: string
+          reminder_type: string
+          sent: boolean
+          sent_at: string | null
+          team_member_ids: string[] | null
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          event_description?: string | null
+          event_google_id: string
+          event_start_at: string
+          event_title: string
+          id?: string
+          lead_name?: string | null
+          lead_phone?: string | null
+          remind_at: string
+          reminder_label?: string
+          reminder_type?: string
+          sent?: boolean
+          sent_at?: string | null
+          team_member_ids?: string[] | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          event_description?: string | null
+          event_google_id?: string
+          event_start_at?: string
+          event_title?: string
+          id?: string
+          lead_name?: string | null
+          lead_phone?: string | null
+          remind_at?: string
+          reminder_label?: string
+          reminder_type?: string
+          sent?: boolean
+          sent_at?: string | null
+          team_member_ids?: string[] | null
+        }
+        Relationships: []
+      }
       google_calendar_tokens: {
         Row: {
           access_token: string

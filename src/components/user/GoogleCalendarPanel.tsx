@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   Calendar as CalendarIcon, Plus, RefreshCw, Link2, Loader2, Clock, MapPin,
   Users, ExternalLink, ChevronLeft, ChevronRight, List, LayoutGrid, Columns,
-  Search, Filter, Video
+  Search, Filter, Video, Phone, Bell, UserPlus, X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,6 +13,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import {
   format, parseISO, addHours, addDays, startOfWeek, endOfWeek, startOfDay,
@@ -37,7 +39,22 @@ interface CalendarEvent {
 
 type ViewMode = "day" | "week" | "list";
 
+interface TeamMember {
+  id: string;
+  name: string;
+  member_role: string;
+}
+
 const HOURS = Array.from({ length: 15 }, (_, i) => i + 7); // 7h - 21h
+
+const REMINDER_OPTIONS = [
+  { label: "24h antes", value: "24h", minutes: 1440 },
+  { label: "12h antes", value: "12h", minutes: 720 },
+  { label: "1h antes", value: "1h", minutes: 60 },
+  { label: "30min antes", value: "30min", minutes: 30 },
+  { label: "5min antes", value: "5min", minutes: 5 },
+  { label: "Na hora", value: "0min", minutes: 0 },
+];
 
 export function GoogleCalendarPanel() {
   const [connected, setConnected] = useState<boolean | null>(null);
@@ -60,6 +77,12 @@ export function GoogleCalendarPanel() {
   const [newEndTime, setNewEndTime] = useState("10:00");
   const [newAttendees, setNewAttendees] = useState("");
   const [addMeet, setAddMeet] = useState(true);
+  const [leadName, setLeadName] = useState("");
+  const [leadPhone, setLeadPhone] = useState("");
+  const [enableReminders, setEnableReminders] = useState(true);
+  const [selectedReminders, setSelectedReminders] = useState<string[]>(["24h", "1h", "5min"]);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
 
   const dateRange = useMemo(() => {
     if (viewMode === "day") {
@@ -83,6 +106,12 @@ export function GoogleCalendarPanel() {
     setConnected(!!data);
     setCalendarEmail(data?.calendar_email || null);
     return !!data;
+  }, []);
+
+  // Fetch team members for selector
+  useEffect(() => {
+    supabase.from("team_members").select("id, name, member_role").eq("active", true).order("name")
+      .then(({ data }) => { if (data) setTeamMembers(data); });
   }, []);
 
   const fetchEvents = useCallback(async () => {
@@ -152,20 +181,78 @@ export function GoogleCalendarPanel() {
         body: { action: "create", summary: newTitle, description: newDescription, startDateTime, endDateTime, attendees, addMeet },
       });
       if (error) throw error;
+
+      const eventId = data?.event?.id || "";
+      const eventStartAt = new Date(`${newStartDate}T${newStartTime}:00`);
+
+      // Create WhatsApp reminders if enabled
+      if (enableReminders && (leadPhone || selectedMembers.length > 0)) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const reminders: any[] = [];
+          
+          for (const reminderValue of selectedReminders) {
+            const opt = REMINDER_OPTIONS.find(r => r.value === reminderValue);
+            if (!opt) continue;
+            const remindAt = new Date(eventStartAt.getTime() - opt.minutes * 60000);
+
+            // Lead reminder
+            if (leadPhone) {
+              reminders.push({
+                event_google_id: eventId,
+                event_title: newTitle,
+                event_description: newDescription,
+                event_start_at: eventStartAt.toISOString(),
+                lead_name: leadName,
+                lead_phone: leadPhone,
+                team_member_ids: selectedMembers,
+                remind_at: remindAt.toISOString(),
+                reminder_type: "lead",
+                reminder_label: reminderValue,
+                created_by: user.id,
+              });
+            }
+
+            // Team member reminder
+            if (selectedMembers.length > 0) {
+              reminders.push({
+                event_google_id: eventId,
+                event_title: newTitle,
+                event_description: newDescription,
+                event_start_at: eventStartAt.toISOString(),
+                lead_name: leadName,
+                lead_phone: leadPhone,
+                team_member_ids: selectedMembers,
+                remind_at: remindAt.toISOString(),
+                reminder_type: "team",
+                reminder_label: reminderValue,
+                created_by: user.id,
+              });
+            }
+          }
+
+          if (reminders.length > 0) {
+            await supabase.from("event_reminders").insert(reminders);
+          }
+        }
+      }
+
       const meetLink = data?.event?.hangoutLink;
       if (meetLink) {
         toast.success(
           <div className="space-y-1">
             <p className="font-semibold">Evento criado com Google Meet!</p>
             <a href={meetLink} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline break-all">{meetLink}</a>
+            {enableReminders && leadPhone && <p className="text-[10px] text-muted-foreground">📱 Lembretes WhatsApp agendados</p>}
           </div>,
           { duration: 8000 }
         );
       } else {
-        toast.success("Evento criado!");
+        toast.success(enableReminders && leadPhone ? "Evento criado! Lembretes WhatsApp agendados 📱" : "Evento criado!");
       }
       setDialogOpen(false);
       setNewTitle(""); setNewDescription(""); setNewAttendees("");
+      setLeadName(""); setLeadPhone(""); setSelectedMembers([]);
       fetchEvents();
     } catch {
       toast.error("Erro ao criar evento");
@@ -482,8 +569,9 @@ export function GoogleCalendarPanel() {
                 <Plus size={12} /> Novo
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-w-md max-h-[90vh]">
               <DialogHeader><DialogTitle>Criar Evento</DialogTitle></DialogHeader>
+              <ScrollArea className="max-h-[70vh] pr-3">
               <div className="space-y-3">
                 <div>
                   <Label className="text-xs">Título *</Label>
@@ -499,12 +587,63 @@ export function GoogleCalendarPanel() {
                 </div>
                 <div>
                   <Label className="text-xs">Descrição</Label>
-                  <Textarea value={newDescription} onChange={e => setNewDescription(e.target.value)} placeholder="Detalhes..." rows={2} />
+                  <Textarea value={newDescription} onChange={e => setNewDescription(e.target.value)} placeholder="Detalhes da reunião, contexto do lead..." rows={2} />
                 </div>
+
+                {/* Team member selector */}
+                <div className="rounded-lg border border-border p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <UserPlus size={14} className="text-primary" />
+                    <Label className="text-xs font-semibold">Para quem é o agendamento?</Label>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5 max-h-[120px] overflow-y-auto scrollbar-none">
+                    {teamMembers.map(m => (
+                      <label key={m.id} className={cn(
+                        "flex items-center gap-2 p-1.5 rounded-md cursor-pointer transition-colors text-xs",
+                        selectedMembers.includes(m.id) ? "bg-primary/10 text-primary" : "hover:bg-secondary text-foreground"
+                      )}>
+                        <Checkbox
+                          checked={selectedMembers.includes(m.id)}
+                          onCheckedChange={(checked) => {
+                            setSelectedMembers(prev =>
+                              checked ? [...prev, m.id] : prev.filter(id => id !== m.id)
+                            );
+                          }}
+                          className="h-3.5 w-3.5"
+                        />
+                        <span className="truncate">{m.name}</span>
+                        <Badge variant="outline" className="text-[8px] h-3.5 px-1 ml-auto shrink-0">
+                          {m.member_role === "closer" ? "C" : m.member_role === "sdr" ? "S" : "S+C"}
+                        </Badge>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Lead info */}
+                <div className="rounded-lg border border-border p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Phone size={14} className="text-accent" />
+                    <Label className="text-xs font-semibold">Dados do Lead (WhatsApp)</Label>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-[10px] text-muted-foreground">Nome</Label>
+                      <Input value={leadName} onChange={e => setLeadName(e.target.value)} placeholder="João Silva" className="h-8 text-xs" />
+                    </div>
+                    <div>
+                      <Label className="text-[10px] text-muted-foreground">WhatsApp</Label>
+                      <Input value={leadPhone} onChange={e => setLeadPhone(e.target.value)} placeholder="5511999999999" className="h-8 text-xs" />
+                    </div>
+                  </div>
+                </div>
+
                 <div>
                   <Label className="text-xs">Convidados (e-mails separados por vírgula)</Label>
                   <Input value={newAttendees} onChange={e => setNewAttendees(e.target.value)} placeholder="joao@email.com, maria@email.com" />
                 </div>
+
+                {/* Google Meet toggle */}
                 <div className="flex items-center justify-between rounded-lg border border-border p-3">
                   <div className="flex items-center gap-2">
                     <Video size={16} className="text-primary" />
@@ -515,11 +654,53 @@ export function GoogleCalendarPanel() {
                   </div>
                   <Switch checked={addMeet} onCheckedChange={setAddMeet} />
                 </div>
+
+                {/* WhatsApp Reminders */}
+                <div className="rounded-lg border border-border p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Bell size={14} className="text-[hsl(38,92%,50%)]" />
+                      <div>
+                        <p className="text-xs font-medium text-foreground">Lembretes WhatsApp</p>
+                        <p className="text-[10px] text-muted-foreground">Anti-noshow com IA · horário comercial</p>
+                      </div>
+                    </div>
+                    <Switch checked={enableReminders} onCheckedChange={setEnableReminders} />
+                  </div>
+                  {enableReminders && (
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {REMINDER_OPTIONS.map(opt => (
+                        <label
+                          key={opt.value}
+                          className={cn(
+                            "flex items-center gap-1 px-2 py-1 rounded-full text-[10px] cursor-pointer transition-colors border",
+                            selectedReminders.includes(opt.value)
+                              ? "bg-primary/10 border-primary/30 text-primary"
+                              : "border-border text-muted-foreground hover:border-primary/20"
+                          )}
+                        >
+                          <Checkbox
+                            checked={selectedReminders.includes(opt.value)}
+                            onCheckedChange={(checked) => {
+                              setSelectedReminders(prev =>
+                                checked ? [...prev, opt.value] : prev.filter(v => v !== opt.value)
+                              );
+                            }}
+                            className="h-3 w-3"
+                          />
+                          {opt.label}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <Button onClick={handleCreateEvent} disabled={creating} className="w-full gap-2">
                   {creating ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
                   {creating ? "Criando..." : "Criar Evento"}
                 </Button>
               </div>
+              </ScrollArea>
             </DialogContent>
           </Dialog>
         </div>
