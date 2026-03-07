@@ -26,7 +26,7 @@ serve(async (req) => {
     const trimmedText = text.substring(0, 2000);
 
     const response = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId || DEFAULT_VOICE_ID}?output_format=mp3_22050_32`,
+      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId || DEFAULT_VOICE_ID}/stream?output_format=mp3_22050_32`,
       {
         method: "POST",
         headers: {
@@ -35,12 +35,11 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           text: trimmedText,
-          model_id: "eleven_multilingual_v2",
+          model_id: "eleven_turbo_v2_5",
           voice_settings: {
             stability: 0.5,
             similarity_boost: 0.75,
-            style: 0.2,
-            use_speaker_boost: true,
+            speed: 1.1,
           },
         }),
       }
