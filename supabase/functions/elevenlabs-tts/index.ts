@@ -5,8 +5,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Daniel voice - male, clear, professional
-const DEFAULT_VOICE_ID = "onwK4e9ZLuTAKqWW03F9";
+// Thiago Realista - Middle aged Brazilian male voice, natural PT-BR
+const DEFAULT_VOICE_ID = "96cLX3dkyNUmTHwkNXeS";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -36,12 +36,13 @@ serve(async (req) => {
         body: JSON.stringify({
           text: trimmedText,
           model_id: "eleven_flash_v2_5",
+          language_code: "pt-BR",
           voice_settings: {
             stability: 0.5,
             similarity_boost: 0.75,
             style: 0.2,
             use_speaker_boost: true,
-            speed: 1.1,
+            speed: 1.05,
           },
         }),
       }
