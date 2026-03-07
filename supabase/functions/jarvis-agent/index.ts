@@ -24,12 +24,14 @@ const TOOLS = [
     type: "function",
     function: {
       name: "get_member_metrics",
-      description: "Busca métricas diárias de um membro específico por nome",
+      description: "Busca métricas diárias de um membro específico por nome. Pode filtrar por mês/ano ou por número de dias.",
       parameters: {
         type: "object",
         properties: {
           member_name: { type: "string", description: "Nome (ou parte do nome) do membro" },
-          days: { type: "number", description: "Dias para buscar (padrão: 7)" },
+          days: { type: "number", description: "Dias para buscar (padrão: 30). Use para consultas relativas como 'últimos 7 dias'" },
+          month: { type: "number", description: "Mês (1-12). Use quando o admin pedir um mês específico, ex: 'janeiro' = 1" },
+          year: { type: "number", description: "Ano (ex: 2025, 2026). Se não informado, usa o ano atual" },
         },
         required: ["member_name"],
         additionalProperties: false,
