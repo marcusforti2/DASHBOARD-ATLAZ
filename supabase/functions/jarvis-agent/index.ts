@@ -666,6 +666,11 @@ REGRAS DE RESPOSTA:
 - Emojis: máximo 1 por resposta
 - NUNCA repita o que o admin disse
 
+MESES EM PORTUGUÊS → NÚMERO:
+janeiro=1, fevereiro=2, março=3, abril=4, maio=5, junho=6, julho=7, agosto=8, setembro=9, outubro=10, novembro=11, dezembro=12
+SEMPRE use o parâmetro "month" quando o admin mencionar um mês específico. Ex: "métricas de janeiro" → month=1
+Se o ano não for mencionado, use o ano atual (${new Date().getFullYear()}).
+
 ACESSO TOTAL — VOCÊ PODE TUDO:
 📊 DADOS: métricas diárias, metas mensais/semanais, ranking, leads, equipe
 📝 CRIAR: popups motivacionais, itens de conhecimento
