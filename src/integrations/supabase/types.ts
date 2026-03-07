@@ -76,6 +76,35 @@ export type Database = {
           },
         ]
       }
+      ai_tool_usage: {
+        Row: {
+          created_at: string
+          id: string
+          member_id: string
+          tool_type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          member_id: string
+          tool_type?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          member_id?: string
+          tool_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_tool_usage_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       closer_analyses: {
         Row: {
           ai_analysis: string | null
@@ -113,6 +142,73 @@ export type Database = {
             columns: ["member_id"]
             isOneToOne: false
             referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coach_conversations: {
+        Row: {
+          created_at: string
+          id: string
+          member_id: string
+          title: string
+          tool: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          member_id: string
+          title?: string
+          tool?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          member_id?: string
+          title?: string
+          tool?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_conversations_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coach_messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          role: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          role: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "coach_conversations"
             referencedColumns: ["id"]
           },
         ]
