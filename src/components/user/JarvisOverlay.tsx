@@ -610,16 +610,11 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
     const navTarget = detectNavCommand(text);
     if (navTarget && onNavigate) {
       const tabNames: Record<string, string> = {
-        dashboard: "Dashboard",
-        team: "Equipe",
-        goals: "Metas",
-        reports: "Relatórios IA",
-        training: "Treinamentos",
-        calendars: "Agendas",
-        whatsapp: "WhatsApp",
-        knowledge: "Conhecimento IA",
-        "dna-mapping": "Sales DNA",
-        settings: "Configurações",
+        dashboard: "Dashboard", team: "Equipe", goals: "Metas", reports: "Relatórios IA",
+        training: "Treinamentos", calendars: "Agendas", whatsapp: "WhatsApp",
+        knowledge: "Conhecimento IA", "dna-mapping": "Sales DNA", settings: "Configurações",
+        popups: "Popups", processos: "Processos", "closer-entry": "Registro Closer",
+        playbooks: "Playbooks",
       };
       const name = tabNames[navTarget] || navTarget;
       setMessages(prev => [
