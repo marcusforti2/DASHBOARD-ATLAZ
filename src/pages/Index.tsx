@@ -299,6 +299,13 @@ export default function Index() {
             {renderAdminContent()}
           </main>
         </div>
+
+        {/* Jarvis — Admin only */}
+        <JarvisOverlay
+          memberId={profile?.team_member_id || user.id}
+          memberRole="admin"
+          onNavigate={(view) => setAdminView(view as AdminView)}
+        />
       </div>
 
       {/* Inspect Team Dialog */}

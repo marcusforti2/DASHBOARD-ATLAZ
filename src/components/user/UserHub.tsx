@@ -142,12 +142,7 @@ export function UserHub({ teamMemberId, memberName, memberRole, onSignOut }: Use
         </main>
       </div>
 
-      {/* Jarvis Overlay */}
-      <JarvisOverlay
-        memberId={teamMemberId}
-        memberRole={memberRole}
-        onNavigate={(tab) => setActiveTab(tab as UserTab)}
-      />
+      {/* Jarvis removed — admin only */}
     </>
   );
 }
