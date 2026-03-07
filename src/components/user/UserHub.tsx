@@ -8,7 +8,7 @@ import { UserRankingScreen } from "./UserRankingScreen";
 import { TrainingViewer } from "@/components/training/TrainingViewer";
 import { TrainingNotificationPopup } from "@/components/training/TrainingNotificationPopup";
 import { GoogleCalendarPanel } from "./GoogleCalendarPanel";
-import { JarvisOverlay } from "./JarvisOverlay";
+// JarvisOverlay moved to admin-only (Index.tsx)
 import { CalendarConnectPopup } from "./CalendarConnectPopup";
 import { AnimatePresence } from "framer-motion";
 import { getMemberRoles } from "@/lib/db";
