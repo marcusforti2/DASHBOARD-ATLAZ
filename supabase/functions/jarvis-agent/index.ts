@@ -419,23 +419,32 @@ async function executeTool(supabase: any, name: string, args: any): Promise<any>
       }
 
       case "get_all_metrics_summary": {
-        const since = daysAgo(args.days || 7);
         const { data: members } = await supabase.from("team_members").select("id, name, member_role").eq("active", true);
-        const { data: metrics } = await supabase.from("daily_metrics").select("member_id, conexoes, conexoes_aceitas, abordagens, reuniao_agendada, reuniao_realizada, lig_realizada").gte("date", since);
+        
+        let metricsQuery = supabase.from("daily_metrics").select("member_id, conexoes, conexoes_aceitas, abordagens, inmail, follow_up, numero, lig_agendada, lig_realizada, reuniao_agendada, reuniao_realizada");
+        
+        if (args.month) {
+          const year = args.year || new Date().getFullYear();
+          const startDate = `${year}-${String(args.month).padStart(2, '0')}-01`;
+          const endMonth = args.month === 12 ? 1 : args.month + 1;
+          const endYear = args.month === 12 ? year + 1 : year;
+          const endDate = `${endYear}-${String(endMonth).padStart(2, '0')}-01`;
+          metricsQuery = metricsQuery.gte("date", startDate).lt("date", endDate);
+        } else {
+          metricsQuery = metricsQuery.gte("date", daysAgo(args.days || 30));
+        }
+        
+        const { data: metrics } = await metricsQuery;
         if (!members || !metrics) return { error: "Sem dados" };
+        
         const summary = members.map((m: any) => {
           const mm = metrics.filter((x: any) => x.member_id === m.id);
-          return {
-            name: m.name,
-            role: m.member_role,
-            dias: mm.length,
-            conexoes: mm.reduce((s: number, x: any) => s + x.conexoes, 0),
-            abordagens: mm.reduce((s: number, x: any) => s + x.abordagens, 0),
-            reuniao_agendada: mm.reduce((s: number, x: any) => s + x.reuniao_agendada, 0),
-            reuniao_realizada: mm.reduce((s: number, x: any) => s + x.reuniao_realizada, 0),
-          };
+          const metricKeys = ["conexoes", "conexoes_aceitas", "abordagens", "inmail", "follow_up", "numero", "lig_agendada", "lig_realizada", "reuniao_agendada", "reuniao_realizada"];
+          const totals: any = { name: m.name, role: m.member_role, dias: mm.length };
+          for (const k of metricKeys) totals[k] = mm.reduce((s: number, x: any) => s + (x[k] || 0), 0);
+          return totals;
         });
-        return { period: `últimos ${args.days || 7} dias`, summary };
+        return { period: args.month ? `mês ${args.month}/${args.year || new Date().getFullYear()}` : `últimos ${args.days || 30} dias`, summary };
       }
 
       case "get_monthly_goals": {
