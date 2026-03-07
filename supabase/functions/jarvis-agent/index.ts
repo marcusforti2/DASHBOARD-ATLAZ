@@ -69,6 +69,21 @@ const TOOLS = [
   {
     type: "function",
     function: {
+      name: "get_weekly_goals",
+      description: "Consulta metas semanais de um membro ou globais",
+      parameters: {
+        type: "object",
+        properties: {
+          member_name: { type: "string", description: "Nome do membro (opcional)" },
+        },
+        required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "get_ranking",
       description: "Ranking dos membros por uma métrica específica nos últimos N dias",
       parameters: {
@@ -155,13 +170,13 @@ const TOOLS = [
     type: "function",
     function: {
       name: "navigate_to_page",
-      description: "Navega para uma página específica do painel administrativo",
+      description: "Navega para uma página específica do sistema. Use sempre que o admin pedir para abrir/ir/mostrar qualquer página.",
       parameters: {
         type: "object",
         properties: {
           page: {
             type: "string",
-            enum: ["dashboard", "team", "goals", "reports", "training", "calendars", "whatsapp", "knowledge", "dna-mapping", "settings", "popups", "processos"],
+            enum: ["dashboard", "team", "goals", "reports", "training", "calendars", "whatsapp", "knowledge", "dna-mapping", "settings", "popups", "processos", "closer-entry", "playbooks"],
             description: "Nome da página",
           },
         },
@@ -189,7 +204,145 @@ const TOOLS = [
     type: "function",
     function: {
       name: "get_training_info",
-      description: "Lista cursos e treinamentos disponíveis",
+      description: "Lista cursos, módulos e aulas de treinamento disponíveis",
+      parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_playbooks",
+      description: "Lista playbooks de treinamento disponíveis, com filtro opcional por categoria ou role",
+      parameters: {
+        type: "object",
+        properties: {
+          category: { type: "string", description: "Categoria (opcional)" },
+          role: { type: "string", description: "Role alvo: sdr, closer, all (opcional)" },
+        },
+        required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_popups",
+      description: "Lista popups motivacionais cadastrados",
+      parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_popup",
+      description: "Cria um novo popup motivacional",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Título do popup" },
+          message: { type: "string", description: "Mensagem do popup" },
+          emoji: { type: "string", description: "Emoji (ex: 🔥)" },
+          category: { type: "string", description: "Categoria: motivation, tip, challenge" },
+          target_role: { type: "string", description: "Role alvo: sdr, closer, all" },
+        },
+        required: ["title", "message"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_whatsapp_automations",
+      description: "Lista automações de WhatsApp cadastradas",
+      parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_processes",
+      description: "Lista processos/fluxos salvos no editor de processos",
+      parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_closer_analyses",
+      description: "Lista análises de closer (behaviorais, ligações) por membro",
+      parameters: {
+        type: "object",
+        properties: {
+          member_name: { type: "string", description: "Nome do membro (opcional)" },
+        },
+        required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_dna_submissions",
+      description: "Lista submissões de testes DNA (closer/sdr) com análise IA",
+      parameters: {
+        type: "object",
+        properties: {
+          member_name: { type: "string", description: "Nome do membro (opcional)" },
+          test_type: { type: "string", description: "Tipo: closer, sdr (opcional)" },
+        },
+        required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_ai_reports",
+      description: "Lista relatórios IA gerados",
+      parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_knowledge",
+      description: "Cria um novo item na base de conhecimento da empresa",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Título do conhecimento" },
+          content: { type: "string", description: "Conteúdo" },
+          category: { type: "string", description: "Categoria: general, product, process, objection" },
+        },
+        required: ["title", "content"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_calendar_events",
+      description: "Lista eventos da agenda/calendário dos próximos dias",
+      parameters: {
+        type: "object",
+        properties: {
+          days: { type: "number", description: "Próximos N dias (padrão: 7)" },
+        },
+        required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_whatsapp_contacts",
+      description: "Lista contatos WhatsApp cadastrados da equipe",
       parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
     },
   },
