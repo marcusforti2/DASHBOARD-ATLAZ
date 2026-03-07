@@ -15,6 +15,7 @@ import TrainingAdminPage from "@/pages/TrainingAdminPage";
 import { AppSidebar, AdminView } from "@/components/AppSidebar";
 import { AiReportPanel } from "@/components/dashboard/AiReportPanel";
 import { UserHub } from "@/components/user/UserHub";
+import { JarvisOverlay } from "@/components/user/JarvisOverlay";
 import { MotivationalPopup } from "@/components/user/MotivationalPopup";
 import { useMonthlyGoals, useAiReports, useDailyMetrics } from "@/hooks/use-metrics";
 import { sumMetrics, goalToMetrics } from "@/lib/db";
@@ -299,6 +300,13 @@ export default function Index() {
             {renderAdminContent()}
           </main>
         </div>
+
+        {/* Jarvis — Admin only */}
+        <JarvisOverlay
+          memberId={profile?.team_member_id || user.id}
+          memberRole="admin"
+          onNavigate={(view) => setAdminView(view as AdminView)}
+        />
       </div>
 
       {/* Inspect Team Dialog */}
