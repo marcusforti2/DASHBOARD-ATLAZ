@@ -512,13 +512,20 @@ async function executeTool(supabase: any, name: string, args: any): Promise<any>
         const instanceId = Deno.env.get("ULTRAMSG_INSTANCE_ID");
         const token = Deno.env.get("ULTRAMSG_TOKEN");
         if (!instanceId || !token) return { error: "WhatsApp não configurado no sistema" };
+        const cleanPhone = contact.phone.replace(/\D/g, "");
+        const formattedPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
+        console.log(`Sending WhatsApp to ${member.name} at ${formattedPhone}`);
         const waResp = await fetch(`https://api.ultramsg.com/${instanceId}/messages/chat`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token, to: contact.phone, body: args.message }),
+          body: JSON.stringify({ token, to: formattedPhone, body: args.message }),
         });
         const waResult = await waResp.json();
-        return { success: true, message: `Mensagem enviada para ${member.name} (${contact.phone})`, result: waResult };
+        console.log(`WhatsApp API response:`, JSON.stringify(waResult));
+        if (!waResp.ok || waResult.error) {
+          return { error: `Falha ao enviar WhatsApp para ${member.name}: ${waResult.error || `HTTP ${waResp.status}`}` };
+        }
+        return { success: true, message: `Mensagem enviada para ${member.name} (${formattedPhone})`, result: waResult };
       }
 
       case "navigate_to_page": {
