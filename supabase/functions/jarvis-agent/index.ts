@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 const GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const MODEL = "google/gemini-3-flash-preview";
+const MODEL = "google/gemini-2.5-flash-lite";
 const MAX_TOOL_ROUNDS = 3;
 
 // ── Tool definitions ──
@@ -411,7 +411,7 @@ serve(async (req) => {
       const response = await fetch(GATEWAY, {
         method: "POST",
         headers: aiHeaders,
-        body: JSON.stringify({ model: MODEL, messages: currentMessages, tools: TOOLS }),
+        body: JSON.stringify({ model: MODEL, messages: currentMessages, tools: TOOLS, temperature: 0.3 }),
       });
 
       if (!response.ok) {
@@ -476,7 +476,7 @@ serve(async (req) => {
     const finalResponse = await fetch(GATEWAY, {
       method: "POST",
       headers: aiHeaders,
-      body: JSON.stringify({ model: MODEL, messages: currentMessages, stream: true }),
+      body: JSON.stringify({ model: MODEL, messages: currentMessages, stream: true, temperature: 0.3 }),
     });
 
     if (!finalResponse.ok) {
