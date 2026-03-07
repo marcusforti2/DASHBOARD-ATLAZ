@@ -224,7 +224,7 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
   const [isListening, setIsListening] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
-  const synthRef = useRef(typeof window !== "undefined" ? window.speechSynthesis : null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Keyboard shortcut: Ctrl+J or Cmd+J
