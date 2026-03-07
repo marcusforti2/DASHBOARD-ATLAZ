@@ -289,6 +289,18 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
+  // Auto-send after speech recognition finalizes
+  useEffect(() => {
+    if (autoSendRef.current && input.trim() && !isListening && !isLoading) {
+      autoSendRef.current = false;
+      // Small delay to let state settle
+      const timer = setTimeout(() => {
+        send();
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [input, isListening]);
+
   // TTS via ElevenLabs
   const TTS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`;
   const speak = useCallback(async (text: string) => {
