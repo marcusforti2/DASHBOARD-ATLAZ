@@ -24,12 +24,14 @@ const TOOLS = [
     type: "function",
     function: {
       name: "get_member_metrics",
-      description: "Busca métricas diárias de um membro específico por nome",
+      description: "Busca métricas diárias de um membro específico por nome. Pode filtrar por mês/ano ou por número de dias.",
       parameters: {
         type: "object",
         properties: {
           member_name: { type: "string", description: "Nome (ou parte do nome) do membro" },
-          days: { type: "number", description: "Dias para buscar (padrão: 7)" },
+          days: { type: "number", description: "Dias para buscar (padrão: 30). Use para consultas relativas como 'últimos 7 dias'" },
+          month: { type: "number", description: "Mês (1-12). Use quando o admin pedir um mês específico, ex: 'janeiro' = 1" },
+          year: { type: "number", description: "Ano (ex: 2025, 2026). Se não informado, usa o ano atual" },
         },
         required: ["member_name"],
         additionalProperties: false,
@@ -40,11 +42,13 @@ const TOOLS = [
     type: "function",
     function: {
       name: "get_all_metrics_summary",
-      description: "Resumo de métricas agregadas de TODA a equipe nos últimos N dias",
+      description: "Resumo de métricas agregadas de TODA a equipe. Pode filtrar por mês/ano ou por dias.",
       parameters: {
         type: "object",
         properties: {
-          days: { type: "number", description: "Dias para buscar (padrão: 7)" },
+          days: { type: "number", description: "Dias para buscar (padrão: 30)" },
+          month: { type: "number", description: "Mês (1-12) para filtrar" },
+          year: { type: "number", description: "Ano (ex: 2025, 2026)" },
         },
         required: [],
         additionalProperties: false,
@@ -378,37 +382,69 @@ async function executeTool(supabase: any, name: string, args: any): Promise<any>
       case "get_member_metrics": {
         const member = await findMember(supabase, args.member_name);
         if (!member) return { error: `Membro "${args.member_name}" não encontrado` };
-        const since = daysAgo(args.days || 7);
-        const { data } = await supabase
+        
+        let query = supabase
           .from("daily_metrics")
           .select("date, conexoes, conexoes_aceitas, abordagens, inmail, follow_up, numero, lig_agendada, lig_realizada, reuniao_agendada, reuniao_realizada")
-          .eq("member_id", member.id)
-          .gte("date", since)
-          .order("date", { ascending: false });
-        const totals: any = {};
+          .eq("member_id", member.id);
+        
+        // Filter by month/year if specified, otherwise by days
+        if (args.month) {
+          const year = args.year || new Date().getFullYear();
+          const startDate = `${year}-${String(args.month).padStart(2, '0')}-01`;
+          const endMonth = args.month === 12 ? 1 : args.month + 1;
+          const endYear = args.month === 12 ? year + 1 : year;
+          const endDate = `${endYear}-${String(endMonth).padStart(2, '0')}-01`;
+          query = query.gte("date", startDate).lt("date", endDate);
+          console.log(`Filtering metrics for ${member.name}: ${startDate} to ${endDate}`);
+        } else {
+          const since = daysAgo(args.days || 30);
+          query = query.gte("date", since);
+          console.log(`Filtering metrics for ${member.name}: last ${args.days || 30} days (since ${since})`);
+        }
+        
+        const { data, error } = await query.order("date", { ascending: false });
+        if (error) {
+          console.error("get_member_metrics error:", error);
+          return { error: `Erro ao buscar métricas: ${error.message}` };
+        }
+        
+        console.log(`Found ${data?.length || 0} metric rows for ${member.name}`);
+        
         const metricKeys = ["conexoes", "conexoes_aceitas", "abordagens", "inmail", "follow_up", "numero", "lig_agendada", "lig_realizada", "reuniao_agendada", "reuniao_realizada"];
+        const totals: any = {};
         for (const k of metricKeys) totals[k] = (data || []).reduce((s: number, m: any) => s + (m[k] || 0), 0);
-        return { member: member.name, role: member.role, days: data?.length || 0, totals, daily: data?.slice(0, 5) || [] };
+        
+        return { member: member.name, role: member.member_role, days_found: data?.length || 0, totals, daily: data?.slice(0, 10) || [] };
       }
 
       case "get_all_metrics_summary": {
-        const since = daysAgo(args.days || 7);
         const { data: members } = await supabase.from("team_members").select("id, name, member_role").eq("active", true);
-        const { data: metrics } = await supabase.from("daily_metrics").select("member_id, conexoes, conexoes_aceitas, abordagens, reuniao_agendada, reuniao_realizada, lig_realizada").gte("date", since);
+        
+        let metricsQuery = supabase.from("daily_metrics").select("member_id, conexoes, conexoes_aceitas, abordagens, inmail, follow_up, numero, lig_agendada, lig_realizada, reuniao_agendada, reuniao_realizada");
+        
+        if (args.month) {
+          const year = args.year || new Date().getFullYear();
+          const startDate = `${year}-${String(args.month).padStart(2, '0')}-01`;
+          const endMonth = args.month === 12 ? 1 : args.month + 1;
+          const endYear = args.month === 12 ? year + 1 : year;
+          const endDate = `${endYear}-${String(endMonth).padStart(2, '0')}-01`;
+          metricsQuery = metricsQuery.gte("date", startDate).lt("date", endDate);
+        } else {
+          metricsQuery = metricsQuery.gte("date", daysAgo(args.days || 30));
+        }
+        
+        const { data: metrics } = await metricsQuery;
         if (!members || !metrics) return { error: "Sem dados" };
+        
         const summary = members.map((m: any) => {
           const mm = metrics.filter((x: any) => x.member_id === m.id);
-          return {
-            name: m.name,
-            role: m.member_role,
-            dias: mm.length,
-            conexoes: mm.reduce((s: number, x: any) => s + x.conexoes, 0),
-            abordagens: mm.reduce((s: number, x: any) => s + x.abordagens, 0),
-            reuniao_agendada: mm.reduce((s: number, x: any) => s + x.reuniao_agendada, 0),
-            reuniao_realizada: mm.reduce((s: number, x: any) => s + x.reuniao_realizada, 0),
-          };
+          const metricKeys = ["conexoes", "conexoes_aceitas", "abordagens", "inmail", "follow_up", "numero", "lig_agendada", "lig_realizada", "reuniao_agendada", "reuniao_realizada"];
+          const totals: any = { name: m.name, role: m.member_role, dias: mm.length };
+          for (const k of metricKeys) totals[k] = mm.reduce((s: number, x: any) => s + (x[k] || 0), 0);
+          return totals;
         });
-        return { period: `últimos ${args.days || 7} dias`, summary };
+        return { period: args.month ? `mês ${args.month}/${args.year || new Date().getFullYear()}` : `últimos ${args.days || 30} dias`, summary };
       }
 
       case "get_monthly_goals": {
@@ -629,6 +665,11 @@ REGRAS DE RESPOSTA:
 - Use números diretos: "João fez 15 conexões, 3 reuniões"
 - Emojis: máximo 1 por resposta
 - NUNCA repita o que o admin disse
+
+MESES EM PORTUGUÊS → NÚMERO:
+janeiro=1, fevereiro=2, março=3, abril=4, maio=5, junho=6, julho=7, agosto=8, setembro=9, outubro=10, novembro=11, dezembro=12
+SEMPRE use o parâmetro "month" quando o admin mencionar um mês específico. Ex: "métricas de janeiro" → month=1
+Se o ano não for mencionado, use o ano atual (${new Date().getFullYear()}).
 
 ACESSO TOTAL — VOCÊ PODE TUDO:
 📊 DADOS: métricas diárias, metas mensais/semanais, ranking, leads, equipe
