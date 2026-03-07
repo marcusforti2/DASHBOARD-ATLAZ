@@ -315,13 +315,16 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
     const navTarget = detectNavCommand(text);
     if (navTarget && onNavigate) {
       const tabNames: Record<string, string> = {
-        dashboard: "Meu Dia",
-        calendar: "Agenda",
+        dashboard: "Dashboard",
+        team: "Equipe",
+        goals: "Metas",
+        reports: "Relatórios IA",
         training: "Treinamentos",
-        "ai-chat": "Coach IA",
-        "ai-tools": "Ferramentas IA",
-        "general-dashboard": "Dashboard Geral",
-        ranking: "Ranking",
+        calendars: "Agendas",
+        whatsapp: "WhatsApp",
+        knowledge: "Conhecimento IA",
+        "dna-mapping": "Sales DNA",
+        settings: "Configurações",
       };
       const name = tabNames[navTarget] || navTarget;
       setMessages(prev => [
@@ -354,8 +357,9 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
         },
         body: JSON.stringify({
           messages: [...messages, userMsg],
-          tool: "chat",
+          tool: "jarvis",
           memberId,
+          systemContext: "Você é o JARVIS, assistente de IA exclusivo para gestores/admins de vendas. Responda sempre como consultor estratégico de gestão comercial. O usuário é um GESTOR que administra equipes de SDRs e Closers. Ajude com análise de métricas, estratégias de gestão, coaching de equipe, otimização de processos de vendas e tomada de decisão. Nunca responda como se fosse um SDR ou Closer operacional. Seja direto, estratégico e focado em resultados de gestão.",
         }),
       });
 
