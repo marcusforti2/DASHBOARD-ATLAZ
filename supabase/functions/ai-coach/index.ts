@@ -17,7 +17,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { messages, tool, memberId, conversationId } = await req.json();
+    const { messages, tool, memberId, conversationId, systemContext } = await req.json();
 
     // Fetch company knowledge
     const { data: knowledge } = await supabase
@@ -234,7 +234,53 @@ Inclua análise detalhada e plano de ação. Responda em português brasileiro.$
 Responda em português brasileiro.${memberContext}${knowledgeContext}`,
     };
 
-    const systemPrompt = toolPrompts[tool || "chat"] || toolPrompts.chat;
+    // Jarvis admin: build team-wide context
+    let jarvisTeamContext = "";
+    if (tool === "jarvis") {
+      const { data: allMembers } = await supabase
+        .from("team_members")
+        .select("id, name, member_role, active")
+        .eq("active", true);
+
+      const { data: recentAllMetrics } = await supabase
+        .from("daily_metrics")
+        .select("member_id, date, conexoes, conexoes_aceitas, abordagens, reuniao_agendada, reuniao_realizada, lig_realizada")
+        .order("date", { ascending: false })
+        .limit(100);
+
+      if (allMembers?.length) {
+        jarvisTeamContext = `\n\nEQUIPE ATIVA (${allMembers.length} membros):\n` +
+          allMembers.map(m => `- ${m.name} (${m.member_role})`).join("\n");
+      }
+
+      if (recentAllMetrics?.length) {
+        const byMember: Record<string, any[]> = {};
+        for (const m of recentAllMetrics) {
+          if (!byMember[m.member_id]) byMember[m.member_id] = [];
+          byMember[m.member_id].push(m);
+        }
+        jarvisTeamContext += "\n\nRESUMO DE MÉTRICAS POR MEMBRO (últimos dias):";
+        for (const [mid, metrics] of Object.entries(byMember)) {
+          const member = allMembers?.find(m => m.id === mid);
+          if (!member) continue;
+          const totals = metrics.reduce((acc, m) => ({
+            cnx: acc.cnx + m.conexoes,
+            ace: acc.ace + m.conexoes_aceitas,
+            abord: acc.abord + m.abordagens,
+            reag: acc.reag + m.reuniao_agendada,
+            rerea: acc.rerea + m.reuniao_realizada,
+          }), { cnx: 0, ace: 0, abord: 0, reag: 0, rerea: 0 });
+          jarvisTeamContext += `\n  ${member.name}: Cnx=${totals.cnx} Ace=${totals.ace} Abord=${totals.abord} ReAg=${totals.reag} ReRe=${totals.rerea} (${metrics.length} dias)`;
+        }
+      }
+    }
+
+    let systemPrompt: string;
+    if (tool === "jarvis" && systemContext) {
+      systemPrompt = systemContext + jarvisTeamContext + knowledgeContext;
+    } else {
+      systemPrompt = toolPrompts[tool || "chat"] || toolPrompts.chat;
+    }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
