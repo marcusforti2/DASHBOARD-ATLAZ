@@ -27,6 +27,10 @@ const NAV_COMMANDS: Record<string, { tab: string; aliases: string[] }> = {
   knowledge: { tab: "knowledge", aliases: ["conhecimento", "knowledge", "base"] },
   "dna-mapping": { tab: "dna-mapping", aliases: ["dna", "mapeamento", "teste", "testes"] },
   settings: { tab: "settings", aliases: ["configurações", "configuracoes", "settings", "ajustes"] },
+  popups: { tab: "popups", aliases: ["popups", "popup", "motivacional", "motivacionais"] },
+  processos: { tab: "processos", aliases: ["processos", "processo", "fluxo", "fluxos"] },
+  "closer-entry": { tab: "closer-entry", aliases: ["closer", "registro closer", "entrada closer"] },
+  playbooks: { tab: "playbooks", aliases: ["playbooks", "playbook", "guia", "guias"] },
 };
 
 function detectNavCommand(text: string): string | null {
