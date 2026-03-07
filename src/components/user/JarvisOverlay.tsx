@@ -329,14 +329,29 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
 
         const utterance = new SpeechSynthesisUtterance(clean);
         utterance.lang = "pt-BR";
-        utterance.rate = 1.03;
-        utterance.pitch = 0.95;
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
 
+        // Select best PT-BR voice: prioritize Google/Microsoft neural voices
         const voices = window.speechSynthesis.getVoices();
-        const brVoice = voices.find((v) =>
-          /pt-BR|brazil|brasil|portuguese/i.test(`${v.lang} ${v.name}`)
-        );
-        if (brVoice) utterance.voice = brVoice;
+        const ptBrVoices = voices.filter((v) => v.lang === "pt-BR" || v.lang === "pt_BR");
+        
+        // Priority: Google > Microsoft > any PT-BR > any Portuguese
+        const googleVoice = ptBrVoices.find((v) => /google/i.test(v.name));
+        const microsoftVoice = ptBrVoices.find((v) => /microsoft|edge|natural/i.test(v.name));
+        const maleVoice = ptBrVoices.find((v) => /daniel|luciano|antonio|male/i.test(v.name.toLowerCase()));
+        const anyPtBr = ptBrVoices[0];
+        const anyPt = voices.find((v) => /^pt/i.test(v.lang));
+        
+        const bestVoice = googleVoice || microsoftVoice || maleVoice || anyPtBr || anyPt;
+        if (bestVoice) {
+          utterance.voice = bestVoice;
+          // Google voices sound better with slightly faster rate
+          if (/google/i.test(bestVoice.name)) {
+            utterance.rate = 1.05;
+          }
+        }
 
         utterance.onend = () => {
           if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
