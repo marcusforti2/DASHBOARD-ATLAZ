@@ -15,15 +15,18 @@ interface JarvisOverlayProps {
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-coach`;
 
-// Navigation map for voice commands
+// Navigation map for voice commands (admin views)
 const NAV_COMMANDS: Record<string, { tab: string; aliases: string[] }> = {
-  dashboard: { tab: "dashboard", aliases: ["meu dia", "dashboard", "painel", "inicio", "início"] },
-  calendar: { tab: "calendar", aliases: ["agenda", "calendário", "calendario", "eventos"] },
+  dashboard: { tab: "dashboard", aliases: ["dashboard", "painel", "inicio", "início", "métricas", "metricas"] },
+  team: { tab: "team", aliases: ["equipe", "time", "membros", "pessoas"] },
+  goals: { tab: "goals", aliases: ["metas", "objetivos", "goals"] },
+  reports: { tab: "reports", aliases: ["relatórios", "relatorios", "reports", "ia"] },
   training: { tab: "training", aliases: ["treinamento", "treinamentos", "capacitação", "cursos", "aulas"] },
-  "ai-chat": { tab: "ai-chat", aliases: ["coach", "chat", "conversa", "ia"] },
-  "ai-tools": { tab: "ai-tools", aliases: ["ferramentas", "tools", "automações", "automacoes"] },
-  "general-dashboard": { tab: "general-dashboard", aliases: ["dashboard geral", "visão geral", "relatórios"] },
-  ranking: { tab: "ranking", aliases: ["ranking", "classificação", "posição"] },
+  calendars: { tab: "calendars", aliases: ["agenda", "calendário", "calendario", "eventos", "agendas"] },
+  whatsapp: { tab: "whatsapp", aliases: ["whatsapp", "automações", "automacoes", "mensagens"] },
+  knowledge: { tab: "knowledge", aliases: ["conhecimento", "knowledge", "base"] },
+  "dna-mapping": { tab: "dna-mapping", aliases: ["dna", "mapeamento", "teste", "testes"] },
+  settings: { tab: "settings", aliases: ["configurações", "configuracoes", "settings", "ajustes"] },
 };
 
 function detectNavCommand(text: string): string | null {
