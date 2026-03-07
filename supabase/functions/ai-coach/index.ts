@@ -17,7 +17,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { messages, tool, memberId } = await req.json();
+    const { messages, tool, memberId, conversationId } = await req.json();
 
     // Fetch company knowledge
     const { data: knowledge } = await supabase
@@ -27,6 +27,8 @@ serve(async (req) => {
 
     // Fetch member info if provided
     let memberContext = "";
+    let memberName = "";
+    let memberRole = "";
     if (memberId) {
       const { data: member } = await supabase
         .from("team_members")
@@ -50,15 +52,48 @@ serve(async (req) => {
         .order("created_at", { ascending: false })
         .limit(1);
 
+      // Fetch monthly goals
+      const { data: goals } = await supabase
+        .from("monthly_goals")
+        .select("*")
+        .eq("member_id", memberId)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      // Fetch lead entries count
+      const { count: leadsCount } = await supabase
+        .from("lead_entries")
+        .select("id", { count: "exact", head: true })
+        .eq("member_id", memberId);
+
       if (member) {
+        memberName = member.name;
+        memberRole = member.member_role;
         memberContext = `\n\nPERFIL DO USUÁRIO:
 - Nome: ${member.name}
-- Função: ${member.member_role}`;
+- Função: ${member.member_role}
+- Total de leads registrados: ${leadsCount || 0}`;
       }
 
       if (recentMetrics?.length) {
+        const totalConexoes = recentMetrics.reduce((s, m) => s + m.conexoes, 0);
+        const totalAceitas = recentMetrics.reduce((s, m) => s + m.conexoes_aceitas, 0);
+        const totalAbordagens = recentMetrics.reduce((s, m) => s + m.abordagens, 0);
+        const totalReunioesAg = recentMetrics.reduce((s, m) => s + m.reuniao_agendada, 0);
+        const totalReunioesRe = recentMetrics.reduce((s, m) => s + m.reuniao_realizada, 0);
+
         memberContext += `\n\nMÉTRICAS RECENTES (últimos ${recentMetrics.length} dias):
-${recentMetrics.map(m => `- ${m.date}: Conexões=${m.conexoes}, Aceitas=${m.conexoes_aceitas}, Abordagens=${m.abordagens}, InMail=${m.inmail}, Follow-up=${m.follow_up}, Lig.Agendada=${m.lig_agendada}, Lig.Realizada=${m.lig_realizada}, Reunião Ag.=${m.reuniao_agendada}, Reunião Re.=${m.reuniao_realizada}`).join("\n")}`;
+- Conexões: ${totalConexoes} | Aceitas: ${totalAceitas}
+- Abordagens: ${totalAbordagens}
+- Reuniões agendadas: ${totalReunioesAg} | Realizadas: ${totalReunioesRe}
+${recentMetrics.slice(0, 3).map(m => `  ${m.date}: Cnx=${m.conexoes} Abord=${m.abordagens} Reunião=${m.reuniao_agendada}`).join("\n")}`;
+      }
+
+      if (goals?.[0]) {
+        const g = goals[0];
+        memberContext += `\n\nMETAS DO MÊS:
+- Conexões: ${g.conexoes} | Abordagens: ${g.abordagens}
+- Reuniões agendadas: ${g.reuniao_agendada} | Realizadas: ${g.reuniao_realizada}`;
       }
 
       if (analysis?.[0]?.ai_analysis) {
@@ -71,11 +106,65 @@ ${analysis[0].ai_analysis}`;
       ? `\n\nBASE DE CONHECIMENTO DA EMPRESA:\n${knowledge.map(k => `[${k.category.toUpperCase()}] ${k.title}${k.file_name ? ` (fonte: ${k.file_name})` : ""}:\n${k.content}`).join("\n\n")}`
       : "";
 
+    // ====== CONVERSATION PERSISTENCE ======
+    let convId = conversationId || null;
+    let historyMessages = messages;
+
+    if (convId) {
+      // Load history from DB
+      const { data: dbMessages } = await supabase
+        .from("coach_messages")
+        .select("role, content")
+        .eq("conversation_id", convId)
+        .order("created_at", { ascending: true })
+        .limit(30);
+      if (dbMessages?.length) {
+        historyMessages = dbMessages;
+        // Add current user message
+        const lastUserMsg = messages[messages.length - 1];
+        if (lastUserMsg?.role === "user") {
+          historyMessages = [...dbMessages, lastUserMsg];
+        }
+      }
+    }
+
+    // Create conversation if not exists
+    if (!convId && memberId) {
+      const userMsg = messages[messages.length - 1]?.content || "Nova conversa";
+      const title = userMsg.length > 60 ? userMsg.substring(0, 60) + "..." : userMsg;
+      const { data: conv } = await supabase
+        .from("coach_conversations")
+        .insert({ member_id: memberId, tool: tool || "chat", title })
+        .select("id")
+        .single();
+      if (conv) convId = conv.id;
+    }
+
+    // Save user message
+    if (convId) {
+      const lastUserMsg = messages[messages.length - 1];
+      if (lastUserMsg?.role === "user") {
+        await supabase.from("coach_messages").insert({
+          conversation_id: convId,
+          role: "user",
+          content: lastUserMsg.content,
+        });
+      }
+    }
+
+    // Track usage
+    if (memberId) {
+      await supabase.from("ai_tool_usage").insert({
+        member_id: memberId,
+        tool_type: tool || "chat",
+      }).then(() => {}).catch(() => {});
+    }
+
     // Tool-specific system prompts
     const toolPrompts: Record<string, string> = {
       chat: `Você é o Coach IA da equipe comercial. Seu papel é ajudar SDRs e Closers a melhorarem seu desempenho com base em dados reais, perfil comportamental e conhecimento da empresa.
 
-Seja direto, motivador e prático. Use dados concretos quando disponível. Responda em português brasileiro.${memberContext}${knowledgeContext}`,
+Seja direto, motivador e prático. Use dados concretos quando disponível. Celebre conquistas quando oportuno. Responda em português brasileiro.${memberContext}${knowledgeContext}`,
 
       "call-analysis": `Você é um especialista em análise de calls de vendas. O usuário vai descrever ou transcrever uma ligação e você deve:
 1. Dar uma nota de 0-10
@@ -157,7 +246,7 @@ Responda em português brasileiro.${memberContext}${knowledgeContext}`,
         model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
-          ...messages,
+          ...historyMessages.filter((m: any) => m.role !== "system"),
         ],
         stream: true,
       }),
@@ -166,26 +255,78 @@ Responda em português brasileiro.${memberContext}${knowledgeContext}`,
     if (!response.ok) {
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Limite de requisições atingido. Tente novamente em alguns segundos." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       if (response.status === 402) {
         return new Response(JSON.stringify({ error: "Créditos de IA esgotados." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       const t = await response.text();
       console.error("AI gateway error:", response.status, t);
       return new Response(JSON.stringify({ error: "Erro no serviço de IA" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    return new Response(response.body, {
-      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+    // Tee stream: one for client, one to save assistant response
+    const [clientStream, saveStream] = response.body!.tee();
+
+    if (convId) {
+      const savePromise = (async () => {
+        const reader = saveStream.getReader();
+        const decoder = new TextDecoder();
+        let fullContent = "";
+        let buffer = "";
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+
+            let idx: number;
+            while ((idx = buffer.indexOf("\n")) !== -1) {
+              let line = buffer.slice(0, idx);
+              buffer = buffer.slice(idx + 1);
+              if (line.endsWith("\r")) line = line.slice(0, -1);
+              if (!line.startsWith("data: ")) continue;
+              const jsonStr = line.slice(6).trim();
+              if (jsonStr === "[DONE]") continue;
+              try {
+                const parsed = JSON.parse(jsonStr);
+                const content = parsed.choices?.[0]?.delta?.content;
+                if (content) fullContent += content;
+              } catch { /* partial */ }
+            }
+          }
+        } catch (e) {
+          console.warn("Error reading save stream:", e);
+        }
+
+        if (fullContent) {
+          await supabase.from("coach_messages").insert({
+            conversation_id: convId,
+            role: "assistant",
+            content: fullContent,
+          });
+          // Update conversation title if it's the first exchange
+          await supabase
+            .from("coach_conversations")
+            .update({ updated_at: new Date().toISOString() })
+            .eq("id", convId);
+        }
+      })();
+      savePromise.catch(e => console.warn("Save message error:", e));
+    }
+
+    return new Response(clientStream, {
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "text/event-stream",
+        ...(convId ? { "X-Conversation-Id": convId } : {}),
+      },
     });
   } catch (e) {
     console.error("ai-coach error:", e);
