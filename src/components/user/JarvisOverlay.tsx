@@ -226,6 +226,7 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
   const recognitionRef = useRef<any>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const autoSendRef = useRef(false);
 
   // Keyboard shortcut: Ctrl+J or Cmd+J
   useEffect(() => {
@@ -243,15 +244,62 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
     return () => window.removeEventListener("keydown", onKey);
   }, [isOpen]);
 
-  // Auto-focus input when opened
+  // Auto-start listening when opened
   useEffect(() => {
-    if (isOpen) setTimeout(() => inputRef.current?.focus(), 300);
+    if (isOpen) {
+      setTimeout(() => {
+        inputRef.current?.focus();
+        // Auto-start voice recognition
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        if (SpeechRecognition && !isListening && !isLoading) {
+          const recognition = new SpeechRecognition();
+          recognition.lang = "pt-BR";
+          recognition.continuous = false;
+          recognition.interimResults = true;
+
+          recognition.onresult = (event: any) => {
+            let transcript = "";
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+              transcript += event.results[i][0].transcript;
+            }
+            setInput(transcript);
+            if (event.results[event.results.length - 1].isFinal) {
+              setIsListening(false);
+              // Auto-send after speech ends
+              autoSendRef.current = true;
+            }
+          };
+          recognition.onerror = () => setIsListening(false);
+          recognition.onend = () => setIsListening(false);
+
+          recognitionRef.current = recognition;
+          recognition.start();
+          setIsListening(true);
+        }
+      }, 400);
+    } else {
+      // Stop listening when closing
+      recognitionRef.current?.stop();
+      setIsListening(false);
+    }
   }, [isOpen]);
 
   // Scroll to bottom
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
+
+  // Auto-send after speech recognition finalizes
+  useEffect(() => {
+    if (autoSendRef.current && input.trim() && !isListening && !isLoading) {
+      autoSendRef.current = false;
+      // Small delay to let state settle
+      const timer = setTimeout(() => {
+        send();
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [input, isListening]);
 
   // TTS via ElevenLabs
   const TTS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`;
@@ -317,7 +365,9 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
       }
       setInput(transcript);
       if (event.results[event.results.length - 1].isFinal) {
-        setTimeout(() => setIsListening(false), 200);
+        setIsListening(false);
+        // Auto-send after manual mic toggle too
+        autoSendRef.current = true;
       }
     };
     recognition.onerror = () => setIsListening(false);
