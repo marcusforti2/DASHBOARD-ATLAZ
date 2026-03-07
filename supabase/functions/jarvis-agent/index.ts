@@ -380,17 +380,40 @@ async function executeTool(supabase: any, name: string, args: any): Promise<any>
       case "get_member_metrics": {
         const member = await findMember(supabase, args.member_name);
         if (!member) return { error: `Membro "${args.member_name}" não encontrado` };
-        const since = daysAgo(args.days || 7);
-        const { data } = await supabase
+        
+        let query = supabase
           .from("daily_metrics")
           .select("date, conexoes, conexoes_aceitas, abordagens, inmail, follow_up, numero, lig_agendada, lig_realizada, reuniao_agendada, reuniao_realizada")
-          .eq("member_id", member.id)
-          .gte("date", since)
-          .order("date", { ascending: false });
-        const totals: any = {};
+          .eq("member_id", member.id);
+        
+        // Filter by month/year if specified, otherwise by days
+        if (args.month) {
+          const year = args.year || new Date().getFullYear();
+          const startDate = `${year}-${String(args.month).padStart(2, '0')}-01`;
+          const endMonth = args.month === 12 ? 1 : args.month + 1;
+          const endYear = args.month === 12 ? year + 1 : year;
+          const endDate = `${endYear}-${String(endMonth).padStart(2, '0')}-01`;
+          query = query.gte("date", startDate).lt("date", endDate);
+          console.log(`Filtering metrics for ${member.name}: ${startDate} to ${endDate}`);
+        } else {
+          const since = daysAgo(args.days || 30);
+          query = query.gte("date", since);
+          console.log(`Filtering metrics for ${member.name}: last ${args.days || 30} days (since ${since})`);
+        }
+        
+        const { data, error } = await query.order("date", { ascending: false });
+        if (error) {
+          console.error("get_member_metrics error:", error);
+          return { error: `Erro ao buscar métricas: ${error.message}` };
+        }
+        
+        console.log(`Found ${data?.length || 0} metric rows for ${member.name}`);
+        
         const metricKeys = ["conexoes", "conexoes_aceitas", "abordagens", "inmail", "follow_up", "numero", "lig_agendada", "lig_realizada", "reuniao_agendada", "reuniao_realizada"];
+        const totals: any = {};
         for (const k of metricKeys) totals[k] = (data || []).reduce((s: number, m: any) => s + (m[k] || 0), 0);
-        return { member: member.name, role: member.role, days: data?.length || 0, totals, daily: data?.slice(0, 5) || [] };
+        
+        return { member: member.name, role: member.member_role, days_found: data?.length || 0, totals, daily: data?.slice(0, 10) || [] };
       }
 
       case "get_all_metrics_summary": {
