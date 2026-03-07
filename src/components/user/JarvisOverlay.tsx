@@ -670,25 +670,108 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
     setIsLoading(false);
   };
 
+  // Handle button clicks: single = open overlay, double = hands-free mode
+  const handleButtonClick = useCallback(() => {
+    if (clickTimerRef.current) {
+      // Double click detected
+      clearTimeout(clickTimerRef.current);
+      clickTimerRef.current = null;
+      // Toggle hands-free mode
+      if (handsFreeRef.current) {
+        handsFreeRef.current = false;
+        setHandsFreeMode(false);
+        setHandsFreeStatus("idle");
+        setHandsFreeText("");
+        recognitionRef.current?.stop();
+        audioRef.current?.pause();
+        setIsListening(false);
+      } else {
+        handsFreeRef.current = true;
+        setHandsFreeMode(true);
+        startHandsFreeListen();
+      }
+    } else {
+      // Wait to see if it's a double click
+      clickTimerRef.current = setTimeout(() => {
+        clickTimerRef.current = null;
+        if (!handsFreeRef.current) {
+          setIsOpen(true);
+        }
+      }, 300);
+    }
+  }, [startHandsFreeListen]);
+
+  // Stop hands-free on ESC
+  useEffect(() => {
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && handsFreeRef.current) {
+        handsFreeRef.current = false;
+        setHandsFreeMode(false);
+        setHandsFreeStatus("idle");
+        setHandsFreeText("");
+        recognitionRef.current?.stop();
+        audioRef.current?.pause();
+        setIsListening(false);
+      }
+    };
+    window.addEventListener("keydown", onEsc);
+    return () => window.removeEventListener("keydown", onEsc);
+  }, []);
+
   return (
     <>
       {/* Floating trigger button */}
       <motion.button
-        onClick={() => setIsOpen(true)}
+        onClick={handleButtonClick}
         className={cn(
           "fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full",
           "bg-gradient-to-br from-purple-600 to-violet-700",
           "shadow-[0_0_30px_rgba(168,85,247,0.4)]",
           "flex items-center justify-center",
           "hover:shadow-[0_0_50px_rgba(168,85,247,0.6)] transition-shadow",
-          isOpen && "hidden"
+          isOpen && "hidden",
+          handsFreeMode && "shadow-[0_0_40px_rgba(168,85,247,0.7)]"
         )}
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.95 }}
-        title="Jarvis (Ctrl+Alt+J)"
+        animate={handsFreeMode ? {
+          boxShadow: ["0 0 30px rgba(168,85,247,0.5)", "0 0 60px rgba(168,85,247,0.9)", "0 0 30px rgba(168,85,247,0.5)"],
+        } : {}}
+        transition={handsFreeMode ? { duration: 1.2, repeat: Infinity } : {}}
+        title={handsFreeMode ? "Modo mãos-livres ativo (2x clique para parar)" : "Jarvis (Ctrl+Alt+J) • 2x clique = mãos-livres"}
       >
-        <Bot size={24} className="text-white" />
+        {handsFreeMode ? (
+          handsFreeStatus === "listening" ? <Mic size={24} className="text-white" /> :
+          handsFreeStatus === "processing" ? <Loader2 size={24} className="text-white animate-spin" /> :
+          <Bot size={24} className="text-white" />
+        ) : (
+          <Bot size={24} className="text-white" />
+        )}
       </motion.button>
+
+      {/* Hands-free floating bubble */}
+      <AnimatePresence>
+        {handsFreeMode && handsFreeText && (
+          <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+            className="fixed bottom-24 right-6 z-50 max-w-sm"
+          >
+            <div className="bg-[hsl(var(--background))]/95 backdrop-blur-lg border border-purple-500/20 rounded-2xl px-4 py-3 shadow-[0_0_40px_rgba(168,85,247,0.15)]">
+              <div className="flex items-start gap-2">
+                <div className="w-5 h-5 rounded-full bg-purple-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                  <Bot size={10} className="text-purple-300" />
+                </div>
+                <p className="text-sm text-purple-50/90 leading-relaxed max-h-40 overflow-y-auto">
+                  {handsFreeText}
+                </p>
+              </div>
+              <p className="text-[8px] text-purple-400/40 mt-1 text-right">ESC para parar • 2x clique no botão</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Overlay */}
       <AnimatePresence>
