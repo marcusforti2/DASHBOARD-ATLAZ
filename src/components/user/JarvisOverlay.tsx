@@ -222,11 +222,16 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [handsFreeMode, setHandsFreeMode] = useState(false);
+  const [handsFreeText, setHandsFreeText] = useState("");
+  const [handsFreeStatus, setHandsFreeStatus] = useState<"idle" | "listening" | "processing" | "speaking">("idle");
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const autoSendRef = useRef(false);
+  const handsFreeRef = useRef(false);
+  const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Keyboard shortcut: Ctrl+J or Cmd+J
   useEffect(() => {
