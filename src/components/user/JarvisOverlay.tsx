@@ -415,7 +415,10 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
     }
   }, []);
 
-  // Hands-free listen function
+  // Hands-free listen function with retry limit
+  const handsFreeRetryRef = useRef(0);
+  const MAX_HANDSFREE_RETRIES = 2;
+
   const startHandsFreeListen = useCallback(() => {
     if (!handsFreeRef.current) return;
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -438,13 +441,22 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
       setInput(transcript);
       if (event.results[event.results.length - 1].isFinal) {
         setIsListening(false);
+        handsFreeRetryRef.current = 0; // reset retries on success
         autoSendRef.current = true;
       }
     };
-    recognition.onerror = () => {
+    recognition.onerror = (e: any) => {
       setIsListening(false);
-      if (handsFreeRef.current) {
-        setTimeout(() => startHandsFreeListen(), 1000);
+      // Only retry on no-speech or aborted, with limit
+      if (handsFreeRef.current && handsFreeRetryRef.current < MAX_HANDSFREE_RETRIES && 
+          (e.error === "no-speech" || e.error === "aborted")) {
+        handsFreeRetryRef.current++;
+        setTimeout(() => startHandsFreeListen(), 2000);
+      } else {
+        // Stop hands-free mode after max retries or other errors
+        setHandsFreeStatus("idle");
+        setHandsFreeText("");
+        handsFreeRetryRef.current = 0;
       }
     };
     recognition.onend = () => setIsListening(false);
