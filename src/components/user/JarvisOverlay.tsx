@@ -27,6 +27,10 @@ const NAV_COMMANDS: Record<string, { tab: string; aliases: string[] }> = {
   knowledge: { tab: "knowledge", aliases: ["conhecimento", "knowledge", "base"] },
   "dna-mapping": { tab: "dna-mapping", aliases: ["dna", "mapeamento", "teste", "testes"] },
   settings: { tab: "settings", aliases: ["configurações", "configuracoes", "settings", "ajustes"] },
+  popups: { tab: "popups", aliases: ["popups", "popup", "motivacional", "motivacionais"] },
+  processos: { tab: "processos", aliases: ["processos", "processo", "fluxo", "fluxos"] },
+  "closer-entry": { tab: "closer-entry", aliases: ["closer", "registro closer", "entrada closer"] },
+  playbooks: { tab: "playbooks", aliases: ["playbooks", "playbook", "guia", "guias"] },
 };
 
 function detectNavCommand(text: string): string | null {
@@ -447,6 +451,8 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
         dashboard: "Dashboard", team: "Equipe", goals: "Metas", reports: "Relatórios IA",
         training: "Treinamentos", calendars: "Agendas", whatsapp: "WhatsApp",
         knowledge: "Conhecimento IA", "dna-mapping": "Sales DNA", settings: "Configurações",
+        popups: "Popups", processos: "Processos", "closer-entry": "Registro Closer",
+        playbooks: "Playbooks",
       };
       const name = tabNames[navTarget] || navTarget;
       setHandsFreeText(`🚀 Abrindo ${name}...`);
@@ -604,16 +610,11 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
     const navTarget = detectNavCommand(text);
     if (navTarget && onNavigate) {
       const tabNames: Record<string, string> = {
-        dashboard: "Dashboard",
-        team: "Equipe",
-        goals: "Metas",
-        reports: "Relatórios IA",
-        training: "Treinamentos",
-        calendars: "Agendas",
-        whatsapp: "WhatsApp",
-        knowledge: "Conhecimento IA",
-        "dna-mapping": "Sales DNA",
-        settings: "Configurações",
+        dashboard: "Dashboard", team: "Equipe", goals: "Metas", reports: "Relatórios IA",
+        training: "Treinamentos", calendars: "Agendas", whatsapp: "WhatsApp",
+        knowledge: "Conhecimento IA", "dna-mapping": "Sales DNA", settings: "Configurações",
+        popups: "Popups", processos: "Processos", "closer-entry": "Registro Closer",
+        playbooks: "Playbooks",
       };
       const name = tabNames[navTarget] || navTarget;
       setMessages(prev => [

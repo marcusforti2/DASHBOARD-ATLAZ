@@ -8,7 +8,7 @@ const corsHeaders = {
 
 const GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const MODEL = "google/gemini-2.5-flash-lite";
-const MAX_TOOL_ROUNDS = 3;
+const MAX_TOOL_ROUNDS = 5;
 
 // ── Tool definitions ──
 const TOOLS = [
@@ -60,6 +60,21 @@ const TOOLS = [
         type: "object",
         properties: {
           member_name: { type: "string", description: "Nome do membro (opcional, se vazio retorna todas)" },
+        },
+        required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_weekly_goals",
+      description: "Consulta metas semanais de um membro ou globais",
+      parameters: {
+        type: "object",
+        properties: {
+          member_name: { type: "string", description: "Nome do membro (opcional)" },
         },
         required: [],
         additionalProperties: false,
@@ -155,13 +170,13 @@ const TOOLS = [
     type: "function",
     function: {
       name: "navigate_to_page",
-      description: "Navega para uma página específica do painel administrativo",
+      description: "Navega para uma página específica do sistema. Use sempre que o admin pedir para abrir/ir/mostrar qualquer página.",
       parameters: {
         type: "object",
         properties: {
           page: {
             type: "string",
-            enum: ["dashboard", "team", "goals", "reports", "training", "calendars", "whatsapp", "knowledge", "dna-mapping", "settings", "popups", "processos"],
+            enum: ["dashboard", "team", "goals", "reports", "training", "calendars", "whatsapp", "knowledge", "dna-mapping", "settings", "popups", "processos", "closer-entry", "playbooks"],
             description: "Nome da página",
           },
         },
@@ -189,7 +204,145 @@ const TOOLS = [
     type: "function",
     function: {
       name: "get_training_info",
-      description: "Lista cursos e treinamentos disponíveis",
+      description: "Lista cursos, módulos e aulas de treinamento disponíveis",
+      parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_playbooks",
+      description: "Lista playbooks de treinamento disponíveis, com filtro opcional por categoria ou role",
+      parameters: {
+        type: "object",
+        properties: {
+          category: { type: "string", description: "Categoria (opcional)" },
+          role: { type: "string", description: "Role alvo: sdr, closer, all (opcional)" },
+        },
+        required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_popups",
+      description: "Lista popups motivacionais cadastrados",
+      parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_popup",
+      description: "Cria um novo popup motivacional",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Título do popup" },
+          message: { type: "string", description: "Mensagem do popup" },
+          emoji: { type: "string", description: "Emoji (ex: 🔥)" },
+          category: { type: "string", description: "Categoria: motivation, tip, challenge" },
+          target_role: { type: "string", description: "Role alvo: sdr, closer, all" },
+        },
+        required: ["title", "message"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_whatsapp_automations",
+      description: "Lista automações de WhatsApp cadastradas",
+      parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_processes",
+      description: "Lista processos/fluxos salvos no editor de processos",
+      parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_closer_analyses",
+      description: "Lista análises de closer (behaviorais, ligações) por membro",
+      parameters: {
+        type: "object",
+        properties: {
+          member_name: { type: "string", description: "Nome do membro (opcional)" },
+        },
+        required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_dna_submissions",
+      description: "Lista submissões de testes DNA (closer/sdr) com análise IA",
+      parameters: {
+        type: "object",
+        properties: {
+          member_name: { type: "string", description: "Nome do membro (opcional)" },
+          test_type: { type: "string", description: "Tipo: closer, sdr (opcional)" },
+        },
+        required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_ai_reports",
+      description: "Lista relatórios IA gerados",
+      parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_knowledge",
+      description: "Cria um novo item na base de conhecimento da empresa",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Título do conhecimento" },
+          content: { type: "string", description: "Conteúdo" },
+          category: { type: "string", description: "Categoria: general, product, process, objection" },
+        },
+        required: ["title", "content"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_calendar_events",
+      description: "Lista eventos da agenda/calendário dos próximos dias",
+      parameters: {
+        type: "object",
+        properties: {
+          days: { type: "number", description: "Próximos N dias (padrão: 7)" },
+        },
+        required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_whatsapp_contacts",
+      description: "Lista contatos WhatsApp cadastrados da equipe",
       parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
     },
   },
@@ -337,7 +490,8 @@ async function executeTool(supabase: any, name: string, args: any): Promise<any>
           dashboard: "Dashboard", team: "Equipe", goals: "Metas", reports: "Relatórios IA",
           training: "Treinamentos", calendars: "Agendas", whatsapp: "WhatsApp",
           knowledge: "Conhecimento IA", "dna-mapping": "Sales DNA", settings: "Configurações",
-          popups: "Popups", processos: "Processos",
+          popups: "Popups", processos: "Processos", "closer-entry": "Registro Closer",
+          playbooks: "Playbooks",
         };
         return { action: "navigate", page: args.page, label: pageNames[args.page] || args.page, marker: `[NAVIGATE:${args.page}]` };
       }
@@ -352,7 +506,108 @@ async function executeTool(supabase: any, name: string, args: any): Promise<any>
 
       case "get_training_info": {
         const { data: courses } = await supabase.from("training_courses").select("title, description, target_role, published, sort_order").eq("active", true).order("sort_order");
-        return { courses: courses || [] };
+        const { data: modules } = await supabase.from("training_modules").select("title, course_id, sort_order").order("sort_order");
+        const { data: lessons } = await supabase.from("training_lessons").select("title, module_id, video_type, duration_seconds, sort_order").order("sort_order");
+        return { courses: courses || [], modules_count: modules?.length || 0, lessons_count: lessons?.length || 0 };
+      }
+
+      case "get_playbooks": {
+        let query = supabase.from("training_playbooks").select("id, title, description, category, target_role, is_published, created_at");
+        if (args.category) query = query.eq("category", args.category);
+        if (args.role) query = query.eq("target_role", args.role);
+        const { data } = await query.order("created_at", { ascending: false });
+        return { playbooks: data || [] };
+      }
+
+      case "get_popups": {
+        const { data } = await supabase.from("motivational_popups").select("id, title, message, emoji, category, target_role, active, frequency_minutes").order("created_at", { ascending: false });
+        return { popups: data || [] };
+      }
+
+      case "create_popup": {
+        const { data, error } = await supabase.from("motivational_popups").insert({
+          title: args.title,
+          message: args.message,
+          emoji: args.emoji || "🔥",
+          category: args.category || "motivation",
+          target_role: args.target_role || "all",
+        }).select().single();
+        if (error) return { error: error.message };
+        return { success: true, popup: data };
+      }
+
+      case "get_whatsapp_automations": {
+        const { data } = await supabase.from("whatsapp_automations").select("id, name, description, active, target_audience, target_role, schedule_cron").order("created_at", { ascending: false });
+        return { automations: data || [] };
+      }
+
+      case "get_processes": {
+        const { data } = await supabase.from("process_flows").select("id, name, description, is_public, created_at").order("created_at", { ascending: false });
+        return { processes: data || [] };
+      }
+
+      case "get_closer_analyses": {
+        let query = supabase.from("closer_analyses").select("id, member_id, file_name, analysis_type, ai_analysis, created_at");
+        if (args.member_name) {
+          const member = await findMember(supabase, args.member_name);
+          if (!member) return { error: `Membro "${args.member_name}" não encontrado` };
+          query = query.eq("member_id", member.id);
+        }
+        const { data } = await query.order("created_at", { ascending: false }).limit(20);
+        return { analyses: data || [] };
+      }
+
+      case "get_dna_submissions": {
+        let query = supabase.from("test_submissions").select("id, test_type, status, respondent_name, respondent_email, ai_analysis, completed_at, created_at");
+        if (args.test_type) query = query.eq("test_type", args.test_type);
+        if (args.member_name) {
+          const member = await findMember(supabase, args.member_name);
+          if (member) query = query.eq("member_id", member.id);
+        }
+        const { data } = await query.eq("status", "completed").order("completed_at", { ascending: false }).limit(20);
+        return { submissions: data || [] };
+      }
+
+      case "get_ai_reports": {
+        const { data } = await supabase.from("ai_reports").select("id, report_type, content, generated_at, month_id").order("generated_at", { ascending: false }).limit(10);
+        return { reports: data || [] };
+      }
+
+      case "create_knowledge": {
+        const { data, error } = await supabase.from("company_knowledge").insert({
+          title: args.title,
+          content: args.content,
+          category: args.category || "general",
+        }).select().single();
+        if (error) return { error: error.message };
+        return { success: true, knowledge: { id: data.id, title: data.title } };
+      }
+
+      case "get_calendar_events": {
+        const { data } = await supabase.from("event_reminders").select("id, event_title, event_description, event_start_at, reminder_type, lead_name, lead_phone, sent").order("event_start_at", { ascending: true }).limit(30);
+        return { events: data || [] };
+      }
+
+      case "get_whatsapp_contacts": {
+        const { data: contacts } = await supabase.from("whatsapp_contacts").select("id, phone, team_member_id, active");
+        const { data: members } = await supabase.from("team_members").select("id, name").eq("active", true);
+        const enriched = (contacts || []).map((c: any) => ({
+          phone: c.phone,
+          active: c.active,
+          member: members?.find((m: any) => m.id === c.team_member_id)?.name || "Sem vínculo",
+        }));
+        return { contacts: enriched };
+      }
+
+      case "get_weekly_goals": {
+        let query = supabase.from("weekly_goals").select("*, months(label)").order("created_at", { ascending: false }).limit(20);
+        if (args.member_name) {
+          const member = await findMember(supabase, args.member_name);
+          if (!member) return { error: `Membro "${args.member_name}" não encontrado` };
+          query = query.eq("member_id", member.id);
+        }
+        const { data } = await query;
+        return { weekly_goals: data || [] };
       }
 
       default:
@@ -365,7 +620,7 @@ async function executeTool(supabase: any, name: string, args: any): Promise<any>
 }
 
 // ── System prompt ──
-const SYSTEM_PROMPT = `Você é o JARVIS, assistente de voz para gestores de vendas. Respostas por VOZ — seja ULTRA CONCISO.
+const SYSTEM_PROMPT = `Você é o JARVIS, assistente COMPLETO com acesso TOTAL ao sistema de gestão de vendas. Respostas por VOZ — seja ULTRA CONCISO.
 
 REGRAS DE RESPOSTA:
 - Máximo 2-3 frases curtas por padrão
@@ -375,18 +630,27 @@ REGRAS DE RESPOSTA:
 - Emojis: máximo 1 por resposta
 - NUNCA repita o que o admin disse
 
-CAPACIDADES (use ferramentas sempre que precisar de dados):
-- Métricas, metas, ranking, leads, equipe
-- Atualizar métricas, enviar WhatsApp
-- Navegar páginas (use [NAVIGATE:page])
-- Base de conhecimento, treinamentos
+ACESSO TOTAL — VOCÊ PODE TUDO:
+📊 DADOS: métricas diárias, metas mensais/semanais, ranking, leads, equipe
+📝 CRIAR: popups motivacionais, itens de conhecimento
+✏️ EDITAR: atualizar métricas de qualquer membro
+📱 WHATSAPP: enviar mensagens, ver contatos, ver automações
+📚 TREINAMENTO: cursos, módulos, aulas, playbooks
+🧬 DNA: submissões de testes, análises IA
+📞 CLOSER: análises de ligações e comportamento
+📋 PROCESSOS: fluxos e processos salvos
+📅 AGENDA: eventos e lembretes do calendário
+🧠 CONHECIMENTO: base de conhecimento da empresa
+📈 RELATÓRIOS: relatórios IA gerados
+🔧 CONFIGURAÇÕES: navegar para qualquer página
 
-NAVEGAÇÃO: use navigate_to_page + marcador [NAVIGATE:page]
+NAVEGAÇÃO: quando pedirem para ABRIR/IR/MOSTRAR qualquer página, use navigate_to_page + inclua [NAVIGATE:page] na resposta.
+PÁGINAS: dashboard, team, goals, reports, training, calendars, whatsapp, knowledge, dna-mapping, settings, popups, processos, closer-entry, playbooks
+
 AÇÕES DESTRUTIVAS: confirme antes, exceto se explícito.
 Responda SEMPRE em pt-BR.
 
-MÉTRICAS: SDR (Conexões, Aceitas, Abordagens, InMail, Follow-up, Número, Lig.Agendada) | Closer (Lig.Realizada, Reunião Agendada/Realizada)
-PÁGINAS: dashboard, team, goals, reports, training, calendars, whatsapp, knowledge, dna-mapping, settings, popups, processos`;
+MÉTRICAS: SDR (Conexões, Aceitas, Abordagens, InMail, Follow-up, Número, Lig.Agendada) | Closer (Lig.Realizada, Reunião Agendada/Realizada)`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
