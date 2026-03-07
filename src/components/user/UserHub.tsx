@@ -141,6 +141,13 @@ export function UserHub({ teamMemberId, memberName, memberRole, onSignOut }: Use
           </AnimatePresence>
         </main>
       </div>
+
+      {/* Jarvis Overlay */}
+      <JarvisOverlay
+        memberId={teamMemberId}
+        memberRole={memberRole}
+        onNavigate={(tab) => setActiveTab(tab as UserTab)}
+      />
     </>
   );
 }
