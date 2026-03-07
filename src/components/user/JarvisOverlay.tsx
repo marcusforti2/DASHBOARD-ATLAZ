@@ -227,7 +227,7 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
   // Keyboard shortcut: Ctrl+J or Cmd+J
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "j") {
+      if ((e.ctrlKey || e.metaKey) && e.altKey && e.key.toLowerCase() === "j") {
         e.preventDefault();
         setIsOpen(prev => !prev);
       }
@@ -425,7 +425,7 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
         )}
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.95 }}
-        title="Jarvis (Ctrl+J)"
+        title="Jarvis (Ctrl+Alt+J)"
       >
         <Bot size={24} className="text-white" />
       </motion.button>
@@ -466,7 +466,7 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
                     <div>
                       <h2 className="text-lg font-bold text-white tracking-tight">JARVIS</h2>
                       <p className="text-[10px] text-purple-300/70 uppercase tracking-widest">
-                        {isListening ? "Ouvindo..." : isLoading ? "Processando..." : "Ctrl+J • Pronto para ajudar"}
+                        {isListening ? "Ouvindo..." : isLoading ? "Processando..." : "Ctrl+Alt+J • Pronto para ajudar"}
                       </p>
                     </div>
                   </div>
