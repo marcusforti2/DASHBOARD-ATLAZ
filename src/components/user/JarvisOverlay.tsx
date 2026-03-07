@@ -282,8 +282,15 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
     }
   }, []);
 
-  // Cleanup
-  useEffect(() => () => { audioRef.current?.pause(); }, []);
+  // Cleanup audio on unmount
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
 
   // STT
   const toggleListening = useCallback(() => {
