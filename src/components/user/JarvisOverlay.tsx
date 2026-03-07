@@ -335,28 +335,29 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
 
         const utterance = new SpeechSynthesisUtterance(clean);
         utterance.lang = "pt-BR";
-        utterance.rate = 1.0;
-        utterance.pitch = 1.0;
+        utterance.rate = 1.05;
+        utterance.pitch = 0.9; // Slightly lower for masculine tone
         utterance.volume = 1.0;
 
-        // Select best PT-BR voice: prioritize Google/Microsoft neural voices
+        // Select best PT-BR MALE voice: prioritize Google > Microsoft > named male voices
         const voices = window.speechSynthesis.getVoices();
         const ptBrVoices = voices.filter((v) => v.lang === "pt-BR" || v.lang === "pt_BR");
+        const ptVoices = ptBrVoices.length > 0 ? ptBrVoices : voices.filter((v) => /^pt/i.test(v.lang));
         
-        // Priority: Google > Microsoft > any PT-BR > any Portuguese
-        const googleVoice = ptBrVoices.find((v) => /google/i.test(v.name));
-        const microsoftVoice = ptBrVoices.find((v) => /microsoft|edge|natural/i.test(v.name));
-        const maleVoice = ptBrVoices.find((v) => /daniel|luciano|antonio|male/i.test(v.name.toLowerCase()));
-        const anyPtBr = ptBrVoices[0];
-        const anyPt = voices.find((v) => /^pt/i.test(v.lang));
+        // Try to find male voices first (avoid female/feminine names)
+        const femaleNames = /maria|ana|francisca|julia|leticia|female|feminino|luciana|fernanda|raquel|vitoria|camila/i;
+        const maleNames = /daniel|luciano|antonio|marcos|pedro|ricardo|thiago|google br|male|masculino/i;
         
-        const bestVoice = googleVoice || microsoftVoice || maleVoice || anyPtBr || anyPt;
+        const googleMale = ptVoices.find((v) => /google/i.test(v.name) && !femaleNames.test(v.name));
+        const namedMale = ptVoices.find((v) => maleNames.test(v.name));
+        const microsoftMale = ptVoices.find((v) => /microsoft|edge/i.test(v.name) && !femaleNames.test(v.name));
+        const anyNonFemale = ptVoices.find((v) => !femaleNames.test(v.name));
+        const anyPt = ptVoices[0];
+        
+        const bestVoice = googleMale || namedMale || microsoftMale || anyNonFemale || anyPt;
         if (bestVoice) {
           utterance.voice = bestVoice;
-          // Google voices sound better with slightly faster rate
-          if (/google/i.test(bestVoice.name)) {
-            utterance.rate = 1.05;
-          }
+          console.log("Jarvis TTS voice:", bestVoice.name, bestVoice.lang);
         }
 
         utterance.onend = () => {
