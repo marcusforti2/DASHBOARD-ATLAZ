@@ -309,45 +309,90 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
     }
   }, [input, isListening]);
 
-  // TTS via ElevenLabs
+  // TTS via ElevenLabs (+ browser fallback)
   const TTS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`;
   const speak = useCallback(async (text: string, autoListenAfter = false) => {
+    const clean = stripMarkdown(text);
+    const fallbackSpeak = () => {
+      try {
+        if (!("speechSynthesis" in window) || !clean || clean.length < 3) {
+          if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
+          return;
+        }
+
+        if (autoListenAfter) setHandsFreeStatus("speaking");
+        window.speechSynthesis.cancel();
+
+        const utterance = new SpeechSynthesisUtterance(clean);
+        utterance.lang = "pt-BR";
+        utterance.rate = 1.03;
+        utterance.pitch = 0.95;
+
+        const voices = window.speechSynthesis.getVoices();
+        const brVoice = voices.find((v) =>
+          /pt-BR|brazil|brasil|portuguese/i.test(`${v.lang} ${v.name}`)
+        );
+        if (brVoice) utterance.voice = brVoice;
+
+        utterance.onend = () => {
+          if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
+        };
+        utterance.onerror = () => {
+          if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
+        };
+
+        window.speechSynthesis.speak(utterance);
+      } catch {
+        if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
+      }
+    };
+
     try {
       audioRef.current?.pause();
-      const clean = stripMarkdown(text);
       if (!clean || clean.length < 3) {
         if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
         return;
       }
       if (autoListenAfter) setHandsFreeStatus("speaking");
+
       const resp = await fetch(TTS_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
         body: JSON.stringify({ text: clean }),
       });
+
       if (!resp.ok) {
-        console.warn("ElevenLabs TTS failed, status:", resp.status);
-        if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
+        const err = await resp.json().catch(() => ({}));
+        console.warn("TTS remoto falhou, usando voz local:", resp.status, err?.error ?? "unknown");
+        fallbackSpeak();
         return;
       }
+
       const blob = await resp.blob();
+      if (!blob || blob.size === 0) {
+        fallbackSpeak();
+        return;
+      }
+
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
       audioRef.current = audio;
       audio.onended = () => {
-        if (autoListenAfter && handsFreeRef.current) {
-          startHandsFreeListen();
-        }
-      };
-      audio.play().catch(() => {
+        URL.revokeObjectURL(url);
         if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
-      });
+      };
+      audio.onerror = () => {
+        URL.revokeObjectURL(url);
+        fallbackSpeak();
+      };
+      audio.play().catch(() => fallbackSpeak());
     } catch (e) {
-      console.warn("TTS error:", e);
-      if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
+      console.warn("TTS error, usando fallback local:", e);
+      fallbackSpeak();
     }
   }, []);
 
