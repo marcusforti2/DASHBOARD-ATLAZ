@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Loader2, Bot, User, Sparkles, Plus, MessageSquare, Trash2, Clock, PanelLeftClose, PanelLeft } from "lucide-react";
+import { Send, Loader2, Bot, User, Sparkles, Plus, MessageSquare, Trash2, Clock, PanelLeftClose, PanelLeft, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,6 +24,22 @@ interface AiChatProps {
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-coach`;
 
+// Strip markdown for TTS
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/#{1,6}\s/g, "")
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/\*(.*?)\*/g, "$1")
+    .replace(/`{1,3}[^`]*`{1,3}/g, "")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/[-*+]\s/g, "")
+    .replace(/\d+\.\s/g, "")
+    .replace(/>\s/g, "")
+    .replace(/\n{2,}/g, ". ")
+    .replace(/\n/g, " ")
+    .trim();
+}
+
 export function AiChat({ memberId, tool = "chat", placeholder, compact = false }: AiChatProps) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -33,9 +49,95 @@ export function AiChat({ memberId, tool = "chat", placeholder, compact = false }
   const [showSidebar, setShowSidebar] = useState(!compact);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Voice states
+  const [isListening, setIsListening] = useState(false);
+  const [ttsEnabled, setTtsEnabled] = useState(true);
+  const recognitionRef = useRef<any>(null);
+  const synthRef = useRef(typeof window !== "undefined" ? window.speechSynthesis : null);
+  const lastSpokenIndexRef = useRef(-1);
+
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
+
+  // TTS: speak new assistant messages
+  useEffect(() => {
+    if (!ttsEnabled || !synthRef.current) return;
+    const lastMsg = messages[messages.length - 1];
+    const lastIndex = messages.length - 1;
+    if (lastMsg?.role === "assistant" && lastIndex > lastSpokenIndexRef.current && !isLoading) {
+      lastSpokenIndexRef.current = lastIndex;
+      const text = stripMarkdown(lastMsg.content);
+      if (text.length > 0) {
+        synthRef.current.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = "pt-BR";
+        utterance.rate = 1.05;
+        utterance.pitch = 1;
+        // Pick a PT-BR voice if available
+        const voices = synthRef.current.getVoices();
+        const ptVoice = voices.find(v => v.lang.startsWith("pt")) || voices[0];
+        if (ptVoice) utterance.voice = ptVoice;
+        synthRef.current.speak(utterance);
+      }
+    }
+  }, [messages, isLoading, ttsEnabled]);
+
+  // Cleanup TTS on unmount
+  useEffect(() => {
+    return () => { synthRef.current?.cancel(); };
+  }, []);
+
+  // Speech Recognition (STT)
+  const toggleListening = useCallback(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      toast.error("Seu navegador não suporta reconhecimento de voz.");
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = "pt-BR";
+    recognition.continuous = false;
+    recognition.interimResults = true;
+
+    recognition.onresult = (event: any) => {
+      let transcript = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
+      setInput(transcript);
+
+      // Auto-send on final result
+      if (event.results[event.results.length - 1].isFinal) {
+        setTimeout(() => {
+          setIsListening(false);
+        }, 300);
+      }
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error("Speech recognition error:", event.error);
+      if (event.error !== "aborted") {
+        toast.error("Erro no reconhecimento de voz");
+      }
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsListening(true);
+  }, [isListening]);
 
   // Fetch conversations
   const fetchConversations = useCallback(async () => {
@@ -53,14 +155,16 @@ export function AiChat({ memberId, tool = "chat", placeholder, compact = false }
 
   // Load messages when conversation changes
   useEffect(() => {
-    if (!activeConversationId) { setMessages([]); return; }
+    if (!activeConversationId) { setMessages([]); lastSpokenIndexRef.current = -1; return; }
     const loadMessages = async () => {
       const { data } = await supabase
         .from("coach_messages")
         .select("role, content")
         .eq("conversation_id", activeConversationId)
         .order("created_at", { ascending: true });
-      setMessages((data || []).filter(m => m.role !== "system") as Msg[]);
+      const msgs = (data || []).filter(m => m.role !== "system") as Msg[];
+      setMessages(msgs);
+      lastSpokenIndexRef.current = msgs.length - 1; // Don't speak old messages
     };
     loadMessages();
   }, [activeConversationId]);
@@ -69,6 +173,7 @@ export function AiChat({ memberId, tool = "chat", placeholder, compact = false }
     setActiveConversationId(null);
     setMessages([]);
     setInput("");
+    lastSpokenIndexRef.current = -1;
   };
 
   const deleteConversation = async (convId: string, e: React.MouseEvent) => {
@@ -82,6 +187,9 @@ export function AiChat({ memberId, tool = "chat", placeholder, compact = false }
   const send = async () => {
     const text = input.trim();
     if (!text || isLoading) return;
+
+    // Stop TTS if speaking
+    synthRef.current?.cancel();
 
     const userMsg: Msg = { role: "user", content: text };
     setInput("");
@@ -226,17 +334,35 @@ export function AiChat({ memberId, tool = "chat", placeholder, compact = false }
 
       {/* Main chat */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Toggle sidebar button */}
-        <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border/50">
+        {/* Toolbar */}
+        <div className="flex items-center justify-between px-3 py-1.5 border-b border-border/50">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowSidebar(!showSidebar)}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {showSidebar ? <PanelLeftClose size={14} /> : <PanelLeft size={14} />}
+            </button>
+            <span className="text-[10px] text-muted-foreground">
+              {activeConversationId ? "Conversa ativa" : "Nova conversa"}
+            </span>
+          </div>
           <button
-            onClick={() => setShowSidebar(!showSidebar)}
-            className="text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => {
+              setTtsEnabled(!ttsEnabled);
+              if (ttsEnabled) synthRef.current?.cancel();
+            }}
+            className={cn(
+              "flex items-center gap-1 text-[10px] px-2 py-1 rounded-md transition-colors",
+              ttsEnabled
+                ? "text-primary bg-primary/10"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+            title={ttsEnabled ? "Desativar voz" : "Ativar voz"}
           >
-            {showSidebar ? <PanelLeftClose size={14} /> : <PanelLeft size={14} />}
+            {ttsEnabled ? <Volume2 size={12} /> : <VolumeX size={12} />}
+            <span>{ttsEnabled ? "Voz ON" : "Voz OFF"}</span>
           </button>
-          <span className="text-[10px] text-muted-foreground">
-            {activeConversationId ? "Conversa ativa" : "Nova conversa"}
-          </span>
         </div>
 
         {/* Messages */}
@@ -249,6 +375,9 @@ export function AiChat({ memberId, tool = "chat", placeholder, compact = false }
               <p className="text-sm font-semibold text-foreground">Coach IA</p>
               <p className="text-xs text-muted-foreground max-w-[280px]">
                 {placeholder || "Pergunte sobre estratégias, scripts, análise de performance ou peça ajuda com qualquer desafio comercial."}
+              </p>
+              <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                <Mic size={10} /> Use o microfone para falar com o Jarvis
               </p>
             </div>
           )}
@@ -305,13 +434,30 @@ export function AiChat({ memberId, tool = "chat", placeholder, compact = false }
         {/* Input */}
         <div className="border-t border-border p-3 bg-card/50">
           <div className="flex items-center gap-2">
+            {/* Mic button */}
+            <button
+              onClick={toggleListening}
+              className={cn(
+                "w-10 h-10 rounded-xl flex items-center justify-center transition-all shrink-0",
+                isListening
+                  ? "bg-destructive text-destructive-foreground animate-pulse"
+                  : "bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80"
+              )}
+              title={isListening ? "Parar gravação" : "Falar com o Jarvis"}
+            >
+              {isListening ? <MicOff size={16} /> : <Mic size={16} />}
+            </button>
+
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send()}
-              placeholder={placeholder || "Digite sua pergunta..."}
-              className="flex-1 bg-secondary rounded-xl px-4 py-2.5 text-sm text-secondary-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/30"
+              placeholder={isListening ? "🎤 Ouvindo..." : (placeholder || "Digite sua pergunta...")}
+              className={cn(
+                "flex-1 bg-secondary rounded-xl px-4 py-2.5 text-sm text-secondary-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/30",
+                isListening && "ring-2 ring-destructive/30"
+              )}
               disabled={isLoading}
             />
             <button
