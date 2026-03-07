@@ -236,7 +236,7 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
       }
       if (e.key === "Escape" && isOpen) {
         setIsOpen(false);
-        synthRef.current?.cancel();
+        audioRef.current?.pause();
       }
     };
     window.addEventListener("keydown", onKey);
@@ -253,21 +253,37 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
-  // TTS
-  const speak = useCallback((text: string) => {
-    if (!synthRef.current) return;
-    synthRef.current.cancel();
-    const utterance = new SpeechSynthesisUtterance(stripMarkdown(text));
-    utterance.lang = "pt-BR";
-    utterance.rate = 1.05;
-    const voices = synthRef.current.getVoices();
-    const ptVoice = voices.find(v => v.lang.startsWith("pt"));
-    if (ptVoice) utterance.voice = ptVoice;
-    synthRef.current.speak(utterance);
+  // TTS via ElevenLabs
+  const TTS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`;
+  const speak = useCallback(async (text: string) => {
+    try {
+      audioRef.current?.pause();
+      const clean = stripMarkdown(text);
+      if (!clean || clean.length < 3) return;
+      const resp = await fetch(TTS_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ text: clean }),
+      });
+      if (!resp.ok) {
+        console.warn("ElevenLabs TTS failed, status:", resp.status);
+        return;
+      }
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.play().catch(() => {});
+    } catch (e) {
+      console.warn("TTS error:", e);
+    }
   }, []);
 
   // Cleanup
-  useEffect(() => () => { synthRef.current?.cancel(); }, []);
+  useEffect(() => () => { audioRef.current?.pause(); }, []);
 
   // STT
   const toggleListening = useCallback(() => {
@@ -309,7 +325,7 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
     const text = input.trim();
     if (!text || isLoading) return;
 
-    synthRef.current?.cancel();
+    audioRef.current?.pause();
 
     // Check for navigation command
     const navTarget = detectNavCommand(text);
@@ -459,7 +475,7 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
             {/* Backdrop */}
             <div
               className="absolute inset-0 bg-black/70 backdrop-blur-md"
-              onClick={() => { setIsOpen(false); synthRef.current?.cancel(); }}
+              onClick={() => { setIsOpen(false); audioRef.current?.pause(); }}
             />
 
             {/* Main panel */}
@@ -487,7 +503,7 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
                     </div>
                   </div>
                   <button
-                    onClick={() => { setIsOpen(false); synthRef.current?.cancel(); }}
+                    onClick={() => { setIsOpen(false); audioRef.current?.pause(); }}
                     className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-colors"
                   >
                     <X size={16} />
