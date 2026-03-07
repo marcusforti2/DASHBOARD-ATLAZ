@@ -35,7 +35,13 @@ const NAV_COMMANDS: Record<string, { tab: string; aliases: string[] }> = {
 
 function detectNavCommand(text: string): string | null {
   const lower = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  const openPhrases = ["abrir", "abra", "abre", "ir para", "vai para", "mostrar", "mostra", "navegar", "navegue"];
+  const openPhrases = [
+    "abrir", "abra", "abre", "ir para", "vai para", "va para", "vai pra", "va pra",
+    "mostrar", "mostra", "me mostra", "me mostre", "navegar", "navegue",
+    "quero ver", "quero ir", "leva para", "leva pra", "levar para",
+    "acessar", "acesse", "acessa", "entrar em", "entra em", "entra no", "entra na",
+    "ver a", "ver o", "ver as", "ver os", "veja", "exibir", "exiba",
+  ];
   
   for (const phrase of openPhrases) {
     if (lower.includes(phrase)) {
