@@ -357,9 +357,6 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
         },
         body: JSON.stringify({
           messages: [...messages, userMsg],
-          tool: "jarvis",
-          memberId,
-          systemContext: "Você é o JARVIS, assistente de IA exclusivo para gestores/admins de vendas. Responda sempre como consultor estratégico de gestão comercial. O usuário é um GESTOR que administra equipes de SDRs e Closers. Ajude com análise de métricas, estratégias de gestão, coaching de equipe, otimização de processos de vendas e tomada de decisão. Nunca responda como se fosse um SDR ou Closer operacional. Seja direto, estratégico e focado em resultados de gestão.",
         }),
       });
 
@@ -408,8 +405,20 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
         }
       }
 
-      // Speak the response
-      if (assistantSoFar) speak(assistantSoFar);
+      // Check for navigation markers from AI agent
+      const navMatch = assistantSoFar.match(/\[NAVIGATE:([a-z-]+)\]/);
+      if (navMatch && onNavigate) {
+        // Strip marker from displayed text
+        const cleanContent = assistantSoFar.replace(/\[NAVIGATE:[a-z-]+\]/g, "").trim();
+        setMessages(prev => prev.map((m, i) => i === prev.length - 1 && m.role === "assistant" ? { ...m, content: cleanContent } : m));
+        if (cleanContent) speak(cleanContent);
+        setTimeout(() => {
+          onNavigate(navMatch[1]);
+          setIsOpen(false);
+        }, 1200);
+      } else if (assistantSoFar) {
+        speak(assistantSoFar);
+      }
     } catch {
       setMessages(prev => [...prev, { role: "assistant", content: "❌ Erro de conexão." }]);
     }
