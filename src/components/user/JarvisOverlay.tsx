@@ -298,13 +298,164 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
   useEffect(() => {
     if (autoSendRef.current && input.trim() && !isListening && !isLoading) {
       autoSendRef.current = false;
-      // Small delay to let state settle
       const timer = setTimeout(() => {
-        send();
+        if (handsFreeRef.current) {
+          handsFreeeSend(input.trim());
+        } else {
+          send();
+        }
       }, 150);
       return () => clearTimeout(timer);
     }
   }, [input, isListening]);
+
+  // Hands-free listen function
+  const startHandsFreeListen = useCallback(() => {
+    if (!handsFreeRef.current) return;
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+
+    setHandsFreeStatus("listening");
+    setHandsFreeText("🎤 Ouvindo...");
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = "pt-BR";
+    recognition.continuous = false;
+    recognition.interimResults = true;
+
+    recognition.onresult = (event: any) => {
+      let transcript = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
+      setHandsFreeText(`🎤 ${transcript}`);
+      setInput(transcript);
+      if (event.results[event.results.length - 1].isFinal) {
+        setIsListening(false);
+        autoSendRef.current = true;
+      }
+    };
+    recognition.onerror = () => {
+      setIsListening(false);
+      if (handsFreeRef.current) {
+        setTimeout(() => startHandsFreeListen(), 1000);
+      }
+    };
+    recognition.onend = () => setIsListening(false);
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsListening(true);
+  }, []);
+
+  // Hands-free send (no overlay)
+  const handsFreeeSend = useCallback(async (text: string) => {
+    if (!text || isLoading) return;
+    audioRef.current?.pause();
+
+    // Nav command
+    const navTarget = detectNavCommand(text);
+    if (navTarget && onNavigate) {
+      const tabNames: Record<string, string> = {
+        dashboard: "Dashboard", team: "Equipe", goals: "Metas", reports: "Relatórios IA",
+        training: "Treinamentos", calendars: "Agendas", whatsapp: "WhatsApp",
+        knowledge: "Conhecimento IA", "dna-mapping": "Sales DNA", settings: "Configurações",
+      };
+      const name = tabNames[navTarget] || navTarget;
+      setHandsFreeText(`🚀 Abrindo ${name}...`);
+      speak(`Abrindo ${name}`, true);
+      setTimeout(() => onNavigate(navTarget), 800);
+      return;
+    }
+
+    const userMsg: Msg = { role: "user", content: text };
+    setMessages(prev => [...prev, userMsg]);
+    setInput("");
+    setIsLoading(true);
+    setHandsFreeStatus("processing");
+    setHandsFreeText("⚡ Processando...");
+
+    let assistantSoFar = "";
+
+    try {
+      const resp = await fetch(CHAT_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ messages: [...messages, userMsg] }),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ error: "Erro" }));
+        setHandsFreeText(`❌ ${err.error}`);
+        setMessages(prev => [...prev, { role: "assistant", content: `❌ ${err.error}` }]);
+        setIsLoading(false);
+        if (handsFreeRef.current) setTimeout(() => startHandsFreeListen(), 2000);
+        return;
+      }
+
+      const reader = resp.body!.getReader();
+      const decoder = new TextDecoder();
+      let textBuffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        textBuffer += decoder.decode(value, { stream: true });
+
+        let idx: number;
+        while ((idx = textBuffer.indexOf("\n")) !== -1) {
+          let line = textBuffer.slice(0, idx);
+          textBuffer = textBuffer.slice(idx + 1);
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (line.startsWith(":") || line.trim() === "") continue;
+          if (!line.startsWith("data: ")) continue;
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") break;
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) {
+              assistantSoFar += content;
+              setHandsFreeText(assistantSoFar);
+              setMessages(prev => {
+                const last = prev[prev.length - 1];
+                if (last?.role === "assistant") {
+                  return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantSoFar } : m);
+                }
+                return [...prev, { role: "assistant", content: assistantSoFar }];
+              });
+            }
+          } catch {
+            textBuffer = line + "\n" + textBuffer;
+            break;
+          }
+        }
+      }
+
+      // Handle nav markers
+      const navMatch = assistantSoFar.match(/\[NAVIGATE:([a-z-]+)\]/);
+      if (navMatch && onNavigate) {
+        const cleanContent = assistantSoFar.replace(/\[NAVIGATE:[a-z-]+\]/g, "").trim();
+        setHandsFreeText(cleanContent);
+        setMessages(prev => prev.map((m, i) => i === prev.length - 1 && m.role === "assistant" ? { ...m, content: cleanContent } : m));
+        speak(cleanContent, true);
+        setTimeout(() => onNavigate(navMatch[1]), 1200);
+      } else if (assistantSoFar) {
+        speak(assistantSoFar, true);
+      } else {
+        if (handsFreeRef.current) startHandsFreeListen();
+      }
+    } catch {
+      setHandsFreeText("❌ Erro de conexão.");
+      setMessages(prev => [...prev, { role: "assistant", content: "❌ Erro de conexão." }]);
+      if (handsFreeRef.current) setTimeout(() => startHandsFreeListen(), 2000);
+    }
+
+    setIsLoading(false);
+  }, [messages, isLoading, speak, onNavigate]);
 
   // TTS via ElevenLabs
   const TTS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`;
