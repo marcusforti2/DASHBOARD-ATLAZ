@@ -42,11 +42,13 @@ const TOOLS = [
     type: "function",
     function: {
       name: "get_all_metrics_summary",
-      description: "Resumo de métricas agregadas de TODA a equipe nos últimos N dias",
+      description: "Resumo de métricas agregadas de TODA a equipe. Pode filtrar por mês/ano ou por dias.",
       parameters: {
         type: "object",
         properties: {
-          days: { type: "number", description: "Dias para buscar (padrão: 7)" },
+          days: { type: "number", description: "Dias para buscar (padrão: 30)" },
+          month: { type: "number", description: "Mês (1-12) para filtrar" },
+          year: { type: "number", description: "Ano (ex: 2025, 2026)" },
         },
         required: [],
         additionalProperties: false,
