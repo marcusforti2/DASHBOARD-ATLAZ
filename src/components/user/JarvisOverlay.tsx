@@ -222,11 +222,16 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [handsFreeMode, setHandsFreeMode] = useState(false);
+  const [handsFreeText, setHandsFreeText] = useState("");
+  const [handsFreeStatus, setHandsFreeStatus] = useState<"idle" | "listening" | "processing" | "speaking">("idle");
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const autoSendRef = useRef(false);
+  const handsFreeRef = useRef(false);
+  const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Keyboard shortcut: Ctrl+J or Cmd+J
   useEffect(() => {
@@ -293,9 +298,12 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
   useEffect(() => {
     if (autoSendRef.current && input.trim() && !isListening && !isLoading) {
       autoSendRef.current = false;
-      // Small delay to let state settle
       const timer = setTimeout(() => {
-        send();
+        if (handsFreeRef.current) {
+          handsFreeeSend(input.trim());
+        } else {
+          send();
+        }
       }, 150);
       return () => clearTimeout(timer);
     }
@@ -303,11 +311,15 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
 
   // TTS via ElevenLabs
   const TTS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`;
-  const speak = useCallback(async (text: string) => {
+  const speak = useCallback(async (text: string, autoListenAfter = false) => {
     try {
       audioRef.current?.pause();
       const clean = stripMarkdown(text);
-      if (!clean || clean.length < 3) return;
+      if (!clean || clean.length < 3) {
+        if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
+        return;
+      }
+      if (autoListenAfter) setHandsFreeStatus("speaking");
       const resp = await fetch(TTS_URL, {
         method: "POST",
         headers: {
@@ -318,17 +330,176 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
       });
       if (!resp.ok) {
         console.warn("ElevenLabs TTS failed, status:", resp.status);
+        if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
         return;
       }
       const blob = await resp.blob();
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
       audioRef.current = audio;
-      audio.play().catch(() => {});
+      audio.onended = () => {
+        if (autoListenAfter && handsFreeRef.current) {
+          startHandsFreeListen();
+        }
+      };
+      audio.play().catch(() => {
+        if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
+      });
     } catch (e) {
       console.warn("TTS error:", e);
+      if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
     }
   }, []);
+
+  // Hands-free listen function
+  const startHandsFreeListen = useCallback(() => {
+    if (!handsFreeRef.current) return;
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+
+    setHandsFreeStatus("listening");
+    setHandsFreeText("🎤 Ouvindo...");
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = "pt-BR";
+    recognition.continuous = false;
+    recognition.interimResults = true;
+
+    recognition.onresult = (event: any) => {
+      let transcript = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
+      setHandsFreeText(`🎤 ${transcript}`);
+      setInput(transcript);
+      if (event.results[event.results.length - 1].isFinal) {
+        setIsListening(false);
+        autoSendRef.current = true;
+      }
+    };
+    recognition.onerror = () => {
+      setIsListening(false);
+      if (handsFreeRef.current) {
+        setTimeout(() => startHandsFreeListen(), 1000);
+      }
+    };
+    recognition.onend = () => setIsListening(false);
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsListening(true);
+  }, []);
+
+  // Hands-free send (no overlay)
+  const handsFreeeSend = useCallback(async (text: string) => {
+    if (!text || isLoading) return;
+    audioRef.current?.pause();
+
+    // Nav command
+    const navTarget = detectNavCommand(text);
+    if (navTarget && onNavigate) {
+      const tabNames: Record<string, string> = {
+        dashboard: "Dashboard", team: "Equipe", goals: "Metas", reports: "Relatórios IA",
+        training: "Treinamentos", calendars: "Agendas", whatsapp: "WhatsApp",
+        knowledge: "Conhecimento IA", "dna-mapping": "Sales DNA", settings: "Configurações",
+      };
+      const name = tabNames[navTarget] || navTarget;
+      setHandsFreeText(`🚀 Abrindo ${name}...`);
+      speak(`Abrindo ${name}`, true);
+      setTimeout(() => onNavigate(navTarget), 800);
+      return;
+    }
+
+    const userMsg: Msg = { role: "user", content: text };
+    setMessages(prev => [...prev, userMsg]);
+    setInput("");
+    setIsLoading(true);
+    setHandsFreeStatus("processing");
+    setHandsFreeText("⚡ Processando...");
+
+    let assistantSoFar = "";
+
+    try {
+      const resp = await fetch(CHAT_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ messages: [...messages, userMsg] }),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ error: "Erro" }));
+        setHandsFreeText(`❌ ${err.error}`);
+        setMessages(prev => [...prev, { role: "assistant", content: `❌ ${err.error}` }]);
+        setIsLoading(false);
+        if (handsFreeRef.current) setTimeout(() => startHandsFreeListen(), 2000);
+        return;
+      }
+
+      const reader = resp.body!.getReader();
+      const decoder = new TextDecoder();
+      let textBuffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        textBuffer += decoder.decode(value, { stream: true });
+
+        let idx: number;
+        while ((idx = textBuffer.indexOf("\n")) !== -1) {
+          let line = textBuffer.slice(0, idx);
+          textBuffer = textBuffer.slice(idx + 1);
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (line.startsWith(":") || line.trim() === "") continue;
+          if (!line.startsWith("data: ")) continue;
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") break;
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) {
+              assistantSoFar += content;
+              setHandsFreeText(assistantSoFar);
+              setMessages(prev => {
+                const last = prev[prev.length - 1];
+                if (last?.role === "assistant") {
+                  return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantSoFar } : m);
+                }
+                return [...prev, { role: "assistant", content: assistantSoFar }];
+              });
+            }
+          } catch {
+            textBuffer = line + "\n" + textBuffer;
+            break;
+          }
+        }
+      }
+
+      // Handle nav markers
+      const navMatch = assistantSoFar.match(/\[NAVIGATE:([a-z-]+)\]/);
+      if (navMatch && onNavigate) {
+        const cleanContent = assistantSoFar.replace(/\[NAVIGATE:[a-z-]+\]/g, "").trim();
+        setHandsFreeText(cleanContent);
+        setMessages(prev => prev.map((m, i) => i === prev.length - 1 && m.role === "assistant" ? { ...m, content: cleanContent } : m));
+        speak(cleanContent, true);
+        setTimeout(() => onNavigate(navMatch[1]), 1200);
+      } else if (assistantSoFar) {
+        speak(assistantSoFar, true);
+      } else {
+        if (handsFreeRef.current) startHandsFreeListen();
+      }
+    } catch {
+      setHandsFreeText("❌ Erro de conexão.");
+      setMessages(prev => [...prev, { role: "assistant", content: "❌ Erro de conexão." }]);
+      if (handsFreeRef.current) setTimeout(() => startHandsFreeListen(), 2000);
+    }
+
+    setIsLoading(false);
+  }, [messages, isLoading, speak, onNavigate]);
+
+  // (speak moved above)
 
   // Cleanup audio on unmount
   useEffect(() => {
@@ -499,25 +670,108 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
     setIsLoading(false);
   };
 
+  // Handle button clicks: single = open overlay, double = hands-free mode
+  const handleButtonClick = useCallback(() => {
+    if (clickTimerRef.current) {
+      // Double click detected
+      clearTimeout(clickTimerRef.current);
+      clickTimerRef.current = null;
+      // Toggle hands-free mode
+      if (handsFreeRef.current) {
+        handsFreeRef.current = false;
+        setHandsFreeMode(false);
+        setHandsFreeStatus("idle");
+        setHandsFreeText("");
+        recognitionRef.current?.stop();
+        audioRef.current?.pause();
+        setIsListening(false);
+      } else {
+        handsFreeRef.current = true;
+        setHandsFreeMode(true);
+        startHandsFreeListen();
+      }
+    } else {
+      // Wait to see if it's a double click
+      clickTimerRef.current = setTimeout(() => {
+        clickTimerRef.current = null;
+        if (!handsFreeRef.current) {
+          setIsOpen(true);
+        }
+      }, 300);
+    }
+  }, [startHandsFreeListen]);
+
+  // Stop hands-free on ESC
+  useEffect(() => {
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && handsFreeRef.current) {
+        handsFreeRef.current = false;
+        setHandsFreeMode(false);
+        setHandsFreeStatus("idle");
+        setHandsFreeText("");
+        recognitionRef.current?.stop();
+        audioRef.current?.pause();
+        setIsListening(false);
+      }
+    };
+    window.addEventListener("keydown", onEsc);
+    return () => window.removeEventListener("keydown", onEsc);
+  }, []);
+
   return (
     <>
       {/* Floating trigger button */}
       <motion.button
-        onClick={() => setIsOpen(true)}
+        onClick={handleButtonClick}
         className={cn(
           "fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full",
           "bg-gradient-to-br from-purple-600 to-violet-700",
           "shadow-[0_0_30px_rgba(168,85,247,0.4)]",
           "flex items-center justify-center",
           "hover:shadow-[0_0_50px_rgba(168,85,247,0.6)] transition-shadow",
-          isOpen && "hidden"
+          isOpen && "hidden",
+          handsFreeMode && "shadow-[0_0_40px_rgba(168,85,247,0.7)]"
         )}
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.95 }}
-        title="Jarvis (Ctrl+Alt+J)"
+        animate={handsFreeMode ? {
+          boxShadow: ["0 0 30px rgba(168,85,247,0.5)", "0 0 60px rgba(168,85,247,0.9)", "0 0 30px rgba(168,85,247,0.5)"],
+        } : {}}
+        transition={handsFreeMode ? { duration: 1.2, repeat: Infinity } : {}}
+        title={handsFreeMode ? "Modo mãos-livres ativo (2x clique para parar)" : "Jarvis (Ctrl+Alt+J) • 2x clique = mãos-livres"}
       >
-        <Bot size={24} className="text-white" />
+        {handsFreeMode ? (
+          handsFreeStatus === "listening" ? <Mic size={24} className="text-white" /> :
+          handsFreeStatus === "processing" ? <Loader2 size={24} className="text-white animate-spin" /> :
+          <Bot size={24} className="text-white" />
+        ) : (
+          <Bot size={24} className="text-white" />
+        )}
       </motion.button>
+
+      {/* Hands-free floating bubble */}
+      <AnimatePresence>
+        {handsFreeMode && handsFreeText && (
+          <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+            className="fixed bottom-24 right-6 z-50 max-w-sm"
+          >
+            <div className="bg-[hsl(var(--background))]/95 backdrop-blur-lg border border-purple-500/20 rounded-2xl px-4 py-3 shadow-[0_0_40px_rgba(168,85,247,0.15)]">
+              <div className="flex items-start gap-2">
+                <div className="w-5 h-5 rounded-full bg-purple-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                  <Bot size={10} className="text-purple-300" />
+                </div>
+                <p className="text-sm text-purple-50/90 leading-relaxed max-h-40 overflow-y-auto">
+                  {handsFreeText}
+                </p>
+              </div>
+              <p className="text-[8px] text-purple-400/40 mt-1 text-right">ESC para parar • 2x clique no botão</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Overlay */}
       <AnimatePresence>
