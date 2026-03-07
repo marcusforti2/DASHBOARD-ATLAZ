@@ -24,11 +24,12 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const INSTANCE_ID = Deno.env.get("ULTRAMSG_INSTANCE_ID");
-    const TOKEN = Deno.env.get("ULTRAMSG_TOKEN");
+    const INSTANCE_ID = Deno.env.get("ZAPI_INSTANCE_ID");
+    const TOKEN = Deno.env.get("ZAPI_TOKEN");
+    const CLIENT_TOKEN = Deno.env.get("ZAPI_CLIENT_TOKEN");
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
-    if (!INSTANCE_ID || !TOKEN) throw new Error("Credenciais Ultramsg não configuradas");
+    if (!INSTANCE_ID || !TOKEN) throw new Error("Credenciais Z-API não configuradas");
 
     const { attendees, event }: { attendees: Attendee[]; event: EventDetails } = await req.json();
 
@@ -53,21 +54,24 @@ serve(async (req) => {
         message = buildFallbackMessage(attendee, event);
       }
 
-      // Send via Ultramsg with delay
+      // Send via Z-API
       try {
         const cleanPhone = attendee.phone.replace(/\D/g, "");
         const formattedPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
 
-        const url = `https://api.ultramsg.com/${INSTANCE_ID}/messages/chat`;
+        const url = `https://api.z-api.io/instances/${INSTANCE_ID}/token/${TOKEN}/send-text`;
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (CLIENT_TOKEN) headers["Client-Token"] = CLIENT_TOKEN;
+
         const response = await fetch(url, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token: TOKEN, to: formattedPhone, body: message }),
+          headers,
+          body: JSON.stringify({ phone: formattedPhone, message }),
         });
 
         const data = await response.json();
         if (!response.ok || data.error) {
-          results.push({ name: attendee.name, phone: attendee.phone, success: false, error: data.error || "Erro envio" });
+          results.push({ name: attendee.name, phone: attendee.phone, success: false, error: data.error || data.message || "Erro envio" });
         } else {
           results.push({ name: attendee.name, phone: attendee.phone, success: true });
         }
@@ -125,7 +129,7 @@ A mensagem deve:
 - Ter no máximo 4 linhas
 - Transmitir profissionalismo`;
 
-  const response = await fetch("https://ai.lovable.dev/api/generate", {
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

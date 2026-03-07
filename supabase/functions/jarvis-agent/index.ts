@@ -509,21 +509,24 @@ async function executeTool(supabase: any, name: string, args: any): Promise<any>
         if (!member) return { error: `Membro "${args.member_name}" não encontrado` };
         const { data: contact } = await supabase.from("whatsapp_contacts").select("phone").eq("team_member_id", member.id).eq("active", true).single();
         if (!contact) return { error: `${member.name} não tem WhatsApp cadastrado` };
-        const instanceId = Deno.env.get("ULTRAMSG_INSTANCE_ID");
-        const token = Deno.env.get("ULTRAMSG_TOKEN");
-        if (!instanceId || !token) return { error: "WhatsApp não configurado no sistema" };
+        const zapiInstanceId = Deno.env.get("ZAPI_INSTANCE_ID");
+        const zapiToken = Deno.env.get("ZAPI_TOKEN");
+        const zapiClientToken = Deno.env.get("ZAPI_CLIENT_TOKEN");
+        if (!zapiInstanceId || !zapiToken) return { error: "WhatsApp (Z-API) não configurado no sistema" };
         const cleanPhone = contact.phone.replace(/\D/g, "");
         const formattedPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
-        console.log(`Sending WhatsApp to ${member.name} at ${formattedPhone}`);
-        const waResp = await fetch(`https://api.ultramsg.com/${instanceId}/messages/chat`, {
+        console.log(`Sending WhatsApp via Z-API to ${member.name} at ${formattedPhone}`);
+        const zapiHeaders: Record<string, string> = { "Content-Type": "application/json" };
+        if (zapiClientToken) zapiHeaders["Client-Token"] = zapiClientToken;
+        const waResp = await fetch(`https://api.z-api.io/instances/${zapiInstanceId}/token/${zapiToken}/send-text`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token, to: formattedPhone, body: args.message }),
+          headers: zapiHeaders,
+          body: JSON.stringify({ phone: formattedPhone, message: args.message }),
         });
         const waResult = await waResp.json();
-        console.log(`WhatsApp API response:`, JSON.stringify(waResult));
+        console.log(`Z-API response:`, JSON.stringify(waResult));
         if (!waResp.ok || waResult.error) {
-          return { error: `Falha ao enviar WhatsApp para ${member.name}: ${waResult.error || `HTTP ${waResp.status}`}` };
+          return { error: `Falha ao enviar WhatsApp para ${member.name}: ${waResult.error || waResult.message || `HTTP ${waResp.status}`}` };
         }
         return { success: true, message: `Mensagem enviada para ${member.name} (${formattedPhone})`, result: waResult };
       }

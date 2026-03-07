@@ -9,11 +9,12 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const INSTANCE_ID = Deno.env.get("ULTRAMSG_INSTANCE_ID");
-    const TOKEN = Deno.env.get("ULTRAMSG_TOKEN");
+    const INSTANCE_ID = Deno.env.get("ZAPI_INSTANCE_ID");
+    const TOKEN = Deno.env.get("ZAPI_TOKEN");
+    const CLIENT_TOKEN = Deno.env.get("ZAPI_CLIENT_TOKEN");
 
     if (!INSTANCE_ID || !TOKEN) {
-      throw new Error("Credenciais Ultramsg não configuradas");
+      throw new Error("Credenciais Z-API não configuradas");
     }
 
     const { phone, message } = await req.json();
@@ -29,23 +30,25 @@ serve(async (req) => {
     const cleanPhone = phone.replace(/\D/g, "");
     const formattedPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
 
-    const url = `https://api.ultramsg.com/${INSTANCE_ID}/messages/chat`;
+    const url = `https://api.z-api.io/instances/${INSTANCE_ID}/token/${TOKEN}/send-text`;
+
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (CLIENT_TOKEN) headers["Client-Token"] = CLIENT_TOKEN;
 
     const response = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({
-        token: TOKEN,
-        to: formattedPhone,
-        body: message,
+        phone: formattedPhone,
+        message: message,
       }),
     });
 
     const data = await response.json();
 
     if (!response.ok || data.error) {
-      console.error("Ultramsg error:", data);
-      return new Response(JSON.stringify({ error: data.error || "Erro ao enviar mensagem" }), {
+      console.error("Z-API error:", data);
+      return new Response(JSON.stringify({ error: data.error || data.message || "Erro ao enviar mensagem" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

@@ -12,12 +12,13 @@ serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const ULTRAMSG_INSTANCE_ID = Deno.env.get("ULTRAMSG_INSTANCE_ID");
-    const ULTRAMSG_TOKEN = Deno.env.get("ULTRAMSG_TOKEN");
+    const ZAPI_INSTANCE_ID = Deno.env.get("ZAPI_INSTANCE_ID");
+    const ZAPI_TOKEN = Deno.env.get("ZAPI_TOKEN");
+    const ZAPI_CLIENT_TOKEN = Deno.env.get("ZAPI_CLIENT_TOKEN");
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
-    if (!ULTRAMSG_INSTANCE_ID || !ULTRAMSG_TOKEN) {
-      throw new Error("WhatsApp credentials not configured");
+    if (!ZAPI_INSTANCE_ID || !ZAPI_TOKEN) {
+      throw new Error("Credenciais Z-API não configuradas");
     }
 
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
@@ -43,7 +44,6 @@ serve(async (req) => {
     const isBusinessHours = brtHour >= 8 && brtHour < 19;
     const isWeekday = now.getDay() >= 1 && now.getDay() <= 5;
 
-    // If outside business hours, skip (will retry next cron run during business hours)
     if (!isBusinessHours || !isWeekday) {
       return new Response(JSON.stringify({ processed: 0, reason: "outside_business_hours" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -115,11 +115,10 @@ Tipo de destinatário: ${reminder.reminder_type === "lead" ? "Lead/Cliente" : "M
           }
         }
 
-        // Send WhatsApp
+        // Send WhatsApp via Z-API
         if (reminder.reminder_type === "lead" && reminder.lead_phone) {
-          await sendWhatsApp(ULTRAMSG_INSTANCE_ID, ULTRAMSG_TOKEN, reminder.lead_phone, message);
+          await sendWhatsApp(ZAPI_INSTANCE_ID, ZAPI_TOKEN, ZAPI_CLIENT_TOKEN, reminder.lead_phone, message);
         } else if (reminder.reminder_type === "team" && reminder.team_member_ids?.length > 0) {
-          // Get phone numbers of team members
           const { data: contacts } = await supabase
             .from("whatsapp_contacts")
             .select("phone, team_member_id")
@@ -128,8 +127,8 @@ Tipo de destinatário: ${reminder.reminder_type === "lead" ? "Lead/Cliente" : "M
 
           if (contacts) {
             for (const contact of contacts) {
-              await sendWhatsApp(ULTRAMSG_INSTANCE_ID, ULTRAMSG_TOKEN, contact.phone, message);
-              await new Promise(r => setTimeout(r, 1500)); // Rate limit
+              await sendWhatsApp(ZAPI_INSTANCE_ID, ZAPI_TOKEN, ZAPI_CLIENT_TOKEN, contact.phone, message);
+              await new Promise(r => setTimeout(r, 1500));
             }
           }
         }
@@ -138,7 +137,6 @@ Tipo de destinatário: ${reminder.reminder_type === "lead" ? "Lead/Cliente" : "M
         await supabase.from("event_reminders").update({ sent: true, sent_at: now.toISOString() }).eq("id", reminder.id);
         processed++;
 
-        // Rate limit between reminders
         await new Promise(r => setTimeout(r, 1500));
       } catch (e) {
         console.error(`Failed to process reminder ${reminder.id}:`, e);
@@ -157,16 +155,20 @@ Tipo de destinatário: ${reminder.reminder_type === "lead" ? "Lead/Cliente" : "M
   }
 });
 
-async function sendWhatsApp(instanceId: string, token: string, phone: string, message: string) {
-  const url = `https://api.ultramsg.com/${instanceId}/messages/chat`;
+async function sendWhatsApp(instanceId: string, token: string, clientToken: string | undefined, phone: string, message: string) {
+  const cleanPhone = phone.replace(/\D/g, "");
+  const formattedPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
+  const url = `https://api.z-api.io/instances/${instanceId}/token/${token}/send-text`;
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (clientToken) headers["Client-Token"] = clientToken;
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token, to: phone, body: message }),
+    headers,
+    body: JSON.stringify({ phone: formattedPhone, message }),
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Ultramsg error: ${res.status} ${text}`);
+    throw new Error(`Z-API error: ${res.status} ${text}`);
   }
   return res.json();
 }
