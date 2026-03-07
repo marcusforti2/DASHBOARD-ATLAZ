@@ -23,6 +23,8 @@ export default function Auth() {
   const [fullName, setFullName] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
