@@ -308,11 +308,15 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
 
   // TTS via ElevenLabs
   const TTS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`;
-  const speak = useCallback(async (text: string) => {
+  const speak = useCallback(async (text: string, autoListenAfter = false) => {
     try {
       audioRef.current?.pause();
       const clean = stripMarkdown(text);
-      if (!clean || clean.length < 3) return;
+      if (!clean || clean.length < 3) {
+        if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
+        return;
+      }
+      if (autoListenAfter) setHandsFreeStatus("speaking");
       const resp = await fetch(TTS_URL, {
         method: "POST",
         headers: {
@@ -323,15 +327,24 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
       });
       if (!resp.ok) {
         console.warn("ElevenLabs TTS failed, status:", resp.status);
+        if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
         return;
       }
       const blob = await resp.blob();
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
       audioRef.current = audio;
-      audio.play().catch(() => {});
+      audio.onended = () => {
+        if (autoListenAfter && handsFreeRef.current) {
+          startHandsFreeListen();
+        }
+      };
+      audio.play().catch(() => {
+        if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
+      });
     } catch (e) {
       console.warn("TTS error:", e);
+      if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
     }
   }, []);
 
