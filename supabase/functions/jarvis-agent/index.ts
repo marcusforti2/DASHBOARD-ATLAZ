@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 const GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const MODEL = "google/gemini-2.5-flash-lite";
+const MODEL = "google/gemini-3-flash-preview";
 const MAX_TOOL_ROUNDS = 3;
 
 // ── Tool definitions ──

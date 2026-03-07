@@ -35,13 +35,13 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           text: trimmedText,
-          model_id: "eleven_multilingual_v2",
+          model_id: "eleven_flash_v2_5",
           voice_settings: {
-            stability: 0.6,
-            similarity_boost: 0.8,
-            style: 0.3,
+            stability: 0.5,
+            similarity_boost: 0.75,
+            style: 0.2,
             use_speaker_boost: true,
-            speed: 1.05,
+            speed: 1.1,
           },
         }),
       }
