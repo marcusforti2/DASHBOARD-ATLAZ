@@ -13,7 +13,7 @@ interface JarvisOverlayProps {
   onNavigate?: (tab: string) => void;
 }
 
-const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-coach`;
+const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/jarvis-agent`;
 
 // Navigation map for voice commands (admin views)
 const NAV_COMMANDS: Record<string, { tab: string; aliases: string[] }> = {
