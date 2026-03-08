@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Mic, MicOff, Send, Bot, User, Loader2 } from "lucide-react";
+import { X, Mic, MicOff, Send, User, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
+import { JarvisOrb, type OrbState } from "./JarvisOrb";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -175,59 +176,11 @@ function NeuralBackground() {
   );
 }
 
-// Pulsing orb for center
-function JarvisOrb({ isListening, isLoading }: { isListening: boolean; isLoading: boolean }) {
-  return (
-    <div className="relative w-28 h-28 flex items-center justify-center">
-      {/* Outer ring */}
-      <motion.div
-        className={cn(
-          "absolute inset-0 rounded-full border-2",
-          isListening ? "border-purple-400" : "border-purple-600/40"
-        )}
-        animate={{
-          scale: isListening ? [1, 1.15, 1] : [1, 1.05, 1],
-          opacity: isListening ? [0.8, 0.3, 0.8] : [0.3, 0.15, 0.3],
-        }}
-        transition={{ duration: isListening ? 1 : 3, repeat: Infinity, ease: "easeInOut" }}
-      />
-      {/* Middle ring */}
-      <motion.div
-        className="absolute inset-3 rounded-full border border-purple-500/30"
-        animate={{
-          scale: [1, 1.08, 1],
-          opacity: [0.2, 0.5, 0.2],
-        }}
-        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
-      />
-      {/* Core */}
-      <motion.div
-        className={cn(
-          "w-16 h-16 rounded-full flex items-center justify-center",
-          "bg-gradient-to-br from-purple-600 via-purple-500 to-violet-600",
-          "shadow-[0_0_40px_rgba(168,85,247,0.5)]"
-        )}
-        animate={{
-          boxShadow: isListening
-            ? ["0 0 30px rgba(168,85,247,0.5)", "0 0 60px rgba(168,85,247,0.8)", "0 0 30px rgba(168,85,247,0.5)"]
-            : ["0 0 20px rgba(168,85,247,0.3)", "0 0 40px rgba(168,85,247,0.5)", "0 0 20px rgba(168,85,247,0.3)"],
-        }}
-        transition={{ duration: isListening ? 0.8 : 2, repeat: Infinity, ease: "easeInOut" }}
-      >
-        {isLoading ? (
-          <Loader2 size={24} className="text-white animate-spin" />
-        ) : isListening ? (
-          <MicOff size={24} className="text-white" />
-        ) : (
-          <Bot size={24} className="text-white" />
-        )}
-      </motion.div>
-    </div>
-  );
-}
+// Removed local JarvisOrb — now using JarvisOrb from ./JarvisOrb
 
 export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverlayProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -235,6 +188,12 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
   const [handsFreeMode, setHandsFreeMode] = useState(false);
   const [handsFreeText, setHandsFreeText] = useState("");
   const [handsFreeStatus, setHandsFreeStatus] = useState<"idle" | "listening" | "processing" | "speaking">("idle");
+
+  // Compute orb state
+  const orbState: OrbState = isSpeaking || handsFreeStatus === "speaking" ? "speaking"
+    : isLoading || handsFreeStatus === "processing" ? "processing"
+    : isListening || handsFreeStatus === "listening" ? "listening"
+    : "idle";
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -322,6 +281,7 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
   // TTS via ElevenLabs (+ browser fallback)
   const TTS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`;
   const speak = useCallback(async (text: string, autoListenAfter = false) => {
+    setIsSpeaking(true);
     const clean = stripMarkdown(text);
     const fallbackSpeak = () => {
       try {
@@ -361,9 +321,11 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
         }
 
         utterance.onend = () => {
+          setIsSpeaking(false);
           if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
         };
         utterance.onerror = () => {
+          setIsSpeaking(false);
           if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
         };
 
@@ -409,10 +371,12 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
       audioRef.current = audio;
       audio.onended = () => {
         URL.revokeObjectURL(url);
+        setIsSpeaking(false);
         if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
       };
       audio.onerror = () => {
         URL.revokeObjectURL(url);
+        setIsSpeaking(false);
         fallbackSpeak();
       };
       audio.play().catch(() => fallbackSpeak());
@@ -801,33 +765,15 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
   return (
     <>
       {/* Floating trigger button */}
-      <motion.button
-        onClick={handleButtonClick}
-        className={cn(
-          "fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full",
-          "bg-gradient-to-br from-purple-600 to-violet-700",
-          "shadow-[0_0_30px_rgba(168,85,247,0.4)]",
-          "flex items-center justify-center",
-          "hover:shadow-[0_0_50px_rgba(168,85,247,0.6)] transition-shadow",
-          isOpen && "hidden",
-          handsFreeMode && "shadow-[0_0_40px_rgba(168,85,247,0.7)]"
-        )}
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.95 }}
-        animate={handsFreeMode ? {
-          boxShadow: ["0 0 30px rgba(168,85,247,0.5)", "0 0 60px rgba(168,85,247,0.9)", "0 0 30px rgba(168,85,247,0.5)"],
-        } : {}}
-        transition={handsFreeMode ? { duration: 1.2, repeat: Infinity } : {}}
-        title={handsFreeMode ? "Modo mãos-livres ativo (2x clique para parar)" : "Jarvis (Ctrl+Alt+J) • 2x clique = mãos-livres"}
-      >
-        {handsFreeMode ? (
-          handsFreeStatus === "listening" ? <Mic size={24} className="text-white" /> :
-          handsFreeStatus === "processing" ? <Loader2 size={24} className="text-white animate-spin" /> :
-          <Bot size={24} className="text-white" />
-        ) : (
-          <Bot size={24} className="text-white" />
-        )}
-      </motion.button>
+      {/* Floating trigger — replaced with JarvisOrb */}
+      {!isOpen && (
+        <div
+          className="fixed bottom-6 right-6 z-50"
+          title={handsFreeMode ? "Modo mãos-livres ativo (2x clique para parar)" : "Jarvis (Ctrl+Alt+J) • 2x clique = mãos-livres"}
+        >
+          <JarvisOrb state={orbState} size="sm" onClick={handleButtonClick} />
+        </div>
+      )}
 
       {/* Hands-free floating bubble */}
       <AnimatePresence>
@@ -840,9 +786,7 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
           >
             <div className="bg-[hsl(var(--background))]/95 backdrop-blur-lg border border-purple-500/20 rounded-2xl px-4 py-3 shadow-[0_0_40px_rgba(168,85,247,0.15)]">
               <div className="flex items-start gap-2">
-                <div className="w-5 h-5 rounded-full bg-purple-500/20 flex items-center justify-center shrink-0 mt-0.5">
-                  <Bot size={10} className="text-purple-300" />
-                </div>
+                <JarvisOrb state={orbState} size="sm" className="w-5 h-5 shrink-0 mt-0.5" />
                 <p className="text-sm text-purple-50/90 leading-relaxed max-h-40 overflow-y-auto">
                   {handsFreeText}
                 </p>
@@ -885,11 +829,11 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4">
                   <div className="flex items-center gap-3">
-                    <JarvisOrb isListening={isListening} isLoading={isLoading} />
+                    <JarvisOrb state={orbState} size="md" />
                     <div>
                       <h2 className="text-lg font-bold text-white tracking-tight">JARVIS</h2>
                       <p className="text-[10px] text-purple-300/70 uppercase tracking-widest">
-                        {isListening ? "Ouvindo..." : isLoading ? "Processando..." : "Ctrl+Alt+J • Pronto para ajudar"}
+                        {orbState === "listening" ? "Ouvindo..." : orbState === "processing" ? "Processando..." : orbState === "speaking" ? "Falando..." : "Ctrl+Alt+J • Pronto para ajudar"}
                       </p>
                     </div>
                   </div>
@@ -936,7 +880,7 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
                         "w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-1",
                         msg.role === "user" ? "bg-purple-500/20 text-purple-300" : "bg-violet-500/20 text-violet-300"
                       )}>
-                        {msg.role === "user" ? <User size={12} /> : <Bot size={12} />}
+                        {msg.role === "user" ? <User size={12} /> : <JarvisOrb state="idle" size="sm" className="w-6 h-6" />}
                       </div>
                       <div className={cn(
                         "rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
@@ -955,9 +899,7 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
 
                   {isLoading && messages[messages.length - 1]?.role === "user" && (
                     <div className="flex gap-2.5">
-                      <div className="w-6 h-6 rounded-full bg-violet-500/20 text-violet-300 flex items-center justify-center shrink-0">
-                        <Bot size={12} />
-                      </div>
+                      <JarvisOrb state="processing" size="sm" className="w-6 h-6 shrink-0" />
                       <div className="bg-white/5 rounded-2xl rounded-bl-md px-4 py-3 border border-white/5">
                         <div className="flex gap-1">
                           <motion.div className="w-1.5 h-1.5 rounded-full bg-purple-400" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1, repeat: Infinity, delay: 0 }} />
