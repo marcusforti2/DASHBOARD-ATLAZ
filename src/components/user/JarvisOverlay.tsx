@@ -784,9 +784,7 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
           >
             <div className="bg-[hsl(var(--background))]/95 backdrop-blur-lg border border-purple-500/20 rounded-2xl px-4 py-3 shadow-[0_0_40px_rgba(168,85,247,0.15)]">
               <div className="flex items-start gap-2">
-                <div className="w-5 h-5 rounded-full bg-purple-500/20 flex items-center justify-center shrink-0 mt-0.5">
-                  <Bot size={10} className="text-purple-300" />
-                </div>
+                <JarvisOrb state={orbState} size="sm" className="w-5 h-5 shrink-0 mt-0.5" />
                 <p className="text-sm text-purple-50/90 leading-relaxed max-h-40 overflow-y-auto">
                   {handsFreeText}
                 </p>
