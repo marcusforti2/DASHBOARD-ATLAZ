@@ -224,7 +224,7 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
         { role: "assistant", content: `🚀 Abrindo **${name}** para você!` },
       ]);
       setInput("");
-      speak(`Abrindo ${name}`);
+      
       setTimeout(() => {
         onNavigate(navTarget);
         setIsOpen(false);
