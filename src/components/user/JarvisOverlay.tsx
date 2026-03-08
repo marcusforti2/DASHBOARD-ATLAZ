@@ -12,6 +12,7 @@ interface JarvisOverlayProps {
   memberRole: string;
   onNavigate?: (tab: string) => void;
   onInspect?: (memberId: string) => void;
+  onFilter?: (memberId: string, month: string, year: string) => void;
 }
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/jarvis-agent`;
