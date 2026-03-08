@@ -413,21 +413,86 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate, onInspect, onF
                 {/* Messages */}
                 <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-none px-6 pb-4 space-y-3">
                   {messages.length === 0 && (
-                    <div className="flex flex-col items-center justify-center h-full text-center gap-4">
-                      <p className="text-sm text-purple-200/60 max-w-xs">
-                        Sou o TITAN, seu assistente de alta performance. Posso abrir páginas, consultar dados, inspecionar membros e muito mais.
-                      </p>
-                      <div className="flex flex-wrap gap-2 justify-center">
-                        {["Abrir equipe", "Como está a performance?", "Abrir agenda", "Ranking de conexões"].map(s => (
+                    <div className="flex flex-col items-center justify-center h-full text-center gap-5">
+                      {/* Branded Hero */}
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.6, ease: "easeOut" }}
+                        className="relative"
+                      >
+                        <TitanOrb state="idle" size="lg" />
+                        <motion.div
+                          className="absolute -inset-4 rounded-full"
+                          style={{ background: "radial-gradient(circle, rgba(74,158,255,0.15) 0%, transparent 70%)" }}
+                          animate={{ scale: [1, 1.3, 1], opacity: [0.5, 0.2, 0.5] }}
+                          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                        />
+                      </motion.div>
+
+                      <motion.div
+                        initial={{ opacity: 0, y: 15 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.3, duration: 0.5 }}
+                        className="space-y-1"
+                      >
+                        <h3 className="text-2xl font-black tracking-tight bg-gradient-to-r from-blue-400 via-purple-400 to-violet-400 bg-clip-text text-transparent">
+                          T I T A N
+                        </h3>
+                        <p className="text-[10px] uppercase tracking-[0.35em] text-purple-300/50 font-medium">
+                          Strategic Intelligence Engine
+                        </p>
+                      </motion.div>
+
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.6, duration: 0.5 }}
+                        className="space-y-3 max-w-sm"
+                      >
+                        <div className="grid grid-cols-3 gap-2">
+                          {[
+                            { icon: "📊", label: "Dados" },
+                            { icon: "🎯", label: "Metas" },
+                            { icon: "👥", label: "Equipe" },
+                            { icon: "📱", label: "WhatsApp" },
+                            { icon: "🧠", label: "IA" },
+                            { icon: "⚡", label: "Ações" },
+                          ].map((cap, i) => (
+                            <motion.div
+                              key={cap.label}
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: 0.8 + i * 0.08 }}
+                              className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.06]"
+                            >
+                              <span className="text-xs">{cap.icon}</span>
+                              <span className="text-[10px] text-purple-200/60">{cap.label}</span>
+                            </motion.div>
+                          ))}
+                        </div>
+
+                        <p className="text-[11px] text-purple-200/40 leading-relaxed">
+                          Controle total do seu time comercial. Pergunte qualquer coisa.
+                        </p>
+                      </motion.div>
+
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 1.2 }}
+                        className="flex flex-wrap gap-2 justify-center"
+                      >
+                        {["Como está a performance?", "Ranking de conexões", "Quem é você?"].map(s => (
                           <button
                             key={s}
                             onClick={() => { setInput(s); }}
-                            className="text-[10px] px-3 py-1.5 rounded-full border border-purple-500/20 bg-purple-500/5 text-purple-300/80 hover:bg-purple-500/15 hover:text-purple-200 transition-colors"
+                            className="text-[10px] px-3 py-1.5 rounded-full border border-purple-500/20 bg-purple-500/5 text-purple-300/80 hover:bg-purple-500/15 hover:text-purple-200 transition-all hover:scale-105"
                           >
                             {s}
                           </button>
                         ))}
-                      </div>
+                      </motion.div>
                     </div>
                   )}
 
