@@ -775,7 +775,7 @@ async function executeTool(supabase: any, name: string, args: any): Promise<any>
         } else {
           await supabase.from("daily_metrics").insert({ member_id: member.id, month_id: monthId, date, day_of_week: dayNames[d.getDay()], ...args.metrics });
         }
-        await supabase.from("lead_entries").insert({ member_id: member.id, lead_name: `[JARVIS] Edição de métricas ${date}`, source: "admin", metric_type: "edit" });
+        await supabase.from("lead_entries").insert({ member_id: member.id, lead_name: `[TITAN] Edição de métricas ${date}`, source: "admin", metric_type: "edit" });
         return { success: true, message: `Métricas de ${member.name} atualizadas em ${date}`, updated: args.metrics };
       }
 
@@ -1121,7 +1121,7 @@ async function sendZapiMessage(phone: string, message: string, memberName?: stri
 }
 
 // ── System prompt ──
-const SYSTEM_PROMPT = `Você é o JARVIS, assistente COMPLETO com acesso TOTAL ao sistema de gestão de vendas. Respostas por TEXTO — seja ULTRA CONCISO.
+const SYSTEM_PROMPT = `Você é o TITAN, assistente estratégico de ALTA PERFORMANCE com acesso TOTAL ao sistema de gestão de vendas. Você é o braço direito do gestor — direto, assertivo e focado em resultados. Respostas por TEXTO — seja ULTRA CONCISO.
 
 REGRAS DE RESPOSTA:
 - Máximo 2-3 frases curtas por padrão
@@ -1264,7 +1264,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
   } catch (e) {
-    console.error("jarvis-agent error:", e);
+    console.error("titan-agent error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Erro desconhecido" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

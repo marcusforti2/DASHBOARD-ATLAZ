@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Send, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
-import { JarvisOrb, type OrbState } from "./JarvisOrb";
+import { JarvisOrb as TitanOrb, type OrbState } from "./JarvisOrb";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -178,7 +178,7 @@ function NeuralBackground() {
   );
 }
 
-// Removed local JarvisOrb — now using JarvisOrb from ./JarvisOrb
+// TITAN overlay component (formerly Jarvis)
 
 export function JarvisOverlay({ memberId, memberRole, onNavigate, onInspect, onFilter }: JarvisOverlayProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -357,8 +357,8 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate, onInspect, onF
     <>
       {/* Floating trigger button */}
       {!isOpen && (
-        <div className="fixed bottom-6 right-6 z-50" title="Jarvis (Ctrl+Alt+J)">
-          <JarvisOrb state={orbState} size="sm" onClick={handleButtonClick} />
+        <div className="fixed bottom-6 right-6 z-50" title="TITAN (Ctrl+Alt+J)">
+          <TitanOrb state={orbState} size="sm" onClick={handleButtonClick} />
         </div>
       )}
 
@@ -394,11 +394,11 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate, onInspect, onF
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4">
                   <div className="flex items-center gap-3">
-                    <JarvisOrb state={orbState} size="md" />
+                    <TitanOrb state={orbState} size="md" />
                     <div>
-                      <h2 className="text-lg font-bold text-white tracking-tight">JARVIS</h2>
+                      <h2 className="text-lg font-bold text-white tracking-tight">TITAN</h2>
                       <p className="text-[10px] text-purple-300/70 uppercase tracking-widest">
-                        {orbState === "processing" ? "Processando..." : "Ctrl+Alt+J • Pronto para ajudar"}
+                        {orbState === "processing" ? "Processando..." : "Ctrl+Alt+J • Assistente Estratégico"}
                       </p>
                     </div>
                   </div>
@@ -415,10 +415,10 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate, onInspect, onF
                   {messages.length === 0 && (
                     <div className="flex flex-col items-center justify-center h-full text-center gap-4">
                       <p className="text-sm text-purple-200/60 max-w-xs">
-                        Digite um comando. Posso abrir páginas, consultar dados, inspecionar membros e muito mais.
+                        Sou o TITAN, seu assistente de alta performance. Posso abrir páginas, consultar dados, inspecionar membros e muito mais.
                       </p>
                       <div className="flex flex-wrap gap-2 justify-center">
-                        {["Abrir equipe", "Como está a performance?", "Abrir agenda", "Inspecionar João"].map(s => (
+                        {["Abrir equipe", "Como está a performance?", "Abrir agenda", "Ranking de conexões"].map(s => (
                           <button
                             key={s}
                             onClick={() => { setInput(s); }}
@@ -445,7 +445,7 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate, onInspect, onF
                         "w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-1",
                         msg.role === "user" ? "bg-purple-500/20 text-purple-300" : "bg-violet-500/20 text-violet-300"
                       )}>
-                        {msg.role === "user" ? <User size={12} /> : <JarvisOrb state="idle" size="sm" className="w-6 h-6" />}
+                        {msg.role === "user" ? <User size={12} /> : <TitanOrb state="idle" size="sm" className="w-6 h-6" />}
                       </div>
                       <div className={cn(
                         "rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
@@ -464,7 +464,7 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate, onInspect, onF
 
                   {isLoading && messages[messages.length - 1]?.role === "user" && (
                     <div className="flex gap-2.5">
-                      <JarvisOrb state="processing" size="sm" className="w-6 h-6 shrink-0" />
+                      <TitanOrb state="processing" size="sm" className="w-6 h-6 shrink-0" />
                       <div className="bg-white/5 rounded-2xl rounded-bl-md px-4 py-3 border border-white/5">
                         <div className="flex gap-1">
                           <motion.div className="w-1.5 h-1.5 rounded-full bg-purple-400" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1, repeat: Infinity, delay: 0 }} />
@@ -498,7 +498,7 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate, onInspect, onF
                     </button>
                   </div>
                   <p className="text-[9px] text-purple-400/30 text-center mt-2">
-                    ESC para fechar • Diga "abrir agenda", "abrir ferramentas" etc.
+                    ESC para fechar • TITAN — Assistente de Alta Performance
                   </p>
                 </div>
               </div>
