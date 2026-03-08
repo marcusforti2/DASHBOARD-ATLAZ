@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Mic, MicOff, Send, Bot, User, Loader2 } from "lucide-react";
+import { X, Mic, MicOff, Send, User, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
+import { JarvisOrb, type OrbState } from "./JarvisOrb";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
