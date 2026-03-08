@@ -281,6 +281,7 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
   // TTS via ElevenLabs (+ browser fallback)
   const TTS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`;
   const speak = useCallback(async (text: string, autoListenAfter = false) => {
+    setIsSpeaking(true);
     const clean = stripMarkdown(text);
     const fallbackSpeak = () => {
       try {
