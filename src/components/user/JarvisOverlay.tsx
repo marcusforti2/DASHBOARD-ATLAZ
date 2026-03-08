@@ -338,7 +338,7 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
             {/* Backdrop */}
             <div
               className="absolute inset-0 bg-black/70 backdrop-blur-md"
-              onClick={() => { setIsOpen(false); audioRef.current?.pause(); }}
+              onClick={() => { setIsOpen(false); }}
             />
 
             {/* Main panel */}
