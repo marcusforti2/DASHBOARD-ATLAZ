@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Mic, MicOff, Send, User, Loader2 } from "lucide-react";
+import { X, Send, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
-import { toast } from "sonner";
 import { JarvisOrb, type OrbState } from "./JarvisOrb";
 
 type Msg = { role: "user" | "assistant"; content: string };
@@ -59,20 +58,6 @@ function detectNavCommand(text: string): string | null {
   return null;
 }
 
-function stripMarkdown(text: string): string {
-  return text
-    .replace(/#{1,6}\s/g, "")
-    .replace(/\*\*(.*?)\*\*/g, "$1")
-    .replace(/\*(.*?)\*/g, "$1")
-    .replace(/`{1,3}[^`]*`{1,3}/g, "")
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-    .replace(/[-*+]\s/g, "")
-    .replace(/\d+\.\s/g, "")
-    .replace(/>\s/g, "")
-    .replace(/\n{2,}/g, ". ")
-    .replace(/\n/g, " ")
-    .trim();
-}
 
 // Neural network particles
 function NeuralBackground() {
@@ -180,56 +165,14 @@ function NeuralBackground() {
 
 export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverlayProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const [handsFreeMode, setHandsFreeMode] = useState(false);
-  const [handsFreeText, setHandsFreeText] = useState("");
-  const [handsFreeStatus, setHandsFreeStatus] = useState<"idle" | "listening" | "processing" | "speaking">("idle");
 
-  // Compute orb state
-  const orbState: OrbState = isSpeaking || handsFreeStatus === "speaking" ? "speaking"
-    : isLoading || handsFreeStatus === "processing" ? "processing"
-    : isListening || handsFreeStatus === "listening" ? "listening"
-    : "idle";
+  const orbState: OrbState = isLoading ? "processing" : "idle";
+
   const scrollRef = useRef<HTMLDivElement>(null);
-  const recognitionRef = useRef<any>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const autoSendRef = useRef(false);
-  const handsFreeRef = useRef(false);
-  const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const cachedVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
-
-  // Pre-load voices (they load async in most browsers)
-  useEffect(() => {
-    const loadVoices = () => {
-      const voices = window.speechSynthesis?.getVoices() || [];
-      if (voices.length === 0) return;
-
-      const ptBrVoices = voices.filter((v) => v.lang === "pt-BR" || v.lang === "pt_BR");
-      const ptVoices = ptBrVoices.length > 0 ? ptBrVoices : voices.filter((v) => /^pt/i.test(v.lang));
-
-      const femaleNames = /maria|ana|francisca|julia|leticia|female|feminino|luciana|fernanda|raquel|vitoria|camila/i;
-      const maleNames = /daniel|luciano|antonio|marcos|pedro|ricardo|thiago|google br|male|masculino/i;
-
-      // Prioritize Google voices (highest quality in Chrome)
-      const googleMale = ptVoices.find((v) => /google/i.test(v.name) && !femaleNames.test(v.name));
-      const namedMale = ptVoices.find((v) => maleNames.test(v.name));
-      const microsoftMale = ptVoices.find((v) => /microsoft|edge/i.test(v.name) && !femaleNames.test(v.name));
-      const anyNonFemale = ptVoices.find((v) => !femaleNames.test(v.name));
-      const anyPt = ptVoices[0];
-
-      cachedVoiceRef.current = googleMale || namedMale || microsoftMale || anyNonFemale || anyPt || null;
-      console.log("Jarvis voice loaded:", cachedVoiceRef.current?.name, cachedVoiceRef.current?.lang);
-    };
-
-    loadVoices();
-    window.speechSynthesis?.addEventListener("voiceschanged", loadVoices);
-    return () => window.speechSynthesis?.removeEventListener("voiceschanged", loadVoices);
-  }, []);
 
   // Keyboard shortcut: Ctrl+J or Cmd+J
   useEffect(() => {
@@ -240,51 +183,17 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
       }
       if (e.key === "Escape" && isOpen) {
         setIsOpen(false);
-        audioRef.current?.pause();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [isOpen]);
 
-  // Auto-start listening when opened
+  // Focus input when opened
   useEffect(() => {
-    if (isOpen) {
-      setTimeout(() => {
-        inputRef.current?.focus();
-        // Auto-start voice recognition
-        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-        if (SpeechRecognition && !isListening && !isLoading) {
-          const recognition = new SpeechRecognition();
-          recognition.lang = "pt-BR";
-          recognition.continuous = false;
-          recognition.interimResults = true;
-
-          recognition.onresult = (event: any) => {
-            let transcript = "";
-            for (let i = event.resultIndex; i < event.results.length; i++) {
-              transcript += event.results[i][0].transcript;
-            }
-            setInput(transcript);
-            if (event.results[event.results.length - 1].isFinal) {
-              setIsListening(false);
-              // Auto-send after speech ends
-              autoSendRef.current = true;
-            }
-          };
-          recognition.onerror = () => setIsListening(false);
-          recognition.onend = () => setIsListening(false);
-
-          recognitionRef.current = recognition;
-          recognition.start();
-          setIsListening(true);
-        }
-      }, 400);
-    } else {
-      // Stop listening when closing
-      recognitionRef.current?.stop();
-      setIsListening(false);
-    }
+    if (!isOpen) return;
+    const timer = setTimeout(() => inputRef.current?.focus(), 200);
+    return () => clearTimeout(timer);
   }, [isOpen]);
 
   // Scroll to bottom
@@ -292,280 +201,9 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
-  // Auto-send after speech recognition finalizes
-  useEffect(() => {
-    if (autoSendRef.current && input.trim() && !isListening && !isLoading) {
-      autoSendRef.current = false;
-      const timer = setTimeout(() => {
-        if (handsFreeRef.current) {
-          handsFreeeSend(input.trim());
-        } else {
-          send();
-        }
-      }, 150);
-      return () => clearTimeout(timer);
-    }
-  }, [input, isListening]);
-
-  // TTS via Web Speech API with pre-cached voice
-  const speak = useCallback(async (text: string, autoListenAfter = false) => {
-    setIsSpeaking(true);
-    const clean = stripMarkdown(text);
-
-    try {
-      if (!("speechSynthesis" in window) || !clean || clean.length < 3) {
-        setIsSpeaking(false);
-        if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
-        return;
-      }
-
-      if (autoListenAfter) setHandsFreeStatus("speaking");
-      window.speechSynthesis.cancel();
-
-      const utterance = new SpeechSynthesisUtterance(clean);
-      utterance.lang = "pt-BR";
-      utterance.rate = 1.0;
-      utterance.pitch = 0.95;
-      utterance.volume = 1.0;
-
-      // Use pre-cached voice (loaded on voiceschanged event)
-      if (cachedVoiceRef.current) {
-        utterance.voice = cachedVoiceRef.current;
-      }
-
-      utterance.onend = () => {
-        setIsSpeaking(false);
-        if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
-      };
-      utterance.onerror = () => {
-        setIsSpeaking(false);
-        if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
-      };
-
-      window.speechSynthesis.speak(utterance);
-    } catch {
-      setIsSpeaking(false);
-      if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
-    }
-  }, []);
-
-  // Hands-free listen function with retry limit
-  const handsFreeRetryRef = useRef(0);
-  const MAX_HANDSFREE_RETRIES = 2;
-
-  const startHandsFreeListen = useCallback(() => {
-    if (!handsFreeRef.current) return;
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) return;
-
-    setHandsFreeStatus("listening");
-    setHandsFreeText("🎤 Ouvindo...");
-
-    const recognition = new SpeechRecognition();
-    recognition.lang = "pt-BR";
-    recognition.continuous = false;
-    recognition.interimResults = true;
-
-    recognition.onresult = (event: any) => {
-      let transcript = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        transcript += event.results[i][0].transcript;
-      }
-      setHandsFreeText(`🎤 ${transcript}`);
-      setInput(transcript);
-      if (event.results[event.results.length - 1].isFinal) {
-        setIsListening(false);
-        handsFreeRetryRef.current = 0; // reset retries on success
-        autoSendRef.current = true;
-      }
-    };
-    recognition.onerror = (e: any) => {
-      setIsListening(false);
-      // Only retry on no-speech or aborted, with limit
-      if (handsFreeRef.current && handsFreeRetryRef.current < MAX_HANDSFREE_RETRIES && 
-          (e.error === "no-speech" || e.error === "aborted")) {
-        handsFreeRetryRef.current++;
-        setTimeout(() => startHandsFreeListen(), 2000);
-      } else {
-        // Stop hands-free mode after max retries or other errors
-        setHandsFreeStatus("idle");
-        setHandsFreeText("");
-        handsFreeRetryRef.current = 0;
-      }
-    };
-    recognition.onend = () => setIsListening(false);
-
-    recognitionRef.current = recognition;
-    recognition.start();
-    setIsListening(true);
-  }, []);
-
-  // Hands-free send (no overlay)
-  const handsFreeeSend = useCallback(async (text: string) => {
-    if (!text || isLoading) return;
-    audioRef.current?.pause();
-
-    // Nav command
-    const navTarget = detectNavCommand(text);
-    if (navTarget && onNavigate) {
-      const tabNames: Record<string, string> = {
-        dashboard: "Dashboard", team: "Equipe", goals: "Metas", reports: "Relatórios IA",
-        training: "Treinamentos", calendars: "Agendas", whatsapp: "WhatsApp",
-        knowledge: "Conhecimento IA", "dna-mapping": "Sales DNA", settings: "Configurações",
-        popups: "Popups", processos: "Processos", "closer-entry": "Registro Closer",
-        playbooks: "Playbooks",
-      };
-      const name = tabNames[navTarget] || navTarget;
-      setHandsFreeText(`🚀 Abrindo ${name}...`);
-      speak(`Abrindo ${name}`, true);
-      setTimeout(() => onNavigate(navTarget), 800);
-      return;
-    }
-
-    const userMsg: Msg = { role: "user", content: text };
-    setMessages(prev => [...prev, userMsg]);
-    setInput("");
-    setIsLoading(true);
-    setHandsFreeStatus("processing");
-    setHandsFreeText("⚡ Processando...");
-
-    let assistantSoFar = "";
-
-    try {
-      const resp = await fetch(CHAT_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({ messages: [...messages, userMsg] }),
-      });
-
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({ error: "Erro" }));
-        setHandsFreeText(`❌ ${err.error}`);
-        setMessages(prev => [...prev, { role: "assistant", content: `❌ ${err.error}` }]);
-        setIsLoading(false);
-        if (handsFreeRef.current) setTimeout(() => startHandsFreeListen(), 2000);
-        return;
-      }
-
-      const reader = resp.body!.getReader();
-      const decoder = new TextDecoder();
-      let textBuffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        textBuffer += decoder.decode(value, { stream: true });
-
-        let idx: number;
-        while ((idx = textBuffer.indexOf("\n")) !== -1) {
-          let line = textBuffer.slice(0, idx);
-          textBuffer = textBuffer.slice(idx + 1);
-          if (line.endsWith("\r")) line = line.slice(0, -1);
-          if (line.startsWith(":") || line.trim() === "") continue;
-          if (!line.startsWith("data: ")) continue;
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === "[DONE]") break;
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content;
-            if (content) {
-              assistantSoFar += content;
-              setHandsFreeText(assistantSoFar);
-              setMessages(prev => {
-                const last = prev[prev.length - 1];
-                if (last?.role === "assistant") {
-                  return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantSoFar } : m);
-                }
-                return [...prev, { role: "assistant", content: assistantSoFar }];
-              });
-            }
-          } catch {
-            textBuffer = line + "\n" + textBuffer;
-            break;
-          }
-        }
-      }
-
-      // Handle nav markers
-      const navMatch = assistantSoFar.match(/\[NAVIGATE:([a-z-]+)\]/);
-      if (navMatch && onNavigate) {
-        const cleanContent = assistantSoFar.replace(/\[NAVIGATE:[a-z-]+\]/g, "").trim();
-        setHandsFreeText(cleanContent);
-        setMessages(prev => prev.map((m, i) => i === prev.length - 1 && m.role === "assistant" ? { ...m, content: cleanContent } : m));
-        speak(cleanContent, true);
-        setTimeout(() => onNavigate(navMatch[1]), 1200);
-      } else if (assistantSoFar) {
-        speak(assistantSoFar, true);
-      } else {
-        if (handsFreeRef.current) startHandsFreeListen();
-      }
-    } catch {
-      setHandsFreeText("❌ Erro de conexão.");
-      setMessages(prev => [...prev, { role: "assistant", content: "❌ Erro de conexão." }]);
-      if (handsFreeRef.current) setTimeout(() => startHandsFreeListen(), 2000);
-    }
-
-    setIsLoading(false);
-  }, [messages, isLoading, speak, onNavigate]);
-
-  // (speak moved above)
-
-  // Cleanup audio on unmount
-  useEffect(() => {
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-    };
-  }, []);
-
-  // STT
-  const toggleListening = useCallback(() => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      toast.error("Navegador não suporta reconhecimento de voz.");
-      return;
-    }
-    if (isListening) {
-      recognitionRef.current?.stop();
-      setIsListening(false);
-      return;
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.lang = "pt-BR";
-    recognition.continuous = false;
-    recognition.interimResults = true;
-
-    recognition.onresult = (event: any) => {
-      let transcript = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        transcript += event.results[i][0].transcript;
-      }
-      setInput(transcript);
-      if (event.results[event.results.length - 1].isFinal) {
-        setIsListening(false);
-        // Auto-send after manual mic toggle too
-        autoSendRef.current = true;
-      }
-    };
-    recognition.onerror = () => setIsListening(false);
-    recognition.onend = () => setIsListening(false);
-
-    recognitionRef.current = recognition;
-    recognition.start();
-    setIsListening(true);
-  }, [isListening]);
-
   const send = async () => {
     const text = input.trim();
     if (!text || isLoading) return;
-
-    audioRef.current?.pause();
 
     // Check for navigation command
     const navTarget = detectNavCommand(text);
@@ -584,7 +222,7 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
         { role: "assistant", content: `🚀 Abrindo **${name}** para você!` },
       ]);
       setInput("");
-      speak(`Abrindo ${name}`);
+      
       setTimeout(() => {
         onNavigate(navTarget);
         setIsOpen(false);
@@ -659,16 +297,12 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
       // Check for navigation markers from AI agent
       const navMatch = assistantSoFar.match(/\[NAVIGATE:([a-z-]+)\]/);
       if (navMatch && onNavigate) {
-        // Strip marker from displayed text
         const cleanContent = assistantSoFar.replace(/\[NAVIGATE:[a-z-]+\]/g, "").trim();
         setMessages(prev => prev.map((m, i) => i === prev.length - 1 && m.role === "assistant" ? { ...m, content: cleanContent } : m));
-        if (cleanContent) speak(cleanContent);
         setTimeout(() => {
           onNavigate(navMatch[1]);
           setIsOpen(false);
         }, 1200);
-      } else if (assistantSoFar) {
-        speak(assistantSoFar);
       }
     } catch {
       setMessages(prev => [...prev, { role: "assistant", content: "❌ Erro de conexão." }]);
@@ -677,88 +311,18 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
     setIsLoading(false);
   };
 
-  // Handle button clicks: single = open overlay, double = hands-free mode
   const handleButtonClick = useCallback(() => {
-    if (clickTimerRef.current) {
-      // Double click detected
-      clearTimeout(clickTimerRef.current);
-      clickTimerRef.current = null;
-      // Toggle hands-free mode
-      if (handsFreeRef.current) {
-        handsFreeRef.current = false;
-        setHandsFreeMode(false);
-        setHandsFreeStatus("idle");
-        setHandsFreeText("");
-        recognitionRef.current?.stop();
-        audioRef.current?.pause();
-        setIsListening(false);
-      } else {
-        handsFreeRef.current = true;
-        setHandsFreeMode(true);
-        startHandsFreeListen();
-      }
-    } else {
-      // Wait to see if it's a double click
-      clickTimerRef.current = setTimeout(() => {
-        clickTimerRef.current = null;
-        if (!handsFreeRef.current) {
-          setIsOpen(true);
-        }
-      }, 300);
-    }
-  }, [startHandsFreeListen]);
-
-  // Stop hands-free on ESC
-  useEffect(() => {
-    const onEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && handsFreeRef.current) {
-        handsFreeRef.current = false;
-        setHandsFreeMode(false);
-        setHandsFreeStatus("idle");
-        setHandsFreeText("");
-        recognitionRef.current?.stop();
-        audioRef.current?.pause();
-        setIsListening(false);
-      }
-    };
-    window.addEventListener("keydown", onEsc);
-    return () => window.removeEventListener("keydown", onEsc);
+    setIsOpen(true);
   }, []);
 
   return (
     <>
       {/* Floating trigger button */}
-      {/* Floating trigger — replaced with JarvisOrb */}
       {!isOpen && (
-        <div
-          className="fixed bottom-6 right-6 z-50"
-          title={handsFreeMode ? "Modo mãos-livres ativo (2x clique para parar)" : "Jarvis (Ctrl+Alt+J) • 2x clique = mãos-livres"}
-        >
+        <div className="fixed bottom-6 right-6 z-50" title="Jarvis (Ctrl+Alt+J)">
           <JarvisOrb state={orbState} size="sm" onClick={handleButtonClick} />
         </div>
       )}
-
-      {/* Hands-free floating bubble */}
-      <AnimatePresence>
-        {handsFreeMode && handsFreeText && (
-          <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.95 }}
-            className="fixed bottom-24 right-6 z-50 max-w-sm"
-          >
-            <div className="bg-[hsl(var(--background))]/95 backdrop-blur-lg border border-purple-500/20 rounded-2xl px-4 py-3 shadow-[0_0_40px_rgba(168,85,247,0.15)]">
-              <div className="flex items-start gap-2">
-                <JarvisOrb state={orbState} size="sm" className="w-5 h-5 shrink-0 mt-0.5" />
-                <p className="text-sm text-purple-50/90 leading-relaxed max-h-40 overflow-y-auto">
-                  {handsFreeText}
-                </p>
-              </div>
-              <p className="text-[8px] text-purple-400/40 mt-1 text-right">ESC para parar • 2x clique no botão</p>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Overlay */}
       <AnimatePresence>
@@ -773,7 +337,7 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
             {/* Backdrop */}
             <div
               className="absolute inset-0 bg-black/70 backdrop-blur-md"
-              onClick={() => { setIsOpen(false); audioRef.current?.pause(); }}
+              onClick={() => { setIsOpen(false); }}
             />
 
             {/* Main panel */}
@@ -796,12 +360,12 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
                     <div>
                       <h2 className="text-lg font-bold text-white tracking-tight">JARVIS</h2>
                       <p className="text-[10px] text-purple-300/70 uppercase tracking-widest">
-                        {orbState === "listening" ? "Ouvindo..." : orbState === "processing" ? "Processando..." : orbState === "speaking" ? "Falando..." : "Ctrl+Alt+J • Pronto para ajudar"}
+                        {orbState === "processing" ? "Processando..." : "Ctrl+Alt+J • Pronto para ajudar"}
                       </p>
                     </div>
                   </div>
                   <button
-                    onClick={() => { setIsOpen(false); audioRef.current?.pause(); }}
+                    onClick={() => { setIsOpen(false); }}
                     className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-colors"
                   >
                     <X size={16} />
@@ -877,24 +441,13 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
                 {/* Input */}
                 <div className="px-6 pb-6 pt-2">
                   <div className="flex items-center gap-2 bg-white/5 border border-purple-500/15 rounded-2xl px-4 py-2">
-                    <button
-                      onClick={toggleListening}
-                      className={cn(
-                        "w-9 h-9 rounded-xl flex items-center justify-center transition-all shrink-0",
-                        isListening
-                          ? "bg-purple-500 text-white shadow-[0_0_20px_rgba(168,85,247,0.5)]"
-                          : "bg-white/5 text-purple-300/60 hover:text-purple-200 hover:bg-white/10"
-                      )}
-                    >
-                      {isListening ? <MicOff size={16} /> : <Mic size={16} />}
-                    </button>
                     <input
                       ref={inputRef}
                       type="text"
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send()}
-                      placeholder={isListening ? "🎤 Ouvindo..." : "Fale ou digite um comando..."}
+                      placeholder="Digite um comando..."
                       className="flex-1 bg-transparent text-sm text-purple-50 placeholder:text-purple-300/30 outline-none"
                       disabled={isLoading}
                     />
