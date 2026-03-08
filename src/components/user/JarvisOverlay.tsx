@@ -58,20 +58,6 @@ function detectNavCommand(text: string): string | null {
   return null;
 }
 
-function stripMarkdown(text: string): string {
-  return text
-    .replace(/#{1,6}\s/g, "")
-    .replace(/\*\*(.*?)\*\*/g, "$1")
-    .replace(/\*(.*?)\*/g, "$1")
-    .replace(/`{1,3}[^`]*`{1,3}/g, "")
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-    .replace(/[-*+]\s/g, "")
-    .replace(/\d+\.\s/g, "")
-    .replace(/>\s/g, "")
-    .replace(/\n{2,}/g, ". ")
-    .replace(/\n/g, " ")
-    .trim();
-}
 
 // Neural network particles
 function NeuralBackground() {
