@@ -897,9 +897,7 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
 
                   {isLoading && messages[messages.length - 1]?.role === "user" && (
                     <div className="flex gap-2.5">
-                      <div className="w-6 h-6 rounded-full bg-violet-500/20 text-violet-300 flex items-center justify-center shrink-0">
-                        <Bot size={12} />
-                      </div>
+                      <JarvisOrb state="processing" size="sm" className="w-6 h-6 shrink-0" />
                       <div className="bg-white/5 rounded-2xl rounded-bl-md px-4 py-3 border border-white/5">
                         <div className="flex gap-1">
                           <motion.div className="w-1.5 h-1.5 rounded-full bg-purple-400" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1, repeat: Infinity, delay: 0 }} />
