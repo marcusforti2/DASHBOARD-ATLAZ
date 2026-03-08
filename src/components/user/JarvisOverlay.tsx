@@ -391,24 +391,38 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate, onInspect, onF
 
               {/* Content */}
               <div className="relative z-10 flex flex-col h-full">
-                {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    <TitanOrb state={orbState} size="md" />
-                    <div>
-                      <h2 className="text-lg font-bold text-white tracking-tight">TITAN</h2>
-                      <p className="text-[10px] text-purple-300/70 uppercase tracking-widest">
-                        {orbState === "processing" ? "Processando..." : "Ctrl+Alt+J • Assistente Estratégico"}
-                      </p>
+                {/* Header — compact when conversation started, hidden when welcome */}
+                {messages.length > 0 && (
+                  <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.06]">
+                    <div className="flex items-center gap-2.5">
+                      <TitanOrb state={orbState} size="sm" />
+                      <div>
+                        <h2 className="text-sm font-bold text-white tracking-tight">TITAN</h2>
+                        <p className="text-[9px] text-purple-300/50 uppercase tracking-widest">
+                          {orbState === "processing" ? "Processando..." : "Strategic Intelligence Engine"}
+                        </p>
+                      </div>
                     </div>
+                    <button
+                      onClick={() => { setIsOpen(false); }}
+                      className="w-7 h-7 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+                    >
+                      <X size={14} />
+                    </button>
                   </div>
-                  <button
-                    onClick={() => { setIsOpen(false); }}
-                    className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-colors"
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
+                )}
+
+                {/* Close button for welcome screen */}
+                {messages.length === 0 && (
+                  <div className="absolute top-4 right-4 z-20">
+                    <button
+                      onClick={() => { setIsOpen(false); }}
+                      className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                )}
 
                 {/* Messages */}
                 <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-none px-6 pb-4 space-y-3">
