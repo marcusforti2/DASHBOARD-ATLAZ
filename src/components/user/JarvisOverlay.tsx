@@ -313,52 +313,8 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
     setIsLoading(false);
   };
 
-  // Handle button clicks: single = open overlay, double = hands-free mode
   const handleButtonClick = useCallback(() => {
-    if (clickTimerRef.current) {
-      // Double click detected
-      clearTimeout(clickTimerRef.current);
-      clickTimerRef.current = null;
-      // Toggle hands-free mode
-      if (handsFreeRef.current) {
-        handsFreeRef.current = false;
-        setHandsFreeMode(false);
-        setHandsFreeStatus("idle");
-        setHandsFreeText("");
-        recognitionRef.current?.stop();
-        audioRef.current?.pause();
-        setIsListening(false);
-      } else {
-        handsFreeRef.current = true;
-        setHandsFreeMode(true);
-        startHandsFreeListen();
-      }
-    } else {
-      // Wait to see if it's a double click
-      clickTimerRef.current = setTimeout(() => {
-        clickTimerRef.current = null;
-        if (!handsFreeRef.current) {
-          setIsOpen(true);
-        }
-      }, 300);
-    }
-  }, [startHandsFreeListen]);
-
-  // Stop hands-free on ESC
-  useEffect(() => {
-    const onEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && handsFreeRef.current) {
-        handsFreeRef.current = false;
-        setHandsFreeMode(false);
-        setHandsFreeStatus("idle");
-        setHandsFreeText("");
-        recognitionRef.current?.stop();
-        audioRef.current?.pause();
-        setIsListening(false);
-      }
-    };
-    window.addEventListener("keydown", onEsc);
-    return () => window.removeEventListener("keydown", onEsc);
+    setIsOpen(true);
   }, []);
 
   return (
