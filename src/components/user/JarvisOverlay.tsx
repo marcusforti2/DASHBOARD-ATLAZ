@@ -369,10 +369,12 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
       audioRef.current = audio;
       audio.onended = () => {
         URL.revokeObjectURL(url);
+        setIsSpeaking(false);
         if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
       };
       audio.onerror = () => {
         URL.revokeObjectURL(url);
+        setIsSpeaking(false);
         fallbackSpeak();
       };
       audio.play().catch(() => fallbackSpeak());
