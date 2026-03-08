@@ -35,10 +35,7 @@ export default function PublicTestPage() {
   const validateToken = async () => {
     if (!token) { setStage('invalid'); return; }
     const { data } = await supabase
-      .from('test_links')
-      .select('id, is_active, test_type')
-      .eq('token', token)
-      .eq('is_active', true)
+      .rpc('get_test_link_by_token', { _token: token })
       .single();
 
     if (data) {
