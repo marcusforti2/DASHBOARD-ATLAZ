@@ -775,7 +775,7 @@ async function executeTool(supabase: any, name: string, args: any): Promise<any>
         } else {
           await supabase.from("daily_metrics").insert({ member_id: member.id, month_id: monthId, date, day_of_week: dayNames[d.getDay()], ...args.metrics });
         }
-        await supabase.from("lead_entries").insert({ member_id: member.id, lead_name: `[JARVIS] Edição de métricas ${date}`, source: "admin", metric_type: "edit" });
+        await supabase.from("lead_entries").insert({ member_id: member.id, lead_name: `[TITAN] Edição de métricas ${date}`, source: "admin", metric_type: "edit" });
         return { success: true, message: `Métricas de ${member.name} atualizadas em ${date}`, updated: args.metrics };
       }
 
