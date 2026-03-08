@@ -36,7 +36,7 @@ export function AiChat({ memberId, tool = "chat", placeholder, compact = false }
 
   // Load messages when conversation changes
   useEffect(() => {
-    if (!activeConversationId) { setMessages([]); lastSpokenIndexRef.current = -1; return; }
+    if (!activeConversationId) { setMessages([]); return; }
     const loadMessages = async () => {
       const { data } = await supabase
         .from("coach_messages")
@@ -45,7 +45,6 @@ export function AiChat({ memberId, tool = "chat", placeholder, compact = false }
         .order("created_at", { ascending: true });
       const msgs = (data || []).filter(m => m.role !== "system") as Msg[];
       setMessages(msgs);
-      lastSpokenIndexRef.current = msgs.length - 1; // Don't speak old messages
     };
     loadMessages();
   }, [activeConversationId]);
@@ -54,7 +53,6 @@ export function AiChat({ memberId, tool = "chat", placeholder, compact = false }
     setActiveConversationId(null);
     setMessages([]);
     setInput("");
-    lastSpokenIndexRef.current = -1;
   };
 
   const deleteConversation = async (convId: string, e: React.MouseEvent) => {
