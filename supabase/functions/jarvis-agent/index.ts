@@ -173,6 +173,22 @@ const TOOLS = [
   {
     type: "function",
     function: {
+      name: "send_whatsapp_to_phone",
+      description: "Envia uma mensagem WhatsApp para qualquer número de telefone",
+      parameters: {
+        type: "object",
+        properties: {
+          phone: { type: "string", description: "Número do telefone (ex: 5511999999999)" },
+          message: { type: "string", description: "Texto da mensagem" },
+        },
+        required: ["phone", "message"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "navigate_to_page",
       description: "Navega para uma página específica do sistema. Use sempre que o admin pedir para abrir/ir/mostrar qualquer página.",
       parameters: {
@@ -185,6 +201,38 @@ const TOOLS = [
           },
         },
         required: ["page"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "inspect_member",
+      description: "Abre a tela do sistema como se fosse o membro especificado (modo inspeção). Permite ao admin ver exatamente o que o SDR/Closer vê.",
+      parameters: {
+        type: "object",
+        properties: {
+          member_name: { type: "string", description: "Nome do membro para inspecionar" },
+        },
+        required: ["member_name"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "filter_dashboard",
+      description: "Filtra o dashboard por membro e/ou mês específico. Navega ao dashboard e aplica o filtro automaticamente.",
+      parameters: {
+        type: "object",
+        properties: {
+          member_name: { type: "string", description: "Nome do membro para filtrar (opcional)" },
+          month: { type: "number", description: "Mês (1-12) para filtrar (opcional)" },
+          year: { type: "number", description: "Ano (opcional)" },
+        },
+        required: [],
         additionalProperties: false,
       },
     },
@@ -231,6 +279,26 @@ const TOOLS = [
   {
     type: "function",
     function: {
+      name: "create_playbook",
+      description: "Cria um novo playbook de treinamento",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Título do playbook" },
+          content: { type: "string", description: "Conteúdo em markdown" },
+          description: { type: "string", description: "Descrição curta (opcional)" },
+          category: { type: "string", description: "Categoria: geral, prospecção, qualificação, fechamento, pós-venda (padrão: geral)" },
+          target_role: { type: "string", description: "Role alvo: sdr, closer, all (padrão: all)" },
+          is_published: { type: "boolean", description: "Publicar imediatamente (padrão: false)" },
+        },
+        required: ["title", "content"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "get_popups",
       description: "Lista popups motivacionais cadastrados",
       parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
@@ -258,9 +326,56 @@ const TOOLS = [
   {
     type: "function",
     function: {
+      name: "toggle_popup",
+      description: "Ativa ou desativa um popup motivacional pelo título ou ID",
+      parameters: {
+        type: "object",
+        properties: {
+          popup_title: { type: "string", description: "Título (ou parte do título) do popup" },
+          active: { type: "boolean", description: "true para ativar, false para desativar" },
+        },
+        required: ["popup_title", "active"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_popup",
+      description: "Deleta um popup motivacional pelo título",
+      parameters: {
+        type: "object",
+        properties: {
+          popup_title: { type: "string", description: "Título (ou parte do título) do popup" },
+        },
+        required: ["popup_title"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "get_whatsapp_automations",
       description: "Lista automações de WhatsApp cadastradas",
       parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "toggle_whatsapp_automation",
+      description: "Ativa ou desativa uma automação de WhatsApp",
+      parameters: {
+        type: "object",
+        properties: {
+          automation_name: { type: "string", description: "Nome (ou parte do nome) da automação" },
+          active: { type: "boolean", description: "true para ativar, false para desativar" },
+        },
+        required: ["automation_name", "active"],
+        additionalProperties: false,
+      },
     },
   },
   {
@@ -320,9 +435,43 @@ const TOOLS = [
         properties: {
           title: { type: "string", description: "Título do conhecimento" },
           content: { type: "string", description: "Conteúdo" },
-          category: { type: "string", description: "Categoria: general, product, process, objection" },
+          category: { type: "string", description: "Categoria: general, product, process, objection, scripts, culture, icp, competitors" },
         },
         required: ["title", "content"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "update_knowledge",
+      description: "Atualiza um item existente na base de conhecimento",
+      parameters: {
+        type: "object",
+        properties: {
+          title_search: { type: "string", description: "Título (ou parte) do item para encontrar" },
+          new_title: { type: "string", description: "Novo título (opcional)" },
+          new_content: { type: "string", description: "Novo conteúdo (opcional)" },
+          new_category: { type: "string", description: "Nova categoria (opcional)" },
+          active: { type: "boolean", description: "Ativar/desativar (opcional)" },
+        },
+        required: ["title_search"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_knowledge",
+      description: "Deleta um item da base de conhecimento",
+      parameters: {
+        type: "object",
+        properties: {
+          title_search: { type: "string", description: "Título (ou parte) do item para deletar" },
+        },
+        required: ["title_search"],
         additionalProperties: false,
       },
     },
@@ -350,11 +499,133 @@ const TOOLS = [
       parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "toggle_course_publish",
+      description: "Publica ou despublica um curso de treinamento",
+      parameters: {
+        type: "object",
+        properties: {
+          course_title: { type: "string", description: "Título (ou parte) do curso" },
+          published: { type: "boolean", description: "true para publicar, false para despublicar" },
+        },
+        required: ["course_title", "published"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "deactivate_team_member",
+      description: "Desativa um membro da equipe (não deleta, apenas marca como inativo)",
+      parameters: {
+        type: "object",
+        properties: {
+          member_name: { type: "string", description: "Nome do membro para desativar" },
+        },
+        required: ["member_name"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "reactivate_team_member",
+      description: "Reativa um membro da equipe que estava inativo",
+      parameters: {
+        type: "object",
+        properties: {
+          member_name: { type: "string", description: "Nome do membro para reativar" },
+        },
+        required: ["member_name"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "set_monthly_goals",
+      description: "Define ou atualiza metas mensais para um membro ou globais",
+      parameters: {
+        type: "object",
+        properties: {
+          member_name: { type: "string", description: "Nome do membro (opcional, se vazio = meta global)" },
+          month: { type: "number", description: "Mês (1-12)" },
+          year: { type: "number", description: "Ano" },
+          goals: {
+            type: "object",
+            description: "Metas a definir",
+            properties: {
+              conexoes: { type: "number" },
+              conexoes_aceitas: { type: "number" },
+              abordagens: { type: "number" },
+              inmail: { type: "number" },
+              follow_up: { type: "number" },
+              numero: { type: "number" },
+              lig_agendada: { type: "number" },
+              lig_realizada: { type: "number" },
+              reuniao_agendada: { type: "number" },
+              reuniao_realizada: { type: "number" },
+            },
+            additionalProperties: false,
+          },
+        },
+        required: ["month", "year", "goals"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_admin_invites",
+      description: "Lista convites de administrador pendentes e usados",
+      parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_ai_tool_usage",
+      description: "Mostra estatísticas de uso das ferramentas de IA por membro",
+      parameters: {
+        type: "object",
+        properties: {
+          member_name: { type: "string", description: "Nome do membro (opcional)" },
+          days: { type: "number", description: "Dias para buscar (padrão: 30)" },
+        },
+        required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_test_links",
+      description: "Lista links de testes DNA (SDR/Closer) criados",
+      parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_training_notifications",
+      description: "Lista notificações de treinamento enviadas",
+      parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
+    },
+  },
 ];
 
 // ── Helpers ──
-async function findMember(supabase: any, name: string) {
-  const { data } = await supabase.from("team_members").select("id, name, member_role").eq("active", true);
+async function findMember(supabase: any, name: string, includeInactive = false) {
+  let query = supabase.from("team_members").select("id, name, member_role, active");
+  if (!includeInactive) query = query.eq("active", true);
+  const { data } = await query;
   if (!data?.length) return null;
   const lower = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   return (
@@ -370,13 +641,34 @@ function daysAgo(days: number): string {
   return d.toISOString().split("T")[0];
 }
 
+async function findByTitle(supabase: any, table: string, titleSearch: string, titleColumn = "title") {
+  const { data } = await supabase.from(table).select("*");
+  if (!data?.length) return null;
+  const lower = titleSearch.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return (
+    data.find((r: any) => r[titleColumn]?.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === lower) ||
+    data.find((r: any) => r[titleColumn]?.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(lower)) ||
+    null
+  );
+}
+
+async function getOrCreateMonth(supabase: any, month: number, year: number) {
+  const { data: existing } = await supabase.from("months").select("id").eq("month", month).eq("year", year).single();
+  if (existing) return existing.id;
+  const monthNames = ["", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+  const label = `${monthNames[month]} ${year}`;
+  const { data: created, error } = await supabase.from("months").insert({ month, year, label }).select("id").single();
+  if (error) return null;
+  return created.id;
+}
+
 // ── Tool execution ──
 async function executeTool(supabase: any, name: string, args: any): Promise<any> {
   try {
     switch (name) {
       case "get_team_members": {
         const { data } = await supabase.from("team_members").select("id, name, member_role, active, avatar_url").eq("active", true);
-        return { members: data?.map((m: any) => ({ name: m.name, role: m.member_role })) || [] };
+        return { members: data?.map((m: any) => ({ id: m.id, name: m.name, role: m.member_role })) || [] };
       }
 
       case "get_member_metrics": {
@@ -388,7 +680,6 @@ async function executeTool(supabase: any, name: string, args: any): Promise<any>
           .select("date, conexoes, conexoes_aceitas, abordagens, inmail, follow_up, numero, lig_agendada, lig_realizada, reuniao_agendada, reuniao_realizada")
           .eq("member_id", member.id);
         
-        // Filter by month/year if specified, otherwise by days
         if (args.month) {
           const year = args.year || new Date().getFullYear();
           const startDate = `${year}-${String(args.month).padStart(2, '0')}-01`;
@@ -396,33 +687,20 @@ async function executeTool(supabase: any, name: string, args: any): Promise<any>
           const endYear = args.month === 12 ? year + 1 : year;
           const endDate = `${endYear}-${String(endMonth).padStart(2, '0')}-01`;
           query = query.gte("date", startDate).lt("date", endDate);
-          console.log(`Filtering metrics for ${member.name}: ${startDate} to ${endDate}`);
         } else {
-          const since = daysAgo(args.days || 30);
-          query = query.gte("date", since);
-          console.log(`Filtering metrics for ${member.name}: last ${args.days || 30} days (since ${since})`);
+          query = query.gte("date", daysAgo(args.days || 30));
         }
         
-        const { data, error } = await query.order("date", { ascending: false });
-        if (error) {
-          console.error("get_member_metrics error:", error);
-          return { error: `Erro ao buscar métricas: ${error.message}` };
-        }
-        
-        console.log(`Found ${data?.length || 0} metric rows for ${member.name}`);
-        
+        const { data } = await query.order("date", { ascending: false });
         const metricKeys = ["conexoes", "conexoes_aceitas", "abordagens", "inmail", "follow_up", "numero", "lig_agendada", "lig_realizada", "reuniao_agendada", "reuniao_realizada"];
         const totals: any = {};
         for (const k of metricKeys) totals[k] = (data || []).reduce((s: number, m: any) => s + (m[k] || 0), 0);
-        
         return { member: member.name, role: member.member_role, days_found: data?.length || 0, totals, daily: data?.slice(0, 10) || [] };
       }
 
       case "get_all_metrics_summary": {
         const { data: members } = await supabase.from("team_members").select("id, name, member_role").eq("active", true);
-        
         let metricsQuery = supabase.from("daily_metrics").select("member_id, conexoes, conexoes_aceitas, abordagens, inmail, follow_up, numero, lig_agendada, lig_realizada, reuniao_agendada, reuniao_realizada");
-        
         if (args.month) {
           const year = args.year || new Date().getFullYear();
           const startDate = `${year}-${String(args.month).padStart(2, '0')}-01`;
@@ -433,10 +711,8 @@ async function executeTool(supabase: any, name: string, args: any): Promise<any>
         } else {
           metricsQuery = metricsQuery.gte("date", daysAgo(args.days || 30));
         }
-        
         const { data: metrics } = await metricsQuery;
         if (!members || !metrics) return { error: "Sem dados" };
-        
         const summary = members.map((m: any) => {
           const mm = metrics.filter((x: any) => x.member_id === m.id);
           const metricKeys = ["conexoes", "conexoes_aceitas", "abordagens", "inmail", "follow_up", "numero", "lig_agendada", "lig_realizada", "reuniao_agendada", "reuniao_realizada"];
@@ -481,7 +757,7 @@ async function executeTool(supabase: any, name: string, args: any): Promise<any>
           if (!member) return { error: `Membro "${args.member_name}" não encontrado` };
           query = query.eq("member_id", member.id);
         }
-        const { data, count } = await query.limit(50);
+        const { data } = await query.limit(50);
         return { total: data?.length || 0, leads: data || [] };
       }
 
@@ -490,16 +766,15 @@ async function executeTool(supabase: any, name: string, args: any): Promise<any>
         if (!member) return { error: `Membro "${args.member_name}" não encontrado` };
         const date = args.date || new Date().toISOString().split("T")[0];
         const d = new Date(date);
-        const { data: month } = await supabase.from("months").select("id").eq("month", d.getMonth() + 1).eq("year", d.getFullYear()).single();
-        if (!month) return { error: `Mês ${d.getMonth() + 1}/${d.getFullYear()} não cadastrado no sistema` };
+        const monthId = await getOrCreateMonth(supabase, d.getMonth() + 1, d.getFullYear());
+        if (!monthId) return { error: `Não foi possível criar/encontrar mês ${d.getMonth() + 1}/${d.getFullYear()}` };
         const dayNames = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
         const { data: existing } = await supabase.from("daily_metrics").select("id").eq("member_id", member.id).eq("date", date).single();
         if (existing) {
           await supabase.from("daily_metrics").update(args.metrics).eq("id", existing.id);
         } else {
-          await supabase.from("daily_metrics").insert({ member_id: member.id, month_id: month.id, date, day_of_week: dayNames[d.getDay()], ...args.metrics });
+          await supabase.from("daily_metrics").insert({ member_id: member.id, month_id: monthId, date, day_of_week: dayNames[d.getDay()], ...args.metrics });
         }
-        // Log as admin edit
         await supabase.from("lead_entries").insert({ member_id: member.id, lead_name: `[JARVIS] Edição de métricas ${date}`, source: "admin", metric_type: "edit" });
         return { success: true, message: `Métricas de ${member.name} atualizadas em ${date}`, updated: args.metrics };
       }
@@ -509,26 +784,11 @@ async function executeTool(supabase: any, name: string, args: any): Promise<any>
         if (!member) return { error: `Membro "${args.member_name}" não encontrado` };
         const { data: contact } = await supabase.from("whatsapp_contacts").select("phone").eq("team_member_id", member.id).eq("active", true).single();
         if (!contact) return { error: `${member.name} não tem WhatsApp cadastrado` };
-        const zapiInstanceId = Deno.env.get("ZAPI_INSTANCE_ID");
-        const zapiToken = Deno.env.get("ZAPI_TOKEN");
-        const zapiClientToken = Deno.env.get("ZAPI_CLIENT_TOKEN");
-        if (!zapiInstanceId || !zapiToken) return { error: "WhatsApp (Z-API) não configurado no sistema" };
-        const cleanPhone = contact.phone.replace(/\D/g, "");
-        const formattedPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
-        console.log(`Sending WhatsApp via Z-API to ${member.name} at ${formattedPhone}`);
-        const zapiHeaders: Record<string, string> = { "Content-Type": "application/json" };
-        if (zapiClientToken) zapiHeaders["Client-Token"] = zapiClientToken;
-        const waResp = await fetch(`https://api.z-api.io/instances/${zapiInstanceId}/token/${zapiToken}/send-text`, {
-          method: "POST",
-          headers: zapiHeaders,
-          body: JSON.stringify({ phone: formattedPhone, message: args.message }),
-        });
-        const waResult = await waResp.json();
-        console.log(`Z-API response:`, JSON.stringify(waResult));
-        if (!waResp.ok || waResult.error) {
-          return { error: `Falha ao enviar WhatsApp para ${member.name}: ${waResult.error || waResult.message || `HTTP ${waResp.status}`}` };
-        }
-        return { success: true, message: `Mensagem enviada para ${member.name} (${formattedPhone})`, result: waResult };
+        return await sendZapiMessage(contact.phone, args.message, member.name);
+      }
+
+      case "send_whatsapp_to_phone": {
+        return await sendZapiMessage(args.phone, args.message);
       }
 
       case "navigate_to_page": {
@@ -539,7 +799,32 @@ async function executeTool(supabase: any, name: string, args: any): Promise<any>
           popups: "Popups", processos: "Processos", "closer-entry": "Registro Closer",
           playbooks: "Playbooks",
         };
-        return { action: "navigate", page: args.page, label: pageNames[args.page] || args.page, marker: `[NAVIGATE:${args.page}]` };
+        return { action: "navigate", page: args.page, label: pageNames[args.page] || args.page, marker: `[ACTION:navigate:${args.page}]` };
+      }
+
+      case "inspect_member": {
+        const member = await findMember(supabase, args.member_name);
+        if (!member) return { error: `Membro "${args.member_name}" não encontrado` };
+        return { action: "inspect", member: member.name, member_id: member.id, marker: `[ACTION:inspect:${member.id}]` };
+      }
+
+      case "filter_dashboard": {
+        let memberId = "";
+        let memberName = "";
+        if (args.member_name) {
+          const member = await findMember(supabase, args.member_name);
+          if (!member) return { error: `Membro "${args.member_name}" não encontrado` };
+          memberId = member.id;
+          memberName = member.name;
+        }
+        const filterValue = [memberId, args.month || "", args.year || ""].join("|");
+        return { 
+          action: "filter", 
+          member: memberName || "todos", 
+          month: args.month, 
+          year: args.year,
+          marker: `[ACTION:navigate:dashboard][ACTION:filter:${filterValue}]` 
+        };
       }
 
       case "search_knowledge_base": {
@@ -551,7 +836,7 @@ async function executeTool(supabase: any, name: string, args: any): Promise<any>
       }
 
       case "get_training_info": {
-        const { data: courses } = await supabase.from("training_courses").select("title, description, target_role, published, sort_order").eq("active", true).order("sort_order");
+        const { data: courses } = await supabase.from("training_courses").select("id, title, description, target_role, published, sort_order").eq("active", true).order("sort_order");
         const { data: modules } = await supabase.from("training_modules").select("title, course_id, sort_order").order("sort_order");
         const { data: lessons } = await supabase.from("training_lessons").select("title, module_id, video_type, duration_seconds, sort_order").order("sort_order");
         return { courses: courses || [], modules_count: modules?.length || 0, lessons_count: lessons?.length || 0 };
@@ -563,6 +848,19 @@ async function executeTool(supabase: any, name: string, args: any): Promise<any>
         if (args.role) query = query.eq("target_role", args.role);
         const { data } = await query.order("created_at", { ascending: false });
         return { playbooks: data || [] };
+      }
+
+      case "create_playbook": {
+        const { data, error } = await supabase.from("training_playbooks").insert({
+          title: args.title,
+          content: args.content,
+          description: args.description || "",
+          category: args.category || "geral",
+          target_role: args.target_role || "all",
+          is_published: args.is_published || false,
+        }).select().single();
+        if (error) return { error: error.message };
+        return { success: true, playbook: { id: data.id, title: data.title } };
       }
 
       case "get_popups": {
@@ -582,9 +880,33 @@ async function executeTool(supabase: any, name: string, args: any): Promise<any>
         return { success: true, popup: data };
       }
 
+      case "toggle_popup": {
+        const popup = await findByTitle(supabase, "motivational_popups", args.popup_title);
+        if (!popup) return { error: `Popup "${args.popup_title}" não encontrado` };
+        const { error } = await supabase.from("motivational_popups").update({ active: args.active }).eq("id", popup.id);
+        if (error) return { error: error.message };
+        return { success: true, message: `Popup "${popup.title}" ${args.active ? "ativado" : "desativado"}` };
+      }
+
+      case "delete_popup": {
+        const popup = await findByTitle(supabase, "motivational_popups", args.popup_title);
+        if (!popup) return { error: `Popup "${args.popup_title}" não encontrado` };
+        const { error } = await supabase.from("motivational_popups").delete().eq("id", popup.id);
+        if (error) return { error: error.message };
+        return { success: true, message: `Popup "${popup.title}" deletado` };
+      }
+
       case "get_whatsapp_automations": {
         const { data } = await supabase.from("whatsapp_automations").select("id, name, description, active, target_audience, target_role, schedule_cron").order("created_at", { ascending: false });
         return { automations: data || [] };
+      }
+
+      case "toggle_whatsapp_automation": {
+        const automation = await findByTitle(supabase, "whatsapp_automations", args.automation_name, "name");
+        if (!automation) return { error: `Automação "${args.automation_name}" não encontrada` };
+        const { error } = await supabase.from("whatsapp_automations").update({ active: args.active }).eq("id", automation.id);
+        if (error) return { error: error.message };
+        return { success: true, message: `Automação "${automation.name}" ${args.active ? "ativada" : "desativada"}` };
       }
 
       case "get_processes": {
@@ -629,6 +951,28 @@ async function executeTool(supabase: any, name: string, args: any): Promise<any>
         return { success: true, knowledge: { id: data.id, title: data.title } };
       }
 
+      case "update_knowledge": {
+        const item = await findByTitle(supabase, "company_knowledge", args.title_search);
+        if (!item) return { error: `Item "${args.title_search}" não encontrado na base de conhecimento` };
+        const updates: any = {};
+        if (args.new_title) updates.title = args.new_title;
+        if (args.new_content) updates.content = args.new_content;
+        if (args.new_category) updates.category = args.new_category;
+        if (args.active !== undefined) updates.active = args.active;
+        if (Object.keys(updates).length === 0) return { error: "Nenhum campo para atualizar" };
+        const { error } = await supabase.from("company_knowledge").update(updates).eq("id", item.id);
+        if (error) return { error: error.message };
+        return { success: true, message: `Item "${item.title}" atualizado` };
+      }
+
+      case "delete_knowledge": {
+        const item = await findByTitle(supabase, "company_knowledge", args.title_search);
+        if (!item) return { error: `Item "${args.title_search}" não encontrado` };
+        const { error } = await supabase.from("company_knowledge").delete().eq("id", item.id);
+        if (error) return { error: error.message };
+        return { success: true, message: `Item "${item.title}" deletado da base de conhecimento` };
+      }
+
       case "get_calendar_events": {
         const { data } = await supabase.from("event_reminders").select("id, event_title, event_description, event_start_at, reminder_type, lead_name, lead_phone, sent").order("event_start_at", { ascending: true }).limit(30);
         return { events: data || [] };
@@ -643,6 +987,95 @@ async function executeTool(supabase: any, name: string, args: any): Promise<any>
           member: members?.find((m: any) => m.id === c.team_member_id)?.name || "Sem vínculo",
         }));
         return { contacts: enriched };
+      }
+
+      case "toggle_course_publish": {
+        const course = await findByTitle(supabase, "training_courses", args.course_title);
+        if (!course) return { error: `Curso "${args.course_title}" não encontrado` };
+        const updates: any = { published: args.published };
+        if (args.published) updates.published_at = new Date().toISOString();
+        const { error } = await supabase.from("training_courses").update(updates).eq("id", course.id);
+        if (error) return { error: error.message };
+        return { success: true, message: `Curso "${course.title}" ${args.published ? "publicado" : "despublicado"}` };
+      }
+
+      case "deactivate_team_member": {
+        const member = await findMember(supabase, args.member_name);
+        if (!member) return { error: `Membro "${args.member_name}" não encontrado` };
+        const { error } = await supabase.from("team_members").update({ active: false }).eq("id", member.id);
+        if (error) return { error: error.message };
+        return { success: true, message: `${member.name} desativado da equipe` };
+      }
+
+      case "reactivate_team_member": {
+        const member = await findMember(supabase, args.member_name, true);
+        if (!member) return { error: `Membro "${args.member_name}" não encontrado` };
+        const { error } = await supabase.from("team_members").update({ active: true }).eq("id", member.id);
+        if (error) return { error: error.message };
+        return { success: true, message: `${member.name} reativado na equipe` };
+      }
+
+      case "set_monthly_goals": {
+        const monthId = await getOrCreateMonth(supabase, args.month, args.year);
+        if (!monthId) return { error: `Não foi possível criar/encontrar mês ${args.month}/${args.year}` };
+        
+        let memberId = null;
+        if (args.member_name) {
+          const member = await findMember(supabase, args.member_name);
+          if (!member) return { error: `Membro "${args.member_name}" não encontrado` };
+          memberId = member.id;
+        }
+
+        const { data: existing } = await supabase.from("monthly_goals")
+          .select("id")
+          .eq("month_id", monthId)
+          .is("member_id", memberId)
+          .single();
+
+        if (existing) {
+          const { error } = await supabase.from("monthly_goals").update(args.goals).eq("id", existing.id);
+          if (error) return { error: error.message };
+          return { success: true, message: `Metas de ${args.member_name || "global"} atualizadas para ${args.month}/${args.year}` };
+        } else {
+          const { error } = await supabase.from("monthly_goals").insert({ month_id: monthId, member_id: memberId, ...args.goals });
+          if (error) return { error: error.message };
+          return { success: true, message: `Metas de ${args.member_name || "global"} criadas para ${args.month}/${args.year}` };
+        }
+      }
+
+      case "get_admin_invites": {
+        const { data } = await supabase.from("admin_invites").select("id, token, created_at, expires_at, used_at, used_by").order("created_at", { ascending: false }).limit(10);
+        return { invites: (data || []).map((i: any) => ({ ...i, status: i.used_at ? "usado" : new Date(i.expires_at) < new Date() ? "expirado" : "pendente" })) };
+      }
+
+      case "get_ai_tool_usage": {
+        const since = daysAgo(args.days || 30);
+        let query = supabase.from("ai_tool_usage").select("member_id, tool_type, created_at").gte("created_at", new Date(since).toISOString());
+        if (args.member_name) {
+          const member = await findMember(supabase, args.member_name);
+          if (!member) return { error: `Membro "${args.member_name}" não encontrado` };
+          query = query.eq("member_id", member.id);
+        }
+        const { data } = await query;
+        const { data: members } = await supabase.from("team_members").select("id, name").eq("active", true);
+        const summary = (members || []).map((m: any) => {
+          const usage = (data || []).filter((u: any) => u.member_id === m.id);
+          const byTool: any = {};
+          usage.forEach((u: any) => { byTool[u.tool_type] = (byTool[u.tool_type] || 0) + 1; });
+          return { name: m.name, total: usage.length, by_tool: byTool };
+        }).filter((m: any) => m.total > 0);
+        return { period: `últimos ${args.days || 30} dias`, usage: summary };
+      }
+
+      case "get_test_links": {
+        const { data } = await supabase.from("test_links").select("id, token, label, test_type, is_active, member_id, created_at").order("created_at", { ascending: false });
+        const { data: members } = await supabase.from("team_members").select("id, name");
+        return { links: (data || []).map((l: any) => ({ ...l, member_name: members?.find((m: any) => m.id === l.member_id)?.name || null })) };
+      }
+
+      case "get_training_notifications": {
+        const { data } = await supabase.from("training_notifications").select("id, title, message, target_role, course_id, created_at").order("created_at", { ascending: false }).limit(20);
+        return { notifications: data || [] };
       }
 
       case "get_weekly_goals": {
@@ -665,8 +1098,30 @@ async function executeTool(supabase: any, name: string, args: any): Promise<any>
   }
 }
 
+// ── WhatsApp Z-API helper ──
+async function sendZapiMessage(phone: string, message: string, memberName?: string) {
+  const zapiInstanceId = Deno.env.get("ZAPI_INSTANCE_ID");
+  const zapiToken = Deno.env.get("ZAPI_TOKEN");
+  const zapiClientToken = Deno.env.get("ZAPI_CLIENT_TOKEN");
+  if (!zapiInstanceId || !zapiToken) return { error: "WhatsApp (Z-API) não configurado no sistema" };
+  const cleanPhone = phone.replace(/\D/g, "");
+  const formattedPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
+  const zapiHeaders: Record<string, string> = { "Content-Type": "application/json" };
+  if (zapiClientToken) zapiHeaders["Client-Token"] = zapiClientToken;
+  const waResp = await fetch(`https://api.z-api.io/instances/${zapiInstanceId}/token/${zapiToken}/send-text`, {
+    method: "POST",
+    headers: zapiHeaders,
+    body: JSON.stringify({ phone: formattedPhone, message }),
+  });
+  const waResult = await waResp.json();
+  if (!waResp.ok || waResult.error) {
+    return { error: `Falha ao enviar WhatsApp${memberName ? ` para ${memberName}` : ""}: ${waResult.error || waResult.message || `HTTP ${waResp.status}`}` };
+  }
+  return { success: true, message: `Mensagem enviada${memberName ? ` para ${memberName}` : ""} (${formattedPhone})` };
+}
+
 // ── System prompt ──
-const SYSTEM_PROMPT = `Você é o JARVIS, assistente COMPLETO com acesso TOTAL ao sistema de gestão de vendas. Respostas por VOZ — seja ULTRA CONCISO.
+const SYSTEM_PROMPT = `Você é o JARVIS, assistente COMPLETO com acesso TOTAL ao sistema de gestão de vendas. Respostas por TEXTO — seja ULTRA CONCISO.
 
 REGRAS DE RESPOSTA:
 - Máximo 2-3 frases curtas por padrão
@@ -683,25 +1138,34 @@ Se o ano não for mencionado, use o ano atual (${new Date().getFullYear()}).
 
 ACESSO TOTAL — VOCÊ PODE TUDO:
 📊 DADOS: métricas diárias, metas mensais/semanais, ranking, leads, equipe
-📝 CRIAR: popups motivacionais, itens de conhecimento
-✏️ EDITAR: atualizar métricas de qualquer membro
-📱 WHATSAPP: enviar mensagens, ver contatos, ver automações
-📚 TREINAMENTO: cursos, módulos, aulas, playbooks
-🧬 DNA: submissões de testes, análises IA
+📝 CRIAR: popups motivacionais, itens de conhecimento, playbooks
+✏️ EDITAR: atualizar métricas, metas mensais, ativar/desativar popups e automações, publicar/despublicar cursos
+🗑️ DELETAR: popups, itens de conhecimento
+👥 EQUIPE: listar, desativar/reativar membros, inspecionar tela de qualquer membro
+📱 WHATSAPP: enviar mensagens para membros ou qualquer número, ver contatos, ver/ativar/desativar automações
+📚 TREINAMENTO: cursos (publicar/despublicar), módulos, aulas, playbooks (criar), notificações
+🧬 DNA: submissões de testes, análises IA, links de testes
 📞 CLOSER: análises de ligações e comportamento
 📋 PROCESSOS: fluxos e processos salvos
 📅 AGENDA: eventos e lembretes do calendário
-🧠 CONHECIMENTO: base de conhecimento da empresa
+🧠 CONHECIMENTO: base de conhecimento (CRUD completo)
 📈 RELATÓRIOS: relatórios IA gerados
-🔧 CONFIGURAÇÕES: navegar para qualquer página
+🔧 CONFIGURAÇÕES: navegar para qualquer página, filtrar dashboard
+🔍 INSPEÇÃO: ver tela como qualquer membro vê
+📊 ANALYTICS: uso de ferramentas IA por membro, convites admin
 
-NAVEGAÇÃO: quando pedirem para ABRIR/IR/MOSTRAR qualquer página, use navigate_to_page + inclua [NAVIGATE:page] na resposta.
+NAVEGAÇÃO: quando pedirem para ABRIR/IR/MOSTRAR qualquer página, use navigate_to_page. O marker [ACTION:navigate:page] será incluído automaticamente.
+INSPEÇÃO: quando pedirem para "ver como o João vê" ou "inspecionar membro", use inspect_member. O marker [ACTION:inspect:id] será incluído.
+FILTRO DASHBOARD: quando pedirem para "filtrar dashboard pelo João" ou "mostrar métricas de março", use filter_dashboard.
+
 PÁGINAS: dashboard, team, goals, reports, training, calendars, whatsapp, knowledge, dna-mapping, settings, popups, processos, closer-entry, playbooks
 
 AÇÕES DESTRUTIVAS: confirme antes, exceto se explícito.
 Responda SEMPRE em pt-BR.
 
-MÉTRICAS: SDR (Conexões, Aceitas, Abordagens, InMail, Follow-up, Número, Lig.Agendada) | Closer (Lig.Realizada, Reunião Agendada/Realizada)`;
+MÉTRICAS: SDR (Conexões, Aceitas, Abordagens, InMail, Follow-up, Número, Lig.Agendada) | Closer (Lig.Realizada, Reunião Agendada/Realizada)
+
+IMPORTANTE: Quando um tool retornar um campo "marker", SEMPRE inclua esse marker exatamente como está na sua resposta. Ex: se retornar marker: "[ACTION:navigate:team]", inclua [ACTION:navigate:team] na resposta.`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -715,7 +1179,6 @@ serve(async (req) => {
 
     const aiHeaders = { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" };
 
-    // Build conversation with system prompt
     let currentMessages: any[] = [
       { role: "system", content: SYSTEM_PROMPT },
       ...messages.filter((m: any) => m.role !== "system"),
@@ -754,12 +1217,9 @@ serve(async (req) => {
       const assistantMsg = choice.message;
       const toolCalls = assistantMsg.tool_calls;
 
-      // No tool calls → we have the final answer
       if (!toolCalls?.length) {
-        // Convert to SSE format and return
         const content = assistantMsg.content || "";
         const sseChunks = [];
-        // Split into small chunks for smooth streaming feel
         const chunkSize = 8;
         for (let i = 0; i < content.length; i += chunkSize) {
           const chunk = content.slice(i, i + chunkSize);
@@ -771,7 +1231,6 @@ serve(async (req) => {
         });
       }
 
-      // Execute tool calls
       currentMessages.push(assistantMsg);
       console.log(`Round ${round + 1}: executing ${toolCalls.length} tool(s):`, toolCalls.map((tc: any) => tc.function.name).join(", "));
 
@@ -787,7 +1246,6 @@ serve(async (req) => {
       }
     }
 
-    // After max rounds, do a final streaming call without tools
     const finalResponse = await fetch(GATEWAY, {
       method: "POST",
       headers: aiHeaders,

@@ -12,6 +12,7 @@ interface JarvisOverlayProps {
   memberRole: string;
   onNavigate?: (tab: string) => void;
   onInspect?: (memberId: string) => void;
+  onFilter?: (memberId: string, month: string, year: string) => void;
 }
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/jarvis-agent`;
@@ -19,7 +20,7 @@ const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/jarvis-agent
 // Parse action markers from AI response: [ACTION:type:value]
 function parseActions(text: string): { type: string; value: string }[] {
   const actions: { type: string; value: string }[] = [];
-  const regex = /\[ACTION:([a-z]+):([a-z0-9-]+)\]/gi;
+  const regex = /\[ACTION:([a-z]+):([a-z0-9|.-]+)\]/gi;
   let match;
   while ((match = regex.exec(text)) !== null) {
     actions.push({ type: match[1], value: match[2] });
@@ -28,7 +29,7 @@ function parseActions(text: string): { type: string; value: string }[] {
 }
 
 function stripActionMarkers(text: string): string {
-  return text.replace(/\[ACTION:[a-z0-9]+:[a-z0-9-]+\]/gi, "").trim();
+  return text.replace(/\[ACTION:[a-z0-9]+:[a-z0-9|.-]+\]/gi, "").trim();
 }
 
 // Legacy navigation detection (fallback for quick local commands)
@@ -179,7 +180,7 @@ function NeuralBackground() {
 
 // Removed local JarvisOrb — now using JarvisOrb from ./JarvisOrb
 
-export function JarvisOverlay({ memberId, memberRole, onNavigate, onInspect }: JarvisOverlayProps) {
+export function JarvisOverlay({ memberId, memberRole, onNavigate, onInspect, onFilter }: JarvisOverlayProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -322,6 +323,9 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate, onInspect }: J
               onNavigate(action.value);
             } else if (action.type === "inspect" && onInspect) {
               onInspect(action.value);
+            } else if (action.type === "filter" && onFilter) {
+              const [fMemberId, fMonth, fYear] = action.value.split("|");
+              onFilter(fMemberId || "", fMonth || "", fYear || "");
             }
           }
           setIsOpen(false);

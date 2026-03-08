@@ -309,6 +309,11 @@ export default function Index() {
           onInspect={(memberId) => {
             setInspectMemberId(memberId);
           }}
+          onFilter={(memberId, month, year) => {
+            setAdminView("dashboard");
+            // Filter will be applied via URL params or state — for now navigate to dashboard
+            // The dashboard component will pick up the filter from a shared state
+          }}
         />
       </div>
 
