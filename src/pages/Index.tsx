@@ -217,7 +217,7 @@ export default function Index() {
   const renderAdminContent = () => {
     switch (adminView) {
       case "dashboard":
-        return <AdminDashboard onSignOut={signOut} userName={profile?.full_name || ""} />;
+        return <AdminDashboard onSignOut={signOut} userName={profile?.full_name || ""} selectedMonthId={titanFilterMonthId} selectedMemberId={titanFilterMemberId} key={`dash-${titanFilterMemberId}-${titanFilterMonthId}`} />;
       case "team":
         return <TeamManagement />;
       case "goals":
