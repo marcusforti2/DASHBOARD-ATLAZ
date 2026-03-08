@@ -878,7 +878,7 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
                         "w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-1",
                         msg.role === "user" ? "bg-purple-500/20 text-purple-300" : "bg-violet-500/20 text-violet-300"
                       )}>
-                        {msg.role === "user" ? <User size={12} /> : <Bot size={12} />}
+                        {msg.role === "user" ? <User size={12} /> : <JarvisOrb state="idle" size="sm" className="w-6 h-6" />}
                       </div>
                       <div className={cn(
                         "rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
