@@ -394,11 +394,11 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate, onInspect, onF
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4">
                   <div className="flex items-center gap-3">
-                    <JarvisOrb state={orbState} size="md" />
+                    <TitanOrb state={orbState} size="md" />
                     <div>
-                      <h2 className="text-lg font-bold text-white tracking-tight">JARVIS</h2>
+                      <h2 className="text-lg font-bold text-white tracking-tight">TITAN</h2>
                       <p className="text-[10px] text-purple-300/70 uppercase tracking-widest">
-                        {orbState === "processing" ? "Processando..." : "Ctrl+Alt+J • Pronto para ajudar"}
+                        {orbState === "processing" ? "Processando..." : "Ctrl+Alt+J • Assistente Estratégico"}
                       </p>
                     </div>
                   </div>
