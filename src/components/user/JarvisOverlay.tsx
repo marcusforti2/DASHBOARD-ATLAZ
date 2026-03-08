@@ -443,17 +443,6 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
                 {/* Input */}
                 <div className="px-6 pb-6 pt-2">
                   <div className="flex items-center gap-2 bg-white/5 border border-purple-500/15 rounded-2xl px-4 py-2">
-                    <button
-                      onClick={toggleListening}
-                      className={cn(
-                        "w-9 h-9 rounded-xl flex items-center justify-center transition-all shrink-0",
-                        isListening
-                          ? "bg-purple-500 text-white shadow-[0_0_20px_rgba(168,85,247,0.5)]"
-                          : "bg-white/5 text-purple-300/60 hover:text-purple-200 hover:bg-white/10"
-                      )}
-                    >
-                      {isListening ? <MicOff size={16} /> : <Mic size={16} />}
-                    </button>
                     <input
                       ref={inputRef}
                       type="text"
