@@ -16,95 +16,9 @@ export function AiChat({ memberId, tool = "chat", placeholder, compact = false }
   const [showSidebar, setShowSidebar] = useState(!compact);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Voice states
-  const [isListening, setIsListening] = useState(false);
-  const [ttsEnabled, setTtsEnabled] = useState(true);
-  const recognitionRef = useRef<any>(null);
-  const synthRef = useRef(typeof window !== "undefined" ? window.speechSynthesis : null);
-  const lastSpokenIndexRef = useRef(-1);
-
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
-
-  // TTS: speak new assistant messages
-  useEffect(() => {
-    if (!ttsEnabled || !synthRef.current) return;
-    const lastMsg = messages[messages.length - 1];
-    const lastIndex = messages.length - 1;
-    if (lastMsg?.role === "assistant" && lastIndex > lastSpokenIndexRef.current && !isLoading) {
-      lastSpokenIndexRef.current = lastIndex;
-      const text = stripMarkdown(lastMsg.content);
-      if (text.length > 0) {
-        synthRef.current.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = "pt-BR";
-        utterance.rate = 1.05;
-        utterance.pitch = 1;
-        // Pick a PT-BR voice if available
-        const voices = synthRef.current.getVoices();
-        const ptVoice = voices.find(v => v.lang.startsWith("pt")) || voices[0];
-        if (ptVoice) utterance.voice = ptVoice;
-        synthRef.current.speak(utterance);
-      }
-    }
-  }, [messages, isLoading, ttsEnabled]);
-
-  // Cleanup TTS on unmount
-  useEffect(() => {
-    return () => { synthRef.current?.cancel(); };
-  }, []);
-
-  // Speech Recognition (STT)
-  const toggleListening = useCallback(() => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      toast.error("Seu navegador não suporta reconhecimento de voz.");
-      return;
-    }
-
-    if (isListening) {
-      recognitionRef.current?.stop();
-      setIsListening(false);
-      return;
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.lang = "pt-BR";
-    recognition.continuous = false;
-    recognition.interimResults = true;
-
-    recognition.onresult = (event: any) => {
-      let transcript = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        transcript += event.results[i][0].transcript;
-      }
-      setInput(transcript);
-
-      // Auto-send on final result
-      if (event.results[event.results.length - 1].isFinal) {
-        setTimeout(() => {
-          setIsListening(false);
-        }, 300);
-      }
-    };
-
-    recognition.onerror = (event: any) => {
-      console.error("Speech recognition error:", event.error);
-      if (event.error !== "aborted") {
-        toast.error("Erro no reconhecimento de voz");
-      }
-      setIsListening(false);
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-
-    recognitionRef.current = recognition;
-    recognition.start();
-    setIsListening(true);
-  }, [isListening]);
 
   // Fetch conversations
   const fetchConversations = useCallback(async () => {
