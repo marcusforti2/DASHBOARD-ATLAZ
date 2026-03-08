@@ -324,33 +324,6 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
       {!isOpen && (
         <div
           className="fixed bottom-6 right-6 z-50"
-          title={handsFreeMode ? "Modo mãos-livres ativo (2x clique para parar)" : "Jarvis (Ctrl+Alt+J) • 2x clique = mãos-livres"}
-        >
-          <JarvisOrb state={orbState} size="sm" onClick={handleButtonClick} />
-        </div>
-      )}
-
-      {/* Hands-free floating bubble */}
-      <AnimatePresence>
-        {handsFreeMode && handsFreeText && (
-          <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.95 }}
-            className="fixed bottom-24 right-6 z-50 max-w-sm"
-          >
-            <div className="bg-[hsl(var(--background))]/95 backdrop-blur-lg border border-purple-500/20 rounded-2xl px-4 py-3 shadow-[0_0_40px_rgba(168,85,247,0.15)]">
-              <div className="flex items-start gap-2">
-                <JarvisOrb state={orbState} size="sm" className="w-5 h-5 shrink-0 mt-0.5" />
-                <p className="text-sm text-purple-50/90 leading-relaxed max-h-40 overflow-y-auto">
-                  {handsFreeText}
-                </p>
-              </div>
-              <p className="text-[8px] text-purple-400/40 mt-1 text-right">ESC para parar • 2x clique no botão</p>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Overlay */}
       <AnimatePresence>
