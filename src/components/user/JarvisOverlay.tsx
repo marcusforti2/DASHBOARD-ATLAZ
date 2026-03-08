@@ -180,56 +180,14 @@ function NeuralBackground() {
 
 export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverlayProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const [handsFreeMode, setHandsFreeMode] = useState(false);
-  const [handsFreeText, setHandsFreeText] = useState("");
-  const [handsFreeStatus, setHandsFreeStatus] = useState<"idle" | "listening" | "processing" | "speaking">("idle");
 
-  // Compute orb state
-  const orbState: OrbState = isSpeaking || handsFreeStatus === "speaking" ? "speaking"
-    : isLoading || handsFreeStatus === "processing" ? "processing"
-    : isListening || handsFreeStatus === "listening" ? "listening"
-    : "idle";
+  const orbState: OrbState = isLoading ? "processing" : "idle";
+
   const scrollRef = useRef<HTMLDivElement>(null);
-  const recognitionRef = useRef<any>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const autoSendRef = useRef(false);
-  const handsFreeRef = useRef(false);
-  const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const cachedVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
-
-  // Pre-load voices (they load async in most browsers)
-  useEffect(() => {
-    const loadVoices = () => {
-      const voices = window.speechSynthesis?.getVoices() || [];
-      if (voices.length === 0) return;
-
-      const ptBrVoices = voices.filter((v) => v.lang === "pt-BR" || v.lang === "pt_BR");
-      const ptVoices = ptBrVoices.length > 0 ? ptBrVoices : voices.filter((v) => /^pt/i.test(v.lang));
-
-      const femaleNames = /maria|ana|francisca|julia|leticia|female|feminino|luciana|fernanda|raquel|vitoria|camila/i;
-      const maleNames = /daniel|luciano|antonio|marcos|pedro|ricardo|thiago|google br|male|masculino/i;
-
-      // Prioritize Google voices (highest quality in Chrome)
-      const googleMale = ptVoices.find((v) => /google/i.test(v.name) && !femaleNames.test(v.name));
-      const namedMale = ptVoices.find((v) => maleNames.test(v.name));
-      const microsoftMale = ptVoices.find((v) => /microsoft|edge/i.test(v.name) && !femaleNames.test(v.name));
-      const anyNonFemale = ptVoices.find((v) => !femaleNames.test(v.name));
-      const anyPt = ptVoices[0];
-
-      cachedVoiceRef.current = googleMale || namedMale || microsoftMale || anyNonFemale || anyPt || null;
-      console.log("Jarvis voice loaded:", cachedVoiceRef.current?.name, cachedVoiceRef.current?.lang);
-    };
-
-    loadVoices();
-    window.speechSynthesis?.addEventListener("voiceschanged", loadVoices);
-    return () => window.speechSynthesis?.removeEventListener("voiceschanged", loadVoices);
-  }, []);
 
   // Keyboard shortcut: Ctrl+J or Cmd+J
   useEffect(() => {
@@ -240,326 +198,23 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
       }
       if (e.key === "Escape" && isOpen) {
         setIsOpen(false);
-        audioRef.current?.pause();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [isOpen]);
 
-  // Auto-start listening when opened
+  // Focus input when opened
   useEffect(() => {
-    if (isOpen) {
-      setTimeout(() => {
-        inputRef.current?.focus();
-        // Auto-start voice recognition
-        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-        if (SpeechRecognition && !isListening && !isLoading) {
-          const recognition = new SpeechRecognition();
-          recognition.lang = "pt-BR";
-          recognition.continuous = false;
-          recognition.interimResults = true;
-
-          recognition.onresult = (event: any) => {
-            let transcript = "";
-            for (let i = event.resultIndex; i < event.results.length; i++) {
-              transcript += event.results[i][0].transcript;
-            }
-            setInput(transcript);
-            if (event.results[event.results.length - 1].isFinal) {
-              setIsListening(false);
-              // Auto-send after speech ends
-              autoSendRef.current = true;
-            }
-          };
-          recognition.onerror = () => setIsListening(false);
-          recognition.onend = () => setIsListening(false);
-
-          recognitionRef.current = recognition;
-          recognition.start();
-          setIsListening(true);
-        }
-      }, 400);
-    } else {
-      // Stop listening when closing
-      recognitionRef.current?.stop();
-      setIsListening(false);
-    }
+    if (!isOpen) return;
+    const timer = setTimeout(() => inputRef.current?.focus(), 200);
+    return () => clearTimeout(timer);
   }, [isOpen]);
 
   // Scroll to bottom
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
-
-  // Auto-send after speech recognition finalizes
-  useEffect(() => {
-    if (autoSendRef.current && input.trim() && !isListening && !isLoading) {
-      autoSendRef.current = false;
-      const timer = setTimeout(() => {
-        if (handsFreeRef.current) {
-          handsFreeeSend(input.trim());
-        } else {
-          send();
-        }
-      }, 150);
-      return () => clearTimeout(timer);
-    }
-  }, [input, isListening]);
-
-  // TTS via Web Speech API with pre-cached voice
-  const speak = useCallback(async (text: string, autoListenAfter = false) => {
-    setIsSpeaking(true);
-    const clean = stripMarkdown(text);
-
-    try {
-      if (!("speechSynthesis" in window) || !clean || clean.length < 3) {
-        setIsSpeaking(false);
-        if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
-        return;
-      }
-
-      if (autoListenAfter) setHandsFreeStatus("speaking");
-      window.speechSynthesis.cancel();
-
-      const utterance = new SpeechSynthesisUtterance(clean);
-      utterance.lang = "pt-BR";
-      utterance.rate = 1.0;
-      utterance.pitch = 0.95;
-      utterance.volume = 1.0;
-
-      // Use pre-cached voice (loaded on voiceschanged event)
-      if (cachedVoiceRef.current) {
-        utterance.voice = cachedVoiceRef.current;
-      }
-
-      utterance.onend = () => {
-        setIsSpeaking(false);
-        if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
-      };
-      utterance.onerror = () => {
-        setIsSpeaking(false);
-        if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
-      };
-
-      window.speechSynthesis.speak(utterance);
-    } catch {
-      setIsSpeaking(false);
-      if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
-    }
-  }, []);
-
-  // Hands-free listen function with retry limit
-  const handsFreeRetryRef = useRef(0);
-  const MAX_HANDSFREE_RETRIES = 2;
-
-  const startHandsFreeListen = useCallback(() => {
-    if (!handsFreeRef.current) return;
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) return;
-
-    setHandsFreeStatus("listening");
-    setHandsFreeText("🎤 Ouvindo...");
-
-    const recognition = new SpeechRecognition();
-    recognition.lang = "pt-BR";
-    recognition.continuous = false;
-    recognition.interimResults = true;
-
-    recognition.onresult = (event: any) => {
-      let transcript = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        transcript += event.results[i][0].transcript;
-      }
-      setHandsFreeText(`🎤 ${transcript}`);
-      setInput(transcript);
-      if (event.results[event.results.length - 1].isFinal) {
-        setIsListening(false);
-        handsFreeRetryRef.current = 0; // reset retries on success
-        autoSendRef.current = true;
-      }
-    };
-    recognition.onerror = (e: any) => {
-      setIsListening(false);
-      // Only retry on no-speech or aborted, with limit
-      if (handsFreeRef.current && handsFreeRetryRef.current < MAX_HANDSFREE_RETRIES && 
-          (e.error === "no-speech" || e.error === "aborted")) {
-        handsFreeRetryRef.current++;
-        setTimeout(() => startHandsFreeListen(), 2000);
-      } else {
-        // Stop hands-free mode after max retries or other errors
-        setHandsFreeStatus("idle");
-        setHandsFreeText("");
-        handsFreeRetryRef.current = 0;
-      }
-    };
-    recognition.onend = () => setIsListening(false);
-
-    recognitionRef.current = recognition;
-    recognition.start();
-    setIsListening(true);
-  }, []);
-
-  // Hands-free send (no overlay)
-  const handsFreeeSend = useCallback(async (text: string) => {
-    if (!text || isLoading) return;
-    audioRef.current?.pause();
-
-    // Nav command
-    const navTarget = detectNavCommand(text);
-    if (navTarget && onNavigate) {
-      const tabNames: Record<string, string> = {
-        dashboard: "Dashboard", team: "Equipe", goals: "Metas", reports: "Relatórios IA",
-        training: "Treinamentos", calendars: "Agendas", whatsapp: "WhatsApp",
-        knowledge: "Conhecimento IA", "dna-mapping": "Sales DNA", settings: "Configurações",
-        popups: "Popups", processos: "Processos", "closer-entry": "Registro Closer",
-        playbooks: "Playbooks",
-      };
-      const name = tabNames[navTarget] || navTarget;
-      setHandsFreeText(`🚀 Abrindo ${name}...`);
-      speak(`Abrindo ${name}`, true);
-      setTimeout(() => onNavigate(navTarget), 800);
-      return;
-    }
-
-    const userMsg: Msg = { role: "user", content: text };
-    setMessages(prev => [...prev, userMsg]);
-    setInput("");
-    setIsLoading(true);
-    setHandsFreeStatus("processing");
-    setHandsFreeText("⚡ Processando...");
-
-    let assistantSoFar = "";
-
-    try {
-      const resp = await fetch(CHAT_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({ messages: [...messages, userMsg] }),
-      });
-
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({ error: "Erro" }));
-        setHandsFreeText(`❌ ${err.error}`);
-        setMessages(prev => [...prev, { role: "assistant", content: `❌ ${err.error}` }]);
-        setIsLoading(false);
-        if (handsFreeRef.current) setTimeout(() => startHandsFreeListen(), 2000);
-        return;
-      }
-
-      const reader = resp.body!.getReader();
-      const decoder = new TextDecoder();
-      let textBuffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        textBuffer += decoder.decode(value, { stream: true });
-
-        let idx: number;
-        while ((idx = textBuffer.indexOf("\n")) !== -1) {
-          let line = textBuffer.slice(0, idx);
-          textBuffer = textBuffer.slice(idx + 1);
-          if (line.endsWith("\r")) line = line.slice(0, -1);
-          if (line.startsWith(":") || line.trim() === "") continue;
-          if (!line.startsWith("data: ")) continue;
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === "[DONE]") break;
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content;
-            if (content) {
-              assistantSoFar += content;
-              setHandsFreeText(assistantSoFar);
-              setMessages(prev => {
-                const last = prev[prev.length - 1];
-                if (last?.role === "assistant") {
-                  return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantSoFar } : m);
-                }
-                return [...prev, { role: "assistant", content: assistantSoFar }];
-              });
-            }
-          } catch {
-            textBuffer = line + "\n" + textBuffer;
-            break;
-          }
-        }
-      }
-
-      // Handle nav markers
-      const navMatch = assistantSoFar.match(/\[NAVIGATE:([a-z-]+)\]/);
-      if (navMatch && onNavigate) {
-        const cleanContent = assistantSoFar.replace(/\[NAVIGATE:[a-z-]+\]/g, "").trim();
-        setHandsFreeText(cleanContent);
-        setMessages(prev => prev.map((m, i) => i === prev.length - 1 && m.role === "assistant" ? { ...m, content: cleanContent } : m));
-        speak(cleanContent, true);
-        setTimeout(() => onNavigate(navMatch[1]), 1200);
-      } else if (assistantSoFar) {
-        speak(assistantSoFar, true);
-      } else {
-        if (handsFreeRef.current) startHandsFreeListen();
-      }
-    } catch {
-      setHandsFreeText("❌ Erro de conexão.");
-      setMessages(prev => [...prev, { role: "assistant", content: "❌ Erro de conexão." }]);
-      if (handsFreeRef.current) setTimeout(() => startHandsFreeListen(), 2000);
-    }
-
-    setIsLoading(false);
-  }, [messages, isLoading, speak, onNavigate]);
-
-  // (speak moved above)
-
-  // Cleanup audio on unmount
-  useEffect(() => {
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-    };
-  }, []);
-
-  // STT
-  const toggleListening = useCallback(() => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      toast.error("Navegador não suporta reconhecimento de voz.");
-      return;
-    }
-    if (isListening) {
-      recognitionRef.current?.stop();
-      setIsListening(false);
-      return;
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.lang = "pt-BR";
-    recognition.continuous = false;
-    recognition.interimResults = true;
-
-    recognition.onresult = (event: any) => {
-      let transcript = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        transcript += event.results[i][0].transcript;
-      }
-      setInput(transcript);
-      if (event.results[event.results.length - 1].isFinal) {
-        setIsListening(false);
-        // Auto-send after manual mic toggle too
-        autoSendRef.current = true;
-      }
-    };
-    recognition.onerror = () => setIsListening(false);
-    recognition.onend = () => setIsListening(false);
-
-    recognitionRef.current = recognition;
-    recognition.start();
-    setIsListening(true);
-  }, [isListening]);
 
   const send = async () => {
     const text = input.trim();
