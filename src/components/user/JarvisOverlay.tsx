@@ -323,6 +323,9 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate, onInspect, onF
               onNavigate(action.value);
             } else if (action.type === "inspect" && onInspect) {
               onInspect(action.value);
+            } else if (action.type === "filter" && onFilter) {
+              const [fMemberId, fMonth, fYear] = action.value.split("|");
+              onFilter(fMemberId || "", fMonth || "", fYear || "");
             }
           }
           setIsOpen(false);
