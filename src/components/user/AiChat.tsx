@@ -7,6 +7,23 @@ import { toast } from "sonner";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
+interface Conversation {
+  id: string;
+  title: string;
+  tool: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface AiChatProps {
+  memberId: string;
+  tool?: string;
+  placeholder?: string;
+  compact?: boolean;
+}
+
+const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-coach`;
+
 export function AiChat({ memberId, tool = "chat", placeholder, compact = false }: AiChatProps) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
