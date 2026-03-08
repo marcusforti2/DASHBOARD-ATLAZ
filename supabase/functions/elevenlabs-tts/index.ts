@@ -25,6 +25,7 @@ serve(async (req) => {
     // Limit text to avoid high costs
     const trimmedText = text.substring(0, 2000);
 
+    // Use streaming endpoint with turbo model for ~200ms first audio
     const response = await fetch(
       `https://api.elevenlabs.io/v1/text-to-speech/${voiceId || DEFAULT_VOICE_ID}/stream?output_format=mp3_22050_32`,
       {
@@ -35,7 +36,7 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           text: trimmedText,
-          model_id: "eleven_multilingual_v2",
+          model_id: "eleven_turbo_v2_5",
           voice_settings: {
             stability: 0.5,
             similarity_boost: 0.75,
@@ -65,13 +66,12 @@ serve(async (req) => {
       });
     }
 
-    const audioBuffer = await response.arrayBuffer();
-
-    return new Response(audioBuffer, {
+    // Stream the audio response directly to the client
+    return new Response(response.body, {
       headers: {
         ...corsHeaders,
         "Content-Type": "audio/mpeg",
-        "Cache-Control": "public, max-age=3600",
+        "Transfer-Encoding": "chunked",
       },
     });
   } catch (e) {
