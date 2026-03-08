@@ -411,10 +411,10 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate, onInspect }: J
                   {messages.length === 0 && (
                     <div className="flex flex-col items-center justify-center h-full text-center gap-4">
                       <p className="text-sm text-purple-200/60 max-w-xs">
-                        Fale ou digite. Posso responder perguntas, abrir páginas e te ajudar com vendas.
+                        Digite um comando. Posso abrir páginas, consultar dados, inspecionar membros e muito mais.
                       </p>
                       <div className="flex flex-wrap gap-2 justify-center">
-                        {["Abrir ferramentas IA", "Como está minha performance?", "Abrir agenda"].map(s => (
+                        {["Abrir equipe", "Como está a performance?", "Abrir agenda", "Inspecionar João"].map(s => (
                           <button
                             key={s}
                             onClick={() => { setInput(s); }}
