@@ -449,7 +449,7 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send()}
-                      placeholder={isListening ? "🎤 Ouvindo..." : "Fale ou digite um comando..."}
+                      placeholder="Digite um comando..."
                       className="flex-1 bg-transparent text-sm text-purple-50 placeholder:text-purple-300/30 outline-none"
                       disabled={isLoading}
                     />
