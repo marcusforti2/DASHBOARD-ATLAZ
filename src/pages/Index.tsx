@@ -48,6 +48,10 @@ export default function Index() {
   const [inspectMemberId, setInspectMemberId] = useState<string | null>(null);
   const [showMetricsEditor, setShowMetricsEditor] = useState(false);
 
+  // TITAN filter state
+  const [titanFilterMemberId, setTitanFilterMemberId] = useState<string | null>(null);
+  const [titanFilterMonthId, setTitanFilterMonthId] = useState<string | undefined>(undefined);
+
   const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
       mainRef.current?.requestFullscreen();
@@ -213,7 +217,7 @@ export default function Index() {
   const renderAdminContent = () => {
     switch (adminView) {
       case "dashboard":
-        return <AdminDashboard onSignOut={signOut} userName={profile?.full_name || ""} />;
+        return <AdminDashboard onSignOut={signOut} userName={profile?.full_name || ""} selectedMonthId={titanFilterMonthId} selectedMemberId={titanFilterMemberId} key={`dash-${titanFilterMemberId}-${titanFilterMonthId}`} />;
       case "team":
         return <TeamManagement />;
       case "goals":
@@ -310,9 +314,19 @@ export default function Index() {
             setInspectMemberId(memberId);
           }}
           onFilter={(memberId, month, year) => {
+            // Find month_id from month/year
+            if (month && months?.length) {
+              const m = parseInt(month);
+              const y = parseInt(year) || new Date().getFullYear();
+              const found = months.find((mo: any) => mo.month === m && mo.year === y);
+              if (found) setTitanFilterMonthId(found.id);
+            }
+            if (memberId) {
+              setTitanFilterMemberId(memberId);
+            } else {
+              setTitanFilterMemberId(null);
+            }
             setAdminView("dashboard");
-            // Filter will be applied via URL params or state — for now navigate to dashboard
-            // The dashboard component will pick up the filter from a shared state
           }}
         />
       </div>
