@@ -321,9 +321,11 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
         }
 
         utterance.onend = () => {
+          setIsSpeaking(false);
           if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
         };
         utterance.onerror = () => {
+          setIsSpeaking(false);
           if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
         };
 
