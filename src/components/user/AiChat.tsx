@@ -236,9 +236,6 @@ export function AiChat({ memberId, tool = "chat", placeholder, compact = false }
               <p className="text-xs text-muted-foreground max-w-[280px]">
                 {placeholder || "Pergunte sobre estratégias, scripts, análise de performance ou peça ajuda com qualquer desafio comercial."}
               </p>
-              <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                <Mic size={10} /> Use o microfone para falar com o Jarvis
-              </p>
             </div>
           )}
 
