@@ -11,11 +11,27 @@ interface JarvisOverlayProps {
   memberId: string;
   memberRole: string;
   onNavigate?: (tab: string) => void;
+  onInspect?: (memberId: string) => void;
 }
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/jarvis-agent`;
 
-// Navigation map for voice commands (admin views)
+// Parse action markers from AI response: [ACTION:type:value]
+function parseActions(text: string): { type: string; value: string }[] {
+  const actions: { type: string; value: string }[] = [];
+  const regex = /\[ACTION:([a-z]+):([a-z0-9-]+)\]/gi;
+  let match;
+  while ((match = regex.exec(text)) !== null) {
+    actions.push({ type: match[1], value: match[2] });
+  }
+  return actions;
+}
+
+function stripActionMarkers(text: string): string {
+  return text.replace(/\[ACTION:[a-z0-9]+:[a-z0-9-]+\]/gi, "").trim();
+}
+
+// Legacy navigation detection (fallback for quick local commands)
 const NAV_COMMANDS: Record<string, { tab: string; aliases: string[] }> = {
   dashboard: { tab: "dashboard", aliases: ["dashboard", "painel", "inicio", "início", "métricas", "metricas"] },
   team: { tab: "team", aliases: ["equipe", "time", "membros", "pessoas"] },
@@ -163,7 +179,7 @@ function NeuralBackground() {
 
 // Removed local JarvisOrb — now using JarvisOrb from ./JarvisOrb
 
-export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverlayProps) {
+export function JarvisOverlay({ memberId, memberRole, onNavigate, onInspect }: JarvisOverlayProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -294,15 +310,33 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
         }
       }
 
-      // Check for navigation markers from AI agent
-      const navMatch = assistantSoFar.match(/\[NAVIGATE:([a-z-]+)\]/);
-      if (navMatch && onNavigate) {
-        const cleanContent = assistantSoFar.replace(/\[NAVIGATE:[a-z-]+\]/g, "").trim();
+      // Check for action markers from AI agent: [ACTION:type:value]
+      const actions = parseActions(assistantSoFar);
+      if (actions.length > 0) {
+        const cleanContent = stripActionMarkers(assistantSoFar);
         setMessages(prev => prev.map((m, i) => i === prev.length - 1 && m.role === "assistant" ? { ...m, content: cleanContent } : m));
+        
         setTimeout(() => {
-          onNavigate(navMatch[1]);
+          for (const action of actions) {
+            if (action.type === "navigate" && onNavigate) {
+              onNavigate(action.value);
+            } else if (action.type === "inspect" && onInspect) {
+              onInspect(action.value);
+            }
+          }
           setIsOpen(false);
         }, 1200);
+      } else {
+        // Legacy fallback: check old [NAVIGATE:page] pattern
+        const navMatch = assistantSoFar.match(/\[NAVIGATE:([a-z-]+)\]/);
+        if (navMatch && onNavigate) {
+          const cleanContent = assistantSoFar.replace(/\[NAVIGATE:[a-z-]+\]/g, "").trim();
+          setMessages(prev => prev.map((m, i) => i === prev.length - 1 && m.role === "assistant" ? { ...m, content: cleanContent } : m));
+          setTimeout(() => {
+            onNavigate(navMatch[1]);
+            setIsOpen(false);
+          }, 1200);
+        }
       }
     } catch {
       setMessages(prev => [...prev, { role: "assistant", content: "❌ Erro de conexão." }]);
@@ -377,10 +411,10 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
                   {messages.length === 0 && (
                     <div className="flex flex-col items-center justify-center h-full text-center gap-4">
                       <p className="text-sm text-purple-200/60 max-w-xs">
-                        Fale ou digite. Posso responder perguntas, abrir páginas e te ajudar com vendas.
+                        Digite um comando. Posso abrir páginas, consultar dados, inspecionar membros e muito mais.
                       </p>
                       <div className="flex flex-wrap gap-2 justify-center">
-                        {["Abrir ferramentas IA", "Como está minha performance?", "Abrir agenda"].map(s => (
+                        {["Abrir equipe", "Como está a performance?", "Abrir agenda", "Inspecionar João"].map(s => (
                           <button
                             key={s}
                             onClick={() => { setInput(s); }}
