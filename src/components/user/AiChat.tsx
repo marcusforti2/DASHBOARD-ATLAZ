@@ -291,19 +291,6 @@ export function AiChat({ memberId, tool = "chat", placeholder, compact = false }
         {/* Input */}
         <div className="border-t border-border p-3 bg-card/50">
           <div className="flex items-center gap-2">
-            {/* Mic button */}
-            <button
-              onClick={toggleListening}
-              className={cn(
-                "w-10 h-10 rounded-xl flex items-center justify-center transition-all shrink-0",
-                isListening
-                  ? "bg-destructive text-destructive-foreground animate-pulse"
-                  : "bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80"
-              )}
-              title={isListening ? "Parar gravação" : "Falar com o Jarvis"}
-            >
-              {isListening ? <MicOff size={16} /> : <Mic size={16} />}
-            </button>
 
             <input
               type="text"
