@@ -307,7 +307,7 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
     }
   }, [input, isListening]);
 
-  // TTS via Web Speech API (ElevenLabs disabled — free tier blocked)
+  // TTS via Web Speech API with pre-cached voice
   const speak = useCallback(async (text: string, autoListenAfter = false) => {
     setIsSpeaking(true);
     const clean = stripMarkdown(text);
@@ -324,25 +324,14 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
 
       const utterance = new SpeechSynthesisUtterance(clean);
       utterance.lang = "pt-BR";
-      utterance.rate = 1.05;
-      utterance.pitch = 0.9;
+      utterance.rate = 1.0;
+      utterance.pitch = 0.95;
       utterance.volume = 1.0;
 
-      const voices = window.speechSynthesis.getVoices();
-      const ptBrVoices = voices.filter((v) => v.lang === "pt-BR" || v.lang === "pt_BR");
-      const ptVoices = ptBrVoices.length > 0 ? ptBrVoices : voices.filter((v) => /^pt/i.test(v.lang));
-
-      const femaleNames = /maria|ana|francisca|julia|leticia|female|feminino|luciana|fernanda|raquel|vitoria|camila/i;
-      const maleNames = /daniel|luciano|antonio|marcos|pedro|ricardo|thiago|google br|male|masculino/i;
-
-      const googleMale = ptVoices.find((v) => /google/i.test(v.name) && !femaleNames.test(v.name));
-      const namedMale = ptVoices.find((v) => maleNames.test(v.name));
-      const microsoftMale = ptVoices.find((v) => /microsoft|edge/i.test(v.name) && !femaleNames.test(v.name));
-      const anyNonFemale = ptVoices.find((v) => !femaleNames.test(v.name));
-      const anyPt = ptVoices[0];
-
-      const bestVoice = googleMale || namedMale || microsoftMale || anyNonFemale || anyPt;
-      if (bestVoice) utterance.voice = bestVoice;
+      // Use pre-cached voice (loaded on voiceschanged event)
+      if (cachedVoiceRef.current) {
+        utterance.voice = cachedVoiceRef.current;
+      }
 
       utterance.onend = () => {
         setIsSpeaking(false);
