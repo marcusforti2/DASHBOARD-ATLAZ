@@ -301,7 +301,7 @@ export default function Index() {
           </main>
         </div>
 
-        {/* Jarvis — Admin only */}
+        {/* TITAN — Admin only */}
         <JarvisOverlay
           memberId={profile?.team_member_id || user.id}
           memberRole="admin"

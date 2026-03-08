@@ -178,7 +178,7 @@ function NeuralBackground() {
   );
 }
 
-// Removed local JarvisOrb — now using JarvisOrb from ./JarvisOrb
+// TITAN overlay component (formerly Jarvis)
 
 export function JarvisOverlay({ memberId, memberRole, onNavigate, onInspect, onFilter }: JarvisOverlayProps) {
   const [isOpen, setIsOpen] = useState(false);
