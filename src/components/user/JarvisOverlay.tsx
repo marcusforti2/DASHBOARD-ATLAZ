@@ -319,11 +319,12 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate, onInspect, onF
         
         setTimeout(() => {
           for (const action of actions) {
-            if (action.type === "navigate" && onNavigate) {
+            const actionType = action.type === "filter_dashboard" ? "filter" : action.type;
+            if (actionType === "navigate" && onNavigate) {
               onNavigate(action.value);
-            } else if (action.type === "inspect" && onInspect) {
+            } else if (actionType === "inspect" && onInspect) {
               onInspect(action.value);
-            } else if (action.type === "filter" && onFilter) {
+            } else if (actionType === "filter" && onFilter) {
               const [fMemberId, fMonth, fYear] = action.value.split("|");
               onFilter(fMemberId || "", fMonth || "", fYear || "");
             }
