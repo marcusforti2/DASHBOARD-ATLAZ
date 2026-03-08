@@ -176,56 +176,7 @@ function NeuralBackground() {
   );
 }
 
-// Pulsing orb for center
-function JarvisOrb({ isListening, isLoading }: { isListening: boolean; isLoading: boolean }) {
-  return (
-    <div className="relative w-28 h-28 flex items-center justify-center">
-      {/* Outer ring */}
-      <motion.div
-        className={cn(
-          "absolute inset-0 rounded-full border-2",
-          isListening ? "border-purple-400" : "border-purple-600/40"
-        )}
-        animate={{
-          scale: isListening ? [1, 1.15, 1] : [1, 1.05, 1],
-          opacity: isListening ? [0.8, 0.3, 0.8] : [0.3, 0.15, 0.3],
-        }}
-        transition={{ duration: isListening ? 1 : 3, repeat: Infinity, ease: "easeInOut" }}
-      />
-      {/* Middle ring */}
-      <motion.div
-        className="absolute inset-3 rounded-full border border-purple-500/30"
-        animate={{
-          scale: [1, 1.08, 1],
-          opacity: [0.2, 0.5, 0.2],
-        }}
-        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
-      />
-      {/* Core */}
-      <motion.div
-        className={cn(
-          "w-16 h-16 rounded-full flex items-center justify-center",
-          "bg-gradient-to-br from-purple-600 via-purple-500 to-violet-600",
-          "shadow-[0_0_40px_rgba(168,85,247,0.5)]"
-        )}
-        animate={{
-          boxShadow: isListening
-            ? ["0 0 30px rgba(168,85,247,0.5)", "0 0 60px rgba(168,85,247,0.8)", "0 0 30px rgba(168,85,247,0.5)"]
-            : ["0 0 20px rgba(168,85,247,0.3)", "0 0 40px rgba(168,85,247,0.5)", "0 0 20px rgba(168,85,247,0.3)"],
-        }}
-        transition={{ duration: isListening ? 0.8 : 2, repeat: Infinity, ease: "easeInOut" }}
-      >
-        {isLoading ? (
-          <Loader2 size={24} className="text-white animate-spin" />
-        ) : isListening ? (
-          <MicOff size={24} className="text-white" />
-        ) : (
-          <Bot size={24} className="text-white" />
-        )}
-      </motion.div>
-    </div>
-  );
-}
+// Removed local JarvisOrb — now using JarvisOrb from ./JarvisOrb
 
 export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverlayProps) {
   const [isOpen, setIsOpen] = useState(false);
