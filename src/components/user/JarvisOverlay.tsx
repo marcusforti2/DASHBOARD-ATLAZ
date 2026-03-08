@@ -320,10 +320,11 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
   return (
     <>
       {/* Floating trigger button */}
-      {/* Floating trigger — replaced with JarvisOrb */}
       {!isOpen && (
-        <div
-          className="fixed bottom-6 right-6 z-50"
+        <div className="fixed bottom-6 right-6 z-50" title="Jarvis (Ctrl+Alt+J)">
+          <JarvisOrb state={orbState} size="sm" onClick={handleButtonClick} />
+        </div>
+      )}
 
       {/* Overlay */}
       <AnimatePresence>
