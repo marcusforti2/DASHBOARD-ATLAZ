@@ -365,7 +365,7 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
                     </div>
                   </div>
                   <button
-                    onClick={() => { setIsOpen(false); audioRef.current?.pause(); }}
+                    onClick={() => { setIsOpen(false); }}
                     className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-colors"
                   >
                     <X size={16} />
