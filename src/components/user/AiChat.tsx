@@ -223,22 +223,6 @@ export function AiChat({ memberId, tool = "chat", placeholder, compact = false }
               {activeConversationId ? "Conversa ativa" : "Nova conversa"}
             </span>
           </div>
-          <button
-            onClick={() => {
-              setTtsEnabled(!ttsEnabled);
-              if (ttsEnabled) synthRef.current?.cancel();
-            }}
-            className={cn(
-              "flex items-center gap-1 text-[10px] px-2 py-1 rounded-md transition-colors",
-              ttsEnabled
-                ? "text-primary bg-primary/10"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-            title={ttsEnabled ? "Desativar voz" : "Ativar voz"}
-          >
-            {ttsEnabled ? <Volume2 size={12} /> : <VolumeX size={12} />}
-            <span>{ttsEnabled ? "Voz ON" : "Voz OFF"}</span>
-          </button>
         </div>
 
         {/* Messages */}
