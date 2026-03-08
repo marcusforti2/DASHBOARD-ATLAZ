@@ -310,15 +310,33 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate, onInspect }: J
         }
       }
 
-      // Check for navigation markers from AI agent
-      const navMatch = assistantSoFar.match(/\[NAVIGATE:([a-z-]+)\]/);
-      if (navMatch && onNavigate) {
-        const cleanContent = assistantSoFar.replace(/\[NAVIGATE:[a-z-]+\]/g, "").trim();
+      // Check for action markers from AI agent: [ACTION:type:value]
+      const actions = parseActions(assistantSoFar);
+      if (actions.length > 0) {
+        const cleanContent = stripActionMarkers(assistantSoFar);
         setMessages(prev => prev.map((m, i) => i === prev.length - 1 && m.role === "assistant" ? { ...m, content: cleanContent } : m));
+        
         setTimeout(() => {
-          onNavigate(navMatch[1]);
+          for (const action of actions) {
+            if (action.type === "navigate" && onNavigate) {
+              onNavigate(action.value);
+            } else if (action.type === "inspect" && onInspect) {
+              onInspect(action.value);
+            }
+          }
           setIsOpen(false);
         }, 1200);
+      } else {
+        // Legacy fallback: check old [NAVIGATE:page] pattern
+        const navMatch = assistantSoFar.match(/\[NAVIGATE:([a-z-]+)\]/);
+        if (navMatch && onNavigate) {
+          const cleanContent = assistantSoFar.replace(/\[NAVIGATE:[a-z-]+\]/g, "").trim();
+          setMessages(prev => prev.map((m, i) => i === prev.length - 1 && m.role === "assistant" ? { ...m, content: cleanContent } : m));
+          setTimeout(() => {
+            onNavigate(navMatch[1]);
+            setIsOpen(false);
+          }, 1200);
+        }
       }
     } catch {
       setMessages(prev => [...prev, { role: "assistant", content: "❌ Erro de conexão." }]);
