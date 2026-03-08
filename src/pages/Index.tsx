@@ -314,9 +314,19 @@ export default function Index() {
             setInspectMemberId(memberId);
           }}
           onFilter={(memberId, month, year) => {
+            // Find month_id from month/year
+            if (month && months?.length) {
+              const m = parseInt(month);
+              const y = parseInt(year) || new Date().getFullYear();
+              const found = months.find((mo: any) => mo.month === m && mo.year === y);
+              if (found) setTitanFilterMonthId(found.id);
+            }
+            if (memberId) {
+              setTitanFilterMemberId(memberId);
+            } else {
+              setTitanFilterMemberId(null);
+            }
             setAdminView("dashboard");
-            // Filter will be applied via URL params or state — for now navigate to dashboard
-            // The dashboard component will pick up the filter from a shared state
           }}
         />
       </div>
