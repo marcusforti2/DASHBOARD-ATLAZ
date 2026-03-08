@@ -180,7 +180,7 @@ function NeuralBackground() {
 
 // Removed local JarvisOrb — now using JarvisOrb from ./JarvisOrb
 
-export function JarvisOverlay({ memberId, memberRole, onNavigate, onInspect }: JarvisOverlayProps) {
+export function JarvisOverlay({ memberId, memberRole, onNavigate, onInspect, onFilter }: JarvisOverlayProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
