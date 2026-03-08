@@ -299,16 +299,12 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
       // Check for navigation markers from AI agent
       const navMatch = assistantSoFar.match(/\[NAVIGATE:([a-z-]+)\]/);
       if (navMatch && onNavigate) {
-        // Strip marker from displayed text
         const cleanContent = assistantSoFar.replace(/\[NAVIGATE:[a-z-]+\]/g, "").trim();
         setMessages(prev => prev.map((m, i) => i === prev.length - 1 && m.role === "assistant" ? { ...m, content: cleanContent } : m));
-        if (cleanContent) speak(cleanContent);
         setTimeout(() => {
           onNavigate(navMatch[1]);
           setIsOpen(false);
         }, 1200);
-      } else if (assistantSoFar) {
-        speak(assistantSoFar);
       }
     } catch {
       setMessages(prev => [...prev, { role: "assistant", content: "❌ Erro de conexão." }]);
