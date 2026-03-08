@@ -67,9 +67,6 @@ export function AiChat({ memberId, tool = "chat", placeholder, compact = false }
     const text = input.trim();
     if (!text || isLoading) return;
 
-    // Stop TTS if speaking
-    synthRef.current?.cancel();
-
     const userMsg: Msg = { role: "user", content: text };
     setInput("");
     setMessages((prev) => [...prev, userMsg]);
