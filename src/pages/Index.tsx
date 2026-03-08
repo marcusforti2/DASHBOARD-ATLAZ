@@ -306,6 +306,9 @@ export default function Index() {
           memberId={profile?.team_member_id || user.id}
           memberRole="admin"
           onNavigate={(view) => setAdminView(view as AdminView)}
+          onInspect={(memberId) => {
+            setInspectMemberId(memberId);
+          }}
         />
       </div>
 
