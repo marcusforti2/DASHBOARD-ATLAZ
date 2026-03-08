@@ -180,6 +180,7 @@ function NeuralBackground() {
 
 export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverlayProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -187,6 +188,12 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
   const [handsFreeMode, setHandsFreeMode] = useState(false);
   const [handsFreeText, setHandsFreeText] = useState("");
   const [handsFreeStatus, setHandsFreeStatus] = useState<"idle" | "listening" | "processing" | "speaking">("idle");
+
+  // Compute orb state
+  const orbState: OrbState = isSpeaking || handsFreeStatus === "speaking" ? "speaking"
+    : isLoading || handsFreeStatus === "processing" ? "processing"
+    : isListening || handsFreeStatus === "listening" ? "listening"
+    : "idle";
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
