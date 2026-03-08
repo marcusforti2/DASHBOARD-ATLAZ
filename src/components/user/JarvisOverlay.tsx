@@ -498,7 +498,7 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate, onInspect, onF
                     </button>
                   </div>
                   <p className="text-[9px] text-purple-400/30 text-center mt-2">
-                    ESC para fechar • Diga "abrir agenda", "abrir ferramentas" etc.
+                    ESC para fechar • TITAN — Assistente de Alta Performance
                   </p>
                 </div>
               </div>
