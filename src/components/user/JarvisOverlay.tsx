@@ -205,8 +205,6 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
     const text = input.trim();
     if (!text || isLoading) return;
 
-    audioRef.current?.pause();
-
     // Check for navigation command
     const navTarget = detectNavCommand(text);
     if (navTarget && onNavigate) {
