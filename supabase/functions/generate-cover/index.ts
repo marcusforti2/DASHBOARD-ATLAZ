@@ -10,6 +10,25 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
+    // Auth guard
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Não autorizado" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const callerClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user } } = await callerClient.auth.getUser();
+    if (!user) {
+      return new Response(JSON.stringify({ error: "Não autorizado" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { title, type } = await req.json(); // type: "course" | "lesson"
     if (!title) throw new Error("Title is required");
 
@@ -18,7 +37,6 @@ serve(async (req) => {
 
     const prompt = `Create a professional, modern, visually striking cover image for a corporate sales training course titled "${title}". Style: clean corporate design with bold typography overlay showing the title, dark gradient background with accent lighting, professional business aesthetic. The image should look like a premium online course thumbnail. High contrast, cinematic lighting. No people faces.`;
 
-    // Generate image via Lovable AI
     const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -43,27 +61,23 @@ serve(async (req) => {
 
     if (!imageBase64) throw new Error("No image generated");
 
-    // Extract base64 data
     const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
     const imageBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
 
-    // Upload to Supabase Storage
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     const fileName = `covers/${type || "course"}-${Date.now()}.png`;
 
     const { error: uploadError } = await supabase.storage
-      .from("member-avatars") // reuse existing public bucket
+      .from("member-avatars")
       .upload(fileName, imageBytes, { contentType: "image/png", upsert: true });
 
     if (uploadError) throw uploadError;
 
     const { data: urlData } = supabase.storage.from("member-avatars").getPublicUrl(fileName);
-    const publicUrl = urlData.publicUrl;
 
-    return new Response(JSON.stringify({ url: publicUrl }), {
+    return new Response(JSON.stringify({ url: urlData.publicUrl }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {

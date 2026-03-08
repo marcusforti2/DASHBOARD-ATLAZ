@@ -1,17 +1,34 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Daniel - premade voice (works on all plans)
 const DEFAULT_VOICE_ID = "onwK4e9ZLuTAKqWW03F9";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    // Auth guard
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Não autorizado" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const callerClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user } } = await callerClient.auth.getUser();
+    if (!user) {
+      return new Response(JSON.stringify({ error: "Não autorizado" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const ELEVENLABS_API_KEY = Deno.env.get("ELEVENLABS_API_KEY");
     if (!ELEVENLABS_API_KEY) throw new Error("ELEVENLABS_API_KEY is not configured");
 
@@ -22,10 +39,8 @@ serve(async (req) => {
       });
     }
 
-    // Limit text to avoid high costs
     const trimmedText = text.substring(0, 2000);
 
-    // Use streaming endpoint with turbo model for ~200ms first audio
     const response = await fetch(
       `https://api.elevenlabs.io/v1/text-to-speech/${voiceId || DEFAULT_VOICE_ID}/stream?output_format=mp3_22050_32`,
       {
@@ -66,7 +81,6 @@ serve(async (req) => {
       });
     }
 
-    // Stream the audio response directly to the client
     return new Response(response.body, {
       headers: {
         ...corsHeaders,

@@ -1282,6 +1282,24 @@ export type Database = {
     }
     Functions: {
       get_my_team_member_id: { Args: never; Returns: string }
+      get_test_link_by_token: {
+        Args: { _token: string }
+        Returns: {
+          created_at: string
+          id: string
+          is_active: boolean
+          label: string
+          member_id: string | null
+          test_type: string
+          token: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "test_links"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
