@@ -201,6 +201,35 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
   const autoSendRef = useRef(false);
   const handsFreeRef = useRef(false);
   const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cachedVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
+
+  // Pre-load voices (they load async in most browsers)
+  useEffect(() => {
+    const loadVoices = () => {
+      const voices = window.speechSynthesis?.getVoices() || [];
+      if (voices.length === 0) return;
+
+      const ptBrVoices = voices.filter((v) => v.lang === "pt-BR" || v.lang === "pt_BR");
+      const ptVoices = ptBrVoices.length > 0 ? ptBrVoices : voices.filter((v) => /^pt/i.test(v.lang));
+
+      const femaleNames = /maria|ana|francisca|julia|leticia|female|feminino|luciana|fernanda|raquel|vitoria|camila/i;
+      const maleNames = /daniel|luciano|antonio|marcos|pedro|ricardo|thiago|google br|male|masculino/i;
+
+      // Prioritize Google voices (highest quality in Chrome)
+      const googleMale = ptVoices.find((v) => /google/i.test(v.name) && !femaleNames.test(v.name));
+      const namedMale = ptVoices.find((v) => maleNames.test(v.name));
+      const microsoftMale = ptVoices.find((v) => /microsoft|edge/i.test(v.name) && !femaleNames.test(v.name));
+      const anyNonFemale = ptVoices.find((v) => !femaleNames.test(v.name));
+      const anyPt = ptVoices[0];
+
+      cachedVoiceRef.current = googleMale || namedMale || microsoftMale || anyNonFemale || anyPt || null;
+      console.log("Jarvis voice loaded:", cachedVoiceRef.current?.name, cachedVoiceRef.current?.lang);
+    };
+
+    loadVoices();
+    window.speechSynthesis?.addEventListener("voiceschanged", loadVoices);
+    return () => window.speechSynthesis?.removeEventListener("voiceschanged", loadVoices);
+  }, []);
 
   // Keyboard shortcut: Ctrl+J or Cmd+J
   useEffect(() => {
