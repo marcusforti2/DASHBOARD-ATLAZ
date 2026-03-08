@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Send, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
-import { JarvisOrb, type OrbState } from "./JarvisOrb";
+import { JarvisOrb as TitanOrb, type OrbState } from "./JarvisOrb";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
