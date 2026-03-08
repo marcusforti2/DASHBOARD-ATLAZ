@@ -361,7 +361,7 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
                     <div>
                       <h2 className="text-lg font-bold text-white tracking-tight">JARVIS</h2>
                       <p className="text-[10px] text-purple-300/70 uppercase tracking-widest">
-                        {orbState === "listening" ? "Ouvindo..." : orbState === "processing" ? "Processando..." : orbState === "speaking" ? "Falando..." : "Ctrl+Alt+J • Pronto para ajudar"}
+                        {orbState === "processing" ? "Processando..." : "Ctrl+Alt+J • Pronto para ajudar"}
                       </p>
                     </div>
                   </div>
