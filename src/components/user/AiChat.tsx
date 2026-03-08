@@ -297,11 +297,8 @@ export function AiChat({ memberId, tool = "chat", placeholder, compact = false }
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send()}
-              placeholder={isListening ? "🎤 Ouvindo..." : (placeholder || "Digite sua pergunta...")}
-              className={cn(
-                "flex-1 bg-secondary rounded-xl px-4 py-2.5 text-sm text-secondary-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/30",
-                isListening && "ring-2 ring-destructive/30"
-              )}
+              placeholder={placeholder || "Digite sua pergunta..."}
+              className="flex-1 bg-secondary rounded-xl px-4 py-2.5 text-sm text-secondary-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/30"
               disabled={isLoading}
             />
             <button
