@@ -278,111 +278,56 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
     }
   }, [input, isListening]);
 
-  // TTS via ElevenLabs (+ browser fallback)
-  const TTS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`;
+  // TTS via Web Speech API (ElevenLabs disabled — free tier blocked)
   const speak = useCallback(async (text: string, autoListenAfter = false) => {
     setIsSpeaking(true);
     const clean = stripMarkdown(text);
-    const fallbackSpeak = () => {
-      try {
-        if (!("speechSynthesis" in window) || !clean || clean.length < 3) {
-          if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
-          return;
-        }
-
-        if (autoListenAfter) setHandsFreeStatus("speaking");
-        window.speechSynthesis.cancel();
-
-        const utterance = new SpeechSynthesisUtterance(clean);
-        utterance.lang = "pt-BR";
-        utterance.rate = 1.05;
-        utterance.pitch = 0.9; // Slightly lower for masculine tone
-        utterance.volume = 1.0;
-
-        // Select best PT-BR MALE voice: prioritize Google > Microsoft > named male voices
-        const voices = window.speechSynthesis.getVoices();
-        const ptBrVoices = voices.filter((v) => v.lang === "pt-BR" || v.lang === "pt_BR");
-        const ptVoices = ptBrVoices.length > 0 ? ptBrVoices : voices.filter((v) => /^pt/i.test(v.lang));
-        
-        // Try to find male voices first (avoid female/feminine names)
-        const femaleNames = /maria|ana|francisca|julia|leticia|female|feminino|luciana|fernanda|raquel|vitoria|camila/i;
-        const maleNames = /daniel|luciano|antonio|marcos|pedro|ricardo|thiago|google br|male|masculino/i;
-        
-        const googleMale = ptVoices.find((v) => /google/i.test(v.name) && !femaleNames.test(v.name));
-        const namedMale = ptVoices.find((v) => maleNames.test(v.name));
-        const microsoftMale = ptVoices.find((v) => /microsoft|edge/i.test(v.name) && !femaleNames.test(v.name));
-        const anyNonFemale = ptVoices.find((v) => !femaleNames.test(v.name));
-        const anyPt = ptVoices[0];
-        
-        const bestVoice = googleMale || namedMale || microsoftMale || anyNonFemale || anyPt;
-        if (bestVoice) {
-          utterance.voice = bestVoice;
-          console.log("Jarvis TTS voice:", bestVoice.name, bestVoice.lang);
-        }
-
-        utterance.onend = () => {
-          setIsSpeaking(false);
-          if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
-        };
-        utterance.onerror = () => {
-          setIsSpeaking(false);
-          if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
-        };
-
-        window.speechSynthesis.speak(utterance);
-      } catch {
-        if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
-      }
-    };
 
     try {
-      audioRef.current?.pause();
-      if (!clean || clean.length < 3) {
+      if (!("speechSynthesis" in window) || !clean || clean.length < 3) {
+        setIsSpeaking(false);
         if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
         return;
       }
+
       if (autoListenAfter) setHandsFreeStatus("speaking");
+      window.speechSynthesis.cancel();
 
-      const resp = await fetch(TTS_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({ text: clean }),
-      });
+      const utterance = new SpeechSynthesisUtterance(clean);
+      utterance.lang = "pt-BR";
+      utterance.rate = 1.05;
+      utterance.pitch = 0.9;
+      utterance.volume = 1.0;
 
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({}));
-        console.warn("TTS remoto falhou, usando voz local:", resp.status, err?.error ?? "unknown");
-        fallbackSpeak();
-        return;
-      }
+      const voices = window.speechSynthesis.getVoices();
+      const ptBrVoices = voices.filter((v) => v.lang === "pt-BR" || v.lang === "pt_BR");
+      const ptVoices = ptBrVoices.length > 0 ? ptBrVoices : voices.filter((v) => /^pt/i.test(v.lang));
 
-      const blob = await resp.blob();
-      if (!blob || blob.size === 0) {
-        fallbackSpeak();
-        return;
-      }
+      const femaleNames = /maria|ana|francisca|julia|leticia|female|feminino|luciana|fernanda|raquel|vitoria|camila/i;
+      const maleNames = /daniel|luciano|antonio|marcos|pedro|ricardo|thiago|google br|male|masculino/i;
 
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      audioRef.current = audio;
-      audio.onended = () => {
-        URL.revokeObjectURL(url);
+      const googleMale = ptVoices.find((v) => /google/i.test(v.name) && !femaleNames.test(v.name));
+      const namedMale = ptVoices.find((v) => maleNames.test(v.name));
+      const microsoftMale = ptVoices.find((v) => /microsoft|edge/i.test(v.name) && !femaleNames.test(v.name));
+      const anyNonFemale = ptVoices.find((v) => !femaleNames.test(v.name));
+      const anyPt = ptVoices[0];
+
+      const bestVoice = googleMale || namedMale || microsoftMale || anyNonFemale || anyPt;
+      if (bestVoice) utterance.voice = bestVoice;
+
+      utterance.onend = () => {
         setIsSpeaking(false);
         if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
       };
-      audio.onerror = () => {
-        URL.revokeObjectURL(url);
+      utterance.onerror = () => {
         setIsSpeaking(false);
-        fallbackSpeak();
+        if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
       };
-      audio.play().catch(() => fallbackSpeak());
-    } catch (e) {
-      console.warn("TTS error, usando fallback local:", e);
-      fallbackSpeak();
+
+      window.speechSynthesis.speak(utterance);
+    } catch {
+      setIsSpeaking(false);
+      if (autoListenAfter && handsFreeRef.current) startHandsFreeListen();
     }
   }, []);
 
