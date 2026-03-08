@@ -415,10 +415,10 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate, onInspect, onF
                   {messages.length === 0 && (
                     <div className="flex flex-col items-center justify-center h-full text-center gap-4">
                       <p className="text-sm text-purple-200/60 max-w-xs">
-                        Digite um comando. Posso abrir páginas, consultar dados, inspecionar membros e muito mais.
+                        Sou o TITAN, seu assistente de alta performance. Posso abrir páginas, consultar dados, inspecionar membros e muito mais.
                       </p>
                       <div className="flex flex-wrap gap-2 justify-center">
-                        {["Abrir equipe", "Como está a performance?", "Abrir agenda", "Inspecionar João"].map(s => (
+                        {["Abrir equipe", "Como está a performance?", "Abrir agenda", "Ranking de conexões"].map(s => (
                           <button
                             key={s}
                             onClick={() => { setInput(s); }}
