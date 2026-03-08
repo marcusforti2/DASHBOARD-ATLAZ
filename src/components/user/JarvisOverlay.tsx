@@ -827,11 +827,11 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4">
                   <div className="flex items-center gap-3">
-                    <JarvisOrb isListening={isListening} isLoading={isLoading} />
+                    <JarvisOrb state={orbState} size="md" />
                     <div>
                       <h2 className="text-lg font-bold text-white tracking-tight">JARVIS</h2>
                       <p className="text-[10px] text-purple-300/70 uppercase tracking-widest">
-                        {isListening ? "Ouvindo..." : isLoading ? "Processando..." : "Ctrl+Alt+J • Pronto para ajudar"}
+                        {orbState === "listening" ? "Ouvindo..." : orbState === "processing" ? "Processando..." : orbState === "speaking" ? "Falando..." : "Ctrl+Alt+J • Pronto para ajudar"}
                       </p>
                     </div>
                   </div>
