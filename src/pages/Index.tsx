@@ -48,6 +48,10 @@ export default function Index() {
   const [inspectMemberId, setInspectMemberId] = useState<string | null>(null);
   const [showMetricsEditor, setShowMetricsEditor] = useState(false);
 
+  // TITAN filter state
+  const [titanFilterMemberId, setTitanFilterMemberId] = useState<string | null>(null);
+  const [titanFilterMonthId, setTitanFilterMonthId] = useState<string | undefined>(undefined);
+
   const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
       mainRef.current?.requestFullscreen();
