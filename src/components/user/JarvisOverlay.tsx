@@ -763,33 +763,15 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate }: JarvisOverla
   return (
     <>
       {/* Floating trigger button */}
-      <motion.button
-        onClick={handleButtonClick}
-        className={cn(
-          "fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full",
-          "bg-gradient-to-br from-purple-600 to-violet-700",
-          "shadow-[0_0_30px_rgba(168,85,247,0.4)]",
-          "flex items-center justify-center",
-          "hover:shadow-[0_0_50px_rgba(168,85,247,0.6)] transition-shadow",
-          isOpen && "hidden",
-          handsFreeMode && "shadow-[0_0_40px_rgba(168,85,247,0.7)]"
-        )}
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.95 }}
-        animate={handsFreeMode ? {
-          boxShadow: ["0 0 30px rgba(168,85,247,0.5)", "0 0 60px rgba(168,85,247,0.9)", "0 0 30px rgba(168,85,247,0.5)"],
-        } : {}}
-        transition={handsFreeMode ? { duration: 1.2, repeat: Infinity } : {}}
-        title={handsFreeMode ? "Modo mãos-livres ativo (2x clique para parar)" : "Jarvis (Ctrl+Alt+J) • 2x clique = mãos-livres"}
-      >
-        {handsFreeMode ? (
-          handsFreeStatus === "listening" ? <Mic size={24} className="text-white" /> :
-          handsFreeStatus === "processing" ? <Loader2 size={24} className="text-white animate-spin" /> :
-          <Bot size={24} className="text-white" />
-        ) : (
-          <Bot size={24} className="text-white" />
-        )}
-      </motion.button>
+      {/* Floating trigger — replaced with JarvisOrb */}
+      {!isOpen && (
+        <div
+          className="fixed bottom-6 right-6 z-50"
+          title={handsFreeMode ? "Modo mãos-livres ativo (2x clique para parar)" : "Jarvis (Ctrl+Alt+J) • 2x clique = mãos-livres"}
+        >
+          <JarvisOrb state={orbState} size="sm" onClick={handleButtonClick} />
+        </div>
+      )}
 
       {/* Hands-free floating bubble */}
       <AnimatePresence>
