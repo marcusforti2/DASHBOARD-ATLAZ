@@ -20,16 +20,16 @@ const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/jarvis-agent
 // Parse action markers from AI response: [ACTION:type:value]
 function parseActions(text: string): { type: string; value: string }[] {
   const actions: { type: string; value: string }[] = [];
-  const regex = /\[ACTION:([a-z]+):([a-z0-9|.-]+)\]/gi;
+  const regex = /\[ACTION:([a-z_]+):([^\]]*)\]/gi;
   let match;
   while ((match = regex.exec(text)) !== null) {
-    actions.push({ type: match[1], value: match[2] });
+    actions.push({ type: (match[1] || "").toLowerCase(), value: (match[2] || "").trim() });
   }
   return actions;
 }
 
 function stripActionMarkers(text: string): string {
-  return text.replace(/\[ACTION:[a-z0-9]+:[a-z0-9|.-]+\]/gi, "").trim();
+  return text.replace(/\[ACTION:[a-z0-9_]+:[^\]]*\]/gi, "").trim();
 }
 
 // Legacy navigation detection (fallback for quick local commands)
@@ -319,11 +319,12 @@ export function JarvisOverlay({ memberId, memberRole, onNavigate, onInspect, onF
         
         setTimeout(() => {
           for (const action of actions) {
-            if (action.type === "navigate" && onNavigate) {
+            const actionType = action.type === "filter_dashboard" ? "filter" : action.type;
+            if (actionType === "navigate" && onNavigate) {
               onNavigate(action.value);
-            } else if (action.type === "inspect" && onInspect) {
+            } else if (actionType === "inspect" && onInspect) {
               onInspect(action.value);
-            } else if (action.type === "filter" && onFilter) {
+            } else if (actionType === "filter" && onFilter) {
               const [fMemberId, fMonth, fYear] = action.value.split("|");
               onFilter(fMemberId || "", fMonth || "", fYear || "");
             }
