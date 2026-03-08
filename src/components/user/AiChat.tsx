@@ -1,44 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Loader2, Bot, User, Sparkles, Plus, MessageSquare, Trash2, Clock, PanelLeftClose, PanelLeft, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
+import { Send, Loader2, Bot, User, Sparkles, Plus, MessageSquare, Trash2, Clock, PanelLeftClose, PanelLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 type Msg = { role: "user" | "assistant"; content: string };
-
-interface Conversation {
-  id: string;
-  title: string;
-  tool: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface AiChatProps {
-  memberId: string;
-  tool?: string;
-  placeholder?: string;
-  compact?: boolean;
-}
-
-const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-coach`;
-
-// Strip markdown for TTS
-function stripMarkdown(text: string): string {
-  return text
-    .replace(/#{1,6}\s/g, "")
-    .replace(/\*\*(.*?)\*\*/g, "$1")
-    .replace(/\*(.*?)\*/g, "$1")
-    .replace(/`{1,3}[^`]*`{1,3}/g, "")
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-    .replace(/[-*+]\s/g, "")
-    .replace(/\d+\.\s/g, "")
-    .replace(/>\s/g, "")
-    .replace(/\n{2,}/g, ". ")
-    .replace(/\n/g, " ")
-    .trim();
-}
 
 export function AiChat({ memberId, tool = "chat", placeholder, compact = false }: AiChatProps) {
   const [messages, setMessages] = useState<Msg[]>([]);
