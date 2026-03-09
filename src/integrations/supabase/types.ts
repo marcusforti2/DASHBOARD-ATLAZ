@@ -1441,6 +1441,7 @@ export type Database = {
           instance_name: string
           is_connected: boolean
           phone: string | null
+          sdr_id: string | null
           updated_at: string
         }
         Insert: {
@@ -1450,6 +1451,7 @@ export type Database = {
           instance_name: string
           is_connected?: boolean
           phone?: string | null
+          sdr_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -1459,12 +1461,20 @@ export type Database = {
           instance_name?: string
           is_connected?: boolean
           phone?: string | null
+          sdr_id?: string | null
           updated_at?: string
         }
         Relationships: [
           {
             foreignKeyName: "wa_instances_closer_id_fkey"
             columns: ["closer_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_instances_sdr_id_fkey"
+            columns: ["sdr_id"]
             isOneToOne: false
             referencedRelation: "team_members"
             referencedColumns: ["id"]
