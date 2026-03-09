@@ -34,6 +34,7 @@ interface Props {
 export function WaConversationList({
   conversations, instances, loading, selectedId,
   onSelect, instanceFilter, onInstanceFilter, title = 'Todas as Conversas',
+  tags, getTagsForContact, onAddTag, onRemoveTag,
 }: Props) {
   return (
     <div className="w-80 border-r border-border flex flex-col bg-card shrink-0">
