@@ -1292,6 +1292,42 @@ export type Database = {
         }
         Relationships: []
       }
+      wa_contact_tags: {
+        Row: {
+          contact_id: string
+          created_at: string
+          id: string
+          tag_id: string
+        }
+        Insert: {
+          contact_id: string
+          created_at?: string
+          id?: string
+          tag_id: string
+        }
+        Update: {
+          contact_id?: string
+          created_at?: string
+          id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wa_contact_tags_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "wa_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_contact_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "wa_tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wa_contacts: {
         Row: {
           avatar_url: string | null
@@ -1489,6 +1525,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      wa_tags: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          is_stage: boolean
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          is_stage?: boolean
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          is_stage?: boolean
+          name?: string
+          sort_order?: number
+        }
+        Relationships: []
       }
       weekly_goals: {
         Row: {
