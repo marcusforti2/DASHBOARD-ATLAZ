@@ -483,7 +483,7 @@ export default function WaHubPage() {
                             <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Nenhum" /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="none">Nenhum</SelectItem>
-                              {teamMembers.filter(m => m.member_role === 'sdr' || m.member_role === 'sdr_closer').map(m => (<SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>))}
+                              {teamMembers.filter(m => m.member_role.includes('sdr')).map(m => (<SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>))}
                             </SelectContent>
                           </Select>
                         </div>
@@ -493,7 +493,7 @@ export default function WaHubPage() {
                             <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Nenhum" /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="none">Nenhum</SelectItem>
-                              {teamMembers.filter(m => m.member_role === 'closer' || m.member_role === 'sdr_closer').map(m => (<SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>))}
+                              {teamMembers.filter(m => m.member_role.includes('closer')).map(m => (<SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>))}
                             </SelectContent>
                           </Select>
                         </div>
