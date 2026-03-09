@@ -64,15 +64,18 @@ export function getWebhookUrl(instanceName?: string): string {
 export async function setWebhook(instanceName: string): Promise<unknown> {
   const webhookUrl = getWebhookUrl(instanceName);
   return callEvolutionApi('setWebhook', instanceName, {
-    url: webhookUrl,
-    webhook_by_events: false,
-    webhook_base64: false,
-    events: [
-      'MESSAGES_UPSERT',
-      'MESSAGES_UPDATE',
-      'CONNECTION_UPDATE',
-      'CONTACTS_UPDATE',
-      'CHATS_UPDATE',
-    ],
+    webhook: {
+      enabled: true,
+      url: webhookUrl,
+      webhookByEvents: false,
+      webhookBase64: false,
+      events: [
+        'MESSAGES_UPSERT',
+        'MESSAGES_UPDATE',
+        'CONNECTION_UPDATE',
+        'CONTACTS_UPDATE',
+        'CHATS_UPDATE',
+      ],
+    },
   });
 }
