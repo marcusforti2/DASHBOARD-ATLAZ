@@ -5,6 +5,7 @@ export interface WaInstance {
   id: string;
   instance_name: string;
   closer_id: string | null;
+  sdr_id: string | null;
   phone: string | null;
   is_connected: boolean;
 }

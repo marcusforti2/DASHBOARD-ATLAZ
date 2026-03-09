@@ -29,17 +29,19 @@ export default function WaHubPage() {
   const [newName, setNewName] = useState('');
   const [newPhone, setNewPhone] = useState('');
   const [newCloserId, setNewCloserId] = useState<string>('none');
+  const [newSdrId, setNewSdrId] = useState<string>('none');
   const [creating, setCreating] = useState(false);
-  const [teamMembers, setTeamMembers] = useState<{ id: string; name: string }[]>([]);
+  const [teamMembers, setTeamMembers] = useState<{ id: string; name: string; member_role: string }[]>([]);
 
   // Edit state
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editPhone, setEditPhone] = useState('');
   const [editCloserId, setEditCloserId] = useState('none');
+  const [editSdrId, setEditSdrId] = useState('none');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    supabase.from('team_members').select('id, name').eq('active', true).then(({ data }) => {
+    supabase.from('team_members').select('id, name, member_role').eq('active', true).then(({ data }) => {
       setTeamMembers(data ?? []);
     });
   }, []);
@@ -60,14 +62,16 @@ export default function WaHubPage() {
         instance_name: instanceName,
         phone: newPhone.trim() || null,
         closer_id: newCloserId !== 'none' ? newCloserId : null,
+        sdr_id: newSdrId !== 'none' ? newSdrId : null,
         is_connected: false,
-      });
+      } as any);
       if (error) throw error;
 
       toast.success(`Instância "${instanceName}" criada com webhook!`);
       setNewName('');
       setNewPhone('');
       setNewCloserId('none');
+      setNewSdrId('none');
       setShowCreate(false);
       refetchInstances();
     } catch (err: unknown) {
@@ -104,12 +108,14 @@ export default function WaHubPage() {
     setEditingId(inst.id);
     setEditPhone(inst.phone || '');
     setEditCloserId(inst.closer_id || 'none');
+    setEditSdrId(inst.sdr_id || 'none');
   };
 
   const cancelEdit = () => {
     setEditingId(null);
     setEditPhone('');
     setEditCloserId('none');
+    setEditSdrId('none');
   };
 
   const handleSaveEdit = async (id: string) => {
@@ -117,7 +123,8 @@ export default function WaHubPage() {
     const { error } = await supabase.from('wa_instances').update({
       phone: editPhone.trim() || null,
       closer_id: editCloserId !== 'none' ? editCloserId : null,
-    }).eq('id', id);
+      sdr_id: editSdrId !== 'none' ? editSdrId : null,
+    } as any).eq('id', id);
     setSaving(false);
     if (error) { toast.error('Erro ao salvar'); return; }
     toast.success('Instância atualizada');
@@ -257,7 +264,7 @@ export default function WaHubPage() {
                   <button onClick={() => setShowCreate(false)} className="text-xs text-muted-foreground hover:text-foreground">Cancelar</button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">Nome da Instância *</label>
                     <Input placeholder="Ex: closer_joao" value={newName} onChange={e => setNewName(e.target.value)} className="h-9 text-sm" />
@@ -267,12 +274,22 @@ export default function WaHubPage() {
                     <Input placeholder="5511999999999" value={newPhone} onChange={e => setNewPhone(e.target.value)} className="h-9 text-sm" />
                   </div>
                   <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Vincular ao Closer</label>
+                    <label className="text-xs text-muted-foreground mb-1 block">SDR responsável</label>
+                    <Select value={newSdrId} onValueChange={setNewSdrId}>
+                      <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Nenhum</SelectItem>
+                        {teamMembers.filter(m => m.member_role === 'sdr' || m.member_role === 'sdr_closer').map(m => (<SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Closer responsável</label>
                     <Select value={newCloserId} onValueChange={setNewCloserId}>
                       <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Nenhum" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">Nenhum</SelectItem>
-                        {teamMembers.map(m => (<SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>))}
+                        {teamMembers.filter(m => m.member_role === 'closer' || m.member_role === 'sdr_closer').map(m => (<SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -295,13 +312,14 @@ export default function WaHubPage() {
             ) : (
               instances.map(inst => {
                 const displayName = inst.instance_name.replace(/^wpp_/i, '').replace(/^\w/, (c: string) => c.toUpperCase());
-                const assignedMember = teamMembers.find(m => m.id === inst.closer_id);
+                const assignedCloser = teamMembers.find(m => m.id === inst.closer_id);
+                const assignedSdr = teamMembers.find(m => m.id === (inst as any).sdr_id);
                 const isEditing = editingId === inst.id;
 
                 return (
                   <div key={inst.id} className="rounded-xl bg-card border border-border p-4 space-y-3">
                     {/* Header row */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <Wifi className={`w-4 h-4 ${inst.is_connected ? 'text-primary' : 'text-muted-foreground'}`} />
                       <span className="text-sm font-semibold text-foreground">{displayName}</span>
                       <span className="text-[10px] font-mono text-muted-foreground">({inst.instance_name})</span>
@@ -309,14 +327,21 @@ export default function WaHubPage() {
                       {!isEditing && (
                         <>
                           {inst.phone && <span className="text-xs text-muted-foreground">· {inst.phone}</span>}
-                          {assignedMember && (
+                          {assignedSdr ? (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent text-accent-foreground font-medium flex items-center gap-1">
+                              <Users className="w-3 h-3" />
+                              SDR: {assignedSdr.name}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Sem SDR</span>
+                          )}
+                          {assignedCloser ? (
                             <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium flex items-center gap-1">
                               <UserPlus className="w-3 h-3" />
-                              {assignedMember.name}
+                              Closer: {assignedCloser.name}
                             </span>
-                          )}
-                          {!assignedMember && (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Sem closer</span>
+                          ) : (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Sem Closer</span>
                           )}
                         </>
                       )}
@@ -352,18 +377,28 @@ export default function WaHubPage() {
 
                     {/* Edit row */}
                     {isEditing && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-6">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pl-6">
                         <div>
                           <label className="text-xs text-muted-foreground mb-1 block">Telefone</label>
                           <Input value={editPhone} onChange={e => setEditPhone(e.target.value)} placeholder="5511999999999" className="h-8 text-sm" />
                         </div>
                         <div>
-                          <label className="text-xs text-muted-foreground mb-1 block">Closer vinculado</label>
+                          <label className="text-xs text-muted-foreground mb-1 block">SDR responsável</label>
+                          <Select value={editSdrId} onValueChange={setEditSdrId}>
+                            <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Nenhum</SelectItem>
+                              {teamMembers.filter(m => m.member_role === 'sdr' || m.member_role === 'sdr_closer').map(m => (<SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <label className="text-xs text-muted-foreground mb-1 block">Closer responsável</label>
                           <Select value={editCloserId} onValueChange={setEditCloserId}>
                             <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Nenhum" /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="none">Nenhum</SelectItem>
-                              {teamMembers.map(m => (<SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>))}
+                              {teamMembers.filter(m => m.member_role === 'closer' || m.member_role === 'sdr_closer').map(m => (<SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>))}
                             </SelectContent>
                           </Select>
                         </div>
