@@ -1292,6 +1292,204 @@ export type Database = {
         }
         Relationships: []
       }
+      wa_contacts: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          id: string
+          instance_id: string
+          name: string
+          phone: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          id?: string
+          instance_id: string
+          name?: string
+          phone: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          id?: string
+          instance_id?: string
+          name?: string
+          phone?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wa_contacts_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "wa_instances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wa_conversations: {
+        Row: {
+          assigned_role: string | null
+          assigned_to: string | null
+          contact_id: string
+          created_at: string
+          id: string
+          instance_id: string
+          last_message: string | null
+          last_message_at: string | null
+          lead_status: string
+          status: string
+          unread_count: number
+          updated_at: string
+        }
+        Insert: {
+          assigned_role?: string | null
+          assigned_to?: string | null
+          contact_id: string
+          created_at?: string
+          id?: string
+          instance_id: string
+          last_message?: string | null
+          last_message_at?: string | null
+          lead_status?: string
+          status?: string
+          unread_count?: number
+          updated_at?: string
+        }
+        Update: {
+          assigned_role?: string | null
+          assigned_to?: string | null
+          contact_id?: string
+          created_at?: string
+          id?: string
+          instance_id?: string
+          last_message?: string | null
+          last_message_at?: string | null
+          lead_status?: string
+          status?: string
+          unread_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wa_conversations_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_conversations_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "wa_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_conversations_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "wa_instances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wa_instances: {
+        Row: {
+          closer_id: string | null
+          created_at: string
+          id: string
+          instance_name: string
+          is_connected: boolean
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          closer_id?: string | null
+          created_at?: string
+          id?: string
+          instance_name: string
+          is_connected?: boolean
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          closer_id?: string | null
+          created_at?: string
+          id?: string
+          instance_name?: string
+          is_connected?: boolean
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wa_instances_closer_id_fkey"
+            columns: ["closer_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wa_messages: {
+        Row: {
+          agent_id: string | null
+          agent_name: string | null
+          conversation_id: string
+          created_at: string
+          id: string
+          instance_id: string | null
+          sender: string
+          text: string
+        }
+        Insert: {
+          agent_id?: string | null
+          agent_name?: string | null
+          conversation_id: string
+          created_at?: string
+          id?: string
+          instance_id?: string | null
+          sender?: string
+          text?: string
+        }
+        Update: {
+          agent_id?: string | null
+          agent_name?: string | null
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          instance_id?: string | null
+          sender?: string
+          text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wa_messages_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "wa_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_messages_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "wa_instances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       weekly_goals: {
         Row: {
           abordagens: number
