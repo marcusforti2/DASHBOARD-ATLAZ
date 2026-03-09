@@ -67,7 +67,10 @@ function MemberFormDialog({
 
     if (isEditing) {
       const newRole = Array.from(selectedRoles).join(",");
-      const { error } = await supabase.from("team_members").update({ name: name.trim(), member_role: newRole }).eq("id", member.id);
+      const updates: Record<string, any> = { name: name.trim(), member_role: newRole };
+      if (email.trim()) updates.email = email.trim();
+      if (phone.trim()) updates.phone = phone.trim().replace(/\D/g, "");
+      const { error } = await supabase.from("team_members").update(updates).eq("id", member.id);
       if (error) toast.error(error.message); else { toast.success("Membro atualizado!"); onSaved(); onClose(); }
       setSaving(false);
       return;
