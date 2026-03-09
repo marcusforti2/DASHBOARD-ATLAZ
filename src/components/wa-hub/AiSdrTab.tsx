@@ -387,41 +387,26 @@ export function AiSdrTab({ instances, teamMembers, onRefetch }: Props) {
                   </p>
                 </div>
 
-                {/* Handoff + toggles */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-2">
-                      <Users className="w-3.5 h-3.5" /> Transferir após
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        min={3}
-                        max={50}
-                        value={localConfig.max_messages_before_handoff}
-                        onChange={e => update("max_messages_before_handoff", parseInt(e.target.value) || 10)}
-                        className="h-9 w-20 text-sm"
-                      />
-                      <span className="text-xs text-muted-foreground">mensagens da IA</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-end">
-                    <button
-                      onClick={() => update("auto_tag", !localConfig.auto_tag)}
-                      className="flex items-center gap-2 text-sm text-foreground hover:text-primary transition-colors p-2 rounded-lg"
-                    >
-                      {localConfig.auto_tag ? (
-                        <ToggleRight className="w-6 h-6 text-primary" />
-                      ) : (
-                        <ToggleLeft className="w-6 h-6 text-muted-foreground" />
-                      )}
-                      <div className="text-left">
-                        <p className="text-xs font-bold">🏷️ Auto-etiquetas</p>
-                        <p className="text-[10px] text-muted-foreground">IA muda tags sozinha</p>
+                {/* Handoff + business hours */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {localConfig.feature_handoff && (
+                    <div>
+                      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-2">
+                        <Users className="w-3.5 h-3.5" /> Transferir após
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min={3}
+                          max={50}
+                          value={localConfig.max_messages_before_handoff}
+                          onChange={e => update("max_messages_before_handoff", parseInt(e.target.value) || 10)}
+                          className="h-9 w-20 text-sm"
+                        />
+                        <span className="text-xs text-muted-foreground">mensagens da IA</span>
                       </div>
-                    </button>
-                  </div>
+                    </div>
+                  )}
 
                   <div className="flex items-end">
                     <button
