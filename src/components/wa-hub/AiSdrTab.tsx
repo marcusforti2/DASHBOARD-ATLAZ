@@ -19,6 +19,13 @@ interface AiSdrConfig {
   max_messages_before_handoff: number;
   business_hours_only: boolean;
   prompt_context: string;
+  // Granular feature toggles
+  feature_auto_reply: boolean;
+  feature_auto_tag: boolean;
+  feature_qualification: boolean;
+  feature_handoff: boolean;
+  feature_sentiment: boolean;
+  feature_pipedrive_sync: boolean;
 }
 
 interface Instance {
@@ -38,6 +45,12 @@ const DEFAULT_CONFIG: AiSdrConfig = {
   max_messages_before_handoff: 10,
   business_hours_only: false,
   prompt_context: "",
+  feature_auto_reply: true,
+  feature_auto_tag: true,
+  feature_qualification: true,
+  feature_handoff: true,
+  feature_sentiment: false,
+  feature_pipedrive_sync: false,
 };
 
 const TONES = [
