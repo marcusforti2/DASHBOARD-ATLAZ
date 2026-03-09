@@ -344,6 +344,14 @@ export default function WaHubPage() {
           />
         </TabsContent>
 
+        <TabsContent value="ai-sdr" className="mt-4">
+          <AiSdrTab
+            instances={instances as any}
+            teamMembers={teamMembers}
+            onRefetch={refetchInstances}
+          />
+        </TabsContent>
+
         <TabsContent value="instances" className="mt-4">
           <div className="space-y-4">
             {/* Create instance button / form */}
