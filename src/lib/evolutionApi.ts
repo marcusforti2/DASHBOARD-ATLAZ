@@ -55,6 +55,30 @@ export async function sendText(instanceName: string, phone: string, text: string
   await callEvolutionApi('sendText', instanceName, { number: phone, text });
 }
 
+export async function sendMedia(instanceName: string, phone: string, mediatype: 'image' | 'video' | 'document', mediaUrl: string, caption?: string, mimetype?: string): Promise<void> {
+  await callEvolutionApi('sendMedia', instanceName, {
+    number: phone,
+    mediatype,
+    media: mediaUrl,
+    caption: caption || '',
+    mimetype,
+  });
+}
+
+export async function sendAudio(instanceName: string, phone: string, audioUrl: string): Promise<void> {
+  await callEvolutionApi('sendWhatsAppAudio', instanceName, {
+    number: phone,
+    audio: audioUrl,
+  });
+}
+
+export async function sendSticker(instanceName: string, phone: string, imageUrl: string): Promise<void> {
+  await callEvolutionApi('sendSticker', instanceName, {
+    number: phone,
+    image: imageUrl,
+  });
+}
+
 export function getWebhookUrl(instanceName?: string): string {
   const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'hnhykmvroeztyihoxpjc';
   const base = `https://${projectId}.supabase.co/functions/v1/evolution-webhook`;
@@ -68,7 +92,7 @@ export async function setWebhook(instanceName: string): Promise<unknown> {
       enabled: true,
       url: webhookUrl,
       webhookByEvents: false,
-      webhookBase64: false,
+      webhookBase64: true,
       events: [
         'MESSAGES_UPSERT',
         'MESSAGES_UPDATE',

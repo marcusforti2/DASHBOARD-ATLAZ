@@ -1489,6 +1489,9 @@ export type Database = {
           created_at: string
           id: string
           instance_id: string | null
+          media_mime_type: string | null
+          media_type: string | null
+          media_url: string | null
           sender: string
           text: string
         }
@@ -1499,6 +1502,9 @@ export type Database = {
           created_at?: string
           id?: string
           instance_id?: string | null
+          media_mime_type?: string | null
+          media_type?: string | null
+          media_url?: string | null
           sender?: string
           text?: string
         }
@@ -1509,6 +1515,9 @@ export type Database = {
           created_at?: string
           id?: string
           instance_id?: string | null
+          media_mime_type?: string | null
+          media_type?: string | null
+          media_url?: string | null
           sender?: string
           text?: string
         }

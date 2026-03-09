@@ -25,6 +25,9 @@ export interface WaMessage {
   agent_name: string | null;
   text: string;
   created_at: string;
+  media_type: string | null;
+  media_url: string | null;
+  media_mime_type: string | null;
 }
 
 export interface WaConversation {
