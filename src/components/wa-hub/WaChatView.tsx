@@ -1,9 +1,10 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Send, Loader2, Image, Mic, Square, Paperclip } from 'lucide-react';
 import { WaConversation } from '@/hooks/use-wa-hub';
 import { WaContactTagBadges } from './WaContactTagBadges';
 import type { WaTag } from '@/hooks/use-wa-tags';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 const AVATAR_COLORS = ['152 60% 36%', '210 90% 50%', '280 65% 50%', '30 90% 50%', '0 72% 51%', '180 60% 40%'];
 
@@ -39,7 +40,13 @@ function MediaBubble({ mediaType, mediaUrl, mediaMime, text }: { mediaType: stri
     case 'image':
       return (
         <div className="space-y-1">
-          <img src={mediaUrl} alt="imagem" className="rounded-lg max-w-full max-h-60 object-cover cursor-pointer" onClick={() => window.open(mediaUrl, '_blank')} />
+          <img
+            src={mediaUrl}
+            alt="imagem"
+            className="rounded-lg max-w-full max-h-60 object-cover cursor-pointer"
+            onClick={() => window.open(mediaUrl, '_blank')}
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          />
           {text && !text.startsWith('📷') && <p className="text-sm">{text}</p>}
         </div>
       );
@@ -52,11 +59,16 @@ function MediaBubble({ mediaType, mediaUrl, mediaMime, text }: { mediaType: stri
       );
     case 'audio':
       return (
-        <audio src={mediaUrl} controls className="max-w-full min-w-[200px]" />
+        <audio src={mediaUrl} controls className="max-w-full min-w-[200px]" preload="metadata" />
       );
     case 'sticker':
       return (
-        <img src={mediaUrl} alt="sticker" className="w-32 h-32 object-contain" />
+        <img
+          src={mediaUrl}
+          alt="sticker"
+          className="w-32 h-32 object-contain"
+          onError={(e) => { (e.target as HTMLImageElement).alt = '🎨 Sticker'; }}
+        />
       );
     case 'document':
       return (
@@ -70,14 +82,36 @@ function MediaBubble({ mediaType, mediaUrl, mediaMime, text }: { mediaType: stri
   }
 }
 
+/** Get a supported audio MIME type for MediaRecorder */
+function getSupportedAudioMime(): string {
+  const mimes = [
+    'audio/webm;codecs=opus',
+    'audio/webm',
+    'audio/ogg;codecs=opus',
+    'audio/mp4',
+  ];
+  for (const mime of mimes) {
+    if (MediaRecorder.isTypeSupported(mime)) return mime;
+  }
+  return ''; // fallback — browser will choose
+}
+
 export function WaChatView({ conversation, onBack, onSend, onSendMedia, onSendAudio, tags, assignedTagIds, onAddTag, onRemoveTag }: Props) {
   const [msgText, setMsgText] = useState('');
   const [sending, setSending] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Auto-scroll to bottom on new messages
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [conversation.messages.length]);
 
   const handleSend = async () => {
     if (!msgText.trim()) return;
@@ -85,6 +119,8 @@ export function WaChatView({ conversation, onBack, onSend, onSendMedia, onSendAu
       setSending(true);
       await onSend(msgText.trim());
       setMsgText('');
+    } catch {
+      // error handled by parent
     } finally {
       setSending(false);
     }
@@ -93,30 +129,38 @@ export function WaChatView({ conversation, onBack, onSend, onSendMedia, onSendAu
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !onSendMedia) return;
-    
+
+    // Validate file size (max 16MB for WhatsApp)
+    if (file.size > 16 * 1024 * 1024) {
+      toast.error('Arquivo muito grande. Máximo 16MB.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
     try {
       setUploadingMedia(true);
       const ext = file.name.split('.').pop() || 'bin';
-      const filePath = `wa-media/${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
-      
-      // Upload to storage
+      const filePath = `${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
+
       const { error: uploadError } = await supabase.storage
-        .from('member-avatars') // reusing existing public bucket
-        .upload(filePath, file, { contentType: file.type });
-        
+        .from('wa-media')
+        .upload(filePath, file, { contentType: file.type, upsert: false });
+
       if (uploadError) throw uploadError;
-      
+
       const { data: { publicUrl } } = supabase.storage
-        .from('member-avatars')
+        .from('wa-media')
         .getPublicUrl(filePath);
-      
+
       const isImage = file.type.startsWith('image/');
       const isVideo = file.type.startsWith('video/');
       const mediaType = isImage ? 'image' : isVideo ? 'video' : 'document';
-      
+
       await onSendMedia(mediaType, publicUrl, '');
+      toast.success('Mídia enviada!');
     } catch (err) {
       console.error('Error uploading media:', err);
+      toast.error('Erro ao enviar mídia. Tente novamente.');
     } finally {
       setUploadingMedia(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -126,7 +170,9 @@ export function WaChatView({ conversation, onBack, onSend, onSendMedia, onSendAu
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+      const mimeType = getSupportedAudioMime();
+      const options: MediaRecorderOptions = mimeType ? { mimeType } : {};
+      const mediaRecorder = new MediaRecorder(stream, options);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
@@ -136,35 +182,50 @@ export function WaChatView({ conversation, onBack, onSend, onSendMedia, onSendAu
 
       mediaRecorder.onstop = async () => {
         stream.getTracks().forEach(t => t.stop());
+        if (recordingTimerRef.current) {
+          clearInterval(recordingTimerRef.current);
+          recordingTimerRef.current = null;
+        }
+        setRecordingTime(0);
+
         if (!onSendAudio || audioChunksRef.current.length === 0) return;
 
         try {
           setSending(true);
-          const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-          const filePath = `wa-audio/${Date.now()}_${Math.random().toString(36).substring(7)}.webm`;
-          
+          const actualMime = mediaRecorder.mimeType || 'audio/webm';
+          const ext = actualMime.includes('ogg') ? 'ogg' : actualMime.includes('mp4') ? 'mp4' : 'webm';
+          const blob = new Blob(audioChunksRef.current, { type: actualMime });
+          const filePath = `${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
+
           const { error: uploadError } = await supabase.storage
-            .from('member-avatars')
-            .upload(filePath, blob, { contentType: 'audio/webm' });
-          
+            .from('wa-media')
+            .upload(filePath, blob, { contentType: actualMime, upsert: false });
+
           if (uploadError) throw uploadError;
-          
+
           const { data: { publicUrl } } = supabase.storage
-            .from('member-avatars')
+            .from('wa-media')
             .getPublicUrl(filePath);
-          
+
           await onSendAudio(publicUrl);
+          toast.success('Áudio enviado!');
         } catch (err) {
           console.error('Error sending audio:', err);
+          toast.error('Erro ao enviar áudio. Tente novamente.');
         } finally {
           setSending(false);
         }
       };
 
-      mediaRecorder.start();
+      mediaRecorder.start(250); // collect chunks every 250ms
       setRecording(true);
+      setRecordingTime(0);
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
     } catch (err) {
       console.error('Microphone access denied:', err);
+      toast.error('Permissão do microfone negada. Habilite nas configurações do navegador.');
     }
   };
 
@@ -173,6 +234,12 @@ export function WaChatView({ conversation, onBack, onSend, onSendMedia, onSendAu
       mediaRecorderRef.current.stop();
     }
     setRecording(false);
+  };
+
+  const formatRecordingTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const s = (seconds % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
   };
 
   return (
@@ -230,6 +297,7 @@ export function WaChatView({ conversation, onBack, onSend, onSendMedia, onSendAu
             </div>
           </div>
         ))}
+        <div ref={messagesEndRef} />
       </div>
 
       {/* Input */}
@@ -237,7 +305,7 @@ export function WaChatView({ conversation, onBack, onSend, onSendMedia, onSendAu
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx"
+          accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx"
           className="hidden"
           onChange={handleFileSelect}
         />
@@ -260,8 +328,8 @@ export function WaChatView({ conversation, onBack, onSend, onSendMedia, onSendAu
               onClick={recording ? stopRecording : startRecording}
               disabled={sending || uploadingMedia}
               className={`p-2.5 rounded-xl transition-colors ${
-                recording 
-                  ? 'bg-destructive text-destructive-foreground animate-pulse' 
+                recording
+                  ? 'bg-destructive text-destructive-foreground animate-pulse'
                   : 'text-muted-foreground hover:bg-muted'
               } disabled:opacity-50`}
               title={recording ? 'Parar gravação' : 'Gravar áudio'}
@@ -270,22 +338,34 @@ export function WaChatView({ conversation, onBack, onSend, onSendMedia, onSendAu
             </button>
           )}
 
-          <input
-            type="text"
-            value={msgText}
-            onChange={e => setMsgText(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
-            placeholder={recording ? '🔴 Gravando áudio...' : 'Digite uma mensagem...'}
-            disabled={recording}
-            className="flex-1 px-4 py-2.5 rounded-xl bg-secondary text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
-          />
-          <button
-            onClick={handleSend}
-            disabled={sending || !msgText.trim() || recording}
-            className="p-2.5 rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
-          >
-            {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-          </button>
+          {recording ? (
+            <div className="flex-1 flex items-center justify-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
+              <span className="text-sm text-destructive font-medium">
+                Gravando {formatRecordingTime(recordingTime)}
+              </span>
+            </div>
+          ) : (
+            <input
+              type="text"
+              value={msgText}
+              onChange={e => setMsgText(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
+              placeholder="Digite uma mensagem..."
+              disabled={uploadingMedia}
+              className="flex-1 px-4 py-2.5 rounded-xl bg-secondary text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+            />
+          )}
+
+          {!recording && (
+            <button
+              onClick={handleSend}
+              disabled={sending || !msgText.trim() || uploadingMedia}
+              className="p-2.5 rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
+            >
+              {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            </button>
+          )}
         </div>
       </div>
     </div>

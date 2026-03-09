@@ -208,7 +208,7 @@ serve(async (req) => {
                 media_type: mediaType,
                 media_url: mediaUrl,
                 media_mime_type: mediaMime,
-              });
+              } as any);
 
               await sb.from('wa_conversations').update({
                 last_message: msgText,

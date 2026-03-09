@@ -67,6 +67,7 @@ serve(async (req) => {
       const pushName = msgData.pushName || '';
       const { text: messageText, mediaType, mediaUrl, mediaMime } = extractMessageContent(msgData.message, msgData);
 
+      // Accept messages with text OR media (don't skip media-only messages)
       if (!messageText && !mediaType) {
         return new Response(JSON.stringify({ ok: true, skipped: 'no content' }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -132,19 +133,31 @@ serve(async (req) => {
         });
       }
 
+      // Save media URL to storage if it's base64
+      let finalMediaUrl = mediaUrl;
+      if (finalMediaUrl && finalMediaUrl.startsWith('data:')) {
+        try {
+          finalMediaUrl = await saveBase64ToStorage(supabase, finalMediaUrl, mediaMime);
+        } catch (e) {
+          console.error('[webhook] Error saving base64 media:', e);
+          // Keep the original URL as fallback
+        }
+      }
+
       await supabase.from('wa_messages').insert({
-        conversation_id: conversation.id, instance_id: instance.id,
+        conversation_id: conversation.id,
+        instance_id: instance.id,
         sender: isFromMe ? 'agent' : 'contact',
         agent_name: isFromMe ? (msgData.pushName || 'Closer') : null,
         agent_id: isFromMe ? instance.closer_id : null,
         text: displayText,
         media_type: mediaType || null,
-        media_url: mediaUrl || null,
+        media_url: finalMediaUrl || null,
         media_mime_type: mediaMime || null,
         created_at: msgData.messageTimestamp
           ? new Date(msgData.messageTimestamp * 1000).toISOString()
           : now,
-      });
+      } as any);
 
       console.log('[webhook] Message saved:', isFromMe ? 'sent' : 'received', phone, mediaType || 'text', displayText.substring(0, 50));
     }
@@ -171,6 +184,33 @@ serve(async (req) => {
   }
 });
 
+async function saveBase64ToStorage(supabase: any, base64Data: string, mimeType: string | null): Promise<string> {
+  // Extract pure base64 from data URI
+  const matches = base64Data.match(/^data:([^;]+);base64,(.+)$/);
+  if (!matches) return base64Data;
+
+  const mime = matches[1];
+  const data = matches[2];
+  const ext = mime.split('/')[1]?.split(';')[0] || 'bin';
+  const fileName = `webhook_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
+
+  // Decode base64 to Uint8Array
+  const binaryString = atob(data);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+
+  const { error } = await supabase.storage
+    .from('wa-media')
+    .upload(fileName, bytes, { contentType: mime, upsert: false });
+
+  if (error) throw error;
+
+  const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+  return `${SUPABASE_URL}/storage/v1/object/public/wa-media/${fileName}`;
+}
+
 function getMediaEmoji(mediaType: string | null): string {
   switch (mediaType) {
     case 'image': return '📷 Imagem';
@@ -194,7 +234,7 @@ interface MediaContent {
 function extractMessageContent(message: Record<string, unknown>, msgData?: Record<string, unknown>): MediaContent {
   if (!message) return { text: '', mediaType: null, mediaUrl: null, mediaMime: null };
 
-  // Try to get base64/url from Evolution API's mediaUrl field
+  // Evolution API may provide mediaUrl at the top level (when webhookBase64 is enabled)
   const evolutionMediaUrl = (msgData as any)?.mediaUrl || null;
 
   if (typeof message.conversation === 'string') {
