@@ -123,7 +123,8 @@ export default function WaHubPage() {
     const { error } = await supabase.from('wa_instances').update({
       phone: editPhone.trim() || null,
       closer_id: editCloserId !== 'none' ? editCloserId : null,
-    }).eq('id', id);
+      sdr_id: editSdrId !== 'none' ? editSdrId : null,
+    } as any).eq('id', id);
     setSaving(false);
     if (error) { toast.error('Erro ao salvar'); return; }
     toast.success('Instância atualizada');
