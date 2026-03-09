@@ -24,8 +24,8 @@ function MemberFormDialog({
   onSaved: () => void;
 }) {
   const [name, setName] = useState(member?.name || "");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState(member?.email || "");
+  const [phone, setPhone] = useState(member?.phone || "");
   const [password, setPassword] = useState("");
   const [selectedRoles, setSelectedRoles] = useState<Set<string>>(() => {
     if (member?.member_role) {
