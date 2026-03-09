@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useWaConversations, useWaInstances, useWaMessages } from '@/hooks/use-wa-hub';
 import { useWaTags, useWaContactTags } from '@/hooks/use-wa-tags';
 import { supabase } from '@/integrations/supabase/client';
-import { Shield, Eye, Users, Loader2, MessageSquare, Wifi, Plus, Trash2, Pencil, Check, X, UserPlus, Link2, Copy, Tag, PanelRightOpen } from 'lucide-react';
+import { Shield, Eye, Users, Loader2, MessageSquare, Wifi, Plus, Trash2, Pencil, Check, X, UserPlus, Link2, Copy, Tag, PanelRightOpen, Bot } from 'lucide-react';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ import { WaDashboard } from '@/components/wa-hub/WaDashboard';
 import { WaInstancePanel } from '@/components/wa-hub/WaInstancePanel';
 import { WaCrmView } from '@/components/wa-hub/WaCrmView';
 import { WaLeadProfilePanel } from '@/components/wa-hub/WaLeadProfilePanel';
+import { AiSdrConfigPanel } from '@/components/wa-hub/AiSdrConfigPanel';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -499,6 +500,15 @@ export default function WaHubPage() {
                         </div>
                       </div>
                     )}
+
+                    {/* AI SDR Config */}
+                    <AiSdrConfigPanel
+                      instanceId={inst.id}
+                      instanceName={inst.instance_name}
+                      aiSdrEnabled={inst.ai_sdr_enabled || false}
+                      aiSdrConfig={inst.ai_sdr_config || {}}
+                      onUpdate={refetchInstances}
+                    />
 
                     {/* Connection panel */}
                     <WaInstancePanel instanceName={inst.instance_name} closerName={displayName} />

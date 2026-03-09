@@ -34,7 +34,7 @@ serve(async (req) => {
 
     const { data: instance } = await supabase
       .from('wa_instances')
-      .select('id, closer_id')
+      .select('id, closer_id, sdr_id, ai_sdr_enabled, ai_sdr_config, instance_name')
       .eq('instance_name', instanceName)
       .single();
 
@@ -160,7 +160,33 @@ serve(async (req) => {
       } as any);
 
       console.log('[webhook] Message saved:', isFromMe ? 'sent' : 'received', phone, mediaType || 'text', displayText.substring(0, 50));
-    }
+
+      // Trigger AI SDR agent for incoming messages from contacts
+      if (!isFromMe && instance.ai_sdr_enabled && messageText) {
+        try {
+          const aiSdrUrl = `${SUPABASE_URL}/functions/v1/ai-sdr-agent`;
+          const aiSdrResp = await fetch(aiSdrUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            },
+            body: JSON.stringify({
+              conversation_id: conversation.id,
+              instance_id: instance.id,
+              contact_phone: phone,
+              instance_name: instanceName,
+              contact_name: pushName || phone,
+              incoming_message: messageText,
+            }),
+          });
+          const aiResult = await aiSdrResp.json();
+          console.log('[webhook] AI SDR result:', JSON.stringify(aiResult).substring(0, 200));
+        } catch (aiErr) {
+          console.error('[webhook] AI SDR trigger failed:', aiErr);
+          // Don't fail the webhook if AI SDR fails
+        }
+      }
 
     if (event === 'connection.update') {
       const state = payload.data?.state;
