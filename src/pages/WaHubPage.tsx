@@ -249,7 +249,7 @@ export default function WaHubPage() {
               instances={instances}
               loading={loading}
               selectedId={selectedId}
-              onSelect={setSelectedId}
+              onSelect={(id) => { setSelectedId(id); }}
               instanceFilter={instanceFilter}
               onInstanceFilter={setInstanceFilter}
               tags={tags}
@@ -259,22 +259,65 @@ export default function WaHubPage() {
             />
 
             {selectedConv ? (
-              <WaChatView
-                conversation={selectedConv}
-                messages={selectedMessages}
-                messagesLoading={messagesLoading}
-                onBack={() => setSelectedId(null)}
-                onSend={async (text) => {
-                  addOptimistic({ text });
-                  await handleSend(text);
-                }}
-                onSendMedia={handleSendMedia}
-                onSendAudio={handleSendAudio}
-                tags={tags}
-                assignedTagIds={getTagsForContact(selectedConv.contact.id).map(t => t.tag_id)}
-                onAddTag={addTag}
-                onRemoveTag={removeTag}
-              />
+              <>
+                <div className="flex-1 flex flex-col">
+                  {/* Chat header with profile toggle */}
+                  <WaChatView
+                    conversation={selectedConv}
+                    messages={selectedMessages}
+                    messagesLoading={messagesLoading}
+                    onBack={() => setSelectedId(null)}
+                    onSend={async (text) => {
+                      addOptimistic({ text });
+                      await handleSend(text);
+                    }}
+                    onSendMedia={handleSendMedia}
+                    onSendAudio={handleSendAudio}
+                    tags={tags}
+                    assignedTagIds={getTagsForContact(selectedConv.contact.id).map(t => t.tag_id)}
+                    onAddTag={addTag}
+                    onRemoveTag={removeTag}
+                    onToggleProfile={() => setShowProfile(!showProfile)}
+                    showProfileButton
+                  />
+                  {/* AI tools bar */}
+                  <div className="px-4 py-2 border-t border-border bg-card/50">
+                    <WaAiTools messages={selectedMessages} contactName={selectedConv.contact.name} />
+                  </div>
+                </div>
+
+                {/* Lead Profile Sidebar */}
+                {showProfile && (
+                  <WaLeadProfilePanel
+                    conversation={selectedConv}
+                    messages={selectedMessages}
+                    tags={tags}
+                    assignedTagIds={getTagsForContact(selectedConv.contact.id).map(t => t.tag_id)}
+                    onAddTag={addTag}
+                    onRemoveTag={removeTag}
+                    teamMembers={teamMembers}
+                    onClose={() => setShowProfile(false)}
+                    onTransfer={async (toMemberId, toRole, note) => {
+                      const { data: profile } = await supabase.from('profiles').select('team_member_id').eq('id', (await supabase.auth.getUser()).data.user?.id || '').single();
+                      // Log transfer
+                      await supabase.from('wa_transfer_logs').insert({
+                        conversation_id: selectedConv.id,
+                        from_member_id: profile?.team_member_id || null,
+                        to_member_id: toMemberId,
+                        from_role: selectedConv.assigned_role || 'sdr',
+                        to_role: toRole,
+                        note,
+                      } as any);
+                      // Update conversation assignment
+                      await supabase.from('wa_conversations').update({
+                        assigned_to: toMemberId,
+                        assigned_role: toRole,
+                      } as any).eq('id', selectedConv.id);
+                      toast.success('Conversa transferida!');
+                    }}
+                  />
+                )}
+              </>
             ) : (
               <div className="flex-1 flex items-center justify-center">
                 <div className="text-center">
