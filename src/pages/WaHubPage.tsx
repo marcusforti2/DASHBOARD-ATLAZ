@@ -71,6 +71,7 @@ export default function WaHubPage() {
       setNewName('');
       setNewPhone('');
       setNewCloserId('none');
+      setNewSdrId('none');
       setShowCreate(false);
       refetchInstances();
     } catch (err: unknown) {
