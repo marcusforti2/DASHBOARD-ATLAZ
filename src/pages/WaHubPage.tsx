@@ -356,6 +356,10 @@ export default function WaHubPage() {
           />
         </TabsContent>
 
+        <TabsContent value="pipedrive" className="mt-4">
+          <PipedriveTab />
+        </TabsContent>
+
         <TabsContent value="instances" className="mt-4">
           <div className="space-y-4">
             {/* Create instance button / form */}
