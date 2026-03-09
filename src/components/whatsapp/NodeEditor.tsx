@@ -135,26 +135,8 @@ export default function NodeEditor({ type, nodeId, config, onChange, onClose, on
         </div>
       )}
 
-      {/* ─── MESSAGE ─── */}
       {type === "message" && (
-        <div className="space-y-3">
-          <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Modelo da Mensagem</p>
-          <textarea
-            value={config.message_template || ""}
-            onChange={e => update("message_template", e.target.value)}
-            rows={8}
-            className="w-full rounded-xl border border-border bg-secondary px-3 py-2.5 text-[11px] font-mono text-secondary-foreground focus:ring-2 focus:ring-emerald-500 outline-none resize-none"
-          />
-          <div className="flex flex-wrap gap-1.5">
-            {TEMPLATE_VARS.map(v => (
-              <button key={v}
-                onClick={() => update("message_template", (config.message_template || "") + " " + v)}
-                className="px-2 py-1 text-[9px] rounded-lg bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 font-mono transition-colors">
-                {v}
-              </button>
-            ))}
-          </div>
-        </div>
+        <MessageNodeEditor config={config} update={update} />
       )}
 
       {/* ─── SEND ─── */}
