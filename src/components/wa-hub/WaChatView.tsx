@@ -311,6 +311,11 @@ export default function WaChatView({ conversation, messages, messagesLoading, on
         </div>
       )}
 
+      {/* AI Tools */}
+      <div className="px-5 py-2 border-t border-border bg-card/50 shrink-0">
+        <WaAiTools messages={messages} contactName={conversation.contact.name} />
+      </div>
+
       {/* Input */}
       <div className="px-5 py-3 border-t border-border bg-card shrink-0">
         <input ref={fileInputRef} type="file" accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx" className="hidden" onChange={handleFileSelect} />
