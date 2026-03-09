@@ -1,5 +1,7 @@
 import { Loader2 } from 'lucide-react';
 import { WaConversation, WaInstance } from '@/hooks/use-wa-hub';
+import { WaContactTagBadges } from './WaContactTagBadges';
+import type { WaTag } from '@/hooks/use-wa-tags';
 
 const AVATAR_COLORS = ['152 60% 36%', '210 90% 50%', '280 65% 50%', '30 90% 50%', '0 72% 51%', '180 60% 40%'];
 
@@ -23,11 +25,16 @@ interface Props {
   instanceFilter: string | null;
   onInstanceFilter: (id: string | null) => void;
   title?: string;
+  tags?: WaTag[];
+  getTagsForContact?: (contactId: string) => { tag_id: string }[];
+  onAddTag?: (contactId: string, tagId: string) => Promise<void>;
+  onRemoveTag?: (contactId: string, tagId: string) => Promise<void>;
 }
 
 export function WaConversationList({
   conversations, instances, loading, selectedId,
   onSelect, instanceFilter, onInstanceFilter, title = 'Todas as Conversas',
+  tags, getTagsForContact, onAddTag, onRemoveTag,
 }: Props) {
   return (
     <div className="w-80 border-r border-border flex flex-col bg-card shrink-0">
@@ -86,8 +93,19 @@ export function WaConversationList({
                   <span className="text-[10px] text-muted-foreground shrink-0">{formatTime(conv.last_message_at)}</span>
                 </div>
                 <p className="text-xs text-muted-foreground truncate">{conv.last_message}</p>
-                <div className="flex items-center gap-1.5 mt-1">
-                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">{conv.lead_status}</span>
+                <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                  {tags && getTagsForContact ? (
+                    <WaContactTagBadges
+                      contactId={conv.contact.id}
+                      assignedTagIds={getTagsForContact(conv.contact.id).map(t => t.tag_id)}
+                      allTags={tags}
+                      onAdd={onAddTag || (async () => {})}
+                      onRemove={onRemoveTag || (async () => {})}
+                      compact
+                    />
+                  ) : (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">{conv.lead_status}</span>
+                  )}
                   {conv.unread_count > 0 && (
                     <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground font-bold">
                       {conv.unread_count}

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useWaConversations, useWaInstances } from '@/hooks/use-wa-hub';
+import { useWaTags, useWaContactTags } from '@/hooks/use-wa-tags';
 import { supabase } from '@/integrations/supabase/client';
-import { Shield, Eye, Users, Loader2, MessageSquare, Wifi, Plus, Trash2, Pencil, Check, X, UserPlus, Link2, Copy } from 'lucide-react';
+import { Shield, Eye, Users, Loader2, MessageSquare, Wifi, Plus, Trash2, Pencil, Check, X, UserPlus, Link2, Copy, Tag } from 'lucide-react';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -11,13 +12,16 @@ import { WaConversationList } from '@/components/wa-hub/WaConversationList';
 import { WaChatView } from '@/components/wa-hub/WaChatView';
 import { WaDashboard } from '@/components/wa-hub/WaDashboard';
 import { WaInstancePanel } from '@/components/wa-hub/WaInstancePanel';
+import { WaCrmView } from '@/components/wa-hub/WaCrmView';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function WaHubPage() {
-  const [tab, setTab] = useState<'chat' | 'dashboard' | 'instances'>('chat');
+  const [tab, setTab] = useState<'chat' | 'dashboard' | 'instances' | 'crm'>('chat');
   const [instanceFilter, setInstanceFilter] = useState<string | null>(null);
   const { conversations, loading } = useWaConversations(instanceFilter);
   const { instances, refetch: refetchInstances } = useWaInstances();
+  const { tags, createTag, deleteTag } = useWaTags();
+  const { getTagsForContact, addTag, removeTag } = useWaContactTags();
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   // Create instance form
@@ -177,6 +181,9 @@ export default function WaHubPage() {
           <TabsTrigger value="dashboard" className="text-xs gap-1.5">
             <Eye className="w-3.5 h-3.5" /> Dashboard
           </TabsTrigger>
+          <TabsTrigger value="crm" className="text-xs gap-1.5">
+            <Tag className="w-3.5 h-3.5" /> CRM
+          </TabsTrigger>
           <TabsTrigger value="instances" className="text-xs gap-1.5">
             <Wifi className="w-3.5 h-3.5" /> Instâncias
           </TabsTrigger>
@@ -192,6 +199,10 @@ export default function WaHubPage() {
               onSelect={setSelectedId}
               instanceFilter={instanceFilter}
               onInstanceFilter={setInstanceFilter}
+              tags={tags}
+              getTagsForContact={(cid) => getTagsForContact(cid)}
+              onAddTag={addTag}
+              onRemoveTag={removeTag}
             />
 
             {selectedConv ? (
@@ -199,6 +210,10 @@ export default function WaHubPage() {
                 conversation={selectedConv}
                 onBack={() => setSelectedId(null)}
                 onSend={handleSend}
+                tags={tags}
+                assignedTagIds={getTagsForContact(selectedConv.contact.id).map(t => t.tag_id)}
+                onAddTag={addTag}
+                onRemoveTag={removeTag}
               />
             ) : (
               <div className="flex-1 flex items-center justify-center">
@@ -214,6 +229,18 @@ export default function WaHubPage() {
 
         <TabsContent value="dashboard" className="mt-4">
           <WaDashboard />
+        </TabsContent>
+
+        <TabsContent value="crm" className="mt-4">
+          <WaCrmView
+            conversations={conversations}
+            tags={tags}
+            getTagsForContact={(contactId) => getTagsForContact(contactId)}
+            onAddTag={addTag}
+            onRemoveTag={removeTag}
+            onCreateTag={createTag}
+            onDeleteTag={deleteTag}
+          />
         </TabsContent>
 
         <TabsContent value="instances" className="mt-4">

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { ArrowLeft, Send, Loader2 } from 'lucide-react';
 import { WaConversation } from '@/hooks/use-wa-hub';
+import { WaContactTagBadges } from './WaContactTagBadges';
+import type { WaTag } from '@/hooks/use-wa-tags';
 
 const AVATAR_COLORS = ['152 60% 36%', '210 90% 50%', '280 65% 50%', '30 90% 50%', '0 72% 51%', '180 60% 40%'];
 
@@ -19,9 +21,13 @@ interface Props {
   conversation: WaConversation;
   onBack: () => void;
   onSend: (text: string) => Promise<void>;
+  tags?: WaTag[];
+  assignedTagIds?: string[];
+  onAddTag?: (contactId: string, tagId: string) => Promise<void>;
+  onRemoveTag?: (contactId: string, tagId: string) => Promise<void>;
 }
 
-export function WaChatView({ conversation, onBack, onSend }: Props) {
+export function WaChatView({ conversation, onBack, onSend, tags, assignedTagIds, onAddTag, onRemoveTag }: Props) {
   const [msgText, setMsgText] = useState('');
   const [sending, setSending] = useState(false);
 
@@ -49,9 +55,20 @@ export function WaChatView({ conversation, onBack, onSend }: Props) {
         >
           {conversation.contact.name.charAt(0).toUpperCase()}
         </div>
-        <div>
+        <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-foreground">{conversation.contact.name}</p>
-          <p className="text-[10px] text-muted-foreground">{conversation.contact.phone}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-[10px] text-muted-foreground">{conversation.contact.phone}</p>
+            {tags && assignedTagIds && onAddTag && onRemoveTag && (
+              <WaContactTagBadges
+                contactId={conversation.contact.id}
+                assignedTagIds={assignedTagIds}
+                allTags={tags}
+                onAdd={onAddTag}
+                onRemove={onRemoveTag}
+              />
+            )}
+          </div>
         </div>
       </div>
 
