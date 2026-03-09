@@ -17,8 +17,60 @@ export default function WaHubPage() {
   const [tab, setTab] = useState<'chat' | 'dashboard' | 'instances'>('chat');
   const [instanceFilter, setInstanceFilter] = useState<string | null>(null);
   const { conversations, loading } = useWaConversations(instanceFilter);
-  const { instances } = useWaInstances();
+  const { instances, refetch: refetchInstances } = useWaInstances();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // Create instance form
+  const [showCreate, setShowCreate] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newPhone, setNewPhone] = useState('');
+  const [newCloserId, setNewCloserId] = useState<string>('none');
+  const [creating, setCreating] = useState(false);
+  const [teamMembers, setTeamMembers] = useState<{ id: string; name: string }[]>([]);
+
+  // Load team members for closer assignment
+  useState(() => {
+    supabase.from('team_members').select('id, name').eq('active', true).then(({ data }) => {
+      setTeamMembers(data ?? []);
+    });
+  });
+
+  const handleCreateInstance = async () => {
+    const name = newName.trim();
+    if (!name) { toast.error('Nome da instância obrigatório'); return; }
+    const instanceName = name.startsWith('wpp_') ? name : `wpp_${name.toLowerCase().replace(/\s+/g, '_')}`;
+    
+    try {
+      setCreating(true);
+      
+      // Try creating on Evolution API first (may fail if no API configured)
+      try {
+        await createInstance(instanceName);
+      } catch {
+        // Continue — just register locally
+      }
+
+      // Register in database
+      const { error } = await supabase.from('wa_instances').insert({
+        instance_name: instanceName,
+        phone: newPhone.trim() || null,
+        closer_id: newCloserId !== 'none' ? newCloserId : null,
+        is_connected: false,
+      });
+      if (error) throw error;
+
+      toast.success(`Instância "${instanceName}" criada!`);
+      setNewName('');
+      setNewPhone('');
+      setNewCloserId('none');
+      setShowCreate(false);
+      refetchInstances();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao criar instância');
+    } finally {
+      setCreating(false);
+    }
+  };
 
   const selectedConv = conversations.find(c => c.id === selectedId);
   const totalConvs = conversations.length;
