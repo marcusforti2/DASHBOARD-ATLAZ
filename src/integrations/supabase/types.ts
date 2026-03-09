@@ -785,6 +785,257 @@ export type Database = {
         }
         Relationships: []
       }
+      pipedrive_activities: {
+        Row: {
+          created_at: string
+          deal_pipedrive_id: number | null
+          done: boolean | null
+          due_date: string | null
+          due_time: string | null
+          id: string
+          note: string | null
+          person_pipedrive_id: number | null
+          pipedrive_id: number
+          raw_data: Json | null
+          subject: string | null
+          type: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          deal_pipedrive_id?: number | null
+          done?: boolean | null
+          due_date?: string | null
+          due_time?: string | null
+          id?: string
+          note?: string | null
+          person_pipedrive_id?: number | null
+          pipedrive_id: number
+          raw_data?: Json | null
+          subject?: string | null
+          type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          deal_pipedrive_id?: number | null
+          done?: boolean | null
+          due_date?: string | null
+          due_time?: string | null
+          id?: string
+          note?: string | null
+          person_pipedrive_id?: number | null
+          pipedrive_id?: number
+          raw_data?: Json | null
+          subject?: string | null
+          type?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      pipedrive_deals: {
+        Row: {
+          close_time: string | null
+          created_at: string
+          currency: string | null
+          id: string
+          lost_reason: string | null
+          lost_time: string | null
+          org_name: string | null
+          owner_email: string | null
+          owner_name: string | null
+          person_id: number | null
+          person_name: string | null
+          pipedrive_id: number
+          pipeline_name: string | null
+          raw_data: Json | null
+          stage_name: string | null
+          status: string | null
+          team_member_id: string | null
+          title: string
+          updated_at: string
+          value: number | null
+          wa_conversation_id: string | null
+          won_time: string | null
+        }
+        Insert: {
+          close_time?: string | null
+          created_at?: string
+          currency?: string | null
+          id?: string
+          lost_reason?: string | null
+          lost_time?: string | null
+          org_name?: string | null
+          owner_email?: string | null
+          owner_name?: string | null
+          person_id?: number | null
+          person_name?: string | null
+          pipedrive_id: number
+          pipeline_name?: string | null
+          raw_data?: Json | null
+          stage_name?: string | null
+          status?: string | null
+          team_member_id?: string | null
+          title?: string
+          updated_at?: string
+          value?: number | null
+          wa_conversation_id?: string | null
+          won_time?: string | null
+        }
+        Update: {
+          close_time?: string | null
+          created_at?: string
+          currency?: string | null
+          id?: string
+          lost_reason?: string | null
+          lost_time?: string | null
+          org_name?: string | null
+          owner_email?: string | null
+          owner_name?: string | null
+          person_id?: number | null
+          person_name?: string | null
+          pipedrive_id?: number
+          pipeline_name?: string | null
+          raw_data?: Json | null
+          stage_name?: string | null
+          status?: string | null
+          team_member_id?: string | null
+          title?: string
+          updated_at?: string
+          value?: number | null
+          wa_conversation_id?: string | null
+          won_time?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pipedrive_deals_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pipedrive_deals_wa_conversation_id_fkey"
+            columns: ["wa_conversation_id"]
+            isOneToOne: false
+            referencedRelation: "wa_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pipedrive_notes: {
+        Row: {
+          content: string | null
+          created_at: string
+          deal_pipedrive_id: number | null
+          id: string
+          person_pipedrive_id: number | null
+          pipedrive_id: number
+          raw_data: Json | null
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          deal_pipedrive_id?: number | null
+          id?: string
+          person_pipedrive_id?: number | null
+          pipedrive_id: number
+          raw_data?: Json | null
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          deal_pipedrive_id?: number | null
+          id?: string
+          person_pipedrive_id?: number | null
+          pipedrive_id?: number
+          raw_data?: Json | null
+        }
+        Relationships: []
+      }
+      pipedrive_persons: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          org_name: string | null
+          owner_name: string | null
+          phone: string | null
+          pipedrive_id: number
+          raw_data: Json | null
+          updated_at: string
+          wa_contact_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          org_name?: string | null
+          owner_name?: string | null
+          phone?: string | null
+          pipedrive_id: number
+          raw_data?: Json | null
+          updated_at?: string
+          wa_contact_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          org_name?: string | null
+          owner_name?: string | null
+          phone?: string | null
+          pipedrive_id?: number
+          raw_data?: Json | null
+          updated_at?: string
+          wa_contact_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pipedrive_persons_wa_contact_id_fkey"
+            columns: ["wa_contact_id"]
+            isOneToOne: false
+            referencedRelation: "wa_contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pipedrive_webhook_logs: {
+        Row: {
+          created_at: string
+          entity: string
+          error: string | null
+          event: string
+          id: string
+          payload: Json | null
+          pipedrive_id: number | null
+          processed: boolean | null
+        }
+        Insert: {
+          created_at?: string
+          entity: string
+          error?: string | null
+          event: string
+          id?: string
+          payload?: Json | null
+          pipedrive_id?: number | null
+          processed?: boolean | null
+        }
+        Update: {
+          created_at?: string
+          entity?: string
+          error?: string | null
+          event?: string
+          id?: string
+          payload?: Json | null
+          pipedrive_id?: number | null
+          processed?: boolean | null
+        }
+        Relationships: []
+      }
       proactive_alerts: {
         Row: {
           alert_type: string
