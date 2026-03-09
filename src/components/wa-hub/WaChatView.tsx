@@ -43,6 +43,8 @@ interface Props {
   assignedTagIds?: string[];
   onAddTag?: (contactId: string, tagId: string) => Promise<void>;
   onRemoveTag?: (contactId: string, tagId: string) => Promise<void>;
+  onToggleProfile?: () => void;
+  showProfileButton?: boolean;
 }
 
 function MediaBubble({ mediaType, mediaUrl, mediaMime, text }: { mediaType: string; mediaUrl: string | null; mediaMime: string | null; text: string }) {
