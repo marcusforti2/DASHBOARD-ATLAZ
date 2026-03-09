@@ -279,7 +279,7 @@ export function WaUserPanel({ teamMemberId, memberName, memberRole }: Props) {
             {stages.map(stage => {
               const convs = myConversations.filter(c => c.lead_status === stage);
               return (
-                <div key={stage} className="rounded-xl bg-card border border-border p-3 min-h-[200px]">
+                <div key={stage} className={`rounded-xl bg-card border border-border p-3 min-h-[200px] animate-card-enter stagger-${stages.indexOf(stage) + 1}`}>
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-xs font-semibold text-foreground">{stageLabels[stage] || stage}</h3>
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">{convs.length}</span>
