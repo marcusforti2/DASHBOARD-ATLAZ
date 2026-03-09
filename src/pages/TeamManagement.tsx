@@ -24,8 +24,8 @@ function MemberFormDialog({
   onSaved: () => void;
 }) {
   const [name, setName] = useState(member?.name || "");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState(member?.email || "");
+  const [phone, setPhone] = useState(member?.phone || "");
   const [password, setPassword] = useState("");
   const [selectedRoles, setSelectedRoles] = useState<Set<string>>(() => {
     if (member?.member_role) {
@@ -67,7 +67,10 @@ function MemberFormDialog({
 
     if (isEditing) {
       const newRole = Array.from(selectedRoles).join(",");
-      const { error } = await supabase.from("team_members").update({ name: name.trim(), member_role: newRole }).eq("id", member.id);
+      const updates: Record<string, any> = { name: name.trim(), member_role: newRole };
+      if (email.trim()) updates.email = email.trim();
+      if (phone.trim()) updates.phone = phone.trim().replace(/\D/g, "");
+      const { error } = await supabase.from("team_members").update(updates).eq("id", member.id);
       if (error) toast.error(error.message); else { toast.success("Membro atualizado!"); onSaved(); onClose(); }
       setSaving(false);
       return;
@@ -89,6 +92,16 @@ function MemberFormDialog({
       });
       const result = await resp.json();
       if (!resp.ok) throw new Error(result.error || "Erro ao criar membro");
+
+      // Save email & phone to team_members
+      if (result.team_member_id) {
+        const memberUpdates: Record<string, any> = {};
+        if (email.trim()) memberUpdates.email = email.trim();
+        if (phone.trim()) memberUpdates.phone = phone.trim().replace(/\D/g, "");
+        if (Object.keys(memberUpdates).length > 0) {
+          await supabase.from("team_members").update(memberUpdates).eq("id", result.team_member_id);
+        }
+      }
 
       // Upload avatar if selected
       if (avatarFile && result.team_member_id) {
@@ -360,6 +373,36 @@ Faça login e comece a registrar suas métricas. Bora pra cima! 🚀`;
               <div>
                 <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
                   <Phone size={10} /> WhatsApp <span className="text-[8px] font-normal opacity-60">(opcional — envia credenciais automático)</span>
+                </label>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={e => setPhone(e.target.value)}
+                  placeholder="(11) 99999-9999"
+                  className="w-full rounded-xl border border-border bg-secondary px-3 py-2.5 text-sm text-secondary-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all"
+                />
+              </div>
+            </>
+          )}
+
+          {/* Email & Phone for editing */}
+          {isEditing && (
+            <>
+              <div>
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
+                  <Mail size={10} /> Email
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="email@exemplo.com"
+                  className="w-full rounded-xl border border-border bg-secondary px-3 py-2.5 text-sm text-secondary-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
+                  <Phone size={10} /> WhatsApp
                 </label>
                 <input
                   type="tel"
@@ -668,9 +711,21 @@ function MemberCard({
                 </span>
               )}
             </div>
-            <span className={`text-[10px] font-medium ${member.active ? "text-accent" : "text-muted-foreground"}`}>
-              {member.active ? "● Ativo" : "○ Inativo"}
-            </span>
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className={`text-[10px] font-medium ${member.active ? "text-accent" : "text-muted-foreground"}`}>
+                {member.active ? "● Ativo" : "○ Inativo"}
+              </span>
+              {member.email && (
+                <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                  <Mail size={9} /> {member.email}
+                </span>
+              )}
+              {member.phone && (
+                <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                  <Phone size={9} /> {member.phone}
+                </span>
+              )}
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-1">

@@ -13,6 +13,8 @@ export interface DbTeamMember {
   active: boolean;
   avatar_url?: string | null;
   member_role?: string;
+  email?: string;
+  phone?: string;
 }
 
 /** Check if a member has a specific role (supports comma-separated roles like "sdr,closer") */
