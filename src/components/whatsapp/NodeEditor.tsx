@@ -403,3 +403,75 @@ export default function NodeEditor({ type, nodeId, config, onChange, onClose, on
     </div>
   );
 }
+
+// ─── Message Node with AI Rewrite ───
+function MessageNodeEditor({ config, update }: { config: Record<string, any>; update: (key: string, value: any) => void }) {
+  const [rewriting, setRewriting] = useState(false);
+  const [tone, setTone] = useState("profissional");
+
+  const TONES = [
+    { value: "motivacional", label: "🔥 Motiv." },
+    { value: "profissional", label: "💼 Prof." },
+    { value: "casual", label: "😊 Casual" },
+    { value: "coaching", label: "🧠 Coach" },
+  ];
+
+  const handleRewrite = async () => {
+    const msg = config.message_template || "";
+    if (msg.trim().length < 3) { toast.error("Escreva uma mensagem primeiro"); return; }
+    setRewriting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("rewrite-message", {
+        body: { message: msg.trim(), tone },
+      });
+      if (error) toast.error("Erro: " + error.message);
+      else if (data?.rewritten) {
+        update("message_template", data.rewritten);
+        toast.success("Mensagem reescrita! ✨");
+      } else if (data?.error) toast.error(data.error);
+    } catch (e: any) { toast.error("Erro: " + e.message); }
+    setRewriting(false);
+  };
+
+  return (
+    <div className="space-y-3">
+      <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Modelo da Mensagem</p>
+      <textarea
+        value={config.message_template || ""}
+        onChange={e => update("message_template", e.target.value)}
+        rows={8}
+        className="w-full rounded-xl border border-border bg-secondary px-3 py-2.5 text-[11px] font-mono text-secondary-foreground focus:ring-2 focus:ring-accent outline-none resize-none"
+      />
+      
+      {/* AI Rewrite */}
+      <div className="space-y-2">
+        <div className="flex gap-1">
+          {TONES.map(t => (
+            <button key={t.value} onClick={() => setTone(t.value)}
+              className={`px-2 py-1 text-[9px] rounded-lg border transition-all ${
+                tone === t.value ? "border-primary bg-primary/15 text-primary font-bold" : "border-border bg-secondary text-muted-foreground"
+              }`}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <button onClick={handleRewrite} disabled={rewriting || (config.message_template || "").trim().length < 3}
+          className="w-full px-3 py-2 text-[10px] rounded-xl font-bold bg-gradient-to-r from-primary to-accent text-primary-foreground hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-1.5 transition-all">
+          {rewriting ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+          {rewriting ? "Reescrevendo..." : "✨ Reescrever com IA"}
+        </button>
+      </div>
+
+      {/* Template vars */}
+      <div className="flex flex-wrap gap-1.5">
+        {TEMPLATE_VARS.map(v => (
+          <button key={v}
+            onClick={() => update("message_template", (config.message_template || "") + " " + v)}
+            className="px-2 py-1 text-[9px] rounded-lg bg-accent/10 text-accent hover:bg-accent/20 font-mono transition-colors">
+            {v}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
