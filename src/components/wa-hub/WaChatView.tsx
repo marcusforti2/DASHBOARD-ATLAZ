@@ -263,7 +263,7 @@ export default function WaChatView({ conversation, messages, messagesLoading, on
   });
 
   return (
-    <div className="flex-1 flex flex-col">
+    <div className="flex-1 flex flex-col animate-fade-in">
       {/* Header */}
       <div className="flex items-center gap-3 px-5 h-14 border-b border-border bg-card shrink-0">
         <button onClick={onBack} className="lg:hidden p-1 rounded text-muted-foreground hover:bg-muted">
@@ -305,7 +305,7 @@ export default function WaChatView({ conversation, messages, messagesLoading, on
               </div>
               <div className="space-y-2">
                 {group.msgs.map(msg => (
-                  <div key={msg.id} className={`flex ${msg.sender === 'agent' ? 'justify-end' : 'justify-start'}`}>
+                  <div key={msg.id} className={`flex ${msg.sender === 'agent' ? 'justify-end' : 'justify-start'} animate-msg-in`}>
                     <div className={`max-w-[70%] px-4 py-2.5 rounded-2xl text-sm shadow-sm ${
                       msg.sender === 'agent'
                         ? 'bg-primary text-primary-foreground rounded-br-md'

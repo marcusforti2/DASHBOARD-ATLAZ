@@ -107,6 +107,38 @@ export default {
           "0%": { width: "0%" },
           "100%": { width: "var(--bar-width)" },
         },
+        "fade-in": {
+          "0%": { opacity: "0", transform: "translateY(8px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        "fade-in-scale": {
+          "0%": { opacity: "0", transform: "scale(0.96)" },
+          "100%": { opacity: "1", transform: "scale(1)" },
+        },
+        "slide-up": {
+          "0%": { opacity: "0", transform: "translateY(16px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        "slide-in-right": {
+          "0%": { opacity: "0", transform: "translateX(24px)" },
+          "100%": { opacity: "1", transform: "translateX(0)" },
+        },
+        "slide-in-left": {
+          "0%": { opacity: "0", transform: "translateX(-24px)" },
+          "100%": { opacity: "1", transform: "translateX(0)" },
+        },
+        "msg-in": {
+          "0%": { opacity: "0", transform: "translateY(12px) scale(0.95)" },
+          "100%": { opacity: "1", transform: "translateY(0) scale(1)" },
+        },
+        "pulse-soft": {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0.7" },
+        },
+        "card-enter": {
+          "0%": { opacity: "0", transform: "translateY(12px) scale(0.97)" },
+          "100%": { opacity: "1", transform: "translateY(0) scale(1)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -117,6 +149,14 @@ export default {
         "shimmer": "shimmer 2s linear infinite",
         "crown-bounce": "crown-bounce 1.5s ease-in-out infinite",
         "bar-fill": "bar-fill 0.8s ease-out forwards",
+        "fade-in": "fade-in 0.3s ease-out both",
+        "fade-in-scale": "fade-in-scale 0.25s ease-out both",
+        "slide-up": "slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both",
+        "slide-in-right": "slide-in-right 0.35s cubic-bezier(0.16, 1, 0.3, 1) both",
+        "slide-in-left": "slide-in-left 0.35s cubic-bezier(0.16, 1, 0.3, 1) both",
+        "msg-in": "msg-in 0.25s ease-out both",
+        "pulse-soft": "pulse-soft 2s ease-in-out infinite",
+        "card-enter": "card-enter 0.35s cubic-bezier(0.16, 1, 0.3, 1) both",
       },
     },
   },

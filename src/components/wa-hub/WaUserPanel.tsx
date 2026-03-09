@@ -129,7 +129,7 @@ export function WaUserPanel({ teamMemberId, memberName, memberRole }: Props) {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 animate-fade-in">
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2">
@@ -164,8 +164,8 @@ export function WaUserPanel({ teamMemberId, memberName, memberRole }: Props) {
           { label: 'Não lidas', value: unreadCount, icon: AlertTriangle, color: unreadCount > 0 ? 'text-destructive' : 'text-muted-foreground', bg: unreadCount > 0 ? 'bg-destructive/10' : 'bg-muted' },
           { label: 'Lembretes pendentes', value: pendingReminders, icon: Clock, color: pendingReminders > 0 ? 'text-amber-500' : 'text-muted-foreground', bg: pendingReminders > 0 ? 'bg-amber-500/10' : 'bg-muted' },
           { label: 'Instâncias', value: myInstances.length, icon: TrendingUp, color: 'text-primary', bg: 'bg-primary/10' },
-        ].map(stat => (
-          <div key={stat.label} className="p-3 rounded-xl bg-card border border-border">
+        ].map((stat, i) => (
+          <div key={stat.label} className={`p-3 rounded-xl bg-card border border-border hover:border-primary/30 transition-all duration-200 animate-card-enter stagger-${i + 1}`}>
             <div className="flex items-center gap-2 mb-1">
               <div className={`w-7 h-7 rounded-lg ${stat.bg} flex items-center justify-center`}>
                 <stat.icon className={`w-3.5 h-3.5 ${stat.color}`} />
@@ -279,7 +279,7 @@ export function WaUserPanel({ teamMemberId, memberName, memberRole }: Props) {
             {stages.map(stage => {
               const convs = myConversations.filter(c => c.lead_status === stage);
               return (
-                <div key={stage} className="rounded-xl bg-card border border-border p-3 min-h-[200px]">
+                <div key={stage} className={`rounded-xl bg-card border border-border p-3 min-h-[200px] animate-card-enter stagger-${stages.indexOf(stage) + 1}`}>
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-xs font-semibold text-foreground">{stageLabels[stage] || stage}</h3>
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">{convs.length}</span>
@@ -289,7 +289,7 @@ export function WaUserPanel({ teamMemberId, memberName, memberRole }: Props) {
                       <button
                         key={c.id}
                         onClick={() => { setSelectedId(c.id); setTab('chat'); }}
-                        className="w-full text-left p-2.5 rounded-lg bg-secondary/50 hover:bg-accent transition-colors border border-border/50"
+                        className="w-full text-left p-2.5 rounded-lg bg-secondary/50 hover:bg-accent hover:scale-[1.02] transition-all duration-200 border border-border/50"
                       >
                         <p className="text-xs font-medium text-foreground truncate">{c.contact.name}</p>
                         <p className="text-[10px] text-muted-foreground truncate">{c.last_message || c.contact.phone}</p>
@@ -327,7 +327,7 @@ export function WaUserPanel({ teamMemberId, memberName, memberRole }: Props) {
                 {reminders.map(r => {
                   const isPast = new Date(r.remind_at) <= new Date();
                   return (
-                    <div key={r.id} className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${isPast ? 'border-amber-500/50 bg-amber-500/5' : 'border-border bg-secondary/30'}`}>
+                    <div key={r.id} className={`flex items-center gap-3 p-3 rounded-lg border transition-all duration-200 hover:scale-[1.01] ${isPast ? 'border-amber-500/50 bg-amber-500/5' : 'border-border bg-secondary/30'}`}>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium text-foreground truncate">
                           {(r as any).contact?.name || 'Contato'}
