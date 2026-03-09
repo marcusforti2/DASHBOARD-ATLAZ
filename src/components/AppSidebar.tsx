@@ -2,7 +2,7 @@ import { useState } from "react";
 import {
   BarChart3, LayoutDashboard, Users, Target, Sparkles, Eye, Settings, LogOut,
   MessageCircle, BookOpen, Brain, GitBranch, GraduationCap, ChevronRight,
-  Wrench, FlaskConical, Megaphone, Calendar
+  Wrench, FlaskConical, Megaphone, Calendar, Smartphone
 } from "lucide-react";
 import {
   Sidebar,
@@ -21,7 +21,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
-export type AdminView = "dashboard" | "team" | "goals" | "reports" | "inspect-team" | "settings" | "whatsapp" | "popups" | "knowledge" | "dna-mapping" | "processos" | "training" | "calendars";
+export type AdminView = "dashboard" | "team" | "goals" | "reports" | "inspect-team" | "settings" | "whatsapp" | "popups" | "knowledge" | "dna-mapping" | "processos" | "training" | "calendars" | "wa-hub";
 export type CloserView = "hub";
 
 interface AppSidebarProps {
@@ -59,6 +59,7 @@ const toolCategories: { label: string; icon: React.ElementType; items: SidebarIt
     items: [
       { id: "processos", title: "Processos", icon: GitBranch },
       { id: "whatsapp", title: "WhatsApp", icon: MessageCircle },
+      { id: "wa-hub", title: "WhatsApp Hub", icon: Smartphone },
     ],
   },
   {

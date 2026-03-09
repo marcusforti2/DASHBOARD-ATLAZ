@@ -44,6 +44,97 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_interactions: {
+        Row: {
+          agent_type: string
+          created_at: string | null
+          feedback_rating: number | null
+          feedback_text: string | null
+          id: string
+          member_id: string
+          query: string
+          response_preview: string | null
+          response_time_ms: number | null
+          tool_used: string
+        }
+        Insert: {
+          agent_type?: string
+          created_at?: string | null
+          feedback_rating?: number | null
+          feedback_text?: string | null
+          id?: string
+          member_id: string
+          query: string
+          response_preview?: string | null
+          response_time_ms?: number | null
+          tool_used?: string
+        }
+        Update: {
+          agent_type?: string
+          created_at?: string | null
+          feedback_rating?: number | null
+          feedback_text?: string | null
+          id?: string
+          member_id?: string
+          query?: string
+          response_preview?: string | null
+          response_time_ms?: number | null
+          tool_used?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_interactions_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_memory: {
+        Row: {
+          access_count: number | null
+          agent_type: string
+          content: string
+          created_at: string | null
+          id: string
+          importance_score: number | null
+          last_accessed: string | null
+          member_id: string
+          memory_type: string
+        }
+        Insert: {
+          access_count?: number | null
+          agent_type?: string
+          content: string
+          created_at?: string | null
+          id?: string
+          importance_score?: number | null
+          last_accessed?: string | null
+          member_id: string
+          memory_type?: string
+        }
+        Update: {
+          access_count?: number | null
+          agent_type?: string
+          content?: string
+          created_at?: string | null
+          id?: string
+          importance_score?: number | null
+          last_accessed?: string | null
+          member_id?: string
+          memory_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_memory_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_reports: {
         Row: {
           content: string
@@ -75,6 +166,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      ai_response_cache: {
+        Row: {
+          cache_key: string
+          created_at: string | null
+          expires_at: string | null
+          hit_count: number | null
+          id: string
+          model: string
+          prompt_hash: string
+          response: string
+          tokens_used: number | null
+          tool: string
+        }
+        Insert: {
+          cache_key: string
+          created_at?: string | null
+          expires_at?: string | null
+          hit_count?: number | null
+          id?: string
+          model?: string
+          prompt_hash: string
+          response: string
+          tokens_used?: number | null
+          tool?: string
+        }
+        Update: {
+          cache_key?: string
+          created_at?: string | null
+          expires_at?: string | null
+          hit_count?: number | null
+          id?: string
+          model?: string
+          prompt_hash?: string
+          response?: string
+          tokens_used?: number | null
+          tool?: string
+        }
+        Relationships: []
       }
       ai_tool_usage: {
         Row: {
@@ -655,6 +785,53 @@ export type Database = {
         }
         Relationships: []
       }
+      proactive_alerts: {
+        Row: {
+          alert_type: string
+          created_at: string | null
+          data: Json | null
+          id: string
+          member_id: string
+          message: string
+          read: boolean | null
+          sent_via_whatsapp: boolean | null
+          severity: string
+          title: string
+        }
+        Insert: {
+          alert_type?: string
+          created_at?: string | null
+          data?: Json | null
+          id?: string
+          member_id: string
+          message: string
+          read?: boolean | null
+          sent_via_whatsapp?: boolean | null
+          severity?: string
+          title: string
+        }
+        Update: {
+          alert_type?: string
+          created_at?: string | null
+          data?: Json | null
+          id?: string
+          member_id?: string
+          message?: string
+          read?: boolean | null
+          sent_via_whatsapp?: boolean | null
+          severity?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proactive_alerts_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       process_flows: {
         Row: {
           created_at: string
@@ -1114,6 +1291,204 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      wa_contacts: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          id: string
+          instance_id: string
+          name: string
+          phone: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          id?: string
+          instance_id: string
+          name?: string
+          phone: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          id?: string
+          instance_id?: string
+          name?: string
+          phone?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wa_contacts_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "wa_instances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wa_conversations: {
+        Row: {
+          assigned_role: string | null
+          assigned_to: string | null
+          contact_id: string
+          created_at: string
+          id: string
+          instance_id: string
+          last_message: string | null
+          last_message_at: string | null
+          lead_status: string
+          status: string
+          unread_count: number
+          updated_at: string
+        }
+        Insert: {
+          assigned_role?: string | null
+          assigned_to?: string | null
+          contact_id: string
+          created_at?: string
+          id?: string
+          instance_id: string
+          last_message?: string | null
+          last_message_at?: string | null
+          lead_status?: string
+          status?: string
+          unread_count?: number
+          updated_at?: string
+        }
+        Update: {
+          assigned_role?: string | null
+          assigned_to?: string | null
+          contact_id?: string
+          created_at?: string
+          id?: string
+          instance_id?: string
+          last_message?: string | null
+          last_message_at?: string | null
+          lead_status?: string
+          status?: string
+          unread_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wa_conversations_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_conversations_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "wa_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_conversations_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "wa_instances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wa_instances: {
+        Row: {
+          closer_id: string | null
+          created_at: string
+          id: string
+          instance_name: string
+          is_connected: boolean
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          closer_id?: string | null
+          created_at?: string
+          id?: string
+          instance_name: string
+          is_connected?: boolean
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          closer_id?: string | null
+          created_at?: string
+          id?: string
+          instance_name?: string
+          is_connected?: boolean
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wa_instances_closer_id_fkey"
+            columns: ["closer_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wa_messages: {
+        Row: {
+          agent_id: string | null
+          agent_name: string | null
+          conversation_id: string
+          created_at: string
+          id: string
+          instance_id: string | null
+          sender: string
+          text: string
+        }
+        Insert: {
+          agent_id?: string | null
+          agent_name?: string | null
+          conversation_id: string
+          created_at?: string
+          id?: string
+          instance_id?: string | null
+          sender?: string
+          text?: string
+        }
+        Update: {
+          agent_id?: string | null
+          agent_name?: string | null
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          instance_id?: string | null
+          sender?: string
+          text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wa_messages_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "wa_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_messages_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "wa_instances"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       weekly_goals: {
         Row: {

@@ -6,6 +6,7 @@ import TeamManagement from "@/pages/TeamManagement";
 import GoalsManagement from "@/pages/GoalsManagement";
 import SettingsPage from "@/pages/SettingsPage";
 import WhatsAppPage from "@/pages/WhatsAppPage";
+import WaHubPage from "@/pages/WaHubPage";
 import AdminPopupsPage from "@/pages/AdminPopupsPage";
 import AdminKnowledgePage from "@/pages/AdminKnowledgePage";
 import DnaMappingPage from "@/pages/DnaMappingPage";
@@ -204,6 +205,7 @@ export default function Index() {
       case "goals": return "Metas";
       case "reports": return "Relatórios IA";
       case "whatsapp": return "WhatsApp";
+      case "wa-hub": return "WhatsApp Hub";
       case "popups": return "Popups Motivacionais";
       case "knowledge": return "Conhecimento IA";
       case "dna-mapping": return "Sales DNA Decoder";
@@ -238,6 +240,8 @@ export default function Index() {
         return <SettingsPage />;
       case "whatsapp":
         return <WhatsAppPage />;
+      case "wa-hub":
+        return <WaHubPage />;
       case "popups":
         return <AdminPopupsPage />;
       case "knowledge":
