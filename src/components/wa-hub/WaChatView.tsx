@@ -263,7 +263,7 @@ export default function WaChatView({ conversation, messages, messagesLoading, on
   });
 
   return (
-    <div className="flex-1 flex flex-col">
+    <div className="flex-1 flex flex-col animate-fade-in">
       {/* Header */}
       <div className="flex items-center gap-3 px-5 h-14 border-b border-border bg-card shrink-0">
         <button onClick={onBack} className="lg:hidden p-1 rounded text-muted-foreground hover:bg-muted">
