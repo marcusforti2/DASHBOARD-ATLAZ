@@ -1499,6 +1499,8 @@ export type Database = {
       }
       wa_instances: {
         Row: {
+          ai_sdr_config: Json
+          ai_sdr_enabled: boolean
           closer_id: string | null
           created_at: string
           id: string
@@ -1509,6 +1511,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          ai_sdr_config?: Json
+          ai_sdr_enabled?: boolean
           closer_id?: string | null
           created_at?: string
           id?: string
@@ -1519,6 +1523,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          ai_sdr_config?: Json
+          ai_sdr_enabled?: boolean
           closer_id?: string | null
           created_at?: string
           id?: string
