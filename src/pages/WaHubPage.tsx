@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useWaConversations, useWaInstances, useWaMessages } from '@/hooks/use-wa-hub';
 import { useWaTags, useWaContactTags } from '@/hooks/use-wa-tags';
 import { supabase } from '@/integrations/supabase/client';
-import { Shield, Eye, Users, Loader2, MessageSquare, Wifi, Plus, Trash2, Pencil, Check, X, UserPlus, Link2, Copy, Tag, PanelRightOpen } from 'lucide-react';
+import { Shield, Eye, Users, Loader2, MessageSquare, Wifi, Plus, Trash2, Pencil, Check, X, UserPlus, Link2, Copy, Tag, PanelRightOpen, Bot } from 'lucide-react';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
