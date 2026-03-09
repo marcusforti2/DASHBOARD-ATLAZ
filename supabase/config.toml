@@ -62,3 +62,9 @@ verify_jwt = false
 
 [functions.evolution-api]
 verify_jwt = false
+
+[functions.pipedrive-sdr-trigger]
+verify_jwt = false
+
+[functions.ai-sdr-agent]
+verify_jwt = false
