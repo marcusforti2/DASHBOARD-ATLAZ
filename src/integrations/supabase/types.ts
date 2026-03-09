@@ -44,6 +44,97 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_interactions: {
+        Row: {
+          agent_type: string
+          created_at: string | null
+          feedback_rating: number | null
+          feedback_text: string | null
+          id: string
+          member_id: string
+          query: string
+          response_preview: string | null
+          response_time_ms: number | null
+          tool_used: string
+        }
+        Insert: {
+          agent_type?: string
+          created_at?: string | null
+          feedback_rating?: number | null
+          feedback_text?: string | null
+          id?: string
+          member_id: string
+          query: string
+          response_preview?: string | null
+          response_time_ms?: number | null
+          tool_used?: string
+        }
+        Update: {
+          agent_type?: string
+          created_at?: string | null
+          feedback_rating?: number | null
+          feedback_text?: string | null
+          id?: string
+          member_id?: string
+          query?: string
+          response_preview?: string | null
+          response_time_ms?: number | null
+          tool_used?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_interactions_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_memory: {
+        Row: {
+          access_count: number | null
+          agent_type: string
+          content: string
+          created_at: string | null
+          id: string
+          importance_score: number | null
+          last_accessed: string | null
+          member_id: string
+          memory_type: string
+        }
+        Insert: {
+          access_count?: number | null
+          agent_type?: string
+          content: string
+          created_at?: string | null
+          id?: string
+          importance_score?: number | null
+          last_accessed?: string | null
+          member_id: string
+          memory_type?: string
+        }
+        Update: {
+          access_count?: number | null
+          agent_type?: string
+          content?: string
+          created_at?: string | null
+          id?: string
+          importance_score?: number | null
+          last_accessed?: string | null
+          member_id?: string
+          memory_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_memory_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_reports: {
         Row: {
           content: string
@@ -75,6 +166,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      ai_response_cache: {
+        Row: {
+          cache_key: string
+          created_at: string | null
+          expires_at: string | null
+          hit_count: number | null
+          id: string
+          model: string
+          prompt_hash: string
+          response: string
+          tokens_used: number | null
+          tool: string
+        }
+        Insert: {
+          cache_key: string
+          created_at?: string | null
+          expires_at?: string | null
+          hit_count?: number | null
+          id?: string
+          model?: string
+          prompt_hash: string
+          response: string
+          tokens_used?: number | null
+          tool?: string
+        }
+        Update: {
+          cache_key?: string
+          created_at?: string | null
+          expires_at?: string | null
+          hit_count?: number | null
+          id?: string
+          model?: string
+          prompt_hash?: string
+          response?: string
+          tokens_used?: number | null
+          tool?: string
+        }
+        Relationships: []
       }
       ai_tool_usage: {
         Row: {
@@ -654,6 +784,53 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      proactive_alerts: {
+        Row: {
+          alert_type: string
+          created_at: string | null
+          data: Json | null
+          id: string
+          member_id: string
+          message: string
+          read: boolean | null
+          sent_via_whatsapp: boolean | null
+          severity: string
+          title: string
+        }
+        Insert: {
+          alert_type?: string
+          created_at?: string | null
+          data?: Json | null
+          id?: string
+          member_id: string
+          message: string
+          read?: boolean | null
+          sent_via_whatsapp?: boolean | null
+          severity?: string
+          title: string
+        }
+        Update: {
+          alert_type?: string
+          created_at?: string | null
+          data?: Json | null
+          id?: string
+          member_id?: string
+          message?: string
+          read?: boolean | null
+          sent_via_whatsapp?: boolean | null
+          severity?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proactive_alerts_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       process_flows: {
         Row: {
