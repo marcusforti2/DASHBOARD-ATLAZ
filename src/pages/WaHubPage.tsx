@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useWaConversations, useWaInstances, useWaMessages } from '@/hooks/use-wa-hub';
 import { useWaTags, useWaContactTags } from '@/hooks/use-wa-tags';
 import { supabase } from '@/integrations/supabase/client';
-import { Shield, Eye, Users, Loader2, MessageSquare, Wifi, Plus, Trash2, Pencil, Check, X, UserPlus, Link2, Copy, Tag, PanelRightOpen, Bot, ExternalLink } from 'lucide-react';
+import { Shield, Eye, Users, Loader2, MessageSquare, Wifi, Plus, Trash2, Pencil, Check, X, UserPlus, Link2, Copy, Tag, PanelRightOpen, Bot, ExternalLink, Brain } from 'lucide-react';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -17,11 +17,12 @@ import { WaLeadProfilePanel } from '@/components/wa-hub/WaLeadProfilePanel';
 import { AiSdrConfigPanel } from '@/components/wa-hub/AiSdrConfigPanel';
 import { AiSdrTab } from '@/components/wa-hub/AiSdrTab';
 import { PipedriveTab } from '@/components/wa-hub/PipedriveTab';
+import { AiPromptsTab } from '@/components/wa-hub/AiPromptsTab';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function WaHubPage() {
-  const [tab, setTab] = useState<'chat' | 'dashboard' | 'instances' | 'crm' | 'ai-sdr' | 'pipedrive'>('chat');
+  const [tab, setTab] = useState<'chat' | 'dashboard' | 'instances' | 'crm' | 'ai-sdr' | 'pipedrive' | 'ai-prompts'>('chat');
   const [instanceFilter, setInstanceFilter] = useState<string | null>(null);
   const { conversations, loading } = useWaConversations(instanceFilter);
   const { instances, refetch: refetchInstances } = useWaInstances();
@@ -243,8 +244,11 @@ export default function WaHubPage() {
           <TabsTrigger value="ai-sdr" className="text-xs gap-1.5">
             <Bot className="w-3.5 h-3.5" /> SDR IA
           </TabsTrigger>
+          <TabsTrigger value="ai-prompts" className="text-xs gap-1.5">
+            <Brain className="w-3.5 h-3.5" /> Prompts IA
+          </TabsTrigger>
           <TabsTrigger value="pipedrive" className="text-xs gap-1.5">
-              <ExternalLink className="w-3.5 h-3.5" /> Pipedrive
+            <ExternalLink className="w-3.5 h-3.5" /> Pipedrive
             </TabsTrigger>
             <TabsTrigger value="instances" className="text-xs gap-1.5">
               <Wifi className="w-3.5 h-3.5" /> Instâncias
@@ -354,6 +358,10 @@ export default function WaHubPage() {
             teamMembers={teamMembers}
             onRefetch={refetchInstances}
           />
+        </TabsContent>
+
+        <TabsContent value="ai-prompts" className="mt-4">
+          <AiPromptsTab />
         </TabsContent>
 
         <TabsContent value="pipedrive" className="mt-4">
