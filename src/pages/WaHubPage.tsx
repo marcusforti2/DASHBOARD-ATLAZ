@@ -239,6 +239,9 @@ export default function WaHubPage() {
           <TabsTrigger value="crm" className="text-xs gap-1.5">
             <Tag className="w-3.5 h-3.5" /> CRM
           </TabsTrigger>
+          <TabsTrigger value="ai-sdr" className="text-xs gap-1.5">
+            <Bot className="w-3.5 h-3.5" /> SDR IA
+          </TabsTrigger>
           <TabsTrigger value="instances" className="text-xs gap-1.5">
             <Wifi className="w-3.5 h-3.5" /> Instâncias
           </TabsTrigger>
