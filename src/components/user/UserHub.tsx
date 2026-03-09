@@ -10,7 +10,7 @@ import { TrainingNotificationPopup } from "@/components/training/TrainingNotific
 import { GoogleCalendarPanel } from "./GoogleCalendarPanel";
 // JarvisOverlay moved to admin-only (Index.tsx)
 import { CalendarConnectPopup } from "./CalendarConnectPopup";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { getMemberRoles } from "@/lib/db";
 import { WaUserPanel } from "@/components/wa-hub/WaUserPanel";
 import {
