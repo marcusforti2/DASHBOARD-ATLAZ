@@ -136,9 +136,14 @@ export default function WaHubPage() {
   const totalConvs = conversations.length;
   const activeCount = conversations.filter(c => c.status === 'active').length;
 
+  const getSelectedInstance = () => {
+    if (!selectedConv) return null;
+    return instances.find(i => i.id === selectedConv.instance_id) || null;
+  };
+
   const handleSend = async (text: string) => {
     if (!selectedConv) return;
-    const inst = instances.find(i => i.id === selectedConv.instance_id);
+    const inst = getSelectedInstance();
     if (!inst) { toast.error('Instância não encontrada'); return; }
     try {
       const { error } = await supabase.functions.invoke('evolution-api', {
@@ -151,6 +156,30 @@ export default function WaHubPage() {
       if (error) throw error;
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Erro ao enviar');
+      throw err;
+    }
+  };
+
+  const handleSendMedia = async (mediaType: string, mediaUrl: string, caption?: string) => {
+    if (!selectedConv) return;
+    const inst = getSelectedInstance();
+    if (!inst) { toast.error('Instância não encontrada'); return; }
+    try {
+      await sendMedia(inst.instance_name, selectedConv.contact.phone, mediaType as any, mediaUrl, caption);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao enviar mídia');
+      throw err;
+    }
+  };
+
+  const handleSendAudio = async (audioUrl: string) => {
+    if (!selectedConv) return;
+    const inst = getSelectedInstance();
+    if (!inst) { toast.error('Instância não encontrada'); return; }
+    try {
+      await sendAudio(inst.instance_name, selectedConv.contact.phone, audioUrl);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao enviar áudio');
       throw err;
     }
   };
