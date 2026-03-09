@@ -20,7 +20,7 @@ import { AiSdrTab } from '@/components/wa-hub/AiSdrTab';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function WaHubPage() {
-  const [tab, setTab] = useState<'chat' | 'dashboard' | 'instances' | 'crm'>('chat');
+  const [tab, setTab] = useState<'chat' | 'dashboard' | 'instances' | 'crm' | 'ai-sdr'>('chat');
   const [instanceFilter, setInstanceFilter] = useState<string | null>(null);
   const { conversations, loading } = useWaConversations(instanceFilter);
   const { instances, refetch: refetchInstances } = useWaInstances();
