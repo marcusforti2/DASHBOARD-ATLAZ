@@ -169,23 +169,84 @@ export default function WaHubPage() {
 
         <TabsContent value="instances" className="mt-4">
           <div className="space-y-4">
-            {instances.length === 0 ? (
+            {/* Create instance button / form */}
+            {!showCreate ? (
+              <Button onClick={() => setShowCreate(true)} variant="outline" className="gap-2">
+                <Plus className="w-4 h-4" /> Nova Instância
+              </Button>
+            ) : (
+              <div className="rounded-xl bg-card border border-border p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-foreground">Criar Nova Instância</h3>
+                  <button onClick={() => setShowCreate(false)} className="text-xs text-muted-foreground hover:text-foreground">Cancelar</button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Nome da Instância *</label>
+                    <Input
+                      placeholder="Ex: closer_joao"
+                      value={newName}
+                      onChange={e => setNewName(e.target.value)}
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Telefone (opcional)</label>
+                    <Input
+                      placeholder="5511999999999"
+                      value={newPhone}
+                      onChange={e => setNewPhone(e.target.value)}
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Vincular ao Closer</label>
+                    <Select value={newCloserId} onValueChange={setNewCloserId}>
+                      <SelectTrigger className="h-9 text-sm">
+                        <SelectValue placeholder="Nenhum" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Nenhum</SelectItem>
+                        {teamMembers.map(m => (
+                          <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <Button onClick={handleCreateInstance} disabled={creating} className="gap-2">
+                  {creating && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  Criar Instância
+                </Button>
+              </div>
+            )}
+
+            {/* Instance list */}
+            {instances.length === 0 && !showCreate ? (
               <div className="rounded-xl bg-card border border-border p-8 text-center">
                 <Wifi className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
                 <p className="text-sm text-muted-foreground">Nenhuma instância configurada</p>
-                <p className="text-[10px] text-muted-foreground mt-1">Configure instâncias no banco de dados</p>
+                <p className="text-[10px] text-muted-foreground mt-1">Clique em "Nova Instância" para começar</p>
               </div>
             ) : (
               instances.map(inst => {
                 const displayName = inst.instance_name
                   .replace(/^wpp_/i, '')
                   .replace(/^\w/, c => c.toUpperCase());
+                const assignedMember = teamMembers.find(m => m.id === inst.closer_id);
                 return (
                   <div key={inst.id} className="rounded-xl bg-card border border-border p-4">
                     <div className="flex items-center gap-2 mb-3">
                       <Wifi className={`w-4 h-4 ${inst.is_connected ? 'text-primary' : 'text-muted-foreground'}`} />
                       <span className="text-sm font-semibold text-foreground">{displayName}</span>
                       {inst.phone && <span className="text-xs text-muted-foreground">· {inst.phone}</span>}
+                      {assignedMember && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                          {assignedMember.name}
+                        </span>
+                      )}
                     </div>
                     <WaInstancePanel instanceName={inst.instance_name} closerName={displayName} />
                   </div>
