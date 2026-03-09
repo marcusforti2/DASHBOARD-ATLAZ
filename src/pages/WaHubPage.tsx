@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useWaConversations, useWaInstances } from '@/hooks/use-wa-hub';
 import { supabase } from '@/integrations/supabase/client';
-import { Shield, Eye, Users, Loader2, MessageSquare, Wifi, Plus, Trash2, Pencil, Check, X, UserPlus } from 'lucide-react';
+import { Shield, Eye, Users, Loader2, MessageSquare, Wifi, Plus, Trash2, Pencil, Check, X, UserPlus, Link2, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { createInstance } from '@/lib/evolutionApi';
+import { createInstance, setWebhook, getWebhookUrl } from '@/lib/evolutionApi';
 import { WaConversationList } from '@/components/wa-hub/WaConversationList';
 import { WaChatView } from '@/components/wa-hub/WaChatView';
 import { WaDashboard } from '@/components/wa-hub/WaDashboard';
@@ -49,6 +49,9 @@ export default function WaHubPage() {
       setCreating(true);
       try { await createInstance(instanceName); } catch { /* continue */ }
 
+      // Auto-register webhook
+      try { await setWebhook(instanceName); } catch { /* continue */ }
+
       const { error } = await supabase.from('wa_instances').insert({
         instance_name: instanceName,
         phone: newPhone.trim() || null,
@@ -57,7 +60,7 @@ export default function WaHubPage() {
       });
       if (error) throw error;
 
-      toast.success(`Instância "${instanceName}" criada!`);
+      toast.success(`Instância "${instanceName}" criada com webhook!`);
       setNewName('');
       setNewPhone('');
       setNewCloserId('none');
@@ -68,6 +71,21 @@ export default function WaHubPage() {
     } finally {
       setCreating(false);
     }
+  };
+
+  const handleSetWebhook = async (instanceName: string) => {
+    try {
+      await setWebhook(instanceName);
+      toast.success(`Webhook cadastrado para "${instanceName}"`);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao cadastrar webhook');
+    }
+  };
+
+  const handleCopyWebhookUrl = (instanceName: string) => {
+    const url = getWebhookUrl(instanceName);
+    navigator.clipboard.writeText(url);
+    toast.success('URL do webhook copiada!');
   };
 
   const handleDelete = async (id: string, name: string) => {
@@ -288,6 +306,12 @@ export default function WaHubPage() {
                           </>
                         ) : (
                           <>
+                            <Button size="sm" variant="ghost" onClick={() => handleSetWebhook(inst.instance_name)} title="Cadastrar Webhook" className="h-7 w-7 p-0">
+                              <Link2 className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => handleCopyWebhookUrl(inst.instance_name)} title="Copiar URL do Webhook" className="h-7 w-7 p-0">
+                              <Copy className="w-3.5 h-3.5" />
+                            </Button>
                             <Button size="sm" variant="ghost" onClick={() => startEdit(inst)} className="h-7 w-7 p-0">
                               <Pencil className="w-3.5 h-3.5" />
                             </Button>
