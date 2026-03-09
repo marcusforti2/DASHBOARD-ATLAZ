@@ -258,8 +258,13 @@ export default function WaHubPage() {
             {selectedConv ? (
               <WaChatView
                 conversation={selectedConv}
+                messages={selectedMessages}
+                messagesLoading={messagesLoading}
                 onBack={() => setSelectedId(null)}
-                onSend={handleSend}
+                onSend={async (text) => {
+                  addOptimistic({ text });
+                  await handleSend(text);
+                }}
                 onSendMedia={handleSendMedia}
                 onSendAudio={handleSendAudio}
                 tags={tags}
