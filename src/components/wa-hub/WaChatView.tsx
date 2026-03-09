@@ -48,6 +48,42 @@ interface Props {
   showProfileButton?: boolean;
 }
 
+function AudioBubble({ mediaUrl }: { mediaUrl: string }) {
+  const [transcription, setTranscription] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleTranscribe = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-coach', {
+        body: {
+          messages: [{
+            role: 'user',
+            content: `Transcreva este áudio de WhatsApp. A URL do áudio é: ${mediaUrl}\n\nSe não conseguir acessar o áudio, responda: "Transcrição indisponível para este formato de áudio."\n\nTranscrição:`
+          }],
+        },
+      });
+      if (error) throw error;
+      setTranscription(data?.content || data?.message || 'Transcrição indisponível');
+    } catch {
+      setTranscription('Erro ao transcrever');
+    } finally { setLoading(false); }
+  };
+
+  return (
+    <div className="space-y-1">
+      <audio src={mediaUrl} controls className="max-w-full min-w-[200px]" preload="metadata" />
+      {transcription ? (
+        <p className="text-[10px] italic text-muted-foreground bg-background/50 rounded px-2 py-1">📝 {transcription}</p>
+      ) : (
+        <button onClick={handleTranscribe} disabled={loading} className="text-[9px] text-muted-foreground hover:text-foreground flex items-center gap-1 disabled:opacity-50">
+          {loading ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Sparkles className="w-2.5 h-2.5" />} Transcrever
+        </button>
+      )}
+    </div>
+  );
+}
+
 function MediaBubble({ mediaType, mediaUrl, mediaMime, text }: { mediaType: string; mediaUrl: string | null; mediaMime: string | null; text: string }) {
   if (!mediaUrl) return <p className="italic text-xs opacity-70">{text}</p>;
 
@@ -67,7 +103,7 @@ function MediaBubble({ mediaType, mediaUrl, mediaMime, text }: { mediaType: stri
         </div>
       );
     case 'audio':
-      return <audio src={mediaUrl} controls className="max-w-full min-w-[200px]" preload="metadata" />;
+      return <AudioBubble mediaUrl={mediaUrl} />;
     case 'sticker':
       return <img src={mediaUrl} alt="sticker" className="w-32 h-32 object-contain" />;
     case 'document':
