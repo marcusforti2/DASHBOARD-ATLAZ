@@ -164,8 +164,8 @@ export function WaUserPanel({ teamMemberId, memberName, memberRole }: Props) {
           { label: 'Não lidas', value: unreadCount, icon: AlertTriangle, color: unreadCount > 0 ? 'text-destructive' : 'text-muted-foreground', bg: unreadCount > 0 ? 'bg-destructive/10' : 'bg-muted' },
           { label: 'Lembretes pendentes', value: pendingReminders, icon: Clock, color: pendingReminders > 0 ? 'text-amber-500' : 'text-muted-foreground', bg: pendingReminders > 0 ? 'bg-amber-500/10' : 'bg-muted' },
           { label: 'Instâncias', value: myInstances.length, icon: TrendingUp, color: 'text-primary', bg: 'bg-primary/10' },
-        ].map(stat => (
-          <div key={stat.label} className="p-3 rounded-xl bg-card border border-border">
+        ].map((stat, i) => (
+          <div key={stat.label} className={`p-3 rounded-xl bg-card border border-border hover:border-primary/30 transition-all duration-200 animate-card-enter stagger-${i + 1}`}>
             <div className="flex items-center gap-2 mb-1">
               <div className={`w-7 h-7 rounded-lg ${stat.bg} flex items-center justify-center`}>
                 <stat.icon className={`w-3.5 h-3.5 ${stat.color}`} />

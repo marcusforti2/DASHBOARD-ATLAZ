@@ -312,16 +312,17 @@ export function CloserDailyDashboard({ teamMemberId, memberName, memberRole = "s
         </p>
 
         <div className="grid grid-cols-2 md:grid-cols-5 gap-2.5">
-          {roleMetrics.map(k => (
-            <MetricCard
-              key={k}
-              metricKey={k}
-              actual={currentActuals?.[k] || 0}
-              goal={currentGoals?.[k] || 0}
-              onIncrement={handleIncrement}
-              onDecrement={handleDecrement}
-              onOpenLeadSheet={handleOpenLeadSheet}
-            />
+          {roleMetrics.map((k, i) => (
+            <div key={k} className={`animate-card-enter stagger-${i + 1}`}>
+              <MetricCard
+                metricKey={k}
+                actual={currentActuals?.[k] || 0}
+                goal={currentGoals?.[k] || 0}
+                onIncrement={handleIncrement}
+                onDecrement={handleDecrement}
+                onOpenLeadSheet={handleOpenLeadSheet}
+              />
+            </div>
           ))}
         </div>
       </div>

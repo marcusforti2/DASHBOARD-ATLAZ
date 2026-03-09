@@ -305,7 +305,7 @@ export default function WaChatView({ conversation, messages, messagesLoading, on
               </div>
               <div className="space-y-2">
                 {group.msgs.map(msg => (
-                  <div key={msg.id} className={`flex ${msg.sender === 'agent' ? 'justify-end' : 'justify-start'}`}>
+                  <div key={msg.id} className={`flex ${msg.sender === 'agent' ? 'justify-end' : 'justify-start'} animate-msg-in`}>
                     <div className={`max-w-[70%] px-4 py-2.5 rounded-2xl text-sm shadow-sm ${
                       msg.sender === 'agent'
                         ? 'bg-primary text-primary-foreground rounded-br-md'
