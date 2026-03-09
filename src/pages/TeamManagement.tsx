@@ -711,9 +711,21 @@ function MemberCard({
                 </span>
               )}
             </div>
-            <span className={`text-[10px] font-medium ${member.active ? "text-accent" : "text-muted-foreground"}`}>
-              {member.active ? "● Ativo" : "○ Inativo"}
-            </span>
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className={`text-[10px] font-medium ${member.active ? "text-accent" : "text-muted-foreground"}`}>
+                {member.active ? "● Ativo" : "○ Inativo"}
+              </span>
+              {member.email && (
+                <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                  <Mail size={9} /> {member.email}
+                </span>
+              )}
+              {member.phone && (
+                <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                  <Phone size={9} /> {member.phone}
+                </span>
+              )}
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-1">
