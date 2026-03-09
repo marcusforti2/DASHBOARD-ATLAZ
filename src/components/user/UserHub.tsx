@@ -79,6 +79,8 @@ export function UserHub({ teamMemberId, memberName, memberRole, onSignOut }: Use
         );
       case "general-dashboard":
         return <AdminDashboard onSignOut={onSignOut} userName={memberName} />;
+      case "whatsapp":
+        return <WaUserPanel teamMemberId={teamMemberId} memberName={memberName} memberRole={memberRole} />;
       case "training":
         return <TrainingViewer memberRole={memberRole} />;
       case "calendar":
