@@ -15,11 +15,12 @@ import { WaInstancePanel } from '@/components/wa-hub/WaInstancePanel';
 import { WaCrmView } from '@/components/wa-hub/WaCrmView';
 import { WaLeadProfilePanel } from '@/components/wa-hub/WaLeadProfilePanel';
 import { AiSdrConfigPanel } from '@/components/wa-hub/AiSdrConfigPanel';
+import { AiSdrTab } from '@/components/wa-hub/AiSdrTab';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function WaHubPage() {
-  const [tab, setTab] = useState<'chat' | 'dashboard' | 'instances' | 'crm'>('chat');
+  const [tab, setTab] = useState<'chat' | 'dashboard' | 'instances' | 'crm' | 'ai-sdr'>('chat');
   const [instanceFilter, setInstanceFilter] = useState<string | null>(null);
   const { conversations, loading } = useWaConversations(instanceFilter);
   const { instances, refetch: refetchInstances } = useWaInstances();
@@ -238,6 +239,9 @@ export default function WaHubPage() {
           <TabsTrigger value="crm" className="text-xs gap-1.5">
             <Tag className="w-3.5 h-3.5" /> CRM
           </TabsTrigger>
+          <TabsTrigger value="ai-sdr" className="text-xs gap-1.5">
+            <Bot className="w-3.5 h-3.5" /> SDR IA
+          </TabsTrigger>
           <TabsTrigger value="instances" className="text-xs gap-1.5">
             <Wifi className="w-3.5 h-3.5" /> Instâncias
           </TabsTrigger>
@@ -337,6 +341,14 @@ export default function WaHubPage() {
             onRemoveTag={removeTag}
             onCreateTag={createTag}
             onDeleteTag={deleteTag}
+          />
+        </TabsContent>
+
+        <TabsContent value="ai-sdr" className="mt-4">
+          <AiSdrTab
+            instances={instances as any}
+            teamMembers={teamMembers}
+            onRefetch={refetchInstances}
           />
         </TabsContent>
 
