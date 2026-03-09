@@ -289,7 +289,7 @@ export function WaUserPanel({ teamMemberId, memberName, memberRole }: Props) {
                       <button
                         key={c.id}
                         onClick={() => { setSelectedId(c.id); setTab('chat'); }}
-                        className="w-full text-left p-2.5 rounded-lg bg-secondary/50 hover:bg-accent transition-colors border border-border/50"
+                        className="w-full text-left p-2.5 rounded-lg bg-secondary/50 hover:bg-accent hover:scale-[1.02] transition-all duration-200 border border-border/50"
                       >
                         <p className="text-xs font-medium text-foreground truncate">{c.contact.name}</p>
                         <p className="text-[10px] text-muted-foreground truncate">{c.last_message || c.contact.phone}</p>
