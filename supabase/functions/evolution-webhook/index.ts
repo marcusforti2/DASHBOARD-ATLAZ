@@ -184,9 +184,9 @@ serve(async (req) => {
           console.log('[webhook] AI SDR result:', JSON.stringify(aiResult).substring(0, 200));
         } catch (aiErr) {
           console.error('[webhook] AI SDR trigger failed:', aiErr);
-          // Don't fail the webhook if AI SDR fails
         }
       }
+    } // <-- close messages.upsert block
 
     if (event === 'connection.update') {
       const state = payload.data?.state;
