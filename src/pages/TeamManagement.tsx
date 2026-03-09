@@ -384,6 +384,36 @@ Faça login e comece a registrar suas métricas. Bora pra cima! 🚀`;
               </div>
             </>
           )}
+
+          {/* Email & Phone for editing */}
+          {isEditing && (
+            <>
+              <div>
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
+                  <Mail size={10} /> Email
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="email@exemplo.com"
+                  className="w-full rounded-xl border border-border bg-secondary px-3 py-2.5 text-sm text-secondary-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
+                  <Phone size={10} /> WhatsApp
+                </label>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={e => setPhone(e.target.value)}
+                  placeholder="(11) 99999-9999"
+                  className="w-full rounded-xl border border-border bg-secondary px-3 py-2.5 text-sm text-secondary-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all"
+                />
+              </div>
+            </>
+          )}
         </div>
 
         <div className="flex gap-2 mt-6">
