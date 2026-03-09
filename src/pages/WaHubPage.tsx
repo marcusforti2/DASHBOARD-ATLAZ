@@ -312,13 +312,14 @@ export default function WaHubPage() {
             ) : (
               instances.map(inst => {
                 const displayName = inst.instance_name.replace(/^wpp_/i, '').replace(/^\w/, (c: string) => c.toUpperCase());
-                const assignedMember = teamMembers.find(m => m.id === inst.closer_id);
+                const assignedCloser = teamMembers.find(m => m.id === inst.closer_id);
+                const assignedSdr = teamMembers.find(m => m.id === (inst as any).sdr_id);
                 const isEditing = editingId === inst.id;
 
                 return (
                   <div key={inst.id} className="rounded-xl bg-card border border-border p-4 space-y-3">
                     {/* Header row */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <Wifi className={`w-4 h-4 ${inst.is_connected ? 'text-primary' : 'text-muted-foreground'}`} />
                       <span className="text-sm font-semibold text-foreground">{displayName}</span>
                       <span className="text-[10px] font-mono text-muted-foreground">({inst.instance_name})</span>
@@ -326,14 +327,21 @@ export default function WaHubPage() {
                       {!isEditing && (
                         <>
                           {inst.phone && <span className="text-xs text-muted-foreground">· {inst.phone}</span>}
-                          {assignedMember && (
+                          {assignedSdr ? (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 font-medium flex items-center gap-1">
+                              <Users className="w-3 h-3" />
+                              SDR: {assignedSdr.name}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Sem SDR</span>
+                          )}
+                          {assignedCloser ? (
                             <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium flex items-center gap-1">
                               <UserPlus className="w-3 h-3" />
-                              {assignedMember.name}
+                              Closer: {assignedCloser.name}
                             </span>
-                          )}
-                          {!assignedMember && (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Sem closer</span>
+                          ) : (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Sem Closer</span>
                           )}
                         </>
                       )}
