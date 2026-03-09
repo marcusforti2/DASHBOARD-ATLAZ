@@ -54,3 +54,25 @@ export async function restartInstance(instanceName: string): Promise<void> {
 export async function sendText(instanceName: string, phone: string, text: string): Promise<void> {
   await callEvolutionApi('sendText', instanceName, { number: phone, text });
 }
+
+export function getWebhookUrl(instanceName?: string): string {
+  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'hnhykmvroeztyihoxpjc';
+  const base = `https://${projectId}.supabase.co/functions/v1/evolution-webhook`;
+  return instanceName ? `${base}?instance=${instanceName}` : base;
+}
+
+export async function setWebhook(instanceName: string): Promise<unknown> {
+  const webhookUrl = getWebhookUrl(instanceName);
+  return callEvolutionApi('setWebhook', instanceName, {
+    url: webhookUrl,
+    webhook_by_events: false,
+    webhook_base64: false,
+    events: [
+      'MESSAGES_UPSERT',
+      'MESSAGES_UPDATE',
+      'CONNECTION_UPDATE',
+      'CONTACTS_UPDATE',
+      'CHATS_UPDATE',
+    ],
+  });
+}
