@@ -16,7 +16,7 @@ import { WaCrmView } from '@/components/wa-hub/WaCrmView';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function WaHubPage() {
-  const [tab, setTab] = useState<'chat' | 'dashboard' | 'instances'>('chat');
+  const [tab, setTab] = useState<'chat' | 'dashboard' | 'instances' | 'crm'>('chat');
   const [instanceFilter, setInstanceFilter] = useState<string | null>(null);
   const { conversations, loading } = useWaConversations(instanceFilter);
   const { instances, refetch: refetchInstances } = useWaInstances();
