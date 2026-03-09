@@ -1,8 +1,9 @@
-import { useState } from 'react';
-import { ArrowLeft, Send, Loader2 } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { ArrowLeft, Send, Loader2, Image, Mic, Square, Paperclip } from 'lucide-react';
 import { WaConversation } from '@/hooks/use-wa-hub';
 import { WaContactTagBadges } from './WaContactTagBadges';
 import type { WaTag } from '@/hooks/use-wa-tags';
+import { supabase } from '@/integrations/supabase/client';
 
 const AVATAR_COLORS = ['152 60% 36%', '210 90% 50%', '280 65% 50%', '30 90% 50%', '0 72% 51%', '180 60% 40%'];
 
@@ -21,15 +22,62 @@ interface Props {
   conversation: WaConversation;
   onBack: () => void;
   onSend: (text: string) => Promise<void>;
+  onSendMedia?: (mediaType: string, mediaUrl: string, caption?: string) => Promise<void>;
+  onSendAudio?: (audioUrl: string) => Promise<void>;
   tags?: WaTag[];
   assignedTagIds?: string[];
   onAddTag?: (contactId: string, tagId: string) => Promise<void>;
   onRemoveTag?: (contactId: string, tagId: string) => Promise<void>;
 }
 
-export function WaChatView({ conversation, onBack, onSend, tags, assignedTagIds, onAddTag, onRemoveTag }: Props) {
+function MediaBubble({ mediaType, mediaUrl, mediaMime, text }: { mediaType: string; mediaUrl: string | null; mediaMime: string | null; text: string }) {
+  if (!mediaUrl) {
+    return <p className="italic text-xs opacity-70">{text}</p>;
+  }
+
+  switch (mediaType) {
+    case 'image':
+      return (
+        <div className="space-y-1">
+          <img src={mediaUrl} alt="imagem" className="rounded-lg max-w-full max-h-60 object-cover cursor-pointer" onClick={() => window.open(mediaUrl, '_blank')} />
+          {text && !text.startsWith('📷') && <p className="text-sm">{text}</p>}
+        </div>
+      );
+    case 'video':
+      return (
+        <div className="space-y-1">
+          <video src={mediaUrl} controls className="rounded-lg max-w-full max-h-60" />
+          {text && !text.startsWith('🎥') && <p className="text-sm">{text}</p>}
+        </div>
+      );
+    case 'audio':
+      return (
+        <audio src={mediaUrl} controls className="max-w-full min-w-[200px]" />
+      );
+    case 'sticker':
+      return (
+        <img src={mediaUrl} alt="sticker" className="w-32 h-32 object-contain" />
+      );
+    case 'document':
+      return (
+        <a href={mediaUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs underline">
+          <Paperclip className="w-3 h-3" />
+          {text || 'Documento'}
+        </a>
+      );
+    default:
+      return <p>{text}</p>;
+  }
+}
+
+export function WaChatView({ conversation, onBack, onSend, onSendMedia, onSendAudio, tags, assignedTagIds, onAddTag, onRemoveTag }: Props) {
   const [msgText, setMsgText] = useState('');
   const [sending, setSending] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSend = async () => {
     if (!msgText.trim()) return;
@@ -40,6 +88,91 @@ export function WaChatView({ conversation, onBack, onSend, tags, assignedTagIds,
     } finally {
       setSending(false);
     }
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !onSendMedia) return;
+    
+    try {
+      setUploadingMedia(true);
+      const ext = file.name.split('.').pop() || 'bin';
+      const filePath = `wa-media/${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
+      
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from('member-avatars') // reusing existing public bucket
+        .upload(filePath, file, { contentType: file.type });
+        
+      if (uploadError) throw uploadError;
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from('member-avatars')
+        .getPublicUrl(filePath);
+      
+      const isImage = file.type.startsWith('image/');
+      const isVideo = file.type.startsWith('video/');
+      const mediaType = isImage ? 'image' : isVideo ? 'video' : 'document';
+      
+      await onSendMedia(mediaType, publicUrl, '');
+    } catch (err) {
+      console.error('Error uploading media:', err);
+    } finally {
+      setUploadingMedia(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop());
+        if (!onSendAudio || audioChunksRef.current.length === 0) return;
+
+        try {
+          setSending(true);
+          const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          const filePath = `wa-audio/${Date.now()}_${Math.random().toString(36).substring(7)}.webm`;
+          
+          const { error: uploadError } = await supabase.storage
+            .from('member-avatars')
+            .upload(filePath, blob, { contentType: 'audio/webm' });
+          
+          if (uploadError) throw uploadError;
+          
+          const { data: { publicUrl } } = supabase.storage
+            .from('member-avatars')
+            .getPublicUrl(filePath);
+          
+          await onSendAudio(publicUrl);
+        } catch (err) {
+          console.error('Error sending audio:', err);
+        } finally {
+          setSending(false);
+        }
+      };
+
+      mediaRecorder.start();
+      setRecording(true);
+    } catch (err) {
+      console.error('Microphone access denied:', err);
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    }
+    setRecording(false);
   };
 
   return (
@@ -81,7 +214,16 @@ export function WaChatView({ conversation, onBack, onSend, tags, assignedTagIds,
                 ? 'bg-primary text-primary-foreground rounded-br-md'
                 : 'bg-muted text-foreground rounded-bl-md'
             }`}>
-              <p>{msg.text}</p>
+              {msg.media_type && msg.media_type !== 'location' && msg.media_type !== 'contact' ? (
+                <MediaBubble
+                  mediaType={msg.media_type}
+                  mediaUrl={msg.media_url}
+                  mediaMime={msg.media_mime_type}
+                  text={msg.text}
+                />
+              ) : (
+                <p>{msg.text}</p>
+              )}
               <p className={`text-[9px] mt-1 ${msg.sender === 'agent' ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
                 {formatTime(msg.created_at)}
               </p>
@@ -92,18 +234,54 @@ export function WaChatView({ conversation, onBack, onSend, tags, assignedTagIds,
 
       {/* Input */}
       <div className="px-5 py-3 border-t border-border bg-card shrink-0">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx"
+          className="hidden"
+          onChange={handleFileSelect}
+        />
         <div className="flex items-center gap-2">
+          {/* Attach media */}
+          {onSendMedia && (
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadingMedia || sending || recording}
+              className="p-2.5 rounded-xl text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
+              title="Enviar foto/vídeo/documento"
+            >
+              {uploadingMedia ? <Loader2 className="w-4 h-4 animate-spin" /> : <Image className="w-4 h-4" />}
+            </button>
+          )}
+
+          {/* Audio record */}
+          {onSendAudio && (
+            <button
+              onClick={recording ? stopRecording : startRecording}
+              disabled={sending || uploadingMedia}
+              className={`p-2.5 rounded-xl transition-colors ${
+                recording 
+                  ? 'bg-destructive text-destructive-foreground animate-pulse' 
+                  : 'text-muted-foreground hover:bg-muted'
+              } disabled:opacity-50`}
+              title={recording ? 'Parar gravação' : 'Gravar áudio'}
+            >
+              {recording ? <Square className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            </button>
+          )}
+
           <input
             type="text"
             value={msgText}
             onChange={e => setMsgText(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
-            placeholder="Digite uma mensagem..."
-            className="flex-1 px-4 py-2.5 rounded-xl bg-secondary text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            placeholder={recording ? '🔴 Gravando áudio...' : 'Digite uma mensagem...'}
+            disabled={recording}
+            className="flex-1 px-4 py-2.5 rounded-xl bg-secondary text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
           />
           <button
             onClick={handleSend}
-            disabled={sending || !msgText.trim()}
+            disabled={sending || !msgText.trim() || recording}
             className="p-2.5 rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
           >
             {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
