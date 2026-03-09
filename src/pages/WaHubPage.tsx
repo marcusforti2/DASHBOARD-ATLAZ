@@ -88,6 +88,7 @@ export default function WaHubPage() {
     toast.success('URL do webhook copiada!');
   };
 
+  const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Tem certeza que deseja excluir a instância "${name}"?`)) return;
     const { error } = await supabase.from('wa_instances').delete().eq('id', id);
     if (error) { toast.error('Erro ao excluir'); return; }
