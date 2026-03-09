@@ -328,7 +328,7 @@ export default function WaHubPage() {
                         <>
                           {inst.phone && <span className="text-xs text-muted-foreground">· {inst.phone}</span>}
                           {assignedSdr ? (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 font-medium flex items-center gap-1">
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent text-accent-foreground font-medium flex items-center gap-1">
                               <Users className="w-3 h-3" />
                               SDR: {assignedSdr.name}
                             </span>
