@@ -210,6 +210,10 @@ export default function WaHubPage() {
                 conversation={selectedConv}
                 onBack={() => setSelectedId(null)}
                 onSend={handleSend}
+                tags={tags}
+                assignedTagIds={getTagsForContact(selectedConv.contact.id).map(t => t.tag_id)}
+                onAddTag={addTag}
+                onRemoveTag={removeTag}
               />
             ) : (
               <div className="flex-1 flex items-center justify-center">
