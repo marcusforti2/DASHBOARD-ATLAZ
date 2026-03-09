@@ -360,6 +360,10 @@ export default function WaHubPage() {
           />
         </TabsContent>
 
+        <TabsContent value="ai-prompts" className="mt-4">
+          <AiPromptsTab />
+        </TabsContent>
+
         <TabsContent value="pipedrive" className="mt-4">
           <PipedriveTab />
         </TabsContent>
