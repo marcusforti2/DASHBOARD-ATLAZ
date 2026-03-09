@@ -49,6 +49,9 @@ export default function WaHubPage() {
       setCreating(true);
       try { await createInstance(instanceName); } catch { /* continue */ }
 
+      // Auto-register webhook
+      try { await setWebhook(instanceName); } catch { /* continue */ }
+
       const { error } = await supabase.from('wa_instances').insert({
         instance_name: instanceName,
         phone: newPhone.trim() || null,
@@ -57,7 +60,7 @@ export default function WaHubPage() {
       });
       if (error) throw error;
 
-      toast.success(`Instância "${instanceName}" criada!`);
+      toast.success(`Instância "${instanceName}" criada com webhook!`);
       setNewName('');
       setNewPhone('');
       setNewCloserId('none');
