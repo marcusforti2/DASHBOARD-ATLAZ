@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { createInstance, setWebhook, getWebhookUrl } from '@/lib/evolutionApi';
+import { createInstance, setWebhook, getWebhookUrl, sendMedia, sendAudio } from '@/lib/evolutionApi';
 import { WaConversationList } from '@/components/wa-hub/WaConversationList';
 import { WaChatView } from '@/components/wa-hub/WaChatView';
 import { WaDashboard } from '@/components/wa-hub/WaDashboard';
