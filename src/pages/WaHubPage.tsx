@@ -501,6 +501,15 @@ export default function WaHubPage() {
                       </div>
                     )}
 
+                    {/* AI SDR Config */}
+                    <AiSdrConfigPanel
+                      instanceId={inst.id}
+                      instanceName={inst.instance_name}
+                      aiSdrEnabled={(inst as any).ai_sdr_enabled || false}
+                      aiSdrConfig={(inst as any).ai_sdr_config || {}}
+                      onUpdate={refetchInstances}
+                    />
+
                     {/* Connection panel */}
                     <WaInstancePanel instanceName={inst.instance_name} closerName={displayName} />
                   </div>
