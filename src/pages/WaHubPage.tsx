@@ -306,6 +306,12 @@ export default function WaHubPage() {
                           </>
                         ) : (
                           <>
+                            <Button size="sm" variant="ghost" onClick={() => handleSetWebhook(inst.instance_name)} title="Cadastrar Webhook" className="h-7 w-7 p-0">
+                              <Link2 className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => handleCopyWebhookUrl(inst.instance_name)} title="Copiar URL do Webhook" className="h-7 w-7 p-0">
+                              <Copy className="w-3.5 h-3.5" />
+                            </Button>
                             <Button size="sm" variant="ghost" onClick={() => startEdit(inst)} className="h-7 w-7 p-0">
                               <Pencil className="w-3.5 h-3.5" />
                             </Button>
