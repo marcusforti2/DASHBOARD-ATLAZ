@@ -911,25 +911,31 @@ export type Database = {
           active: boolean
           avatar_url: string | null
           created_at: string
+          email: string | null
           id: string
           member_role: string
           name: string
+          phone: string | null
         }
         Insert: {
           active?: boolean
           avatar_url?: string | null
           created_at?: string
+          email?: string | null
           id?: string
           member_role?: string
           name: string
+          phone?: string | null
         }
         Update: {
           active?: boolean
           avatar_url?: string | null
           created_at?: string
+          email?: string | null
           id?: string
           member_role?: string
           name?: string
+          phone?: string | null
         }
         Relationships: []
       }
