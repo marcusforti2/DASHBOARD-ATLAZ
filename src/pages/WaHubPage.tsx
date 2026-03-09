@@ -199,6 +199,10 @@ export default function WaHubPage() {
               onSelect={setSelectedId}
               instanceFilter={instanceFilter}
               onInstanceFilter={setInstanceFilter}
+              tags={tags}
+              getTagsForContact={(cid) => getTagsForContact(cid)}
+              onAddTag={addTag}
+              onRemoveTag={removeTag}
             />
 
             {selectedConv ? (
