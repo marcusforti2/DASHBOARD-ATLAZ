@@ -1,5 +1,7 @@
 import { Loader2 } from 'lucide-react';
 import { WaConversation, WaInstance } from '@/hooks/use-wa-hub';
+import { WaContactTagBadges } from './WaContactTagBadges';
+import type { WaTag } from '@/hooks/use-wa-tags';
 
 const AVATAR_COLORS = ['152 60% 36%', '210 90% 50%', '280 65% 50%', '30 90% 50%', '0 72% 51%', '180 60% 40%'];
 
