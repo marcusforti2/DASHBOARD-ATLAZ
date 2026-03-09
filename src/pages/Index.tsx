@@ -240,6 +240,8 @@ export default function Index() {
         return <SettingsPage />;
       case "whatsapp":
         return <WhatsAppPage />;
+      case "wa-hub":
+        return <WaHubPage />;
       case "popups":
         return <AdminPopupsPage />;
       case "knowledge":
