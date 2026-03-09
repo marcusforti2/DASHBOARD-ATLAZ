@@ -27,7 +27,7 @@ interface Props {
   onRemoveTag?: (contactId: string, tagId: string) => Promise<void>;
 }
 
-export function WaChatView({ conversation, onBack, onSend }: Props) {
+export function WaChatView({ conversation, onBack, onSend, tags, assignedTagIds, onAddTag, onRemoveTag }: Props) {
   const [msgText, setMsgText] = useState('');
   const [sending, setSending] = useState(false);
 
