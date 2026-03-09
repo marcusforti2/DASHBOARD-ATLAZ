@@ -25,6 +25,7 @@ export default function WaHubPage() {
   const { tags, createTag, deleteTag } = useWaTags();
   const { getTagsForContact, addTag, removeTag } = useWaContactTags();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showProfile, setShowProfile] = useState(false);
   const { messages: selectedMessages, loading: messagesLoading, addOptimistic } = useWaMessages(selectedId);
   // Create instance form
   const [showCreate, setShowCreate] = useState(false);
