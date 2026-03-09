@@ -20,6 +20,8 @@ export default function WaHubPage() {
   const [instanceFilter, setInstanceFilter] = useState<string | null>(null);
   const { conversations, loading } = useWaConversations(instanceFilter);
   const { instances, refetch: refetchInstances } = useWaInstances();
+  const { tags, createTag, deleteTag } = useWaTags();
+  const { getTagsForContact, addTag, removeTag } = useWaContactTags();
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   // Create instance form
