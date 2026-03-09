@@ -210,7 +210,7 @@ export function CloserDailyDashboard({ teamMemberId, memberName, memberRole = "s
   return (
     <div className="max-w-3xl mx-auto space-y-5 animate-fade-in">
       {/* Hero Header */}
-      <div className="rounded-2xl border border-border bg-gradient-to-br from-card to-secondary/30 p-6 relative overflow-hidden">
+      <div className="rounded-2xl border border-border bg-gradient-to-br from-card to-secondary/30 p-6 relative overflow-hidden animate-slide-up">
         <div className="absolute top-0 right-0 w-40 h-40 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
         <div className="relative flex items-start justify-between">
           <div>
