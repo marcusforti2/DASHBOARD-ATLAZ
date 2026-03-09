@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useWaConversations, useWaInstances } from '@/hooks/use-wa-hub';
 import { supabase } from '@/integrations/supabase/client';
-import { Shield, Eye, Users, Loader2, MessageSquare, Wifi, Plus } from 'lucide-react';
+import { Shield, Eye, Users, Loader2, MessageSquare, Wifi, Plus, Trash2, Pencil, Check, X, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -28,12 +28,17 @@ export default function WaHubPage() {
   const [creating, setCreating] = useState(false);
   const [teamMembers, setTeamMembers] = useState<{ id: string; name: string }[]>([]);
 
-  // Load team members for closer assignment
-  useState(() => {
+  // Edit state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editPhone, setEditPhone] = useState('');
+  const [editCloserId, setEditCloserId] = useState('none');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
     supabase.from('team_members').select('id, name').eq('active', true).then(({ data }) => {
       setTeamMembers(data ?? []);
     });
-  });
+  }, []);
 
   const handleCreateInstance = async () => {
     const name = newName.trim();
@@ -42,15 +47,8 @@ export default function WaHubPage() {
     
     try {
       setCreating(true);
-      
-      // Try creating on Evolution API first (may fail if no API configured)
-      try {
-        await createInstance(instanceName);
-      } catch {
-        // Continue — just register locally
-      }
+      try { await createInstance(instanceName); } catch { /* continue */ }
 
-      // Register in database
       const { error } = await supabase.from('wa_instances').insert({
         instance_name: instanceName,
         phone: newPhone.trim() || null,
@@ -70,6 +68,39 @@ export default function WaHubPage() {
     } finally {
       setCreating(false);
     }
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Tem certeza que deseja excluir a instância "${name}"?`)) return;
+    const { error } = await supabase.from('wa_instances').delete().eq('id', id);
+    if (error) { toast.error('Erro ao excluir'); return; }
+    toast.success(`Instância "${name}" excluída`);
+    refetchInstances();
+  };
+
+  const startEdit = (inst: any) => {
+    setEditingId(inst.id);
+    setEditPhone(inst.phone || '');
+    setEditCloserId(inst.closer_id || 'none');
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditPhone('');
+    setEditCloserId('none');
+  };
+
+  const handleSaveEdit = async (id: string) => {
+    setSaving(true);
+    const { error } = await supabase.from('wa_instances').update({
+      phone: editPhone.trim() || null,
+      closer_id: editCloserId !== 'none' ? editCloserId : null,
+    }).eq('id', id);
+    setSaving(false);
+    if (error) { toast.error('Erro ao salvar'); return; }
+    toast.success('Instância atualizada');
+    cancelEdit();
+    refetchInstances();
   };
 
   const selectedConv = conversations.find(c => c.id === selectedId);
@@ -184,33 +215,19 @@ export default function WaHubPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">Nome da Instância *</label>
-                    <Input
-                      placeholder="Ex: closer_joao"
-                      value={newName}
-                      onChange={e => setNewName(e.target.value)}
-                      className="h-9 text-sm"
-                    />
+                    <Input placeholder="Ex: closer_joao" value={newName} onChange={e => setNewName(e.target.value)} className="h-9 text-sm" />
                   </div>
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">Telefone (opcional)</label>
-                    <Input
-                      placeholder="5511999999999"
-                      value={newPhone}
-                      onChange={e => setNewPhone(e.target.value)}
-                      className="h-9 text-sm"
-                    />
+                    <Input placeholder="5511999999999" value={newPhone} onChange={e => setNewPhone(e.target.value)} className="h-9 text-sm" />
                   </div>
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">Vincular ao Closer</label>
                     <Select value={newCloserId} onValueChange={setNewCloserId}>
-                      <SelectTrigger className="h-9 text-sm">
-                        <SelectValue placeholder="Nenhum" />
-                      </SelectTrigger>
+                      <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Nenhum" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">Nenhum</SelectItem>
-                        {teamMembers.map(m => (
-                          <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                        ))}
+                        {teamMembers.map(m => (<SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -232,22 +249,77 @@ export default function WaHubPage() {
               </div>
             ) : (
               instances.map(inst => {
-                const displayName = inst.instance_name
-                  .replace(/^wpp_/i, '')
-                  .replace(/^\w/, c => c.toUpperCase());
+                const displayName = inst.instance_name.replace(/^wpp_/i, '').replace(/^\w/, (c: string) => c.toUpperCase());
                 const assignedMember = teamMembers.find(m => m.id === inst.closer_id);
+                const isEditing = editingId === inst.id;
+
                 return (
-                  <div key={inst.id} className="rounded-xl bg-card border border-border p-4">
-                    <div className="flex items-center gap-2 mb-3">
+                  <div key={inst.id} className="rounded-xl bg-card border border-border p-4 space-y-3">
+                    {/* Header row */}
+                    <div className="flex items-center gap-2">
                       <Wifi className={`w-4 h-4 ${inst.is_connected ? 'text-primary' : 'text-muted-foreground'}`} />
                       <span className="text-sm font-semibold text-foreground">{displayName}</span>
-                      {inst.phone && <span className="text-xs text-muted-foreground">· {inst.phone}</span>}
-                      {assignedMember && (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-                          {assignedMember.name}
-                        </span>
+                      <span className="text-[10px] font-mono text-muted-foreground">({inst.instance_name})</span>
+                      
+                      {!isEditing && (
+                        <>
+                          {inst.phone && <span className="text-xs text-muted-foreground">· {inst.phone}</span>}
+                          {assignedMember && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium flex items-center gap-1">
+                              <UserPlus className="w-3 h-3" />
+                              {assignedMember.name}
+                            </span>
+                          )}
+                          {!assignedMember && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Sem closer</span>
+                          )}
+                        </>
                       )}
+
+                      <div className="ml-auto flex items-center gap-1">
+                        {isEditing ? (
+                          <>
+                            <Button size="sm" variant="ghost" onClick={cancelEdit} className="h-7 w-7 p-0">
+                              <X className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => handleSaveEdit(inst.id)} disabled={saving} className="h-7 w-7 p-0 text-primary">
+                              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button size="sm" variant="ghost" onClick={() => startEdit(inst)} className="h-7 w-7 p-0">
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => handleDelete(inst.id, inst.instance_name)} className="h-7 w-7 p-0 text-destructive hover:text-destructive">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
                     </div>
+
+                    {/* Edit row */}
+                    {isEditing && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-6">
+                        <div>
+                          <label className="text-xs text-muted-foreground mb-1 block">Telefone</label>
+                          <Input value={editPhone} onChange={e => setEditPhone(e.target.value)} placeholder="5511999999999" className="h-8 text-sm" />
+                        </div>
+                        <div>
+                          <label className="text-xs text-muted-foreground mb-1 block">Closer vinculado</label>
+                          <Select value={editCloserId} onValueChange={setEditCloserId}>
+                            <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Nenhum</SelectItem>
+                              {teamMembers.map(m => (<SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Connection panel */}
                     <WaInstancePanel instanceName={inst.instance_name} closerName={displayName} />
                   </div>
                 );
