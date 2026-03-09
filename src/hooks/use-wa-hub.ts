@@ -8,6 +8,8 @@ export interface WaInstance {
   sdr_id: string | null;
   phone: string | null;
   is_connected: boolean;
+  ai_sdr_enabled?: boolean;
+  ai_sdr_config?: any;
 }
 
 export interface WaContact {
