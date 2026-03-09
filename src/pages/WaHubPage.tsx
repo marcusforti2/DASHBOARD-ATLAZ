@@ -115,6 +115,7 @@ export default function WaHubPage() {
     setEditingId(null);
     setEditPhone('');
     setEditCloserId('none');
+    setEditSdrId('none');
   };
 
   const handleSaveEdit = async (id: string) => {
