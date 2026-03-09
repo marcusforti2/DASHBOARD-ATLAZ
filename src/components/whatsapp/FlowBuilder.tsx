@@ -20,7 +20,7 @@ import { toast } from "sonner";
 import {
   Zap, Plus, Sparkles, Save, Trash2, Play, Copy,
   ToggleLeft, ToggleRight, Loader2, Bot,
-  Maximize2, Minimize2, Smartphone, X,
+  Maximize2, Minimize2, Smartphone, X, MessageCircle,
 } from "lucide-react";
 import { nodeTypes, NODE_REGISTRY, type FlowNodeType, type FlowNodeData } from "./flow-nodes";
 import NodeEditor from "./NodeEditor";
