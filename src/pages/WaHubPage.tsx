@@ -181,6 +181,9 @@ export default function WaHubPage() {
           <TabsTrigger value="dashboard" className="text-xs gap-1.5">
             <Eye className="w-3.5 h-3.5" /> Dashboard
           </TabsTrigger>
+          <TabsTrigger value="crm" className="text-xs gap-1.5">
+            <Tag className="w-3.5 h-3.5" /> CRM
+          </TabsTrigger>
           <TabsTrigger value="instances" className="text-xs gap-1.5">
             <Wifi className="w-3.5 h-3.5" /> Instâncias
           </TabsTrigger>
