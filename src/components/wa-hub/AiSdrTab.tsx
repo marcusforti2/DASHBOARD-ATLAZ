@@ -19,6 +19,7 @@ interface AiSdrConfig {
   max_messages_before_handoff: number;
   business_hours_only: boolean;
   prompt_context: string;
+  master_prompt: string;
   // Granular feature toggles
   feature_auto_reply: boolean;
   feature_auto_tag: boolean;
@@ -45,6 +46,7 @@ const DEFAULT_CONFIG: AiSdrConfig = {
   max_messages_before_handoff: 10,
   business_hours_only: false,
   prompt_context: "",
+  master_prompt: "",
   feature_auto_reply: true,
   feature_auto_tag: true,
   feature_qualification: true,
