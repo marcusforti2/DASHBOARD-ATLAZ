@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useWaConversations, useWaInstances } from '@/hooks/use-wa-hub';
 import { supabase } from '@/integrations/supabase/client';
-import { Shield, Eye, Users, Loader2, MessageSquare, Wifi, Plus, Trash2, Pencil, Check, X, UserPlus } from 'lucide-react';
+import { Shield, Eye, Users, Loader2, MessageSquare, Wifi, Plus, Trash2, Pencil, Check, X, UserPlus, Link2, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
