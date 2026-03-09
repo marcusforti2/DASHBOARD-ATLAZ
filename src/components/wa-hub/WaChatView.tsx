@@ -55,9 +55,20 @@ export function WaChatView({ conversation, onBack, onSend, tags, assignedTagIds,
         >
           {conversation.contact.name.charAt(0).toUpperCase()}
         </div>
-        <div>
+        <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-foreground">{conversation.contact.name}</p>
-          <p className="text-[10px] text-muted-foreground">{conversation.contact.phone}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-[10px] text-muted-foreground">{conversation.contact.phone}</p>
+            {tags && assignedTagIds && onAddTag && onRemoveTag && (
+              <WaContactTagBadges
+                contactId={conversation.contact.id}
+                assignedTagIds={assignedTagIds}
+                allTags={tags}
+                onAdd={onAddTag}
+                onRemove={onRemoveTag}
+              />
+            )}
+          </div>
         </div>
       </div>
 
