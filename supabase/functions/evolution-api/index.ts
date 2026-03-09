@@ -112,6 +112,77 @@ serve(async (req) => {
       });
     }
 
+    // After successful sendText, save the sent message to the database
+    if (action === 'sendText' && data?.number && data?.text) {
+      try {
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+        const sb = createClient(supabaseUrl, supabaseKey);
+
+        const { data: inst } = await sb
+          .from('wa_instances')
+          .select('id')
+          .eq('instance_name', instanceName)
+          .single();
+
+        if (inst) {
+          const phone = data.number.replace(/\D/g, '');
+
+          let { data: contact } = await sb
+            .from('wa_contacts')
+            .select('id')
+            .eq('phone', phone)
+            .eq('instance_id', inst.id)
+            .single();
+
+          if (!contact) {
+            const { data: newContact } = await sb
+              .from('wa_contacts')
+              .insert({ phone, instance_id: inst.id, name: phone })
+              .select('id')
+              .single();
+            contact = newContact;
+          }
+
+          if (contact) {
+            let { data: conv } = await sb
+              .from('wa_conversations')
+              .select('id')
+              .eq('contact_id', contact.id)
+              .eq('instance_id', inst.id)
+              .single();
+
+            if (!conv) {
+              const { data: newConv } = await sb
+                .from('wa_conversations')
+                .insert({ contact_id: contact.id, instance_id: inst.id, status: 'active', lead_status: 'new' })
+                .select('id')
+                .single();
+              conv = newConv;
+            }
+
+            if (conv) {
+              await sb.from('wa_messages').insert({
+                conversation_id: conv.id,
+                instance_id: inst.id,
+                sender: 'agent',
+                text: data.text,
+              });
+
+              await sb.from('wa_conversations').update({
+                last_message: data.text,
+                last_message_at: new Date().toISOString(),
+              }).eq('id', conv.id);
+
+              console.log(`[evolution-api] Sent message saved to DB for conv ${conv.id}`);
+            }
+          }
+        }
+      } catch (dbErr) {
+        console.error('[evolution-api] Error saving sent message to DB:', dbErr);
+      }
+    }
+
     return new Response(JSON.stringify(responseData), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
