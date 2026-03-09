@@ -19,6 +19,13 @@ interface AiSdrConfig {
   max_messages_before_handoff: number;
   business_hours_only: boolean;
   prompt_context: string;
+  // Granular feature toggles
+  feature_auto_reply: boolean;
+  feature_auto_tag: boolean;
+  feature_qualification: boolean;
+  feature_handoff: boolean;
+  feature_sentiment: boolean;
+  feature_pipedrive_sync: boolean;
 }
 
 interface Instance {
@@ -38,6 +45,12 @@ const DEFAULT_CONFIG: AiSdrConfig = {
   max_messages_before_handoff: 10,
   business_hours_only: false,
   prompt_context: "",
+  feature_auto_reply: true,
+  feature_auto_tag: true,
+  feature_qualification: true,
+  feature_handoff: true,
+  feature_sentiment: false,
+  feature_pipedrive_sync: false,
 };
 
 const TONES = [
@@ -47,13 +60,13 @@ const TONES = [
   { value: "energetico", label: "Energético", emoji: "⚡", desc: "Empolgante e ativo" },
 ];
 
-const CAPABILITIES = [
-  { icon: MessageSquare, title: "Resposta automática", desc: "Responde leads em tempo real 24h" },
-  { icon: Tag, title: "Auto-etiquetas", desc: "Classifica leads por estágio automaticamente" },
-  { icon: TrendingUp, title: "Qualificação", desc: "Identifica leads quentes com perguntas inteligentes" },
-  { icon: ArrowRight, title: "Handoff inteligente", desc: "Transfere para humano no momento certo" },
-  { icon: Brain, title: "Contexto da empresa", desc: "Usa sua base de conhecimento nas respostas" },
-  { icon: Shield, title: "Identidade humana", desc: "Nunca revela que é IA para o lead" },
+const FEATURES = [
+  { key: "feature_auto_reply" as const, icon: MessageSquare, title: "Resposta automática", desc: "Responde leads em tempo real 24h com IA", color: "text-blue-500" },
+  { key: "feature_auto_tag" as const, icon: Tag, title: "Auto-etiquetas", desc: "Classifica leads por estágio automaticamente (novo, qualificado, etc)", color: "text-yellow-500" },
+  { key: "feature_qualification" as const, icon: TrendingUp, title: "Qualificação inteligente", desc: "Faz perguntas estratégicas para identificar leads quentes", color: "text-green-500" },
+  { key: "feature_handoff" as const, icon: ArrowRight, title: "Handoff para humano", desc: "Transfere a conversa para o closer/SDR no momento certo", color: "text-orange-500" },
+  { key: "feature_sentiment" as const, icon: Brain, title: "Análise de sentimento", desc: "Detecta frustração, urgência e risco de perda em tempo real", color: "text-purple-500" },
+  { key: "feature_pipedrive_sync" as const, icon: Zap, title: "Sync Pipedrive", desc: "Cria/atualiza deals e contatos no Pipedrive automaticamente", color: "text-primary" },
 ];
 
 interface Props {
@@ -179,20 +192,48 @@ export function AiSdrTab({ instances, teamMembers, onRefetch }: Props) {
       </div>
 
       {/* What does the AI SDR do */}
+      {/* Feature Toggles - always visible */}
       <div>
         <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
-          <Zap className="w-4 h-4 text-primary" />
-          O que a SDR IA faz?
+          <Settings2 className="w-4 h-4 text-primary" />
+          Funcionalidades do Agente
         </h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {CAPABILITIES.map((cap, i) => (
-            <div key={i} className="rounded-xl border border-border bg-card p-3 hover:border-primary/30 transition-colors">
-              <cap.icon className="w-4 h-4 text-primary mb-2" />
-              <p className="text-xs font-bold text-foreground">{cap.title}</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">{cap.desc}</p>
-            </div>
-          ))}
+        <p className="text-xs text-muted-foreground mb-3">Escolha exatamente o que a SDR IA deve fazer. Ative e desative cada capacidade individualmente.</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {FEATURES.map((feat) => {
+            const isOn = selectedInstance ? (localConfig[feat.key] ?? true) : false;
+            return (
+              <button
+                key={feat.key}
+                onClick={() => selectedInstance && update(feat.key, !isOn)}
+                disabled={!selectedInstance}
+                className={`relative flex items-start gap-3 p-4 rounded-xl border text-left transition-all ${
+                  isOn
+                    ? "border-primary/40 bg-primary/5 shadow-sm"
+                    : "border-border bg-card opacity-70 hover:opacity-100"
+                } ${!selectedInstance ? "cursor-not-allowed" : "cursor-pointer hover:border-primary/30"}`}
+              >
+                <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${isOn ? "bg-primary/15" : "bg-muted"}`}>
+                  <feat.icon className={`w-4.5 h-4.5 ${isOn ? feat.color : "text-muted-foreground"}`} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className={`text-xs font-bold ${isOn ? "text-foreground" : "text-muted-foreground"}`}>{feat.title}</p>
+                    {isOn ? (
+                      <ToggleRight className="w-5 h-5 text-primary shrink-0" />
+                    ) : (
+                      <ToggleLeft className="w-5 h-5 text-muted-foreground shrink-0" />
+                    )}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed">{feat.desc}</p>
+                </div>
+              </button>
+            );
+          })}
         </div>
+        {!selectedInstance && (
+          <p className="text-[10px] text-muted-foreground mt-2 text-center">Selecione uma instância abaixo para configurar as funcionalidades.</p>
+        )}
       </div>
 
       {/* Flow diagram */}
@@ -346,41 +387,26 @@ export function AiSdrTab({ instances, teamMembers, onRefetch }: Props) {
                   </p>
                 </div>
 
-                {/* Handoff + toggles */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-2">
-                      <Users className="w-3.5 h-3.5" /> Transferir após
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        min={3}
-                        max={50}
-                        value={localConfig.max_messages_before_handoff}
-                        onChange={e => update("max_messages_before_handoff", parseInt(e.target.value) || 10)}
-                        className="h-9 w-20 text-sm"
-                      />
-                      <span className="text-xs text-muted-foreground">mensagens da IA</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-end">
-                    <button
-                      onClick={() => update("auto_tag", !localConfig.auto_tag)}
-                      className="flex items-center gap-2 text-sm text-foreground hover:text-primary transition-colors p-2 rounded-lg"
-                    >
-                      {localConfig.auto_tag ? (
-                        <ToggleRight className="w-6 h-6 text-primary" />
-                      ) : (
-                        <ToggleLeft className="w-6 h-6 text-muted-foreground" />
-                      )}
-                      <div className="text-left">
-                        <p className="text-xs font-bold">🏷️ Auto-etiquetas</p>
-                        <p className="text-[10px] text-muted-foreground">IA muda tags sozinha</p>
+                {/* Handoff + business hours */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {localConfig.feature_handoff && (
+                    <div>
+                      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-2">
+                        <Users className="w-3.5 h-3.5" /> Transferir após
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min={3}
+                          max={50}
+                          value={localConfig.max_messages_before_handoff}
+                          onChange={e => update("max_messages_before_handoff", parseInt(e.target.value) || 10)}
+                          className="h-9 w-20 text-sm"
+                        />
+                        <span className="text-xs text-muted-foreground">mensagens da IA</span>
                       </div>
-                    </button>
-                  </div>
+                    </div>
+                  )}
 
                   <div className="flex items-end">
                     <button
