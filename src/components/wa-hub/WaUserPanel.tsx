@@ -327,7 +327,7 @@ export function WaUserPanel({ teamMemberId, memberName, memberRole }: Props) {
                 {reminders.map(r => {
                   const isPast = new Date(r.remind_at) <= new Date();
                   return (
-                    <div key={r.id} className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${isPast ? 'border-amber-500/50 bg-amber-500/5' : 'border-border bg-secondary/30'}`}>
+                    <div key={r.id} className={`flex items-center gap-3 p-3 rounded-lg border transition-all duration-200 hover:scale-[1.01] ${isPast ? 'border-amber-500/50 bg-amber-500/5' : 'border-border bg-secondary/30'}`}>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium text-foreground truncate">
                           {(r as any).contact?.name || 'Contato'}
