@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useWaConversations, useWaInstances } from '@/hooks/use-wa-hub';
+import { useWaConversations, useWaInstances, useWaMessages } from '@/hooks/use-wa-hub';
 import { useWaTags, useWaContactTags } from '@/hooks/use-wa-tags';
 import { supabase } from '@/integrations/supabase/client';
 import { Shield, Eye, Users, Loader2, MessageSquare, Wifi, Plus, Trash2, Pencil, Check, X, UserPlus, Link2, Copy, Tag } from 'lucide-react';
@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { createInstance, setWebhook, getWebhookUrl, sendMedia, sendAudio } from '@/lib/evolutionApi';
 import { WaConversationList } from '@/components/wa-hub/WaConversationList';
-import { WaChatView } from '@/components/wa-hub/WaChatView';
+import WaChatView from '@/components/wa-hub/WaChatView';
 import { WaDashboard } from '@/components/wa-hub/WaDashboard';
 import { WaInstancePanel } from '@/components/wa-hub/WaInstancePanel';
 import { WaCrmView } from '@/components/wa-hub/WaCrmView';
@@ -23,7 +23,7 @@ export default function WaHubPage() {
   const { tags, createTag, deleteTag } = useWaTags();
   const { getTagsForContact, addTag, removeTag } = useWaContactTags();
   const [selectedId, setSelectedId] = useState<string | null>(null);
-
+  const { messages: selectedMessages, loading: messagesLoading, addOptimistic } = useWaMessages(selectedId);
   // Create instance form
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
@@ -258,8 +258,13 @@ export default function WaHubPage() {
             {selectedConv ? (
               <WaChatView
                 conversation={selectedConv}
+                messages={selectedMessages}
+                messagesLoading={messagesLoading}
                 onBack={() => setSelectedId(null)}
-                onSend={handleSend}
+                onSend={async (text) => {
+                  addOptimistic({ text });
+                  await handleSend(text);
+                }}
                 onSendMedia={handleSendMedia}
                 onSendAudio={handleSendAudio}
                 tags={tags}
