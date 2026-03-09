@@ -29,8 +29,9 @@ export default function WaHubPage() {
   const [newName, setNewName] = useState('');
   const [newPhone, setNewPhone] = useState('');
   const [newCloserId, setNewCloserId] = useState<string>('none');
+  const [newSdrId, setNewSdrId] = useState<string>('none');
   const [creating, setCreating] = useState(false);
-  const [teamMembers, setTeamMembers] = useState<{ id: string; name: string }[]>([]);
+  const [teamMembers, setTeamMembers] = useState<{ id: string; name: string; member_role: string }[]>([]);
 
   // Edit state
   const [editingId, setEditingId] = useState<string | null>(null);
