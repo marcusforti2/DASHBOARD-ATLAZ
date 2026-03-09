@@ -90,6 +90,20 @@ export default function WaHubPage() {
     }
   };
 
+  const handleReconfigureAllWebhooks = async () => {
+    let ok = 0, fail = 0;
+    toast.info('Reconfigurando webhooks de todas as instâncias...');
+    for (const inst of instances) {
+      try {
+        await setWebhook(inst.instance_name);
+        ok++;
+      } catch {
+        fail++;
+      }
+    }
+    toast.success(`Webhooks reconfigurados: ${ok} OK, ${fail} falhas`);
+  };
+
   const handleCopyWebhookUrl = (instanceName: string) => {
     const url = getWebhookUrl(instanceName);
     navigator.clipboard.writeText(url);
