@@ -65,10 +65,10 @@ serve(async (req) => {
       const phone = remoteJid.replace('@s.whatsapp.net', '');
       const isFromMe = msgData.key.fromMe === true;
       const pushName = msgData.pushName || '';
-      const messageText = extractMessageText(msgData.message);
+      const { text: messageText, mediaType, mediaUrl, mediaMime } = extractMessageContent(msgData.message, msgData);
 
-      if (!messageText) {
-        return new Response(JSON.stringify({ ok: true, skipped: 'no text content' }), {
+      if (!messageText && !mediaType) {
+        return new Response(JSON.stringify({ ok: true, skipped: 'no content' }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
@@ -102,6 +102,7 @@ serve(async (req) => {
         .eq('contact_id', contact.id).eq('instance_id', instance.id).single();
 
       const now = new Date().toISOString();
+      const displayText = messageText || getMediaEmoji(mediaType);
 
       if (!conversation) {
         const { data: newConv } = await supabase
@@ -110,7 +111,7 @@ serve(async (req) => {
             contact_id: contact.id, instance_id: instance.id,
             assigned_to: instance.closer_id, assigned_role: 'closer',
             status: 'active', lead_status: 'novo',
-            last_message: messageText, last_message_at: now,
+            last_message: displayText, last_message_at: now,
             unread_count: isFromMe ? 0 : 1,
           })
           .select('id, unread_count').single();
@@ -118,7 +119,7 @@ serve(async (req) => {
       } else {
         await supabase.from('wa_conversations')
           .update({
-            last_message: messageText, last_message_at: now,
+            last_message: displayText, last_message_at: now,
             unread_count: isFromMe ? 0 : (conversation.unread_count || 0) + 1,
             status: 'active',
           })
@@ -136,13 +137,16 @@ serve(async (req) => {
         sender: isFromMe ? 'agent' : 'contact',
         agent_name: isFromMe ? (msgData.pushName || 'Closer') : null,
         agent_id: isFromMe ? instance.closer_id : null,
-        text: messageText,
+        text: displayText,
+        media_type: mediaType || null,
+        media_url: mediaUrl || null,
+        media_mime_type: mediaMime || null,
         created_at: msgData.messageTimestamp
           ? new Date(msgData.messageTimestamp * 1000).toISOString()
           : now,
       });
 
-      console.log('[webhook] Message saved:', isFromMe ? 'sent' : 'received', phone, messageText.substring(0, 50));
+      console.log('[webhook] Message saved:', isFromMe ? 'sent' : 'received', phone, mediaType || 'text', displayText.substring(0, 50));
     }
 
     if (event === 'connection.update') {
@@ -167,24 +171,95 @@ serve(async (req) => {
   }
 });
 
-function extractMessageText(message: Record<string, unknown>): string {
-  if (!message) return '';
-  if (typeof message.conversation === 'string') return message.conversation;
+function getMediaEmoji(mediaType: string | null): string {
+  switch (mediaType) {
+    case 'image': return '📷 Imagem';
+    case 'video': return '🎥 Vídeo';
+    case 'audio': return '🎵 Áudio';
+    case 'sticker': return '🎨 Sticker';
+    case 'document': return '📄 Documento';
+    case 'location': return '📍 Localização';
+    case 'contact': return '👤 Contato';
+    default: return '';
+  }
+}
+
+interface MediaContent {
+  text: string;
+  mediaType: string | null;
+  mediaUrl: string | null;
+  mediaMime: string | null;
+}
+
+function extractMessageContent(message: Record<string, unknown>, msgData?: Record<string, unknown>): MediaContent {
+  if (!message) return { text: '', mediaType: null, mediaUrl: null, mediaMime: null };
+
+  // Try to get base64/url from Evolution API's mediaUrl field
+  const evolutionMediaUrl = (msgData as any)?.mediaUrl || null;
+
+  if (typeof message.conversation === 'string') {
+    return { text: message.conversation, mediaType: null, mediaUrl: null, mediaMime: null };
+  }
+
   if (typeof message.extendedTextMessage === 'object' && message.extendedTextMessage) {
-    return (message.extendedTextMessage as Record<string, unknown>).text as string || '';
+    return {
+      text: (message.extendedTextMessage as Record<string, unknown>).text as string || '',
+      mediaType: null, mediaUrl: null, mediaMime: null,
+    };
   }
+
   if (typeof message.imageMessage === 'object' && message.imageMessage) {
-    return (message.imageMessage as Record<string, unknown>).caption as string || '📷 Imagem';
+    const img = message.imageMessage as Record<string, unknown>;
+    return {
+      text: (img.caption as string) || '📷 Imagem',
+      mediaType: 'image',
+      mediaUrl: evolutionMediaUrl || (img.url as string) || null,
+      mediaMime: (img.mimetype as string) || 'image/jpeg',
+    };
   }
+
   if (typeof message.videoMessage === 'object' && message.videoMessage) {
-    return (message.videoMessage as Record<string, unknown>).caption as string || '🎥 Vídeo';
+    const vid = message.videoMessage as Record<string, unknown>;
+    return {
+      text: (vid.caption as string) || '🎥 Vídeo',
+      mediaType: 'video',
+      mediaUrl: evolutionMediaUrl || (vid.url as string) || null,
+      mediaMime: (vid.mimetype as string) || 'video/mp4',
+    };
   }
-  if (typeof message.audioMessage === 'object') return '🎵 Áudio';
+
+  if (typeof message.audioMessage === 'object' && message.audioMessage) {
+    const aud = message.audioMessage as Record<string, unknown>;
+    return {
+      text: '🎵 Áudio',
+      mediaType: 'audio',
+      mediaUrl: evolutionMediaUrl || (aud.url as string) || null,
+      mediaMime: (aud.mimetype as string) || 'audio/ogg',
+    };
+  }
+
   if (typeof message.documentMessage === 'object' && message.documentMessage) {
-    return `📄 ${(message.documentMessage as Record<string, unknown>).fileName || 'Documento'}`;
+    const doc = message.documentMessage as Record<string, unknown>;
+    return {
+      text: `📄 ${doc.fileName || 'Documento'}`,
+      mediaType: 'document',
+      mediaUrl: evolutionMediaUrl || (doc.url as string) || null,
+      mediaMime: (doc.mimetype as string) || 'application/octet-stream',
+    };
   }
-  if (typeof message.stickerMessage === 'object') return '🎨 Sticker';
-  if (typeof message.locationMessage === 'object') return '📍 Localização';
-  if (typeof message.contactMessage === 'object') return '👤 Contato';
-  return '';
+
+  if (typeof message.stickerMessage === 'object' && message.stickerMessage) {
+    const stk = message.stickerMessage as Record<string, unknown>;
+    return {
+      text: '🎨 Sticker',
+      mediaType: 'sticker',
+      mediaUrl: evolutionMediaUrl || (stk.url as string) || null,
+      mediaMime: 'image/webp',
+    };
+  }
+
+  if (typeof message.locationMessage === 'object') return { text: '📍 Localização', mediaType: 'location', mediaUrl: null, mediaMime: null };
+  if (typeof message.contactMessage === 'object') return { text: '👤 Contato', mediaType: 'contact', mediaUrl: null, mediaMime: null };
+
+  return { text: '', mediaType: null, mediaUrl: null, mediaMime: null };
 }

@@ -69,6 +69,21 @@ serve(async (req) => {
         method = 'POST';
         body = JSON.stringify(data);
         break;
+      case 'sendMedia':
+        url = `${baseUrl}/message/sendMedia/${instanceName}`;
+        method = 'POST';
+        body = JSON.stringify(data);
+        break;
+      case 'sendWhatsAppAudio':
+        url = `${baseUrl}/message/sendWhatsAppAudio/${instanceName}`;
+        method = 'POST';
+        body = JSON.stringify(data);
+        break;
+      case 'sendSticker':
+        url = `${baseUrl}/message/sendSticker/${instanceName}`;
+        method = 'POST';
+        body = JSON.stringify(data);
+        break;
       case 'setWebhook':
         url = `${baseUrl}/webhook/set/${instanceName}`;
         method = 'POST';
@@ -112,8 +127,9 @@ serve(async (req) => {
       });
     }
 
-    // After successful sendText, save the sent message to the database
-    if (action === 'sendText' && data?.number && data?.text) {
+    // After successful send, save the message to the database
+    const sendActions = ['sendText', 'sendMedia', 'sendWhatsAppAudio', 'sendSticker'];
+    if (sendActions.includes(action) && data?.number) {
       try {
         const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
         const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -162,19 +178,44 @@ serve(async (req) => {
             }
 
             if (conv) {
+              let msgText = data.text || data.caption || '';
+              let mediaType: string | null = null;
+              let mediaUrl: string | null = null;
+              let mediaMime: string | null = null;
+
+              if (action === 'sendMedia') {
+                mediaType = data.mediatype || 'image';
+                mediaUrl = data.media || null;
+                mediaMime = data.mimetype || null;
+                if (!msgText) msgText = mediaType === 'image' ? '📷 Imagem' : mediaType === 'video' ? '🎥 Vídeo' : '📄 Documento';
+              } else if (action === 'sendWhatsAppAudio') {
+                mediaType = 'audio';
+                mediaUrl = data.audio || null;
+                mediaMime = 'audio/ogg';
+                if (!msgText) msgText = '🎵 Áudio';
+              } else if (action === 'sendSticker') {
+                mediaType = 'sticker';
+                mediaUrl = data.image || null;
+                mediaMime = 'image/webp';
+                if (!msgText) msgText = '🎨 Sticker';
+              }
+
               await sb.from('wa_messages').insert({
                 conversation_id: conv.id,
                 instance_id: inst.id,
                 sender: 'agent',
-                text: data.text,
+                text: msgText,
+                media_type: mediaType,
+                media_url: mediaUrl,
+                media_mime_type: mediaMime,
               });
 
               await sb.from('wa_conversations').update({
-                last_message: data.text,
+                last_message: msgText,
                 last_message_at: new Date().toISOString(),
               }).eq('id', conv.id);
 
-              console.log(`[evolution-api] Sent message saved to DB for conv ${conv.id}`);
+              console.log(`[evolution-api] ${action} message saved to DB for conv ${conv.id}`);
             }
           }
         }
