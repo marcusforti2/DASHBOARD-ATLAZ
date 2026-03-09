@@ -41,7 +41,7 @@ export default function WaHubPage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    supabase.from('team_members').select('id, name').eq('active', true).then(({ data }) => {
+    supabase.from('team_members').select('id, name, member_role').eq('active', true).then(({ data }) => {
       setTeamMembers(data ?? []);
     });
   }, []);
