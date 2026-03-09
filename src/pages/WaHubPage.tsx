@@ -37,6 +37,7 @@ export default function WaHubPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editPhone, setEditPhone] = useState('');
   const [editCloserId, setEditCloserId] = useState('none');
+  const [editSdrId, setEditSdrId] = useState('none');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
