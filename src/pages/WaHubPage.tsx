@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useWaConversations, useWaInstances, useWaMessages } from '@/hooks/use-wa-hub';
 import { useWaTags, useWaContactTags } from '@/hooks/use-wa-tags';
 import { supabase } from '@/integrations/supabase/client';
-import { Shield, Eye, Users, Loader2, MessageSquare, Wifi, Plus, Trash2, Pencil, Check, X, UserPlus, Link2, Copy, Tag } from 'lucide-react';
+import { Shield, Eye, Users, Loader2, MessageSquare, Wifi, Plus, Trash2, Pencil, Check, X, UserPlus, Link2, Copy, Tag, PanelRightOpen } from 'lucide-react';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,8 @@ import WaChatView from '@/components/wa-hub/WaChatView';
 import { WaDashboard } from '@/components/wa-hub/WaDashboard';
 import { WaInstancePanel } from '@/components/wa-hub/WaInstancePanel';
 import { WaCrmView } from '@/components/wa-hub/WaCrmView';
+import { WaLeadProfilePanel } from '@/components/wa-hub/WaLeadProfilePanel';
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function WaHubPage() {
@@ -23,6 +25,7 @@ export default function WaHubPage() {
   const { tags, createTag, deleteTag } = useWaTags();
   const { getTagsForContact, addTag, removeTag } = useWaContactTags();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showProfile, setShowProfile] = useState(false);
   const { messages: selectedMessages, loading: messagesLoading, addOptimistic } = useWaMessages(selectedId);
   // Create instance form
   const [showCreate, setShowCreate] = useState(false);
@@ -246,7 +249,7 @@ export default function WaHubPage() {
               instances={instances}
               loading={loading}
               selectedId={selectedId}
-              onSelect={setSelectedId}
+              onSelect={(id) => { setSelectedId(id); }}
               instanceFilter={instanceFilter}
               onInstanceFilter={setInstanceFilter}
               tags={tags}
@@ -256,22 +259,58 @@ export default function WaHubPage() {
             />
 
             {selectedConv ? (
-              <WaChatView
-                conversation={selectedConv}
-                messages={selectedMessages}
-                messagesLoading={messagesLoading}
-                onBack={() => setSelectedId(null)}
-                onSend={async (text) => {
-                  addOptimistic({ text });
-                  await handleSend(text);
-                }}
-                onSendMedia={handleSendMedia}
-                onSendAudio={handleSendAudio}
-                tags={tags}
-                assignedTagIds={getTagsForContact(selectedConv.contact.id).map(t => t.tag_id)}
-                onAddTag={addTag}
-                onRemoveTag={removeTag}
-              />
+              <>
+                <WaChatView
+                  conversation={selectedConv}
+                  messages={selectedMessages}
+                  messagesLoading={messagesLoading}
+                  onBack={() => setSelectedId(null)}
+                  onSend={async (text) => {
+                    addOptimistic({ text });
+                    await handleSend(text);
+                  }}
+                  onSendMedia={handleSendMedia}
+                  onSendAudio={handleSendAudio}
+                  tags={tags}
+                  assignedTagIds={getTagsForContact(selectedConv.contact.id).map(t => t.tag_id)}
+                  onAddTag={addTag}
+                  onRemoveTag={removeTag}
+                  onToggleProfile={() => setShowProfile(!showProfile)}
+                  showProfileButton
+                />
+
+                {/* Lead Profile Sidebar */}
+                {showProfile && (
+                  <WaLeadProfilePanel
+                    conversation={selectedConv}
+                    messages={selectedMessages}
+                    tags={tags}
+                    assignedTagIds={getTagsForContact(selectedConv.contact.id).map(t => t.tag_id)}
+                    onAddTag={addTag}
+                    onRemoveTag={removeTag}
+                    teamMembers={teamMembers}
+                    onClose={() => setShowProfile(false)}
+                    onTransfer={async (toMemberId, toRole, note) => {
+                      const { data: profile } = await supabase.from('profiles').select('team_member_id').eq('id', (await supabase.auth.getUser()).data.user?.id || '').single();
+                      // Log transfer
+                      await supabase.from('wa_transfer_logs').insert({
+                        conversation_id: selectedConv.id,
+                        from_member_id: profile?.team_member_id || null,
+                        to_member_id: toMemberId,
+                        from_role: selectedConv.assigned_role || 'sdr',
+                        to_role: toRole,
+                        note,
+                      } as any);
+                      // Update conversation assignment
+                      await supabase.from('wa_conversations').update({
+                        assigned_to: toMemberId,
+                        assigned_role: toRole,
+                      } as any).eq('id', selectedConv.id);
+                      toast.success('Conversa transferida!');
+                    }}
+                  />
+                )}
+              </>
             ) : (
               <div className="flex-1 flex items-center justify-center">
                 <div className="text-center">

@@ -1433,6 +1433,64 @@ export type Database = {
           },
         ]
       }
+      wa_follow_up_reminders: {
+        Row: {
+          completed: boolean
+          completed_at: string | null
+          contact_id: string
+          conversation_id: string
+          created_at: string
+          created_by: string
+          id: string
+          note: string | null
+          remind_at: string
+        }
+        Insert: {
+          completed?: boolean
+          completed_at?: string | null
+          contact_id: string
+          conversation_id: string
+          created_at?: string
+          created_by: string
+          id?: string
+          note?: string | null
+          remind_at: string
+        }
+        Update: {
+          completed?: boolean
+          completed_at?: string | null
+          contact_id?: string
+          conversation_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          note?: string | null
+          remind_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wa_follow_up_reminders_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "wa_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_follow_up_reminders_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "wa_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_follow_up_reminders_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wa_instances: {
         Row: {
           closer_id: string | null
@@ -1477,6 +1535,50 @@ export type Database = {
             columns: ["sdr_id"]
             isOneToOne: false
             referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wa_lead_scores: {
+        Row: {
+          contact_id: string
+          created_at: string
+          engagement_score: number
+          id: string
+          last_calculated_at: string
+          response_speed_score: number
+          risk_level: string
+          score: number
+          sentiment_score: number
+        }
+        Insert: {
+          contact_id: string
+          created_at?: string
+          engagement_score?: number
+          id?: string
+          last_calculated_at?: string
+          response_speed_score?: number
+          risk_level?: string
+          score?: number
+          sentiment_score?: number
+        }
+        Update: {
+          contact_id?: string
+          created_at?: string
+          engagement_score?: number
+          id?: string
+          last_calculated_at?: string
+          response_speed_score?: number
+          risk_level?: string
+          score?: number
+          sentiment_score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wa_lead_scores_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: true
+            referencedRelation: "wa_contacts"
             referencedColumns: ["id"]
           },
         ]
@@ -1545,6 +1647,55 @@ export type Database = {
           },
         ]
       }
+      wa_notes: {
+        Row: {
+          author_id: string
+          contact_id: string
+          content: string
+          conversation_id: string | null
+          created_at: string
+          id: string
+        }
+        Insert: {
+          author_id: string
+          contact_id: string
+          content?: string
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          author_id?: string
+          contact_id?: string
+          content?: string
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wa_notes_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_notes_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "wa_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_notes_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "wa_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wa_tags: {
         Row: {
           color: string
@@ -1571,6 +1722,61 @@ export type Database = {
           sort_order?: number
         }
         Relationships: []
+      }
+      wa_transfer_logs: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          from_member_id: string | null
+          from_role: string | null
+          id: string
+          note: string | null
+          to_member_id: string
+          to_role: string
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          from_member_id?: string | null
+          from_role?: string | null
+          id?: string
+          note?: string | null
+          to_member_id: string
+          to_role?: string
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          from_member_id?: string | null
+          from_role?: string | null
+          id?: string
+          note?: string | null
+          to_member_id?: string
+          to_role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wa_transfer_logs_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "wa_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_transfer_logs_from_member_id_fkey"
+            columns: ["from_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_transfer_logs_to_member_id_fkey"
+            columns: ["to_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       weekly_goals: {
         Row: {

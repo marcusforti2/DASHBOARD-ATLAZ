@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Send, Loader2, Image, Mic, Square, Paperclip, Zap, Sparkles, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, Image, Mic, Square, Paperclip, Zap, Sparkles, ChevronDown, User } from 'lucide-react';
 import { WaConversation, WaMessage, useQuickReplies } from '@/hooks/use-wa-hub';
+import { WaAiTools } from './WaAiTools';
 import { WaContactTagBadges } from './WaContactTagBadges';
 import type { WaTag } from '@/hooks/use-wa-tags';
 import { supabase } from '@/integrations/supabase/client';
@@ -43,6 +44,44 @@ interface Props {
   assignedTagIds?: string[];
   onAddTag?: (contactId: string, tagId: string) => Promise<void>;
   onRemoveTag?: (contactId: string, tagId: string) => Promise<void>;
+  onToggleProfile?: () => void;
+  showProfileButton?: boolean;
+}
+
+function AudioBubble({ mediaUrl }: { mediaUrl: string }) {
+  const [transcription, setTranscription] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleTranscribe = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-coach', {
+        body: {
+          messages: [{
+            role: 'user',
+            content: `Transcreva este áudio de WhatsApp. A URL do áudio é: ${mediaUrl}\n\nSe não conseguir acessar o áudio, responda: "Transcrição indisponível para este formato de áudio."\n\nTranscrição:`
+          }],
+        },
+      });
+      if (error) throw error;
+      setTranscription(data?.content || data?.message || 'Transcrição indisponível');
+    } catch {
+      setTranscription('Erro ao transcrever');
+    } finally { setLoading(false); }
+  };
+
+  return (
+    <div className="space-y-1">
+      <audio src={mediaUrl} controls className="max-w-full min-w-[200px]" preload="metadata" />
+      {transcription ? (
+        <p className="text-[10px] italic text-muted-foreground bg-background/50 rounded px-2 py-1">📝 {transcription}</p>
+      ) : (
+        <button onClick={handleTranscribe} disabled={loading} className="text-[9px] text-muted-foreground hover:text-foreground flex items-center gap-1 disabled:opacity-50">
+          {loading ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Sparkles className="w-2.5 h-2.5" />} Transcrever
+        </button>
+      )}
+    </div>
+  );
 }
 
 function MediaBubble({ mediaType, mediaUrl, mediaMime, text }: { mediaType: string; mediaUrl: string | null; mediaMime: string | null; text: string }) {
@@ -64,7 +103,7 @@ function MediaBubble({ mediaType, mediaUrl, mediaMime, text }: { mediaType: stri
         </div>
       );
     case 'audio':
-      return <audio src={mediaUrl} controls className="max-w-full min-w-[200px]" preload="metadata" />;
+      return <AudioBubble mediaUrl={mediaUrl} />;
     case 'sticker':
       return <img src={mediaUrl} alt="sticker" className="w-32 h-32 object-contain" />;
     case 'document':
@@ -83,7 +122,7 @@ function getSupportedAudioMime(): string {
   return '';
 }
 
-export default function WaChatView({ conversation, messages, messagesLoading, onBack, onSend, onSendMedia, onSendAudio, tags, assignedTagIds, onAddTag, onRemoveTag }: Props) {
+export default function WaChatView({ conversation, messages, messagesLoading, onBack, onSend, onSendMedia, onSendAudio, tags, assignedTagIds, onAddTag, onRemoveTag, onToggleProfile, showProfileButton }: Props) {
   const [msgText, setMsgText] = useState('');
   const [sending, setSending] = useState(false);
   const [recording, setRecording] = useState(false);
@@ -240,8 +279,13 @@ export default function WaChatView({ conversation, messages, messagesLoading, on
             {tags && assignedTagIds && onAddTag && onRemoveTag && (
               <WaContactTagBadges contactId={conversation.contact.id} assignedTagIds={assignedTagIds} allTags={tags} onAdd={onAddTag} onRemove={onRemoveTag} />
             )}
-          </div>
         </div>
+        {showProfileButton && onToggleProfile && (
+          <button onClick={onToggleProfile} className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted transition-colors" title="Perfil do lead">
+            <User className="w-4 h-4" />
+          </button>
+        )}
+      </div>
       </div>
 
       {/* Messages */}
@@ -302,6 +346,11 @@ export default function WaChatView({ conversation, messages, messagesLoading, on
           </div>
         </div>
       )}
+
+      {/* AI Tools */}
+      <div className="px-5 py-2 border-t border-border bg-card/50 shrink-0">
+        <WaAiTools messages={messages} contactName={conversation.contact.name} />
+      </div>
 
       {/* Input */}
       <div className="px-5 py-3 border-t border-border bg-card shrink-0">
