@@ -73,7 +73,21 @@ export default function WaHubPage() {
     }
   };
 
-  const handleDelete = async (id: string, name: string) => {
+  const handleSetWebhook = async (instanceName: string) => {
+    try {
+      await setWebhook(instanceName);
+      toast.success(`Webhook cadastrado para "${instanceName}"`);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao cadastrar webhook');
+    }
+  };
+
+  const handleCopyWebhookUrl = (instanceName: string) => {
+    const url = getWebhookUrl(instanceName);
+    navigator.clipboard.writeText(url);
+    toast.success('URL do webhook copiada!');
+  };
+
     if (!confirm(`Tem certeza que deseja excluir a instância "${name}"?`)) return;
     const { error } = await supabase.from('wa_instances').delete().eq('id', id);
     if (error) { toast.error('Erro ao excluir'); return; }
