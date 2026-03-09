@@ -260,31 +260,24 @@ export default function WaHubPage() {
 
             {selectedConv ? (
               <>
-                <div className="flex-1 flex flex-col">
-                  {/* Chat header with profile toggle */}
-                  <WaChatView
-                    conversation={selectedConv}
-                    messages={selectedMessages}
-                    messagesLoading={messagesLoading}
-                    onBack={() => setSelectedId(null)}
-                    onSend={async (text) => {
-                      addOptimistic({ text });
-                      await handleSend(text);
-                    }}
-                    onSendMedia={handleSendMedia}
-                    onSendAudio={handleSendAudio}
-                    tags={tags}
-                    assignedTagIds={getTagsForContact(selectedConv.contact.id).map(t => t.tag_id)}
-                    onAddTag={addTag}
-                    onRemoveTag={removeTag}
-                    onToggleProfile={() => setShowProfile(!showProfile)}
-                    showProfileButton
-                  />
-                  {/* AI tools bar */}
-                  <div className="px-4 py-2 border-t border-border bg-card/50">
-                    <WaAiTools messages={selectedMessages} contactName={selectedConv.contact.name} />
-                  </div>
-                </div>
+                <WaChatView
+                  conversation={selectedConv}
+                  messages={selectedMessages}
+                  messagesLoading={messagesLoading}
+                  onBack={() => setSelectedId(null)}
+                  onSend={async (text) => {
+                    addOptimistic({ text });
+                    await handleSend(text);
+                  }}
+                  onSendMedia={handleSendMedia}
+                  onSendAudio={handleSendAudio}
+                  tags={tags}
+                  assignedTagIds={getTagsForContact(selectedConv.contact.id).map(t => t.tag_id)}
+                  onAddTag={addTag}
+                  onRemoveTag={removeTag}
+                  onToggleProfile={() => setShowProfile(!showProfile)}
+                  showProfileButton
+                />
 
                 {/* Lead Profile Sidebar */}
                 {showProfile && (
