@@ -108,6 +108,7 @@ export default function WaHubPage() {
     setEditingId(inst.id);
     setEditPhone(inst.phone || '');
     setEditCloserId(inst.closer_id || 'none');
+    setEditSdrId(inst.sdr_id || 'none');
   };
 
   const cancelEdit = () => {
