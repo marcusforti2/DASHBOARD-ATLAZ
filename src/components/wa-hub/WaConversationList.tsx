@@ -25,6 +25,10 @@ interface Props {
   instanceFilter: string | null;
   onInstanceFilter: (id: string | null) => void;
   title?: string;
+  tags?: WaTag[];
+  getTagsForContact?: (contactId: string) => { tag_id: string }[];
+  onAddTag?: (contactId: string, tagId: string) => Promise<void>;
+  onRemoveTag?: (contactId: string, tagId: string) => Promise<void>;
 }
 
 export function WaConversationList({
