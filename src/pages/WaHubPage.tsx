@@ -13,6 +13,8 @@ import WaChatView from '@/components/wa-hub/WaChatView';
 import { WaDashboard } from '@/components/wa-hub/WaDashboard';
 import { WaInstancePanel } from '@/components/wa-hub/WaInstancePanel';
 import { WaCrmView } from '@/components/wa-hub/WaCrmView';
+import { WaLeadProfilePanel } from '@/components/wa-hub/WaLeadProfilePanel';
+import { WaAiTools } from '@/components/wa-hub/WaAiTools';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function WaHubPage() {
