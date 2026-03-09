@@ -243,10 +243,13 @@ export default function WaHubPage() {
           <TabsTrigger value="ai-sdr" className="text-xs gap-1.5">
             <Bot className="w-3.5 h-3.5" /> SDR IA
           </TabsTrigger>
-          <TabsTrigger value="instances" className="text-xs gap-1.5">
-            <Wifi className="w-3.5 h-3.5" /> Instâncias
-          </TabsTrigger>
-        </TabsList>
+          <TabsTrigger value="pipedrive" className="text-xs gap-1.5">
+              <ExternalLink className="w-3.5 h-3.5" /> Pipedrive
+            </TabsTrigger>
+            <TabsTrigger value="instances" className="text-xs gap-1.5">
+              <Wifi className="w-3.5 h-3.5" /> Instâncias
+            </TabsTrigger>
+          </TabsList>
 
         <TabsContent value="chat" className="mt-4">
           <div className="flex rounded-xl border border-border bg-card overflow-hidden" style={{ height: 'calc(100vh - 220px)' }}>
