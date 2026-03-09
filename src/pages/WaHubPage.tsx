@@ -62,8 +62,9 @@ export default function WaHubPage() {
         instance_name: instanceName,
         phone: newPhone.trim() || null,
         closer_id: newCloserId !== 'none' ? newCloserId : null,
+        sdr_id: newSdrId !== 'none' ? newSdrId : null,
         is_connected: false,
-      });
+      } as any);
       if (error) throw error;
 
       toast.success(`Instância "${instanceName}" criada com webhook!`);
