@@ -21,6 +21,10 @@ interface Props {
   conversation: WaConversation;
   onBack: () => void;
   onSend: (text: string) => Promise<void>;
+  tags?: WaTag[];
+  assignedTagIds?: string[];
+  onAddTag?: (contactId: string, tagId: string) => Promise<void>;
+  onRemoveTag?: (contactId: string, tagId: string) => Promise<void>;
 }
 
 export function WaChatView({ conversation, onBack, onSend }: Props) {
