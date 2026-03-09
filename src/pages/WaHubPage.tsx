@@ -377,18 +377,28 @@ export default function WaHubPage() {
 
                     {/* Edit row */}
                     {isEditing && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-6">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pl-6">
                         <div>
                           <label className="text-xs text-muted-foreground mb-1 block">Telefone</label>
                           <Input value={editPhone} onChange={e => setEditPhone(e.target.value)} placeholder="5511999999999" className="h-8 text-sm" />
                         </div>
                         <div>
-                          <label className="text-xs text-muted-foreground mb-1 block">Closer vinculado</label>
+                          <label className="text-xs text-muted-foreground mb-1 block">SDR responsável</label>
+                          <Select value={editSdrId} onValueChange={setEditSdrId}>
+                            <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Nenhum</SelectItem>
+                              {teamMembers.filter(m => m.member_role === 'sdr' || m.member_role === 'sdr_closer').map(m => (<SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <label className="text-xs text-muted-foreground mb-1 block">Closer responsável</label>
                           <Select value={editCloserId} onValueChange={setEditCloserId}>
                             <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Nenhum" /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="none">Nenhum</SelectItem>
-                              {teamMembers.map(m => (<SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>))}
+                              {teamMembers.filter(m => m.member_role === 'closer' || m.member_role === 'sdr_closer').map(m => (<SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>))}
                             </SelectContent>
                           </Select>
                         </div>
