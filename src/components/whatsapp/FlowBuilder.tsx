@@ -20,7 +20,7 @@ import { toast } from "sonner";
 import {
   Zap, Plus, Sparkles, Save, Trash2, Play, Copy,
   ToggleLeft, ToggleRight, Loader2, Bot,
-  Maximize2, Minimize2, Smartphone, X,
+  Maximize2, Minimize2, Smartphone, X, MessageCircle,
 } from "lucide-react";
 import { nodeTypes, NODE_REGISTRY, type FlowNodeType, type FlowNodeData } from "./flow-nodes";
 import NodeEditor from "./NodeEditor";
@@ -669,11 +669,47 @@ export default function FlowBuilder({ automations, onReload }: FlowBuilderProps)
   );
 }
 
-// ─── AI Generator Panel ───
+// ─── AI Generator Panel (Step-by-step Wizard) ───
 function AiGeneratorPanel({ aiPrompt, setAiPrompt, generating, generatedAutomation, savingNew, onGenerate, onSaveGenerated, onDiscard, onClose }: {
   aiPrompt: string; setAiPrompt: (v: string) => void; generating: boolean; generatedAutomation: any; savingNew: boolean;
   onGenerate: () => void; onSaveGenerated: () => void; onDiscard: () => void; onClose: () => void;
 }) {
+  const [mode, setMode] = useState<"choose" | "ai_full" | "manual">("choose");
+  const [step, setStep] = useState(1);
+  const [manualMsg, setManualMsg] = useState("");
+  const [manualName, setManualName] = useState("");
+  const [audience, setAudience] = useState("all");
+  const [schedule, setSchedule] = useState<string | null>(null);
+  const [tone, setTone] = useState("profissional");
+  const [rewriting, setRewriting] = useState(false);
+  const [rewrittenMsg, setRewrittenMsg] = useState("");
+  const [savingManual, setSavingManual] = useState(false);
+
+  const AUDIENCE_OPTIONS = [
+    { value: "all", label: "Todos", emoji: "👥" },
+    { value: "sdrs", label: "SDRs", emoji: "🎯" },
+    { value: "closers", label: "Closers", emoji: "🤝" },
+    { value: "admins", label: "Admins", emoji: "🛡️" },
+    { value: "team", label: "Equipe", emoji: "👷" },
+  ];
+
+  const SCHEDULE_PRESETS = [
+    { label: "Manual", cron: null, emoji: "✋" },
+    { label: "8h Seg-Sex", cron: "0 11 * * 1-5", emoji: "🌅" },
+    { label: "12h Seg-Sex", cron: "0 15 * * 1-5", emoji: "☀️" },
+    { label: "18h Seg-Sex", cron: "0 21 * * 1-5", emoji: "🌆" },
+    { label: "Segunda 9h", cron: "0 12 * * 1", emoji: "📅" },
+    { label: "Sexta 17h", cron: "0 20 * * 5", emoji: "🎉" },
+  ];
+
+  const TONES = [
+    { value: "motivacional", label: "Motivacional", emoji: "🔥" },
+    { value: "profissional", label: "Profissional", emoji: "💼" },
+    { value: "casual", label: "Casual", emoji: "😊" },
+    { value: "urgente", label: "Urgente", emoji: "⚡" },
+    { value: "coaching", label: "Coaching", emoji: "🧠" },
+  ];
+
   const suggestions = [
     "Resumo diário de performance às 18h para toda equipe com dicas da IA",
     "Lembrete de metas toda segunda às 9h para SDRs",
@@ -681,62 +717,368 @@ function AiGeneratorPanel({ aiPrompt, setAiPrompt, generating, generatedAutomati
     "Motivação matinal diária às 8h com mensagem personalizada da IA",
   ];
 
+  const handleRewrite = async () => {
+    if (manualMsg.trim().length < 3) { toast.error("Escreva uma mensagem primeiro"); return; }
+    setRewriting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("rewrite-message", {
+        body: { message: manualMsg.trim(), tone, target_audience: audience },
+      });
+      if (error) toast.error("Erro: " + error.message);
+      else if (data?.rewritten) { setRewrittenMsg(data.rewritten); toast.success("Mensagem reescrita! ✨"); }
+      else if (data?.error) toast.error(data.error);
+    } catch (e: any) { toast.error("Erro: " + e.message); }
+    setRewriting(false);
+  };
+
+  const handleSaveManual = async () => {
+    const finalMsg = rewrittenMsg || manualMsg;
+    if (!finalMsg.trim()) { toast.error("Escreva uma mensagem"); return; }
+    setSavingManual(true);
+    const defaultFlow = buildDefaultFlow({
+      id: "", name: manualName || "Nova Automação", description: "",
+      message_template: finalMsg,
+      schedule_cron: schedule, target_audience: audience, target_role: null,
+      include_metrics: true, include_ai_tips: true, active: true,
+      created_at: "", updated_at: "",
+    } as Automation);
+
+    const { data, error } = await supabase.from("whatsapp_automations").insert({
+      name: manualName || "Nova Automação",
+      description: "",
+      message_template: finalMsg,
+      schedule_cron: schedule,
+      target_audience: audience,
+      include_metrics: true,
+      include_ai_tips: true,
+      flow_data: defaultFlow as any,
+    }).select("id").maybeSingle();
+
+    if (error) toast.error("Erro: " + error.message);
+    else {
+      toast.success("Automação criada! 🎉");
+      onClose();
+      // Trigger reload via parent
+      onSaveGenerated();
+    }
+    setSavingManual(false);
+  };
+
+  // ─── Choose Mode ───
+  if (mode === "choose") {
+    return (
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div className="max-w-md w-full space-y-6 animate-fade-in">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-primary/15 flex items-center justify-center">
+                <Zap size={22} className="text-primary" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-card-foreground">Nova Automação</h3>
+                <p className="text-[11px] text-muted-foreground">Como deseja criar?</p>
+              </div>
+            </div>
+            <button onClick={onClose} className="p-2 rounded-xl hover:bg-secondary transition-colors">
+              <X size={16} className="text-muted-foreground" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3">
+            <button onClick={() => setMode("manual")}
+              className="p-5 rounded-2xl border-2 border-border bg-card hover:border-primary/50 hover:bg-primary/5 transition-all text-left group">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-accent/15 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <MessageCircle size={22} className="text-accent" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-card-foreground">Escrever Mensagem</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Escreva sua mensagem e a IA reescreve pra você. Escolha público e horário.
+                  </p>
+                </div>
+              </div>
+            </button>
+
+            <button onClick={() => setMode("ai_full")}
+              className="p-5 rounded-2xl border-2 border-border bg-card hover:border-primary/50 hover:bg-primary/5 transition-all text-left group">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-primary/15 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Sparkles size={22} className="text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-card-foreground">Criar com IA</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Descreva o que quer e a IA monta o fluxo completo automaticamente.
+                  </p>
+                </div>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── AI Full Mode ───
+  if (mode === "ai_full") {
+    return (
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div className="max-w-lg w-full space-y-5 animate-fade-in">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <button onClick={() => setMode("choose")} className="p-2 rounded-xl hover:bg-secondary transition-colors">
+                <X size={14} className="text-muted-foreground rotate-0" />
+              </button>
+              <div className="w-10 h-10 rounded-2xl bg-primary/15 flex items-center justify-center">
+                <Sparkles size={20} className="text-primary" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-card-foreground">Criar Fluxo com IA</h3>
+                <p className="text-[10px] text-muted-foreground">Descreva o que quer e a IA monta tudo</p>
+              </div>
+            </div>
+            <button onClick={onClose} className="p-2 rounded-xl hover:bg-secondary transition-colors">
+              <X size={16} className="text-muted-foreground" />
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {suggestions.map((s, i) => (
+              <button key={i} onClick={() => setAiPrompt(s)}
+                className="px-3 py-1.5 text-[10px] rounded-full border border-border bg-secondary text-secondary-foreground hover:border-primary/40 hover:bg-primary/5 transition-all">
+                {s.substring(0, 45)}...
+              </button>
+            ))}
+          </div>
+          <textarea value={aiPrompt} onChange={e => setAiPrompt(e.target.value)}
+            placeholder="Ex: Quero um relatório diário de performance enviado às 18h para toda equipe com métricas e dicas de coaching..."
+            rows={4}
+            className="w-full rounded-2xl border border-border bg-secondary px-4 py-3 text-xs text-secondary-foreground focus:ring-2 focus:ring-primary outline-none resize-none" />
+          <div className="flex gap-2">
+            <button onClick={() => setMode("choose")} className="px-4 py-2.5 text-[11px] rounded-xl bg-secondary text-secondary-foreground hover:bg-secondary/80">Voltar</button>
+            <button onClick={onGenerate} disabled={generating || aiPrompt.trim().length < 5}
+              className="px-6 py-2.5 text-[11px] rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2">
+              {generating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+              {generating ? "Gerando..." : "Gerar Fluxo"}
+            </button>
+          </div>
+          {generatedAutomation && (
+            <div className="border-t border-border pt-5 mt-2 space-y-4 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
+              <div className="flex items-center gap-2">
+                <Bot size={16} className="text-accent" />
+                <h4 className="text-xs font-bold text-card-foreground">Fluxo gerado — revise antes de salvar</h4>
+              </div>
+              <div className="p-4 rounded-2xl bg-secondary/50 border border-border space-y-2.5">
+                <p className="text-[11px]"><strong className="text-card-foreground">Nome:</strong> <span className="text-muted-foreground">{generatedAutomation.name}</span></p>
+                <p className="text-[11px]"><strong className="text-card-foreground">Gatilho:</strong> <span className="text-muted-foreground">{cronToLabel(generatedAutomation.schedule_cron)}</span></p>
+                <p className="text-[11px]"><strong className="text-card-foreground">Público:</strong> <span className="text-muted-foreground">{audienceLabel(generatedAutomation.target_audience)}</span></p>
+                <div className="text-[10px] font-mono bg-background p-3 rounded-xl border border-border whitespace-pre-wrap max-h-40 overflow-auto text-card-foreground">
+                  {generatedAutomation.message_template}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={onDiscard} className="px-4 py-2.5 text-[11px] rounded-xl bg-secondary text-secondary-foreground hover:bg-secondary/80">Descartar</button>
+                <button onClick={onSaveGenerated} disabled={savingNew}
+                  className="px-5 py-2.5 text-[11px] rounded-xl font-bold bg-accent text-accent-foreground hover:bg-accent/90 disabled:opacity-50 flex items-center gap-2">
+                  {savingNew ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Salvar Fluxo
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Manual Mode (Step-by-step) ───
   return (
     <div className="flex-1 flex items-center justify-center p-8">
-      <div className="max-w-lg w-full space-y-5">
+      <div className="max-w-lg w-full space-y-5 animate-fade-in">
+        {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-primary/15 flex items-center justify-center">
-              <Sparkles size={20} className="text-primary" />
-            </div>
+            <button onClick={() => step > 1 ? setStep(step - 1) : setMode("choose")}
+              className="p-2 rounded-xl hover:bg-secondary transition-colors">
+              <X size={14} className="text-muted-foreground rotate-45" />
+            </button>
             <div>
-              <h3 className="text-sm font-bold text-card-foreground">Criar Fluxo com IA</h3>
-              <p className="text-[10px] text-muted-foreground">Descreva o que quer e a IA monta tudo</p>
+              <h3 className="text-sm font-bold text-card-foreground">Criar Automação</h3>
+              <p className="text-[10px] text-muted-foreground">Passo {step} de 3</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 rounded-xl hover:bg-secondary transition-colors">
             <X size={16} className="text-muted-foreground" />
           </button>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {suggestions.map((s, i) => (
-            <button key={i} onClick={() => setAiPrompt(s)}
-              className="px-3 py-1.5 text-[10px] rounded-full border border-border bg-secondary text-secondary-foreground hover:border-primary/40 hover:bg-primary/5 transition-all">
-              {s.substring(0, 45)}...
-            </button>
+
+        {/* Step indicator */}
+        <div className="flex gap-2">
+          {[1, 2, 3].map(s => (
+            <div key={s} className={`h-1.5 flex-1 rounded-full transition-all ${s <= step ? "bg-primary" : "bg-border"}`} />
           ))}
         </div>
-        <textarea value={aiPrompt} onChange={e => setAiPrompt(e.target.value)}
-          placeholder="Ex: Quero um relatório diário de performance enviado às 18h para toda equipe com métricas e dicas de coaching..."
-          rows={4}
-          className="w-full rounded-2xl border border-border bg-secondary px-4 py-3 text-xs text-secondary-foreground focus:ring-2 focus:ring-primary outline-none resize-none" />
-        <div className="flex gap-2">
-          <button onClick={onClose} className="px-4 py-2.5 text-[11px] rounded-xl bg-secondary text-secondary-foreground hover:bg-secondary/80">Cancelar</button>
-          <button onClick={onGenerate} disabled={generating || aiPrompt.trim().length < 5}
-            className="px-6 py-2.5 text-[11px] rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2">
-            {generating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-            {generating ? "Gerando..." : "Gerar Fluxo"}
-          </button>
-        </div>
-        {generatedAutomation && (
-          <div className="border-t border-border pt-5 mt-2 space-y-4 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
-            <div className="flex items-center gap-2">
-              <Bot size={16} className="text-accent" />
-              <h4 className="text-xs font-bold text-card-foreground">Fluxo gerado — revise antes de salvar</h4>
+
+        {/* Step 1: Message + AI Rewrite */}
+        {step === 1 && (
+          <div className="space-y-4 animate-slide-up">
+            <div>
+              <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Nome da automação</label>
+              <input
+                value={manualName}
+                onChange={e => setManualName(e.target.value)}
+                placeholder="Ex: Relatório Diário SDR"
+                className="mt-1 w-full rounded-xl border border-border bg-secondary px-4 py-2.5 text-xs text-secondary-foreground focus:ring-2 focus:ring-primary outline-none"
+              />
             </div>
-            <div className="p-4 rounded-2xl bg-secondary/50 border border-border space-y-2.5">
-              <p className="text-[11px]"><strong className="text-card-foreground">Nome:</strong> <span className="text-muted-foreground">{generatedAutomation.name}</span></p>
-              <p className="text-[11px]"><strong className="text-card-foreground">Gatilho:</strong> <span className="text-muted-foreground">{cronToLabel(generatedAutomation.schedule_cron)}</span></p>
-              <p className="text-[11px]"><strong className="text-card-foreground">Público:</strong> <span className="text-muted-foreground">{audienceLabel(generatedAutomation.target_audience)}</span></p>
-              <div className="text-[10px] font-mono bg-background p-3 rounded-xl border border-border whitespace-pre-wrap max-h-40 overflow-auto text-card-foreground">
-                {generatedAutomation.message_template}
+
+            <div>
+              <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Escreva sua mensagem</label>
+              <textarea
+                value={manualMsg}
+                onChange={e => { setManualMsg(e.target.value); setRewrittenMsg(""); }}
+                placeholder="Escreva aqui a mensagem que quer enviar para a equipe. Pode ser rascunho, a IA vai polir pra você..."
+                rows={5}
+                className="mt-1 w-full rounded-xl border border-border bg-secondary px-4 py-3 text-xs text-secondary-foreground focus:ring-2 focus:ring-primary outline-none resize-none"
+              />
+            </div>
+
+            {/* Tone selector */}
+            <div>
+              <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Tom da mensagem</label>
+              <div className="mt-1.5 flex flex-wrap gap-2">
+                {TONES.map(t => (
+                  <button key={t.value} onClick={() => { setTone(t.value); setRewrittenMsg(""); }}
+                    className={`px-3 py-2 text-[11px] rounded-xl border transition-all flex items-center gap-1.5 ${
+                      tone === t.value
+                        ? "border-primary bg-primary/15 text-primary font-bold"
+                        : "border-border bg-secondary text-secondary-foreground hover:border-primary/40"
+                    }`}>
+                    <span>{t.emoji}</span> {t.label}
+                  </button>
+                ))}
               </div>
             </div>
-            <div className="flex gap-2">
-              <button onClick={onDiscard} className="px-4 py-2.5 text-[11px] rounded-xl bg-secondary text-secondary-foreground hover:bg-secondary/80">Descartar</button>
-              <button onClick={onSaveGenerated} disabled={savingNew}
-                className="px-5 py-2.5 text-[11px] rounded-xl font-bold bg-accent text-accent-foreground hover:bg-accent/90 disabled:opacity-50 flex items-center gap-2">
-                {savingNew ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Salvar Fluxo
+
+            {/* AI Rewrite Button */}
+            <button onClick={handleRewrite} disabled={rewriting || manualMsg.trim().length < 3}
+              className="w-full px-4 py-3 text-[12px] rounded-xl font-bold bg-gradient-to-r from-primary to-accent text-primary-foreground hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2 transition-all shadow-lg">
+              {rewriting ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+              {rewriting ? "Reescrevendo com IA..." : "✨ Reescrever com IA"}
+            </button>
+
+            {/* Rewritten result */}
+            {rewrittenMsg && (
+              <div className="space-y-2 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
+                <div className="flex items-center gap-2">
+                  <Bot size={14} className="text-accent" />
+                  <span className="text-[10px] font-bold text-accent uppercase tracking-wider">Mensagem reescrita pela IA</span>
+                </div>
+                <div className="p-4 rounded-xl bg-accent/5 border border-accent/20 whitespace-pre-wrap text-[11px] text-card-foreground max-h-48 overflow-auto">
+                  {rewrittenMsg}
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => { setManualMsg(rewrittenMsg); setRewrittenMsg(""); toast.success("Mensagem aplicada!"); }}
+                    className="px-3 py-1.5 text-[10px] rounded-lg bg-accent/15 text-accent hover:bg-accent/25 font-semibold transition-colors">
+                    ✅ Usar esta versão
+                  </button>
+                  <button onClick={() => setRewrittenMsg("")}
+                    className="px-3 py-1.5 text-[10px] rounded-lg bg-secondary text-muted-foreground hover:bg-secondary/80 transition-colors">
+                    Manter original
+                  </button>
+                  <button onClick={handleRewrite} disabled={rewriting}
+                    className="px-3 py-1.5 text-[10px] rounded-lg bg-secondary text-muted-foreground hover:bg-secondary/80 transition-colors flex items-center gap-1">
+                    <Sparkles size={10} /> Tentar novamente
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end">
+              <button onClick={() => setStep(2)} disabled={!manualMsg.trim()}
+                className="px-6 py-2.5 text-[11px] rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors">
+                Próximo →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: Audience */}
+        {step === 2 && (
+          <div className="space-y-4 animate-slide-up">
+            <div>
+              <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Para quem enviar?</label>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                {AUDIENCE_OPTIONS.map(opt => (
+                  <button key={opt.value} onClick={() => setAudience(opt.value)}
+                    className={`p-3.5 rounded-xl border-2 transition-all text-left ${
+                      audience === opt.value
+                        ? "border-primary bg-primary/10"
+                        : "border-border bg-secondary hover:border-primary/40"
+                    }`}>
+                    <span className="text-lg">{opt.emoji}</span>
+                    <p className={`text-[12px] font-bold mt-1 ${audience === opt.value ? "text-primary" : "text-card-foreground"}`}>
+                      {opt.label}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-between">
+              <button onClick={() => setStep(1)}
+                className="px-4 py-2.5 text-[11px] rounded-xl bg-secondary text-secondary-foreground hover:bg-secondary/80">
+                ← Voltar
+              </button>
+              <button onClick={() => setStep(3)}
+                className="px-6 py-2.5 text-[11px] rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+                Próximo →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 3: Schedule + Review */}
+        {step === 3 && (
+          <div className="space-y-4 animate-slide-up">
+            <div>
+              <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Quando disparar?</label>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                {SCHEDULE_PRESETS.map(p => (
+                  <button key={p.label} onClick={() => setSchedule(p.cron)}
+                    className={`p-3 rounded-xl border-2 transition-all text-left ${
+                      schedule === p.cron
+                        ? "border-primary bg-primary/10"
+                        : "border-border bg-secondary hover:border-primary/40"
+                    }`}>
+                    <span className="text-sm">{p.emoji}</span>
+                    <p className={`text-[11px] font-bold mt-0.5 ${schedule === p.cron ? "text-primary" : "text-card-foreground"}`}>
+                      {p.label}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Review */}
+            <div className="p-4 rounded-xl bg-secondary/50 border border-border space-y-2">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Resumo</p>
+              <p className="text-[11px] text-card-foreground"><strong>Nome:</strong> {manualName || "Nova Automação"}</p>
+              <p className="text-[11px] text-card-foreground"><strong>Público:</strong> {AUDIENCE_OPTIONS.find(a => a.value === audience)?.label}</p>
+              <p className="text-[11px] text-card-foreground"><strong>Horário:</strong> {SCHEDULE_PRESETS.find(s => s.cron === schedule)?.label || "Manual"}</p>
+              <div className="text-[10px] font-mono bg-background p-3 rounded-lg border border-border whitespace-pre-wrap max-h-24 overflow-auto text-card-foreground">
+                {(rewrittenMsg || manualMsg).substring(0, 200)}...
+              </div>
+            </div>
+
+            <div className="flex justify-between">
+              <button onClick={() => setStep(2)}
+                className="px-4 py-2.5 text-[11px] rounded-xl bg-secondary text-secondary-foreground hover:bg-secondary/80">
+                ← Voltar
+              </button>
+              <button onClick={handleSaveManual} disabled={savingManual}
+                className="px-6 py-2.5 text-[11px] rounded-xl font-bold bg-accent text-accent-foreground hover:bg-accent/90 disabled:opacity-50 flex items-center gap-2 shadow-lg">
+                {savingManual ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                Criar Automação 🚀
               </button>
             </div>
           </div>
