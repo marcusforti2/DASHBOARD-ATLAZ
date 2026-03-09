@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Target, Bot, LayoutDashboard, LogOut, BarChart3, Trophy, GraduationCap, Calendar } from "lucide-react";
+import { Target, Bot, LayoutDashboard, LogOut, BarChart3, Trophy, GraduationCap, Calendar, MessageSquare } from "lucide-react";
 import { CloserDailyDashboard } from "@/components/dashboard/CloserDailyDashboard";
 import AdminDashboard from "@/pages/AdminDashboard";
 import { AiChat } from "./AiChat";
@@ -12,6 +12,7 @@ import { GoogleCalendarPanel } from "./GoogleCalendarPanel";
 import { CalendarConnectPopup } from "./CalendarConnectPopup";
 import { AnimatePresence } from "framer-motion";
 import { getMemberRoles } from "@/lib/db";
+import { WaUserPanel } from "@/components/wa-hub/WaUserPanel";
 import {
   Sidebar,
   SidebarContent,
@@ -29,7 +30,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-type UserTab = "dashboard" | "ai-chat" | "ai-tools" | "general-dashboard" | "training" | "calendar" | "ranking";
+type UserTab = "dashboard" | "ai-chat" | "ai-tools" | "general-dashboard" | "training" | "calendar" | "ranking" | "whatsapp";
 
 interface UserHubProps {
   teamMemberId: string;
@@ -40,6 +41,7 @@ interface UserHubProps {
 
 const TABS: { id: UserTab; label: string; icon: React.ElementType }[] = [
   { id: "dashboard", label: "Meu Dia", icon: Target },
+  { id: "whatsapp", label: "WhatsApp", icon: MessageSquare },
   { id: "calendar", label: "Agenda", icon: Calendar },
   { id: "training", label: "Treinamentos", icon: GraduationCap },
   { id: "ai-chat", label: "Coach IA", icon: Bot },
