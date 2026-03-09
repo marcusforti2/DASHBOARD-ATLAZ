@@ -242,8 +242,13 @@ export default function WaChatView({ conversation, messages, messagesLoading, on
             {tags && assignedTagIds && onAddTag && onRemoveTag && (
               <WaContactTagBadges contactId={conversation.contact.id} assignedTagIds={assignedTagIds} allTags={tags} onAdd={onAddTag} onRemove={onRemoveTag} />
             )}
-          </div>
         </div>
+        {showProfileButton && onToggleProfile && (
+          <button onClick={onToggleProfile} className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted transition-colors" title="Perfil do lead">
+            <User className="w-4 h-4" />
+          </button>
+        )}
+      </div>
       </div>
 
       {/* Messages */}
