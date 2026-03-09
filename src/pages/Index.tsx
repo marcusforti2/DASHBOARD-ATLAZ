@@ -6,6 +6,7 @@ import TeamManagement from "@/pages/TeamManagement";
 import GoalsManagement from "@/pages/GoalsManagement";
 import SettingsPage from "@/pages/SettingsPage";
 import WhatsAppPage from "@/pages/WhatsAppPage";
+import WaHubPage from "@/pages/WaHubPage";
 import AdminPopupsPage from "@/pages/AdminPopupsPage";
 import AdminKnowledgePage from "@/pages/AdminKnowledgePage";
 import DnaMappingPage from "@/pages/DnaMappingPage";
