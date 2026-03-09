@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useWaConversations, useWaInstances } from '@/hooks/use-wa-hub';
+import { useWaTags, useWaContactTags } from '@/hooks/use-wa-tags';
 import { supabase } from '@/integrations/supabase/client';
-import { Shield, Eye, Users, Loader2, MessageSquare, Wifi, Plus, Trash2, Pencil, Check, X, UserPlus, Link2, Copy } from 'lucide-react';
+import { Shield, Eye, Users, Loader2, MessageSquare, Wifi, Plus, Trash2, Pencil, Check, X, UserPlus, Link2, Copy, Tag } from 'lucide-react';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -11,6 +12,7 @@ import { WaConversationList } from '@/components/wa-hub/WaConversationList';
 import { WaChatView } from '@/components/wa-hub/WaChatView';
 import { WaDashboard } from '@/components/wa-hub/WaDashboard';
 import { WaInstancePanel } from '@/components/wa-hub/WaInstancePanel';
+import { WaCrmView } from '@/components/wa-hub/WaCrmView';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function WaHubPage() {
