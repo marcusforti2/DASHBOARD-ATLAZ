@@ -93,8 +93,19 @@ export function WaConversationList({
                   <span className="text-[10px] text-muted-foreground shrink-0">{formatTime(conv.last_message_at)}</span>
                 </div>
                 <p className="text-xs text-muted-foreground truncate">{conv.last_message}</p>
-                <div className="flex items-center gap-1.5 mt-1">
-                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">{conv.lead_status}</span>
+                <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                  {tags && getTagsForContact ? (
+                    <WaContactTagBadges
+                      contactId={conv.contact.id}
+                      assignedTagIds={getTagsForContact(conv.contact.id).map(t => t.tag_id)}
+                      allTags={tags}
+                      onAdd={onAddTag || (async () => {})}
+                      onRemove={onRemoveTag || (async () => {})}
+                      compact
+                    />
+                  ) : (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">{conv.lead_status}</span>
+                  )}
                   {conv.unread_count > 0 && (
                     <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground font-bold">
                       {conv.unread_count}
