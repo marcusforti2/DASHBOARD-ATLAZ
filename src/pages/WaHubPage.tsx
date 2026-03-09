@@ -90,6 +90,20 @@ export default function WaHubPage() {
     }
   };
 
+  const handleReconfigureAllWebhooks = async () => {
+    let ok = 0, fail = 0;
+    toast.info('Reconfigurando webhooks de todas as instâncias...');
+    for (const inst of instances) {
+      try {
+        await setWebhook(inst.instance_name);
+        ok++;
+      } catch {
+        fail++;
+      }
+    }
+    toast.success(`Webhooks reconfigurados: ${ok} OK, ${fail} falhas`);
+  };
+
   const handleCopyWebhookUrl = (instanceName: string) => {
     const url = getWebhookUrl(instanceName);
     navigator.clipboard.writeText(url);
@@ -284,11 +298,17 @@ export default function WaHubPage() {
         <TabsContent value="instances" className="mt-4">
           <div className="space-y-4">
             {/* Create instance button / form */}
-            {!showCreate ? (
-              <Button onClick={() => setShowCreate(true)} variant="outline" className="gap-2">
-                <Plus className="w-4 h-4" /> Nova Instância
+            <div className="flex items-center gap-2">
+              {!showCreate && (
+                <Button onClick={() => setShowCreate(true)} variant="outline" className="gap-2">
+                  <Plus className="w-4 h-4" /> Nova Instância
+                </Button>
+              )}
+              <Button onClick={handleReconfigureAllWebhooks} variant="secondary" className="gap-2 text-xs">
+                <Link2 className="w-3.5 h-3.5" /> Reconfigurar Webhooks
               </Button>
-            ) : (
+            </div>
+            {showCreate && (
               <div className="rounded-xl bg-card border border-border p-5 space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold text-foreground">Criar Nova Instância</h3>
