@@ -17,6 +17,7 @@ import { WaLeadProfilePanel } from '@/components/wa-hub/WaLeadProfilePanel';
 import { AiSdrConfigPanel } from '@/components/wa-hub/AiSdrConfigPanel';
 import { AiSdrTab } from '@/components/wa-hub/AiSdrTab';
 import { PipedriveTab } from '@/components/wa-hub/PipedriveTab';
+import { AiPromptsTab } from '@/components/wa-hub/AiPromptsTab';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
