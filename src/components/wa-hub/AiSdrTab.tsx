@@ -60,13 +60,13 @@ const TONES = [
   { value: "energetico", label: "Energético", emoji: "⚡", desc: "Empolgante e ativo" },
 ];
 
-const CAPABILITIES = [
-  { icon: MessageSquare, title: "Resposta automática", desc: "Responde leads em tempo real 24h" },
-  { icon: Tag, title: "Auto-etiquetas", desc: "Classifica leads por estágio automaticamente" },
-  { icon: TrendingUp, title: "Qualificação", desc: "Identifica leads quentes com perguntas inteligentes" },
-  { icon: ArrowRight, title: "Handoff inteligente", desc: "Transfere para humano no momento certo" },
-  { icon: Brain, title: "Contexto da empresa", desc: "Usa sua base de conhecimento nas respostas" },
-  { icon: Shield, title: "Identidade humana", desc: "Nunca revela que é IA para o lead" },
+const FEATURES = [
+  { key: "feature_auto_reply" as const, icon: MessageSquare, title: "Resposta automática", desc: "Responde leads em tempo real 24h com IA", color: "text-blue-500" },
+  { key: "feature_auto_tag" as const, icon: Tag, title: "Auto-etiquetas", desc: "Classifica leads por estágio automaticamente (novo, qualificado, etc)", color: "text-yellow-500" },
+  { key: "feature_qualification" as const, icon: TrendingUp, title: "Qualificação inteligente", desc: "Faz perguntas estratégicas para identificar leads quentes", color: "text-green-500" },
+  { key: "feature_handoff" as const, icon: ArrowRight, title: "Handoff para humano", desc: "Transfere a conversa para o closer/SDR no momento certo", color: "text-orange-500" },
+  { key: "feature_sentiment" as const, icon: Brain, title: "Análise de sentimento", desc: "Detecta frustração, urgência e risco de perda em tempo real", color: "text-purple-500" },
+  { key: "feature_pipedrive_sync" as const, icon: Zap, title: "Sync Pipedrive", desc: "Cria/atualiza deals e contatos no Pipedrive automaticamente", color: "text-primary" },
 ];
 
 interface Props {
