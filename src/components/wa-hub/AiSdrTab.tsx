@@ -372,20 +372,37 @@ export function AiSdrTab({ instances, teamMembers, onRefetch }: Props) {
                   </div>
                 </div>
 
+                {/* Master Prompt */}
+                <div className="rounded-xl border-2 border-primary/20 bg-primary/5 p-4">
+                  <label className="text-xs font-semibold text-primary uppercase tracking-wider flex items-center gap-1.5 mb-2">
+                    <Shield className="w-3.5 h-3.5" /> Prompt Master — Personalidade da SDR IA
+                  </label>
+                  <Textarea
+                    value={localConfig.master_prompt}
+                    onChange={e => update("master_prompt", e.target.value)}
+                    placeholder={`Defina a personalidade e regras absolutas da IA:\n\nExemplo:\nVocê é a Ana, assistente virtual da [Empresa]. Você NUNCA revela que é IA.\nSeu objetivo é qualificar o lead entendendo: orçamento, prazo e necessidade.\nSe o lead mencionar preço, responda: "Para garantir a melhor proposta, vou conectar você com nosso especialista."\nNunca critique concorrentes. Sempre use o nome do lead na conversa.\nSe o lead estiver irritado, peça desculpas e transfira imediatamente.`}
+                    rows={8}
+                    className="text-sm resize-none bg-card"
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1.5">
+                    Este é o <strong>prompt principal</strong> que define como a IA se comporta. Ele tem prioridade sobre tudo. Defina personalidade, regras, limites e tom.
+                  </p>
+                </div>
+
                 {/* Prompt Context */}
                 <div>
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-2">
-                    <Brain className="w-3.5 h-3.5" /> Contexto e instruções para a IA
+                    <Brain className="w-3.5 h-3.5" /> Contexto do negócio (complementar)
                   </label>
                   <Textarea
                     value={localConfig.prompt_context}
                     onChange={e => update("prompt_context", e.target.value)}
-                    placeholder={`Escreva aqui informações da sua empresa e regras para a IA:\n\n• Qual seu produto/serviço?\n• Qual o ticket médio?\n• Como qualificar um lead? (critérios)\n• O que NÃO pode dizer?\n• Quando transferir para humano?`}
-                    rows={6}
+                    placeholder={`Informações adicionais sobre seu negócio:\n\n• Qual seu produto/serviço?\n• Qual o ticket médio?\n• Como qualificar um lead? (critérios)\n• O que NÃO pode dizer?`}
+                    rows={5}
                     className="text-sm resize-none"
                   />
                   <p className="text-[10px] text-muted-foreground mt-1">
-                    A IA também usa automaticamente sua <strong>Base de Conhecimento</strong> cadastrada no sistema.
+                    A IA também puxa automaticamente os <strong>Prompts do Negócio</strong> (aba Prompts IA) e sua <strong>Base de Conhecimento</strong>.
                   </p>
                 </div>
 
