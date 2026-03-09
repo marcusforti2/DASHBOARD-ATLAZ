@@ -223,6 +223,18 @@ export default function WaHubPage() {
           <WaDashboard />
         </TabsContent>
 
+        <TabsContent value="crm" className="mt-4">
+          <WaCrmView
+            conversations={conversations}
+            tags={tags}
+            getTagsForContact={(contactId) => getTagsForContact(contactId)}
+            onAddTag={addTag}
+            onRemoveTag={removeTag}
+            onCreateTag={createTag}
+            onDeleteTag={deleteTag}
+          />
+        </TabsContent>
+
         <TabsContent value="instances" className="mt-4">
           <div className="space-y-4">
             {/* Create instance button / form */}
