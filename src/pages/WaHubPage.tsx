@@ -15,6 +15,7 @@ import { WaInstancePanel } from '@/components/wa-hub/WaInstancePanel';
 import { WaCrmView } from '@/components/wa-hub/WaCrmView';
 import { WaLeadProfilePanel } from '@/components/wa-hub/WaLeadProfilePanel';
 import { AiSdrConfigPanel } from '@/components/wa-hub/AiSdrConfigPanel';
+import { AiSdrTab } from '@/components/wa-hub/AiSdrTab';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
