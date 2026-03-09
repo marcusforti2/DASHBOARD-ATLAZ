@@ -141,7 +141,15 @@ export function UserHub({ teamMemberId, memberName, memberRole, onSignOut }: Use
 
         <main className="flex-1 p-2 sm:p-4 lg:p-6 max-w-[1600px] mx-auto w-full">
           <AnimatePresence mode="wait">
-            {renderContent()}
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            >
+              {renderContent()}
+            </motion.div>
           </AnimatePresence>
         </main>
       </div>
