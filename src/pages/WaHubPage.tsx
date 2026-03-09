@@ -505,8 +505,8 @@ export default function WaHubPage() {
                     <AiSdrConfigPanel
                       instanceId={inst.id}
                       instanceName={inst.instance_name}
-                      aiSdrEnabled={(inst as any).ai_sdr_enabled || false}
-                      aiSdrConfig={(inst as any).ai_sdr_config || {}}
+                      aiSdrEnabled={inst.ai_sdr_enabled || false}
+                      aiSdrConfig={inst.ai_sdr_config || {}}
                       onUpdate={refetchInstances}
                     />
 
