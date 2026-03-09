@@ -93,6 +93,16 @@ function MemberFormDialog({
       const result = await resp.json();
       if (!resp.ok) throw new Error(result.error || "Erro ao criar membro");
 
+      // Save email & phone to team_members
+      if (result.team_member_id) {
+        const memberUpdates: Record<string, any> = {};
+        if (email.trim()) memberUpdates.email = email.trim();
+        if (phone.trim()) memberUpdates.phone = phone.trim().replace(/\D/g, "");
+        if (Object.keys(memberUpdates).length > 0) {
+          await supabase.from("team_members").update(memberUpdates).eq("id", result.team_member_id);
+        }
+      }
+
       // Upload avatar if selected
       if (avatarFile && result.team_member_id) {
         const ext = avatarFile.name.split('.').pop();
