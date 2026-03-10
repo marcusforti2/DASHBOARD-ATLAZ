@@ -136,6 +136,62 @@ serve(async (req) => {
       });
     }
 
+    // ===== BUG FIX #1: STOP AI AFTER HANDOFF =====
+    // If lead_status is "agendado", the closer took over — AI must NOT respond
+    {
+      const { data: convCheck } = await supabase
+        .from("wa_conversations")
+        .select("lead_status")
+        .eq("id", conversation_id)
+        .single();
+
+      if (convCheck?.lead_status === "agendado" && !isProactive) {
+        console.log("[ai-sdr] Skipping: lead status is 'agendado' — human takeover active");
+        return new Response(JSON.stringify({ skipped: "human_takeover_agendado" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    // ===== BUG FIX #5: HUMAN MODE — stop AI if a human closer responded recently =====
+    {
+      const humanWindow = config.human_takeover_minutes || 60; // default 60 min
+      const { data: recentHumanMsg } = await supabase
+        .from("wa_messages")
+        .select("id, agent_name")
+        .eq("conversation_id", conversation_id)
+        .eq("sender", "agent")
+        .neq("agent_name", "SDR IA 🤖")
+        .gte("created_at", new Date(Date.now() - humanWindow * 60 * 1000).toISOString())
+        .limit(1)
+        .maybeSingle();
+
+      if (recentHumanMsg && !isProactive) {
+        console.log("[ai-sdr] Skipping: human agent responded recently (human takeover mode)", recentHumanMsg.agent_name);
+        return new Response(JSON.stringify({ skipped: "human_takeover_active" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    // ===== BUG FIX #6: BUSINESS HOURS CHECK =====
+    if (config.business_hours_only && !isProactive) {
+      const BRT_OFFSET = -3;
+      const now = new Date();
+      const brtHour = (now.getUTCHours() + BRT_OFFSET + 24) % 24;
+      const shifted = new Date(now.getTime() + BRT_OFFSET * 60 * 60 * 1000);
+      const brtDay = shifted.getUTCDay();
+      const startHour = config.business_hours_start ?? 8;
+      const endHour = config.business_hours_end ?? 19;
+
+      if (brtDay === 0 || brtDay === 6 || brtHour < startHour || brtHour >= endHour) {
+        console.log(`[ai-sdr] Skipping: outside business hours (BRT ${brtHour}h, day ${brtDay})`);
+        return new Response(JSON.stringify({ skipped: "outside_business_hours" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     // BLACKLIST CHECK
     if (features.blacklist && contact_phone) {
       const blacklist: string[] = config.blacklist_numbers || [];
