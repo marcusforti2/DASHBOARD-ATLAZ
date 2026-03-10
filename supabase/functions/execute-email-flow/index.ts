@@ -45,22 +45,51 @@ Deno.serve(async (req) => {
     const nodes: any[] = flow.nodes || [];
     const audienceType = flow.audience_type || 'all';
 
-    // Resolve recipients based on audience
+    // Resolve recipients: team members + imported contacts
+    let recipients: { id: string | null; name: string | null; email: string; member_role?: string }[] = [];
+
+    // 1. Check for imported contacts for this flow
+    const { data: importedContacts } = await supabase
+      .from('email_flow_contacts')
+      .select('id, email, name')
+      .eq('flow_id', flowId);
+
+    if (importedContacts && importedContacts.length > 0) {
+      recipients = importedContacts.map((c: any) => ({
+        id: null,
+        name: c.name || null,
+        email: c.email,
+        member_role: 'imported',
+      }));
+    }
+
+    // 2. Also include team members based on audience type
     let query = supabase.from('team_members').select('id, name, email, member_role, phone').eq('active', true);
     if (audienceType === 'sdrs') query = query.eq('member_role', 'sdr');
     else if (audienceType === 'closers') query = query.eq('member_role', 'closer');
 
     const { data: members, error: membersError } = await query;
     if (membersError) throw membersError;
-    if (!members || members.length === 0) {
-      return new Response(JSON.stringify({ error: "Nenhum membro da equipe encontrado" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+
+    if (members) {
+      const teamRecipients = members.filter(m => m.email).map(m => ({
+        id: m.id,
+        name: m.name,
+        email: m.email!,
+        member_role: m.member_role,
+      }));
+      // Merge, dedup by email
+      const existingEmails = new Set(recipients.map(r => r.email.toLowerCase()));
+      for (const tr of teamRecipients) {
+        if (!existingEmails.has(tr.email.toLowerCase())) {
+          recipients.push(tr);
+          existingEmails.add(tr.email.toLowerCase());
+        }
+      }
     }
 
-    const recipients = members.filter(m => m.email);
     if (recipients.length === 0) {
-      return new Response(JSON.stringify({ error: "Nenhum membro com email encontrado" }), {
+      return new Response(JSON.stringify({ error: "Nenhum destinatário encontrado. Importe contatos ou adicione membros com email." }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
