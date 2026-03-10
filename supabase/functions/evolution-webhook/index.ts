@@ -51,8 +51,12 @@ serve(async (req) => {
     if (event === 'connection.update') {
       const state = payload.data?.state || payload.data?.status;
       const isConn = state === 'open' || state === 'connected';
-      await supabase.from('wa_instances').update({ is_connected: isConn }).eq('id', instance.id);
-      console.log(`[webhook] Connection update: ${instanceName} -> ${state} (is_connected=${isConn})`);
+      // Try to extract the instance's own phone number from connection data
+      const instancePhone = payload.data?.ownerJid?.replace('@s.whatsapp.net', '') || null;
+      const updateData: any = { is_connected: isConn };
+      if (instancePhone && isConn) updateData.phone = instancePhone;
+      await supabase.from('wa_instances').update(updateData).eq('id', instance.id);
+      console.log(`[webhook] Connection update: ${instanceName} -> ${state} (is_connected=${isConn}, phone=${instancePhone})`);
       return new Response(JSON.stringify({ ok: true, connection: state }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
