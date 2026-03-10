@@ -1,13 +1,14 @@
-import { useState, useEffect, useRef } from 'react';
-import { useWaConversations, useWaInstances, useWaMessages } from '@/hooks/use-wa-hub';
+import { useState } from 'react';
+import { useWaConversations, useWaMessages } from '@/hooks/use-wa-hub';
 import { useWaTags, useWaContactTags } from '@/hooks/use-wa-tags';
+import { useWaInstanceManager } from '@/hooks/use-wa-instance-manager';
 import { supabase } from '@/integrations/supabase/client';
-import { Shield, Eye, Users, Loader2, MessageSquare, Wifi, Plus, Trash2, Pencil, Check, X, UserPlus, Link2, Copy, Tag, PanelRightOpen, Bot, ExternalLink, Brain, RefreshCw } from 'lucide-react';
+import { Shield, Eye, Users, MessageSquare, Wifi, Plus, Trash2, Pencil, Check, X, UserPlus, Link2, Copy, Tag, Bot, ExternalLink, Brain, RefreshCw, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { createInstance, setWebhook, getWebhookUrl, sendMedia, sendAudio, sendSticker, restartInstance } from '@/lib/evolutionApi';
+import { sendMedia, sendAudio, sendSticker } from '@/lib/evolutionApi';
 import { WaConversationList } from '@/components/wa-hub/WaConversationList';
 import WaChatView from '@/components/wa-hub/WaChatView';
 import { WaDashboard } from '@/components/wa-hub/WaDashboard';
@@ -18,198 +19,20 @@ import { AiSdrConfigPanel } from '@/components/wa-hub/AiSdrConfigPanel';
 import { AiSdrSummaryCard } from '@/components/wa-hub/AiSdrSummaryCard';
 import { PipedriveTab } from '@/components/wa-hub/PipedriveTab';
 import { AiPromptsTab } from '@/components/wa-hub/AiPromptsTab';
-
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function WaHubPage() {
   const [tab, setTab] = useState<'chat' | 'dashboard' | 'instances' | 'crm' | 'ai-sdr' | 'pipedrive' | 'ai-prompts'>('chat');
   const [instanceFilter, setInstanceFilter] = useState<string | null>(null);
   const { conversations, loading } = useWaConversations(instanceFilter);
-  const { instances, refetch: refetchInstances } = useWaInstances();
   const { tags, createTag, deleteTag } = useWaTags();
   const { getTagsForContact, addTag, removeTag } = useWaContactTags();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showProfile, setShowProfile] = useState(false);
   const { messages: selectedMessages, loading: messagesLoading, addOptimistic } = useWaMessages(selectedId);
-  // Create instance form
-  const [showCreate, setShowCreate] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [newPhone, setNewPhone] = useState('');
-  const [newCloserId, setNewCloserId] = useState<string>('none');
-  const [newSdrId, setNewSdrId] = useState<string>('none');
-  const [creating, setCreating] = useState(false);
-  const [teamMembers, setTeamMembers] = useState<{ id: string; name: string; member_role: string }[]>([]);
 
-  // Edit state
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editPhone, setEditPhone] = useState('');
-  const [editCloserId, setEditCloserId] = useState('none');
-  const [editSdrId, setEditSdrId] = useState('none');
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    supabase.from('team_members').select('id, name, member_role').eq('active', true).then(({ data }) => {
-      setTeamMembers(data ?? []);
-    });
-  }, []);
-
-  // Auto-sync all instances' real connection status on load (once)
-  const hasSynced = useRef(false);
-  useEffect(() => {
-    if (instances.length === 0 || hasSynced.current) return;
-    hasSynced.current = true;
-    const syncStatuses = async () => {
-      let changed = false;
-      for (const inst of instances) {
-        try {
-          const { getInstanceStatus } = await import('@/lib/evolutionApi');
-          const data = await getInstanceStatus(inst.instance_name);
-          const isConn = data?.state === 'open';
-          if (inst.is_connected !== isConn) {
-            await supabase.from('wa_instances').update({ is_connected: isConn } as any).eq('id', inst.id);
-            changed = true;
-          }
-        } catch {
-          if (inst.is_connected) {
-            await supabase.from('wa_instances').update({ is_connected: false } as any).eq('id', inst.id);
-            changed = true;
-          }
-        }
-      }
-      if (changed) refetchInstances();
-    };
-    syncStatuses();
-  }, [instances.length]);
-
-  const handleCreateInstance = async () => {
-    const name = newName.trim();
-    if (!name) { toast.error('Nome da instância obrigatório'); return; }
-    const instanceName = name.startsWith('wpp_') ? name : `wpp_${name.toLowerCase().replace(/\s+/g, '_')}`;
-    
-    try {
-      setCreating(true);
-
-      // Check if already exists in DB
-      const { data: existing } = await supabase
-        .from('wa_instances')
-        .select('id')
-        .eq('instance_name', instanceName)
-        .maybeSingle();
-
-      if (existing) {
-        toast.error(`A instância "${instanceName}" já existe no sistema.`);
-        return;
-      }
-
-      // Try to create in Evolution API (ignore "already exists" errors)
-      try { await createInstance(instanceName); } catch { /* instance may already exist in Evolution API, continue */ }
-
-      // Auto-register webhook
-      try { await setWebhook(instanceName); } catch { /* continue */ }
-
-      const { error } = await supabase.from('wa_instances').insert({
-        instance_name: instanceName,
-        phone: newPhone.trim() || null,
-        closer_id: newCloserId !== 'none' ? newCloserId : null,
-        sdr_id: newSdrId !== 'none' ? newSdrId : null,
-        is_connected: false,
-      } as any);
-      if (error) throw error;
-
-      toast.success(`Instância "${instanceName}" criada com webhook!`);
-      setNewName('');
-      setNewPhone('');
-      setNewCloserId('none');
-      setNewSdrId('none');
-      setShowCreate(false);
-      refetchInstances();
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao criar instância');
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  const handleSetWebhook = async (instanceName: string) => {
-    try {
-      await setWebhook(instanceName);
-      toast.success(`Webhook cadastrado para "${instanceName}"`);
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao cadastrar webhook');
-    }
-  };
-
-  const handleReconfigureAllWebhooks = async () => {
-    let ok = 0, fail = 0;
-    toast.info('Reconfigurando webhooks de todas as instâncias...');
-    for (const inst of instances) {
-      try {
-        await setWebhook(inst.instance_name);
-        ok++;
-      } catch {
-        fail++;
-      }
-    }
-    toast.success(`Webhooks reconfigurados: ${ok} OK, ${fail} falhas`);
-  };
-
-  const handleReconnectAll = async () => {
-    toast.info('Reconectando todas as instâncias...');
-    let ok = 0, fail = 0;
-    for (const inst of instances) {
-      try {
-        await restartInstance(inst.instance_name);
-        ok++;
-      } catch {
-        fail++;
-      }
-    }
-    // Update DB status
-    await refetchInstances();
-    toast.success(`Reconexão: ${ok} reiniciadas, ${fail} falhas`);
-  };
-
-  const handleCopyWebhookUrl = (instanceName: string) => {
-    const url = getWebhookUrl(instanceName);
-    navigator.clipboard.writeText(url);
-    toast.success('URL do webhook copiada!');
-  };
-
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Tem certeza que deseja excluir a instância "${name}"?`)) return;
-    const { error } = await supabase.from('wa_instances').delete().eq('id', id);
-    if (error) { toast.error('Erro ao excluir'); return; }
-    toast.success(`Instância "${name}" excluída`);
-    refetchInstances();
-  };
-
-  const startEdit = (inst: any) => {
-    setEditingId(inst.id);
-    setEditPhone(inst.phone || '');
-    setEditCloserId(inst.closer_id || 'none');
-    setEditSdrId(inst.sdr_id || 'none');
-  };
-
-  const cancelEdit = () => {
-    setEditingId(null);
-    setEditPhone('');
-    setEditCloserId('none');
-    setEditSdrId('none');
-  };
-
-  const handleSaveEdit = async (id: string) => {
-    setSaving(true);
-    const { error } = await supabase.from('wa_instances').update({
-      phone: editPhone.trim() || null,
-      closer_id: editCloserId !== 'none' ? editCloserId : null,
-      sdr_id: editSdrId !== 'none' ? editSdrId : null,
-    } as any).eq('id', id);
-    setSaving(false);
-    if (error) { toast.error('Erro ao salvar'); return; }
-    toast.success('Instância atualizada');
-    cancelEdit();
-    refetchInstances();
-  };
+  const mgr = useWaInstanceManager();
+  const { instances, teamMembers, refetchInstances } = mgr;
 
   const selectedConv = conversations.find(c => c.id === selectedId);
   const totalConvs = conversations.length;
@@ -226,54 +49,34 @@ export default function WaHubPage() {
     if (!inst) { toast.error('Instância não encontrada'); return; }
     try {
       const { error } = await supabase.functions.invoke('evolution-api', {
-        body: {
-          action: 'sendText',
-          instanceName: inst.instance_name,
-          data: { number: selectedConv.contact.phone, text },
-        },
+        body: { action: 'sendText', instanceName: inst.instance_name, data: { number: selectedConv.contact.phone, text } },
       });
       if (error) throw error;
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao enviar');
-      throw err;
-    }
+    } catch (err: unknown) { toast.error(err instanceof Error ? err.message : 'Erro ao enviar'); throw err; }
   };
 
   const handleSendMedia = async (mediaType: string, mediaUrl: string, caption?: string) => {
     if (!selectedConv) return;
     const inst = getSelectedInstance();
     if (!inst) { toast.error('Instância não encontrada'); return; }
-    try {
-      await sendMedia(inst.instance_name, selectedConv.contact.phone, mediaType as any, mediaUrl, caption);
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao enviar mídia');
-      throw err;
-    }
+    try { await sendMedia(inst.instance_name, selectedConv.contact.phone, mediaType as any, mediaUrl, caption); }
+    catch (err: unknown) { toast.error(err instanceof Error ? err.message : 'Erro ao enviar mídia'); throw err; }
   };
 
   const handleSendAudio = async (audioUrl: string) => {
     if (!selectedConv) return;
     const inst = getSelectedInstance();
     if (!inst) { toast.error('Instância não encontrada'); return; }
-    try {
-      await sendAudio(inst.instance_name, selectedConv.contact.phone, audioUrl);
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao enviar áudio');
-      throw err;
-    }
+    try { await sendAudio(inst.instance_name, selectedConv.contact.phone, audioUrl); }
+    catch (err: unknown) { toast.error(err instanceof Error ? err.message : 'Erro ao enviar áudio'); throw err; }
   };
 
   const handleSendSticker = async (imageUrl: string) => {
     if (!selectedConv) return;
     const inst = getSelectedInstance();
     if (!inst) { toast.error('Instância não encontrada'); return; }
-    try {
-      await sendSticker(inst.instance_name, selectedConv.contact.phone, imageUrl);
-      toast.success('Figurinha enviada!');
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao enviar figurinha');
-      throw err;
-    }
+    try { await sendSticker(inst.instance_name, selectedConv.contact.phone, imageUrl); toast.success('Figurinha enviada!'); }
+    catch (err: unknown) { toast.error(err instanceof Error ? err.message : 'Erro ao enviar figurinha'); throw err; }
   };
 
   return (
@@ -291,7 +94,7 @@ export default function WaHubPage() {
             <span className="text-xs text-muted-foreground">{totalConvs} conversas</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-primary" />
+            <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
             <span className="text-xs text-muted-foreground">{activeCount} ativas</span>
           </div>
           <div className="flex items-center gap-1.5">
@@ -311,6 +114,7 @@ export default function WaHubPage() {
           </TabsTrigger>
           <TabsTrigger value="crm" className="text-xs gap-1.5">
             <Tag className="w-3.5 h-3.5" /> CRM
+            {totalConvs > 0 && <span className="ml-1 text-[9px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary font-bold">{totalConvs}</span>}
           </TabsTrigger>
           <TabsTrigger value="ai-sdr" className="text-xs gap-1.5">
             <Bot className="w-3.5 h-3.5" /> SDR IA
@@ -320,77 +124,50 @@ export default function WaHubPage() {
           </TabsTrigger>
           <TabsTrigger value="pipedrive" className="text-xs gap-1.5">
             <ExternalLink className="w-3.5 h-3.5" /> Pipedrive
-            </TabsTrigger>
-            <TabsTrigger value="instances" className="text-xs gap-1.5">
-              <Wifi className="w-3.5 h-3.5" /> Instâncias
-            </TabsTrigger>
-          </TabsList>
+          </TabsTrigger>
+          <TabsTrigger value="instances" className="text-xs gap-1.5">
+            <Wifi className="w-3.5 h-3.5" /> Instâncias
+            {instances.filter(i => i.is_connected).length > 0 && (
+              <span className="ml-1 text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 font-bold">
+                {instances.filter(i => i.is_connected).length}
+              </span>
+            )}
+          </TabsTrigger>
+        </TabsList>
 
         <TabsContent value="chat" className="mt-4">
           <div className="flex rounded-xl border border-border bg-card overflow-hidden" style={{ height: 'calc(100vh - 220px)' }}>
             <WaConversationList
-              conversations={conversations}
-              instances={instances}
-              loading={loading}
-              selectedId={selectedId}
-              onSelect={(id) => { setSelectedId(id); }}
-              instanceFilter={instanceFilter}
-              onInstanceFilter={setInstanceFilter}
-              tags={tags}
-              getTagsForContact={(cid) => getTagsForContact(cid)}
-              onAddTag={addTag}
-              onRemoveTag={removeTag}
+              conversations={conversations} instances={instances} loading={loading}
+              selectedId={selectedId} onSelect={(id) => setSelectedId(id)}
+              instanceFilter={instanceFilter} onInstanceFilter={setInstanceFilter}
+              tags={tags} getTagsForContact={(cid) => getTagsForContact(cid)}
+              onAddTag={addTag} onRemoveTag={removeTag}
             />
-
             {selectedConv ? (
               <>
                 <WaChatView
-                  conversation={selectedConv}
-                  messages={selectedMessages}
-                  messagesLoading={messagesLoading}
+                  conversation={selectedConv} messages={selectedMessages} messagesLoading={messagesLoading}
                   onBack={() => setSelectedId(null)}
-                  onSend={async (text) => {
-                    addOptimistic({ text });
-                    await handleSend(text);
-                  }}
-                  onSendMedia={handleSendMedia}
-                  onSendAudio={handleSendAudio}
-                  onSendSticker={handleSendSticker}
-                  tags={tags}
-                  assignedTagIds={getTagsForContact(selectedConv.contact.id).map(t => t.tag_id)}
-                  onAddTag={addTag}
-                  onRemoveTag={removeTag}
-                  onToggleProfile={() => setShowProfile(!showProfile)}
-                  showProfileButton
+                  onSend={async (text) => { addOptimistic({ text }); await handleSend(text); }}
+                  onSendMedia={handleSendMedia} onSendAudio={handleSendAudio} onSendSticker={handleSendSticker}
+                  tags={tags} assignedTagIds={getTagsForContact(selectedConv.contact.id).map(t => t.tag_id)}
+                  onAddTag={addTag} onRemoveTag={removeTag}
+                  onToggleProfile={() => setShowProfile(!showProfile)} showProfileButton
                 />
-
-                {/* Lead Profile Sidebar */}
                 {showProfile && (
                   <WaLeadProfilePanel
-                    conversation={selectedConv}
-                    messages={selectedMessages}
-                    tags={tags}
-                    assignedTagIds={getTagsForContact(selectedConv.contact.id).map(t => t.tag_id)}
-                    onAddTag={addTag}
-                    onRemoveTag={removeTag}
-                    teamMembers={teamMembers}
+                    conversation={selectedConv} messages={selectedMessages}
+                    tags={tags} assignedTagIds={getTagsForContact(selectedConv.contact.id).map(t => t.tag_id)}
+                    onAddTag={addTag} onRemoveTag={removeTag} teamMembers={teamMembers}
                     onClose={() => setShowProfile(false)}
                     onTransfer={async (toMemberId, toRole, note) => {
                       const { data: profile } = await supabase.from('profiles').select('team_member_id').eq('id', (await supabase.auth.getUser()).data.user?.id || '').single();
-                      // Log transfer
                       await supabase.from('wa_transfer_logs').insert({
-                        conversation_id: selectedConv.id,
-                        from_member_id: profile?.team_member_id || null,
-                        to_member_id: toMemberId,
-                        from_role: selectedConv.assigned_role || 'sdr',
-                        to_role: toRole,
-                        note,
+                        conversation_id: selectedConv.id, from_member_id: profile?.team_member_id || null,
+                        to_member_id: toMemberId, from_role: selectedConv.assigned_role || 'sdr', to_role: toRole, note,
                       } as any);
-                      // Update conversation assignment
-                      await supabase.from('wa_conversations').update({
-                        assigned_to: toMemberId,
-                        assigned_role: toRole,
-                      } as any).eq('id', selectedConv.id);
+                      await supabase.from('wa_conversations').update({ assigned_to: toMemberId, assigned_role: toRole } as any).eq('id', selectedConv.id);
                       toast.success('Conversa transferida!');
                     }}
                   />
@@ -413,20 +190,14 @@ export default function WaHubPage() {
         </TabsContent>
 
         <TabsContent value="crm" className="mt-4">
-          <WaCrmView
-            conversations={conversations}
-            tags={tags}
+          <WaCrmView conversations={conversations} tags={tags}
             getTagsForContact={(contactId) => getTagsForContact(contactId)}
-            onAddTag={addTag}
-            onRemoveTag={removeTag}
-            onCreateTag={createTag}
-            onDeleteTag={deleteTag}
+            onAddTag={addTag} onRemoveTag={removeTag} onCreateTag={createTag} onDeleteTag={deleteTag}
           />
         </TabsContent>
 
         <TabsContent value="ai-sdr" className="mt-4">
           <AiSdrSummaryCard instances={instances as any} teamMembers={teamMembers} onNavigate={() => {
-            // Navigate to ai-sdr admin view — dispatch custom event
             window.dispatchEvent(new CustomEvent('navigate-admin', { detail: 'ai-sdr' }));
           }} />
         </TabsContent>
@@ -440,41 +211,146 @@ export default function WaHubPage() {
         </TabsContent>
 
         <TabsContent value="instances" className="mt-4">
-          <div className="space-y-4">
-            {/* Create instance button / form */}
-            <div className="flex items-center gap-2 flex-wrap">
-              {!showCreate && (
-                <Button onClick={() => setShowCreate(true)} variant="outline" className="gap-2">
-                  <Plus className="w-4 h-4" /> Nova Instância
-                </Button>
-              )}
-              <Button onClick={handleReconnectAll} variant="default" className="gap-2 text-xs">
-                <RefreshCw className="w-3.5 h-3.5" /> Reconectar Todas
-              </Button>
-              <Button onClick={handleReconfigureAllWebhooks} variant="secondary" className="gap-2 text-xs">
-                <Link2 className="w-3.5 h-3.5" /> Reconfigurar Webhooks
-              </Button>
-            </div>
-            {showCreate && (
-              <div className="rounded-xl bg-card border border-border p-5 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-foreground">Criar Nova Instância</h3>
-                  <button onClick={() => setShowCreate(false)} className="text-xs text-muted-foreground hover:text-foreground">Cancelar</button>
-                </div>
+          <InstancesTab mgr={mgr} />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+/* ── Instances Tab (extracted inline) ── */
+function InstancesTab({ mgr }: { mgr: ReturnType<typeof useWaInstanceManager> }) {
+  const {
+    instances, teamMembers, refetchInstances,
+    showCreate, setShowCreate, newName, setNewName, newPhone, setNewPhone,
+    newCloserId, setNewCloserId, newSdrId, setNewSdrId, creating, handleCreateInstance,
+    editingId, editPhone, setEditPhone, editCloserId, setEditCloserId,
+    editSdrId, setEditSdrId, saving, startEdit, cancelEdit, handleSaveEdit,
+    handleSetWebhook, handleReconfigureAllWebhooks, handleReconnectAll,
+    handleCopyWebhookUrl, handleDelete,
+  } = mgr;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 flex-wrap">
+        {!showCreate && (
+          <Button onClick={() => setShowCreate(true)} variant="outline" className="gap-2">
+            <Plus className="w-4 h-4" /> Nova Instância
+          </Button>
+        )}
+        <Button onClick={handleReconnectAll} variant="default" className="gap-2 text-xs">
+          <RefreshCw className="w-3.5 h-3.5" /> Reconectar Todas
+        </Button>
+        <Button onClick={handleReconfigureAllWebhooks} variant="secondary" className="gap-2 text-xs">
+          <Link2 className="w-3.5 h-3.5" /> Reconfigurar Webhooks
+        </Button>
+      </div>
+
+      {showCreate && (
+        <div className="rounded-xl bg-card border border-border p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-foreground">Criar Nova Instância</h3>
+            <button onClick={() => setShowCreate(false)} className="text-xs text-muted-foreground hover:text-foreground">Cancelar</button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Nome da Instância *</label>
+              <Input placeholder="Ex: closer_joao" value={newName} onChange={e => setNewName(e.target.value)} className="h-9 text-sm" />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Telefone (opcional)</label>
+              <Input placeholder="5511999999999" value={newPhone} onChange={e => setNewPhone(e.target.value)} className="h-9 text-sm" />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">SDR responsável</label>
+              <Select value={newSdrId} onValueChange={setNewSdrId}>
+                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum</SelectItem>
+                  {teamMembers.filter(m => m.member_role.includes('sdr')).map(m => (<SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Closer responsável</label>
+              <Select value={newCloserId} onValueChange={setNewCloserId}>
+                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum</SelectItem>
+                  {teamMembers.filter(m => m.member_role.includes('closer')).map(m => (<SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <Button onClick={handleCreateInstance} disabled={creating} className="gap-2">
+            {creating && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            Criar Instância
+          </Button>
+        </div>
+      )}
+
+      {instances.length === 0 && !showCreate ? (
+        <div className="rounded-xl bg-card border border-border p-8 text-center">
+          <Wifi className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">Nenhuma instância configurada</p>
+          <p className="text-[10px] text-muted-foreground mt-1">Clique em "Nova Instância" para começar</p>
+        </div>
+      ) : (
+        instances.map(inst => {
+          const displayName = inst.instance_name.replace(/^wpp_/i, '').replace(/^\w/, (c: string) => c.toUpperCase());
+          const assignedCloser = teamMembers.find(m => m.id === inst.closer_id);
+          const assignedSdr = teamMembers.find(m => m.id === (inst as any).sdr_id);
+          const isEditing = editingId === inst.id;
+
+          return (
+            <div key={inst.id} className="rounded-xl bg-card border border-border p-4 space-y-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Wifi className={`w-4 h-4 ${inst.is_connected ? 'text-primary' : 'text-muted-foreground'}`} />
+                <span className="text-sm font-semibold text-foreground">{displayName}</span>
+                <span className="text-[10px] font-mono text-muted-foreground">({inst.instance_name})</span>
+                {!isEditing && (
+                  <>
+                    {inst.phone && <span className="text-xs text-muted-foreground">· {inst.phone}</span>}
+                    {assignedSdr ? (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent text-accent-foreground font-medium flex items-center gap-1">
+                        <Users className="w-3 h-3" /> SDR: {assignedSdr.name}
+                      </span>
+                    ) : <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Sem SDR</span>}
+                    {assignedCloser ? (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium flex items-center gap-1">
+                        <UserPlus className="w-3 h-3" /> Closer: {assignedCloser.name}
+                      </span>
+                    ) : <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Sem Closer</span>}
+                  </>
+                )}
+                <div className="ml-auto flex items-center gap-1">
+                  {isEditing ? (
+                    <>
+                      <Button size="sm" variant="ghost" onClick={cancelEdit} className="h-7 w-7 p-0"><X className="w-3.5 h-3.5" /></Button>
+                      <Button size="sm" variant="ghost" onClick={() => handleSaveEdit(inst.id)} disabled={saving} className="h-7 w-7 p-0 text-primary">
+                        {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button size="sm" variant="ghost" onClick={() => handleSetWebhook(inst.instance_name)} title="Cadastrar Webhook" className="h-7 w-7 p-0"><Link2 className="w-3.5 h-3.5" /></Button>
+                      <Button size="sm" variant="ghost" onClick={() => handleCopyWebhookUrl(inst.instance_name)} title="Copiar URL do Webhook" className="h-7 w-7 p-0"><Copy className="w-3.5 h-3.5" /></Button>
+                      <Button size="sm" variant="ghost" onClick={() => startEdit(inst)} className="h-7 w-7 p-0"><Pencil className="w-3.5 h-3.5" /></Button>
+                      <Button size="sm" variant="ghost" onClick={() => handleDelete(inst.id, inst.instance_name)} className="h-7 w-7 p-0 text-destructive hover:text-destructive"><Trash2 className="w-3.5 h-3.5" /></Button>
+                    </>
+                  )}
+                </div>
+              </div>
+              {isEditing && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pl-6">
                   <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Nome da Instância *</label>
-                    <Input placeholder="Ex: closer_joao" value={newName} onChange={e => setNewName(e.target.value)} className="h-9 text-sm" />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Telefone (opcional)</label>
-                    <Input placeholder="5511999999999" value={newPhone} onChange={e => setNewPhone(e.target.value)} className="h-9 text-sm" />
+                    <label className="text-xs text-muted-foreground mb-1 block">Telefone</label>
+                    <Input value={editPhone} onChange={e => setEditPhone(e.target.value)} placeholder="5511999999999" className="h-8 text-sm" />
                   </div>
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">SDR responsável</label>
-                    <Select value={newSdrId} onValueChange={setNewSdrId}>
-                      <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                    <Select value={editSdrId} onValueChange={setEditSdrId}>
+                      <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Nenhum" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">Nenhum</SelectItem>
                         {teamMembers.filter(m => m.member_role.includes('sdr')).map(m => (<SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>))}
@@ -483,8 +359,8 @@ export default function WaHubPage() {
                   </div>
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">Closer responsável</label>
-                    <Select value={newCloserId} onValueChange={setNewCloserId}>
-                      <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                    <Select value={editCloserId} onValueChange={setEditCloserId}>
+                      <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Nenhum" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">Nenhum</SelectItem>
                         {teamMembers.filter(m => m.member_role.includes('closer')).map(m => (<SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>))}
@@ -492,135 +368,13 @@ export default function WaHubPage() {
                     </Select>
                   </div>
                 </div>
-
-                <Button onClick={handleCreateInstance} disabled={creating} className="gap-2">
-                  {creating && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  Criar Instância
-                </Button>
-              </div>
-            )}
-
-            {/* Instance list */}
-            {instances.length === 0 && !showCreate ? (
-              <div className="rounded-xl bg-card border border-border p-8 text-center">
-                <Wifi className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground">Nenhuma instância configurada</p>
-                <p className="text-[10px] text-muted-foreground mt-1">Clique em "Nova Instância" para começar</p>
-              </div>
-            ) : (
-              instances.map(inst => {
-                const displayName = inst.instance_name.replace(/^wpp_/i, '').replace(/^\w/, (c: string) => c.toUpperCase());
-                const assignedCloser = teamMembers.find(m => m.id === inst.closer_id);
-                const assignedSdr = teamMembers.find(m => m.id === (inst as any).sdr_id);
-                const isEditing = editingId === inst.id;
-
-                return (
-                  <div key={inst.id} className="rounded-xl bg-card border border-border p-4 space-y-3">
-                    {/* Header row */}
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Wifi className={`w-4 h-4 ${inst.is_connected ? 'text-primary' : 'text-muted-foreground'}`} />
-                      <span className="text-sm font-semibold text-foreground">{displayName}</span>
-                      <span className="text-[10px] font-mono text-muted-foreground">({inst.instance_name})</span>
-                      
-                      {!isEditing && (
-                        <>
-                          {inst.phone && <span className="text-xs text-muted-foreground">· {inst.phone}</span>}
-                          {assignedSdr ? (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent text-accent-foreground font-medium flex items-center gap-1">
-                              <Users className="w-3 h-3" />
-                              SDR: {assignedSdr.name}
-                            </span>
-                          ) : (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Sem SDR</span>
-                          )}
-                          {assignedCloser ? (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium flex items-center gap-1">
-                              <UserPlus className="w-3 h-3" />
-                              Closer: {assignedCloser.name}
-                            </span>
-                          ) : (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Sem Closer</span>
-                          )}
-                        </>
-                      )}
-
-                      <div className="ml-auto flex items-center gap-1">
-                        {isEditing ? (
-                          <>
-                            <Button size="sm" variant="ghost" onClick={cancelEdit} className="h-7 w-7 p-0">
-                              <X className="w-3.5 h-3.5" />
-                            </Button>
-                            <Button size="sm" variant="ghost" onClick={() => handleSaveEdit(inst.id)} disabled={saving} className="h-7 w-7 p-0 text-primary">
-                              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                            </Button>
-                          </>
-                        ) : (
-                          <>
-                            <Button size="sm" variant="ghost" onClick={() => handleSetWebhook(inst.instance_name)} title="Cadastrar Webhook" className="h-7 w-7 p-0">
-                              <Link2 className="w-3.5 h-3.5" />
-                            </Button>
-                            <Button size="sm" variant="ghost" onClick={() => handleCopyWebhookUrl(inst.instance_name)} title="Copiar URL do Webhook" className="h-7 w-7 p-0">
-                              <Copy className="w-3.5 h-3.5" />
-                            </Button>
-                            <Button size="sm" variant="ghost" onClick={() => startEdit(inst)} className="h-7 w-7 p-0">
-                              <Pencil className="w-3.5 h-3.5" />
-                            </Button>
-                            <Button size="sm" variant="ghost" onClick={() => handleDelete(inst.id, inst.instance_name)} className="h-7 w-7 p-0 text-destructive hover:text-destructive">
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Edit row */}
-                    {isEditing && (
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pl-6">
-                        <div>
-                          <label className="text-xs text-muted-foreground mb-1 block">Telefone</label>
-                          <Input value={editPhone} onChange={e => setEditPhone(e.target.value)} placeholder="5511999999999" className="h-8 text-sm" />
-                        </div>
-                        <div>
-                          <label className="text-xs text-muted-foreground mb-1 block">SDR responsável</label>
-                          <Select value={editSdrId} onValueChange={setEditSdrId}>
-                            <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Nenhum" /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">Nenhum</SelectItem>
-                              {teamMembers.filter(m => m.member_role.includes('sdr')).map(m => (<SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <label className="text-xs text-muted-foreground mb-1 block">Closer responsável</label>
-                          <Select value={editCloserId} onValueChange={setEditCloserId}>
-                            <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Nenhum" /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">Nenhum</SelectItem>
-                              {teamMembers.filter(m => m.member_role.includes('closer')).map(m => (<SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* AI SDR Config */}
-                    <AiSdrConfigPanel
-                      instanceId={inst.id}
-                      instanceName={inst.instance_name}
-                      aiSdrEnabled={inst.ai_sdr_enabled || false}
-                      aiSdrConfig={inst.ai_sdr_config || {}}
-                      onUpdate={refetchInstances}
-                    />
-
-                    {/* Connection panel */}
-                    <WaInstancePanel instanceName={inst.instance_name} closerName={displayName} instanceId={inst.id} />
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </TabsContent>
-      </Tabs>
+              )}
+              <AiSdrConfigPanel instanceId={inst.id} instanceName={inst.instance_name} aiSdrEnabled={inst.ai_sdr_enabled || false} aiSdrConfig={inst.ai_sdr_config || {}} onUpdate={refetchInstances} />
+              <WaInstancePanel instanceName={inst.instance_name} closerName={displayName} instanceId={inst.id} />
+            </div>
+          );
+        })
+      )}
     </div>
   );
 }
