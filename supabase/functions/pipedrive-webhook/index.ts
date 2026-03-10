@@ -217,21 +217,35 @@ async function handleDeal(supabase: any, event: string, current: any, previous: 
   console.log(`[pipedrive-webhook] Deal upserted: ${d.title} (${d.id}) status=${d.status}`);
 
   // PROACTIVE SDR IA: On new deal, auto-create contact + conversation and trigger AI outreach
-  // Only trigger for deals with label 43 (PROSPECÇÃO/LINKEDIN) — support both v1 and v2 formats
+  // Trigger for ANY deal label that matches a configured lead_source in the AI SDR config
   const dealLabel = d.label;
   const dealLabelIds = d.label_ids || [];
-  const PROSPECCAO_LABEL_ID = 43;
-  const isProspeccaoLinkedin = 
-    Number(dealLabel) === PROSPECCAO_LABEL_ID || 
-    (Array.isArray(dealLabelIds) && dealLabelIds.some((lid: any) => Number(lid) === PROSPECCAO_LABEL_ID));
-
-  console.log(`[pipedrive-webhook] Label check: label=${dealLabel}, label_ids=${JSON.stringify(dealLabelIds)}, isProspeccao=${isProspeccaoLinkedin}`);
-
-  if (!isProspeccaoLinkedin) {
-    console.log(`[pipedrive-webhook] Skipping proactive: deal ${d.id} is not PROSPECÇÃO/LINKEDIN`);
+  
+  // Resolve all label IDs present on this deal
+  const resolvedLabelIds: number[] = [];
+  if (dealLabel != null && !isNaN(Number(dealLabel))) resolvedLabelIds.push(Number(dealLabel));
+  if (Array.isArray(dealLabelIds)) {
+    dealLabelIds.forEach((lid: any) => {
+      const n = Number(lid);
+      if (!isNaN(n) && !resolvedLabelIds.includes(n)) resolvedLabelIds.push(n);
+    });
   }
 
-  if (event === 'create' && isProspeccaoLinkedin) {
+  console.log(`[pipedrive-webhook] Label check: label=${dealLabel}, label_ids=${JSON.stringify(dealLabelIds)}, resolved=${JSON.stringify(resolvedLabelIds)}`);
+
+  // Check if any resolved label matches a configured lead_source on any AI SDR instance
+  let matchedLabelId: number | null = null;
+  let matchedSourceContext = "";
+  let matchedSourceName = "";
+
+  // We'll check when we have the target instance (below)
+  const hasAnyLabel = resolvedLabelIds.length > 0;
+
+  if (!hasAnyLabel) {
+    console.log(`[pipedrive-webhook] Skipping proactive: deal ${d.id} has no labels`);
+  }
+
+  if (event === 'create' && hasAnyLabel) {
     // DEDUP: Check if we already processed a "create" webhook for this same deal
     const { count: previousCreateCount } = await supabase
       .from('pipedrive_webhook_logs')
@@ -307,6 +321,26 @@ async function handleDeal(supabase: any, event: string, current: any, previous: 
     }
 
     console.log(`[pipedrive-webhook] Using instance: ${targetInstance.instance_name} (closer: ${targetInstance.closer_id})`);
+
+    // Match deal label with configured lead_sources
+    const instConfig = targetInstance.ai_sdr_config || {};
+    const leadSources = instConfig.lead_sources || [];
+    for (const labelId of resolvedLabelIds) {
+      const matchedSource = leadSources.find((s: any) => s.active && Number(s.pipedrive_label_id) === labelId);
+      if (matchedSource) {
+        matchedLabelId = labelId;
+        matchedSourceContext = matchedSource.context || "";
+        matchedSourceName = matchedSource.name || "";
+        break;
+      }
+    }
+
+    if (!matchedLabelId) {
+      console.log(`[pipedrive-webhook] Skipping proactive: no active lead_source matches labels ${JSON.stringify(resolvedLabelIds)}`);
+      return;
+    }
+
+    console.log(`[pipedrive-webhook] Matched lead source: ${matchedSourceName} (label ${matchedLabelId})`);
 
     // Find or create wa_contact on this instance
     let contactId: string | null = null;
@@ -402,6 +436,9 @@ async function handleDeal(supabase: any, event: string, current: any, previous: 
             deal_value: d.value,
             org_name: orgName,
             origin: d.origin || 'ManuallyCreated',
+            label_id: matchedLabelId,
+            lead_source_name: matchedSourceName,
+            lead_source_context: matchedSourceContext,
           },
         }),
       });
