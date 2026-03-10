@@ -1204,15 +1204,14 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
         }
       }
 
-      // Mark conversation for human takeover
+      // Mark conversation for human takeover (urgent_call uses its own status)
       await supabase.from("wa_conversations").update({
-        lead_status: "agendado",
+        lead_status: "urgente",
         assigned_to: instance.closer_id,
         assigned_role: "closer",
       }).eq("id", conversation_id);
 
-      // Disable AI for this conversation by updating status
-      // The AI won't respond anymore because we set lead_status to "agendado"
+      // AI won't respond because lead_status changed from normal flow
     }
 
     // 7. Meeting confirmed: schedule 6h and 1h follow-ups
