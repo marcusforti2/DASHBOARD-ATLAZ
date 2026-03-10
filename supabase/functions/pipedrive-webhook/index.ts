@@ -24,20 +24,25 @@ serve(async (req) => {
 
   try {
     const payload = await req.json();
-    const { meta, current, previous } = payload;
 
-    const event = meta?.action || 'unknown'; // added, updated, deleted, merged
-    const entity = meta?.object || 'unknown'; // deal, person, activity, note
+    // Support both Pipedrive v1 (meta.object, current) and v2 (meta.entity, data)
+    const meta = payload.meta || {};
+    const current = payload.current || payload.data || null;
+    const previous = payload.previous || null;
+
+    const event = meta.action || 'unknown';
+    const entity = meta.entity || meta.object || 'unknown';
 
     console.log(`[pipedrive-webhook] ${event} ${entity}`, current?.id);
 
     // Log webhook
-    await supabase.from('pipedrive_webhook_logs').insert({
+    const logEntry = {
       event,
       entity,
-      pipedrive_id: current?.id || previous?.id,
+      pipedrive_id: current?.id || previous?.id || null,
       payload,
-    });
+    };
+    const { data: logData } = await supabase.from('pipedrive_webhook_logs').insert(logEntry).select('id').single();
 
     if (entity === 'deal') {
       await handleDeal(supabase, event, current, previous);
@@ -50,13 +55,11 @@ serve(async (req) => {
     }
 
     // Mark log as processed
-    await supabase.from('pipedrive_webhook_logs')
-      .update({ processed: true })
-      .eq('pipedrive_id', current?.id || previous?.id)
-      .eq('event', event)
-      .eq('entity', entity)
-      .order('created_at', { ascending: false })
-      .limit(1);
+    if (logData?.id) {
+      await supabase.from('pipedrive_webhook_logs')
+        .update({ processed: true })
+        .eq('id', logData.id);
+    }
 
     return new Response(JSON.stringify({ ok: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
