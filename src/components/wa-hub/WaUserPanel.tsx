@@ -221,6 +221,7 @@ export function WaUserPanel({ teamMemberId, memberName, memberRole }: Props) {
                   }}
                   onSendMedia={handleSendMedia}
                   onSendAudio={handleSendAudio}
+                  onSendSticker={async () => {}}
                   tags={tags}
                   assignedTagIds={getTagsForContact(selectedConv.contact.id).map(t => t.tag_id)}
                   onAddTag={addTag}
