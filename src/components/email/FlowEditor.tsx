@@ -70,6 +70,8 @@ export default function FlowEditor({ flow, templates, onSave, onClose }: FlowEdi
   const [flowName, setFlowName] = useState(flow.name);
   const [flowDescription, setFlowDescription] = useState(flow.description || '');
   const [isEditingName, setIsEditingName] = useState(false);
+  const [isEmailPreviewOpen, setIsEmailPreviewOpen] = useState(false);
+  const [previewHtml, setPreviewHtml] = useState('');
 
   useEffect(() => {
     if (nodes.length === 0) {
