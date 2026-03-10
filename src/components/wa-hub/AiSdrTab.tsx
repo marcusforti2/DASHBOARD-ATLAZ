@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AiSdrFlowView } from "./AiSdrFlowView";
+import { RoutingPanel } from "./RoutingPanel";
 
 interface AiSdrConfig {
   greeting: string;
