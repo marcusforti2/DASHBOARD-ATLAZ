@@ -1,0 +1,1 @@
+UPDATE wa_contacts SET name = 'Guilherme' WHERE id = '9345898b-aa63-4a45-b0bc-75d41eca2a32';
