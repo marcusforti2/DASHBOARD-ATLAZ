@@ -355,6 +355,7 @@ export default function WaHubPage() {
                   }}
                   onSendMedia={handleSendMedia}
                   onSendAudio={handleSendAudio}
+                  onSendSticker={handleSendSticker}
                   tags={tags}
                   assignedTagIds={getTagsForContact(selectedConv.contact.id).map(t => t.tag_id)}
                   onAddTag={addTag}
