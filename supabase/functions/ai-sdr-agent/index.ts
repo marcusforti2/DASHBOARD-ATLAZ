@@ -277,22 +277,19 @@ Deno.serve(async (req) => {
       .eq("id", conversation_id)
       .single();
 
-    // Resolve contact_phone if not provided in body
-    let resolvedPhone = contact_phone;
-    let resolvedContactName = contact_name;
-    if ((!resolvedPhone || !resolvedContactName) && conversation?.contact_id) {
+    // Resolve contact_phone and contact_name if not provided in body
+    if ((!contact_phone || !contact_name) && conversation?.contact_id) {
       const { data: contactData } = await supabase
         .from("wa_contacts")
         .select("phone, name")
         .eq("id", conversation.contact_id)
         .single();
       if (contactData) {
-        resolvedPhone = resolvedPhone || contactData.phone;
-        resolvedContactName = resolvedContactName || contactData.name;
+        contact_phone = contact_phone || contactData.phone;
+        contact_name = contact_name || contactData.name;
       }
     }
-
-    // Check handoff threshold
+    console.log("[ai-sdr] Resolved contact:", contact_name, contact_phone);
     if (features.handoff) {
       const agentMsgCount = history.filter(m => m.sender === "agent" && m.agent_name === "SDR IA 🤖").length;
       const maxBeforeHandoff = config.max_messages_before_handoff || 10;
