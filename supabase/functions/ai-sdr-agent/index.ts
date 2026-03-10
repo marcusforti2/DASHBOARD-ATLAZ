@@ -689,6 +689,44 @@ Responda EXATAMENTE neste formato JSON:
         if (matched) finalSourceContext = matched.context || "";
       }
 
+      // Enrich with LinkedIn data via Piloterr for proactive triggers
+      let proactiveLinkedinContext = linkedinContext; // may already be set from pipedrive_persons
+      if (!proactiveLinkedinContext && linkedinUrl) {
+        const PILOTERR_API_KEY = Deno.env.get("PILOTERR_API_KEY");
+        if (PILOTERR_API_KEY) {
+          try {
+            console.log("[ai-sdr] Proactive: scraping LinkedIn URL:", linkedinUrl);
+            const scraperResp = await fetch(`${SUPABASE_URL}/functions/v1/linkedin-scraper`, {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ linkedin_url: linkedinUrl }),
+            });
+            if (scraperResp.ok) {
+              const scraperData = await scraperResp.json();
+              if (scraperData.found && scraperData.profile) {
+                const p = scraperData.profile;
+                proactiveLinkedinContext = `\n\nPERFIL LINKEDIN DO LEAD (use para personalizar a primeira mensagem):
+- Nome: ${p.full_name}
+- Cargo: ${p.company_role || p.headline}
+- Empresa: ${p.company}
+- Setor: ${p.industry || "N/A"}
+- Localização: ${p.location || "N/A"}
+- Resumo: ${p.summary ? p.summary.substring(0, 300) : "N/A"}
+${p.experience?.length ? `- Experiência recente:\n${p.experience.map((e: any) => `  • ${e.title} @ ${e.company} (${e.duration})`).join("\n")}` : ""}
+
+IMPORTANTE: Mencione algo ESPECÍFICO do perfil (cargo, empresa, setor) para criar rapport genuíno na primeira mensagem.`;
+                console.log("[ai-sdr] Proactive LinkedIn enrichment:", p.full_name, p.company);
+              }
+            }
+          } catch (liErr) {
+            console.error("[ai-sdr] Proactive LinkedIn scrape error (non-blocking):", liErr);
+          }
+        }
+      }
+
       userMessage = `Este é um NOVO LEAD que acabou de ser cadastrado no CRM (Pipedrive). Você deve iniciar a conversa proativamente pelo WhatsApp.
 
 ORIGEM DO LEAD: ${sourceName}
@@ -700,6 +738,7 @@ CONTEXTO DO LEAD:
 - Valor: ${pCtx.deal_value || 0}
 - Origem: ${pCtx.origin || "Manual"}
 ${linkedinUrl ? `- LinkedIn: ${linkedinUrl}` : ""}
+${proactiveLinkedinContext || ""}
 
 ${finalSourceContext ? `INSTRUÇÕES ESPECÍFICAS PARA ESTA ORIGEM (siga à risca):\n${finalSourceContext}\n` : ""}
 INSTRUÇÕES GERAIS PARA PRIMEIRA MENSAGEM:
@@ -709,6 +748,7 @@ INSTRUÇÕES GERAIS PARA PRIMEIRA MENSAGEM:
 4. Termine com uma pergunta aberta para engajar o lead
 5. Mantenha a mensagem curta (máximo 4 linhas)
 6. Varie o estilo: às vezes mais direto, às vezes mais descontraído — não use sempre o mesmo template
+${proactiveLinkedinContext ? "7. USE os dados do LinkedIn para criar uma abordagem PERSONALIZADA e DIFERENCIADA" : ""}
 
 LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
     } else {
