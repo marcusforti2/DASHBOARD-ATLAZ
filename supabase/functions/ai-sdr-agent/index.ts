@@ -132,8 +132,9 @@ serve(async (req) => {
       .map(k => `[${k.title}]: ${k.content}`).join("\n\n");
 
     // Build conversation history text
+    const agentLabel = closerName || "SDR IA";
     const conversationText = history
-      .map(m => `${m.sender === "contact" ? contact_name || "Lead" : "SDR IA"}: ${m.text}`)
+      .map(m => `${m.sender === "contact" ? contact_name || "Lead" : agentLabel}: ${m.text}`)
       .join("\n");
 
     const currentTagNames = (currentTags || []).map((ct: any) => ct.wa_tags?.name).filter(Boolean);
