@@ -103,7 +103,7 @@ export default function WaChatView({
               <User className="w-4 h-4 text-muted-foreground" />
             </button>
           )}
-          <WaAiTools conversation={conversation} onSend={onSend} />
+          <WaAiTools messages={messages} contactName={conversation.contact.name} />
         </div>
       </div>
 
