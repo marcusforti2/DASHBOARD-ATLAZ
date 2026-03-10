@@ -339,6 +339,16 @@ const AUTOMATIONS: AutomationDef[] = [
     color: "text-emerald-500",
     explanation: "Quando a IA confirma um agendamento com o lead, cria automaticamente um evento no Google Calendar do Closer responsável com: título com nome do lead, duração de 30 min, link Google Meet e lembretes de 15 e 5 min antes. Além disso, envia uma notificação via WhatsApp ao Closer com os dados do agendamento. Requer que o Closer tenha a agenda conectada.",
   },
+  {
+    key: "feature_smart_delay", icon: Timer, title: "Smart Delay (Anti-Bot)", desc: "Delay inteligente antes de responder",
+    color: "text-amber-600",
+    explanation: "Adiciona um delay aleatório antes da IA começar a digitar, simulando o tempo que um humano levaria para LER e PENSAR na resposta. Mensagens curtas = delay menor, mensagens longas = delay maior. Isso é ALÉM do tempo de digitação (composing). Torna impossível perceber que é IA pela velocidade de resposta.",
+    warnings: ["O tempo total de resposta será: Smart Delay + Tempo de Digitação. Uma mensagem longa pode levar 20-30s para ser enviada, o que é realista para um humano."],
+    fields: [
+      { key: "smart_delay_min_seconds", label: "Delay mínimo", type: "number" as const, suffix: "segundos", min: 1, max: 30 },
+      { key: "smart_delay_max_seconds", label: "Delay máximo", type: "number" as const, suffix: "segundos", min: 5, max: 60 },
+    ],
+  },
 ];
 
 export default function AiSdrPage() {
