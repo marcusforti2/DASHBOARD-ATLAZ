@@ -154,7 +154,7 @@ Deno.serve(async (req) => {
         .limit(1)
         .maybeSingle();
 
-      if (recentHumanMsg && !isProactive) {
+      if (recentHumanMsg && !isProactive && !force) {
         console.log("[ai-sdr] Skipping: human agent responded recently (human takeover mode)", recentHumanMsg.agent_name);
         return new Response(JSON.stringify({ skipped: "human_takeover_active" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
