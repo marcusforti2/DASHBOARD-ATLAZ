@@ -111,6 +111,22 @@ export default function WaHubPage() {
     toast.success(`Webhooks reconfigurados: ${ok} OK, ${fail} falhas`);
   };
 
+  const handleReconnectAll = async () => {
+    toast.info('Reconectando todas as instâncias...');
+    let ok = 0, fail = 0;
+    for (const inst of instances) {
+      try {
+        await restartInstance(inst.instance_name);
+        ok++;
+      } catch {
+        fail++;
+      }
+    }
+    // Update DB status
+    await refetchInstances();
+    toast.success(`Reconexão: ${ok} reiniciadas, ${fail} falhas`);
+  };
+
   const handleCopyWebhookUrl = (instanceName: string) => {
     const url = getWebhookUrl(instanceName);
     navigator.clipboard.writeText(url);
