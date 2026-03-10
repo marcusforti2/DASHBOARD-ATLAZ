@@ -55,8 +55,8 @@ interface GoogleCalendarPanelProps {
   memberRole?: string;
 }
 
-const HOURS = Array.from({ length: 17 }, (_, i) => i + 6); // 06:00 - 22:00
-const HOUR_HEIGHT = 60; // px per hour
+const HOURS = Array.from({ length: 18 }, (_, i) => i + 6); // 06:00 - 23:00
+const HOUR_HEIGHT = 56; // px per hour — compact but readable
 
 const REMINDER_OPTIONS = [
   { label: "24h antes", value: "24h", minutes: 1440 },
@@ -128,14 +128,21 @@ export function GoogleCalendarPanel({ teamMemberId, memberRole }: GoogleCalendar
     return { start: startOfDay(currentDate), end: endOfDay(addDays(currentDate, 13)) };
   }, [viewMode, currentDate]);
 
-  // Scroll to current hour on mount
+  // Scroll to first event or current hour on load
   useEffect(() => {
-    if (scrollRef.current) {
-      const now = new Date();
-      const scrollTo = (now.getHours() - 7) * HOUR_HEIGHT;
+    if (scrollRef.current && !loading && events.length > 0) {
+      // Find earliest event hour
+      const earliest = events.reduce((min, ev) => {
+        const s = ev.start.dateTime || ev.start.date;
+        if (!s) return min;
+        const h = parseISO(s).getHours();
+        return h < min ? h : min;
+      }, 24);
+      const targetHour = earliest < 24 ? Math.max(earliest - 1, HOURS[0]) : new Date().getHours() - 1;
+      const scrollTo = (targetHour - HOURS[0]) * HOUR_HEIGHT;
       scrollRef.current.scrollTop = Math.max(0, scrollTo);
     }
-  }, [viewMode, loading]);
+  }, [viewMode, loading, events]);
 
   // Fetch connected closers
   useEffect(() => {
@@ -420,17 +427,18 @@ export function GoogleCalendarPanel({ teamMemberId, memberRole }: GoogleCalendar
         <PopoverTrigger asChild>
           <button
             className={cn(
-              "absolute rounded-md px-1.5 py-0.5 text-left overflow-hidden cursor-pointer transition-all",
-              "hover:brightness-110 hover:shadow-lg hover:z-30",
-              hoveredEvent === event.id && "brightness-110 shadow-lg z-30"
+              "absolute rounded-[4px] px-1.5 py-0.5 text-left overflow-hidden cursor-pointer transition-all border-l-[3px]",
+              "hover:brightness-125 hover:shadow-md hover:z-30",
             )}
             style={{
               top: `${topPx}px`,
               height: `${heightPx - 2}px`,
               backgroundColor: color,
+              borderLeftColor: `color-mix(in srgb, ${color} 70%, black)`,
               left: `${leftPercent}%`,
-              width: `${widthPercent - 1}%`,
+              width: `calc(${widthPercent}% - 2px)`,
               zIndex: hoveredEvent === event.id ? 30 : 10,
+              opacity: 0.92,
             }}
             onMouseEnter={() => setHoveredEvent(event.id)}
             onMouseLeave={() => setHoveredEvent(null)}
@@ -599,17 +607,15 @@ export function GoogleCalendarPanel({ teamMemberId, memberRole }: GoogleCalendar
   const renderWeekView = () => {
     const ws = startOfWeek(currentDate, { weekStartsOn: 0 });
     const days = eachDayOfInterval({ start: ws, end: addDays(ws, 6) });
-    const today = new Date();
+    const gridHeight = HOURS.length * HOUR_HEIGHT;
 
     return (
       <div className="border border-border rounded-lg overflow-hidden bg-card flex flex-col" style={{ height: "calc(100vh - 220px)", minHeight: "500px" }}>
-        {/* Header row */}
-        <div className="grid grid-cols-[48px_repeat(7,1fr)] border-b border-border shrink-0">
-          <div className="border-r border-border" />
+        {/* Header row — sticky */}
+        <div className="flex border-b border-border shrink-0">
+          <div className="w-12 shrink-0 border-r border-border" />
           {days.map(day => (
-            <div key={day.toISOString()} className={cn(
-              "text-center py-2 border-r border-border last:border-r-0",
-            )}>
+            <div key={day.toISOString()} className="flex-1 text-center py-2 border-r border-border last:border-r-0">
               <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
                 {format(day, "EEEEEE", { locale: ptBR })}
               </div>
@@ -627,39 +633,36 @@ export function GoogleCalendarPanel({ teamMemberId, memberRole }: GoogleCalendar
 
         {/* Scrollable time grid */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-none">
-          <div className="grid grid-cols-[48px_repeat(7,1fr)] relative" style={{ height: `${HOURS.length * HOUR_HEIGHT}px` }}>
-            {/* Hour labels */}
-            <div className="relative border-r border-border">
-              {HOURS.map(hour => (
-                <div key={hour} className="absolute right-2 -translate-y-1/2 text-[10px] text-muted-foreground font-medium"
-                  style={{ top: `${(hour - HOURS[0]) * HOUR_HEIGHT}px` }}>
-                  {`${hour.toString().padStart(2, "0")}:00`}
+          <div className="flex relative" style={{ height: `${gridHeight}px` }}>
+            {/* Hour labels column */}
+            <div className="w-12 shrink-0 relative border-r border-border">
+              {HOURS.map((hour, i) => (
+                <div key={hour} className="absolute right-2 text-[10px] text-muted-foreground font-medium"
+                  style={{ top: `${i * HOUR_HEIGHT - 6}px` }}>
+                  {i > 0 ? `${hour.toString().padStart(2, "0")}:00` : ""}
                 </div>
               ))}
             </div>
 
             {/* Day columns */}
-            {days.map((day, dayIdx) => {
-              const dayEvents = filteredEvents.filter(e => {
-                const s = getEventStart(e);
-                return isSameDay(s, day);
-              });
+            {days.map(day => {
+              const dayEvents = filteredEvents.filter(e => isSameDay(getEventStart(e), day));
               const layout = getEventLayout(dayEvents);
 
               return (
-                <div key={day.toISOString()} className="relative border-r border-border last:border-r-0">
+                <div key={day.toISOString()} className="flex-1 relative border-r border-border last:border-r-0">
                   {/* Hour grid lines */}
-                  {HOURS.map(hour => (
-                    <div key={hour} className="absolute left-0 right-0 border-t border-border/40"
-                      style={{ top: `${(hour - HOURS[0]) * HOUR_HEIGHT}px` }}>
-                      {/* Half-hour line */}
-                      <div className="absolute left-0 right-0 border-t border-border/20"
-                        style={{ top: `${HOUR_HEIGHT / 2}px` }} />
+                  {HOURS.map((hour, i) => (
+                    <div key={hour}>
+                      <div className="absolute left-0 right-0 border-t border-border/30"
+                        style={{ top: `${i * HOUR_HEIGHT}px` }} />
+                      <div className="absolute left-0 right-0 border-t border-border/15"
+                        style={{ top: `${i * HOUR_HEIGHT + HOUR_HEIGHT / 2}px` }} />
                     </div>
                   ))}
 
-                  {/* Events */}
-                  <div className="absolute inset-0 mx-0.5">
+                  {/* Events — absolutely positioned */}
+                  <div className="absolute inset-x-0.5 top-0 bottom-0">
                     {layout.map(({ event, columnIndex, columnCount }) => (
                       <EventBlock key={event.id} event={event} columnCount={columnCount} columnIndex={columnIndex} />
                     ))}
@@ -681,31 +684,34 @@ export function GoogleCalendarPanel({ teamMemberId, memberRole }: GoogleCalendar
     const dayEvents = filteredEvents.filter(e => isSameDay(getEventStart(e), currentDate));
     const layout = getEventLayout(dayEvents);
 
+    const gridHeight = HOURS.length * HOUR_HEIGHT;
+
     return (
       <div className="border border-border rounded-lg overflow-hidden bg-card flex flex-col" style={{ height: "calc(100vh - 220px)", minHeight: "500px" }}>
         <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-none">
-          <div className="grid grid-cols-[48px_1fr] relative" style={{ height: `${HOURS.length * HOUR_HEIGHT}px` }}>
+          <div className="flex relative" style={{ height: `${gridHeight}px` }}>
             {/* Hour labels */}
-            <div className="relative border-r border-border">
-              {HOURS.map(hour => (
-                <div key={hour} className="absolute right-2 -translate-y-1/2 text-[10px] text-muted-foreground font-medium"
-                  style={{ top: `${(hour - HOURS[0]) * HOUR_HEIGHT}px` }}>
-                  {`${hour.toString().padStart(2, "0")}:00`}
+            <div className="w-12 shrink-0 relative border-r border-border">
+              {HOURS.map((hour, i) => (
+                <div key={hour} className="absolute right-2 text-[10px] text-muted-foreground font-medium"
+                  style={{ top: `${i * HOUR_HEIGHT - 6}px` }}>
+                  {i > 0 ? `${hour.toString().padStart(2, "0")}:00` : ""}
                 </div>
               ))}
             </div>
 
             {/* Day column */}
-            <div className="relative">
-              {HOURS.map(hour => (
-                <div key={hour} className="absolute left-0 right-0 border-t border-border/40"
-                  style={{ top: `${(hour - HOURS[0]) * HOUR_HEIGHT}px` }}>
-                  <div className="absolute left-0 right-0 border-t border-border/20"
-                    style={{ top: `${HOUR_HEIGHT / 2}px` }} />
+            <div className="flex-1 relative">
+              {HOURS.map((hour, i) => (
+                <div key={hour}>
+                  <div className="absolute left-0 right-0 border-t border-border/30"
+                    style={{ top: `${i * HOUR_HEIGHT}px` }} />
+                  <div className="absolute left-0 right-0 border-t border-border/15"
+                    style={{ top: `${i * HOUR_HEIGHT + HOUR_HEIGHT / 2}px` }} />
                 </div>
               ))}
 
-              <div className="absolute inset-0 mx-1">
+              <div className="absolute inset-x-1 top-0 bottom-0">
                 {layout.map(({ event, columnIndex, columnCount }) => (
                   <EventBlock key={event.id} event={event} columnCount={columnCount} columnIndex={columnIndex} />
                 ))}
