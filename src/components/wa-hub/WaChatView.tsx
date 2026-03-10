@@ -249,6 +249,7 @@ export default function WaChatView({ conversation, messages, messagesLoading, on
     }
   };
 
+  const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mimeType = getSupportedAudioMime();
