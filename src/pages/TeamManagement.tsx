@@ -12,6 +12,16 @@ import {
 } from "lucide-react";
 import { AdminMetricsEditor } from "@/components/admin/AdminMetricsEditor";
 import { ClipboardEdit } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // ─── Registration Form Dialog ────────────────────────────────────────────
 function MemberFormDialog({
