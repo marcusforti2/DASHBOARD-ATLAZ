@@ -328,7 +328,7 @@ export default function AiSdrPage() {
   const getCloserName = (id: string | null) => teamMembers.find(m => m.id === id)?.name || "—";
   const getSdrName = (id: string | null) => teamMembers.find(m => m.id === id)?.name || "—";
 
-  const automationCount = FEATURES.filter(f => localConfig[f.key as keyof AiSdrConfig]).length;
+  const automationCount = AUTOMATIONS.filter(f => localConfig[f.key as keyof AiSdrConfig]).length;
 
   if (loadingData) {
     return (
