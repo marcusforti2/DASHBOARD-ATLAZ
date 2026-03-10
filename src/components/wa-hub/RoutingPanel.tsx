@@ -108,11 +108,15 @@ export function RoutingPanel() {
             <CardContent className="pt-4 pb-3 px-4">
               {/* Flow row */}
               <div className="flex items-center gap-2 flex-wrap text-sm">
-                {/* Pipedrive owner */}
+                {/* Pipedrive ID */}
                 <div className="flex items-center gap-1 bg-muted/50 rounded-lg px-2 py-1">
                   <Mail className="h-3.5 w-3.5 text-muted-foreground" />
                   <span className="font-mono text-xs">
-                    {r.closer_email || <span className="text-destructive">sem email</span>}
+                    {r.closer_pipedrive_id
+                      ? <span>ID: {r.closer_pipedrive_id}</span>
+                      : r.closer_email
+                        ? r.closer_email
+                        : <span className="text-destructive">sem vínculo</span>}
                   </span>
                 </div>
 
