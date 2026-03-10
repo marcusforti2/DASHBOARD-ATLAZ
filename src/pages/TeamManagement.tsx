@@ -745,11 +745,11 @@ function MemberCard({
             className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors" title="Editar">
             <Edit2 size={14} />
           </button>
-          <button onClick={e => { e.stopPropagation(); onToggleActive(); }}
+          <button onClick={e => { e.stopPropagation(); setShowToggleConfirm(true); }}
             className={`p-2 rounded-lg transition-colors ${member.active ? "text-accent hover:bg-accent/10" : "text-muted-foreground hover:bg-secondary"}`} title={member.active ? "Desativar" : "Ativar"}>
             {member.active ? <UserCheck size={14} /> : <UserX size={14} />}
           </button>
-          <button onClick={e => { e.stopPropagation(); onDelete(); }}
+          <button onClick={e => { e.stopPropagation(); setShowDeleteConfirm(true); }}
             className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors" title="Excluir">
             <Trash2 size={14} />
           </button>
