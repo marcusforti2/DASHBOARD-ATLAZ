@@ -1,0 +1,2 @@
+UPDATE profiles SET team_member_id = '7dd297ce-3dc9-4303-b365-23b3f8571aac' WHERE id = 'c295410e-19e7-4c01-bcfa-02477d8cf82f' AND team_member_id IS NULL;
+UPDATE profiles SET team_member_id = '799de8f5-f101-4ea1-bf3b-f14d9dc25225' WHERE id = '30d62ff6-aa87-4121-afbc-85354e0a5e45' AND team_member_id IS NULL;
