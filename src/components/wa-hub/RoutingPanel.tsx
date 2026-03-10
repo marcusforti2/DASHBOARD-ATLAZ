@@ -14,6 +14,7 @@ interface RoutingMap {
   ai_sdr_enabled: boolean;
   closer_name: string | null;
   closer_email: string | null;
+  closer_pipedrive_id: number | null;
   sdr_name: string | null;
   phone: string | null;
   lead_sources: { name: string; pipedrive_label_id: number; active: boolean }[];
@@ -38,7 +39,7 @@ export function RoutingPanel() {
 
       const { data: members } = await supabase
         .from("team_members")
-        .select("id, name, email")
+        .select("id, name, email, pipedrive_user_id")
         .in("id", allIds.length > 0 ? allIds : ["__none__"]);
 
       const memberMap = new Map((members || []).map(m => [m.id, m]));
@@ -53,7 +54,7 @@ export function RoutingPanel() {
         if (!inst.is_connected) issues.push("Instância desconectada");
         if (!inst.ai_sdr_enabled) issues.push("SDR IA desabilitada");
         if (!closer) issues.push("Sem closer vinculado");
-        if (closer && !closer.email) issues.push("Closer sem email (não será roteado pelo Pipedrive)");
+        if (closer && !closer.email && !(closer as any).pipedrive_user_id) issues.push("Closer sem email e sem ID Pipedrive");
         if (inst.ai_sdr_enabled && leadSources.filter((s: any) => s.active).length === 0)
           issues.push("Sem lead sources configuradas");
 
@@ -64,6 +65,7 @@ export function RoutingPanel() {
           ai_sdr_enabled: inst.ai_sdr_enabled,
           closer_name: closer?.name || null,
           closer_email: closer?.email || null,
+          closer_pipedrive_id: (closer as any)?.pipedrive_user_id || null,
           sdr_name: sdr?.name || null,
           phone: inst.phone,
           lead_sources: leadSources,
@@ -106,11 +108,15 @@ export function RoutingPanel() {
             <CardContent className="pt-4 pb-3 px-4">
               {/* Flow row */}
               <div className="flex items-center gap-2 flex-wrap text-sm">
-                {/* Pipedrive owner */}
+                {/* Pipedrive ID */}
                 <div className="flex items-center gap-1 bg-muted/50 rounded-lg px-2 py-1">
                   <Mail className="h-3.5 w-3.5 text-muted-foreground" />
                   <span className="font-mono text-xs">
-                    {r.closer_email || <span className="text-destructive">sem email</span>}
+                    {r.closer_pipedrive_id
+                      ? <span>ID: {r.closer_pipedrive_id}</span>
+                      : r.closer_email
+                        ? r.closer_email
+                        : <span className="text-destructive">sem vínculo</span>}
                   </span>
                 </div>
 

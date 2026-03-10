@@ -1,0 +1,1 @@
+ALTER TABLE public.team_members ADD COLUMN pipedrive_user_id integer DEFAULT NULL;

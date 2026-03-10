@@ -211,7 +211,22 @@ async function handleDeal(supabase: any, event: string, current: any, previous: 
   const orgId = typeof d.org_id === 'object' ? d.org_id?.value : d.org_id;
   const orgName = d.org_name || (typeof d.org_id === 'object' ? d.org_id?.name : null);
 
-  // Try to match owner email to a team_member
+  // Try to match owner to a team_member — FIRST by pipedrive_user_id, then by email
+  const resolvedOwnerId = typeof ownerId === 'object' ? ownerId?.value : ownerId;
+  if (resolvedOwnerId && !teamMemberId) {
+    const { data: ownerByPipeId } = await supabase
+      .from('team_members')
+      .select('id')
+      .eq('pipedrive_user_id', Number(resolvedOwnerId))
+      .limit(1)
+      .single();
+    if (ownerByPipeId) {
+      teamMemberId = ownerByPipeId.id;
+      console.log(`[pipedrive-webhook] Matched owner by pipedrive_user_id=${resolvedOwnerId} to team_member ${teamMemberId}`);
+    }
+  }
+
+  // Fallback: match by email
   if (ownerEmail && !teamMemberId) {
     const { data: ownerMember } = await supabase
       .from('team_members')
@@ -221,7 +236,7 @@ async function handleDeal(supabase: any, event: string, current: any, previous: 
       .single();
     if (ownerMember) {
       teamMemberId = ownerMember.id;
-      console.log(`[pipedrive-webhook] Matched owner ${ownerEmail} to team_member ${teamMemberId}`);
+      console.log(`[pipedrive-webhook] Matched owner by email ${ownerEmail} to team_member ${teamMemberId}`);
     }
   }
 
