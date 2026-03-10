@@ -427,17 +427,18 @@ export function GoogleCalendarPanel({ teamMemberId, memberRole }: GoogleCalendar
         <PopoverTrigger asChild>
           <button
             className={cn(
-              "absolute rounded-md px-1.5 py-0.5 text-left overflow-hidden cursor-pointer transition-all",
-              "hover:brightness-110 hover:shadow-lg hover:z-30",
-              hoveredEvent === event.id && "brightness-110 shadow-lg z-30"
+              "absolute rounded-[4px] px-1.5 py-0.5 text-left overflow-hidden cursor-pointer transition-all border-l-[3px]",
+              "hover:brightness-125 hover:shadow-md hover:z-30",
             )}
             style={{
               top: `${topPx}px`,
               height: `${heightPx - 2}px`,
               backgroundColor: color,
+              borderLeftColor: `color-mix(in srgb, ${color} 70%, black)`,
               left: `${leftPercent}%`,
-              width: `${widthPercent - 1}%`,
+              width: `calc(${widthPercent}% - 2px)`,
               zIndex: hoveredEvent === event.id ? 30 : 10,
+              opacity: 0.92,
             }}
             onMouseEnter={() => setHoveredEvent(event.id)}
             onMouseLeave={() => setHoveredEvent(null)}
