@@ -98,6 +98,10 @@ export function AiSdrTab({ instances, teamMembers, onRefetch }: Props) {
 
   const selectedInstance = instances.find(i => i.id === selectedInstanceId);
   const activeAiInstances = instances.filter(i => i.ai_sdr_enabled);
+  const closerName = useMemo(() => {
+    if (!selectedInstance?.closer_id) return "";
+    return teamMembers.find(m => m.id === selectedInstance.closer_id)?.name || "";
+  }, [selectedInstance?.closer_id, teamMembers]);
 
   useEffect(() => {
     if (instances.length > 0 && !selectedInstanceId) setSelectedInstanceId(instances[0].id);
