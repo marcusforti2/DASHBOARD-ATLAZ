@@ -27,23 +27,31 @@ export function WaDashboard() {
     const fetchChartData = async () => {
       setLoadingCharts(true);
 
-      // Last 7 days message volume
-      const days: DailyVolume[] = [];
+      // Last 7 days message volume — batch all 14 queries in parallel
+      const dayConfigs: { dateStr: string; label: string }[] = [];
       for (let i = 6; i >= 0; i--) {
         const d = new Date();
         d.setDate(d.getDate() - i);
-        const dateStr = d.toISOString().split('T')[0];
-        const label = d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' });
-
-        const [{ count: received }, { count: sent }] = await Promise.all([
-          supabase.from('wa_messages').select('id', { count: 'exact', head: true })
-            .eq('sender', 'contact').gte('created_at', `${dateStr}T00:00:00`).lt('created_at', `${dateStr}T23:59:59`),
-          supabase.from('wa_messages').select('id', { count: 'exact', head: true })
-            .eq('sender', 'agent').gte('created_at', `${dateStr}T00:00:00`).lt('created_at', `${dateStr}T23:59:59`),
-        ]);
-
-        days.push({ date: dateStr, label, received: received || 0, sent: sent || 0 });
+        dayConfigs.push({
+          dateStr: d.toISOString().split('T')[0],
+          label: d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' }),
+        });
       }
+
+      const dayQueries = dayConfigs.flatMap(({ dateStr }) => [
+        supabase.from('wa_messages').select('id', { count: 'exact', head: true })
+          .eq('sender', 'contact').gte('created_at', `${dateStr}T00:00:00`).lt('created_at', `${dateStr}T23:59:59`),
+        supabase.from('wa_messages').select('id', { count: 'exact', head: true })
+          .eq('sender', 'agent').gte('created_at', `${dateStr}T00:00:00`).lt('created_at', `${dateStr}T23:59:59`),
+      ]);
+
+      const dayResults = await Promise.all(dayQueries);
+      const days: DailyVolume[] = dayConfigs.map(({ dateStr, label }, i) => ({
+        date: dateStr,
+        label,
+        received: dayResults[i * 2].count || 0,
+        sent: dayResults[i * 2 + 1].count || 0,
+      }));
       setDailyVolume(days);
 
       // Messages per instance

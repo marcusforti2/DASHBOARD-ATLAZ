@@ -62,17 +62,25 @@ export function WaCrmView({ conversations, tags, getTagsForContact, onAddTag, on
     return list;
   }, [conversations, search, filterTag, getTagsForContact]);
 
+  // Track which conversations are already placed in a stage column
+  // A contact with multiple stage tags goes to the FIRST matching stage only
+  const stageAssignments = useMemo(() => {
+    const map = new Map<string, string>(); // convId -> stageTagId
+    for (const conv of filteredConversations) {
+      const ct = getTagsForContact(conv.contact.id);
+      const firstStage = stageTags.find(st => ct.some(t => t.tag_id === st.id));
+      if (firstStage) {
+        map.set(conv.id, firstStage.id);
+      }
+    }
+    return map;
+  }, [filteredConversations, stageTags, getTagsForContact]);
+
   const getConvsForStage = (tagId: string) => {
-    return filteredConversations.filter(c => {
-      const ct = getTagsForContact(c.contact.id);
-      return ct.some(t => t.tag_id === tagId);
-    });
+    return filteredConversations.filter(c => stageAssignments.get(c.id) === tagId);
   };
 
-  const untaggedConvs = filteredConversations.filter(c => {
-    const ct = getTagsForContact(c.contact.id);
-    return ct.length === 0 || !ct.some(t => stageTags.find(st => st.id === t.tag_id));
-  });
+  const untaggedConvs = filteredConversations.filter(c => !stageAssignments.has(c.id));
 
   const handleCreateTag = async () => {
     if (!newTagName.trim()) return;
