@@ -292,6 +292,17 @@ Deno.serve(async (req) => {
       .select("tag_id, wa_tags(name)")
       .eq("contact_id", conversation?.contact_id || "");
 
+    // Get closer name
+    let closerName = "";
+    if (instance.closer_id) {
+      const { data: closerMember } = await supabase
+        .from("team_members")
+        .select("name")
+        .eq("id", instance.closer_id)
+        .single();
+      closerName = closerMember?.name || "";
+    }
+
     // Get ALL knowledge
     const { data: knowledge } = await supabase
       .from("company_knowledge")
