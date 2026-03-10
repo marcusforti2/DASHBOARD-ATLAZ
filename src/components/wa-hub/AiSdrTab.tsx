@@ -203,7 +203,10 @@ export function AiSdrTab({ instances, teamMembers, onRefetch }: Props) {
         </div>
       </div>
 
-      {/* Feature Toggles */}
+      {/* Routing Map */}
+      <RoutingPanel />
+
+
       <div>
         <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
           <Settings2 className="w-4 h-4 text-primary" />
