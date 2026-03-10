@@ -230,36 +230,6 @@ async function handleDeal(supabase: any, event: string, current: any, previous: 
       const cleanPhone = resolvedPhone.replace(/\D/g, '');
       const formattedPhone = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
 
-      // Check if conversation already exists with messages (not a new lead)
-      const { data: existingContactCheck } = await supabase
-        .from('wa_contacts')
-        .select('id')
-        .or(`phone.eq.${formattedPhone},phone.like.%${cleanPhone.slice(-9)}`)
-        .limit(1)
-        .single();
-
-      let alreadyHasMessages = false;
-      if (existingContactCheck) {
-        const { data: existingConvCheck } = await supabase
-          .from('wa_conversations')
-          .select('id')
-          .eq('contact_id', existingContactCheck.id)
-          .limit(1)
-          .single();
-
-        if (existingConvCheck) {
-          const { count } = await supabase
-            .from('wa_messages')
-            .select('id', { count: 'exact', head: true })
-            .eq('conversation_id', existingConvCheck.id);
-
-          if ((count || 0) > 0) {
-            alreadyHasMessages = true;
-            console.log(`[pipedrive-webhook] Skipping proactive: conversation already has ${count} messages`);
-          }
-        }
-      }
-
       // Find ALL connected instances with AI SDR enabled
       const { data: sdrInstances } = await supabase
         .from('wa_instances')
