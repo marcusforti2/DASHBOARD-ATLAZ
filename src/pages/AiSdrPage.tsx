@@ -594,6 +594,124 @@ export default function AiSdrPage() {
                             A IA usará esse contexto para adaptar a primeira mensagem e o tom da conversa.
                           </p>
                         </div>
+
+                        {/* Per-Label Automations */}
+                        <div className="border-t border-border/50 pt-3 mt-2">
+                          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                            <Zap className="w-3 h-3" /> Automações desta origem
+                          </p>
+                          {(() => {
+                            const auto = { ...DEFAULT_SOURCE_AUTOMATION, ...(src.automation || {}) };
+                            const updateSourceAuto = (key: keyof LeadSourceAutomation, value: any) => {
+                              const sources = [...(localConfig.lead_sources || [])];
+                              sources[idx] = { ...sources[idx], automation: { ...auto, [key]: value } };
+                              update("lead_sources", sources);
+                            };
+                            return (
+                              <div className="space-y-3">
+                                {/* Follow-up */}
+                                <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30">
+                                  <div className="flex items-center gap-2">
+                                    <CalendarClock className="w-3.5 h-3.5 text-amber-500" />
+                                    <span className="text-[11px] font-semibold text-foreground">Follow-up automático</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    {auto.follow_up_enabled && (
+                                      <div className="flex items-center gap-1">
+                                        <Input
+                                          type="number"
+                                          min={1}
+                                          max={168}
+                                          value={auto.follow_up_hours}
+                                          onChange={e => updateSourceAuto("follow_up_hours", parseInt(e.target.value) || 24)}
+                                          className="h-7 w-16 text-[11px]"
+                                        />
+                                        <span className="text-[10px] text-muted-foreground">h</span>
+                                      </div>
+                                    )}
+                                    <button onClick={() => updateSourceAuto("follow_up_enabled", !auto.follow_up_enabled)} className="p-0.5">
+                                      {auto.follow_up_enabled
+                                        ? <ToggleRight className="w-5 h-5 text-primary" />
+                                        : <ToggleLeft className="w-5 h-5 text-muted-foreground" />}
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Auto Stage Change */}
+                                <div className="p-2.5 rounded-lg bg-muted/30 space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <GitBranch className="w-3.5 h-3.5 text-emerald-500" />
+                                      <span className="text-[11px] font-semibold text-foreground">Mudança de estágio automática</span>
+                                    </div>
+                                    <button onClick={() => updateSourceAuto("auto_stage_change", !auto.auto_stage_change)} className="p-0.5">
+                                      {auto.auto_stage_change
+                                        ? <ToggleRight className="w-5 h-5 text-primary" />
+                                        : <ToggleLeft className="w-5 h-5 text-muted-foreground" />}
+                                    </button>
+                                  </div>
+                                  {auto.auto_stage_change && (
+                                    <div className="grid grid-cols-2 gap-2 pt-1">
+                                      {[
+                                        { key: "stage_on_contact" as const, label: "Ao contatar", icon: "💬" },
+                                        { key: "stage_on_qualified" as const, label: "Ao qualificar", icon: "✅" },
+                                        { key: "stage_on_meeting" as const, label: "Reunião agendada", icon: "📅" },
+                                        { key: "stage_on_no_response" as const, label: "Sem resposta", icon: "⏳" },
+                                      ].map(stage => (
+                                        <div key={stage.key}>
+                                          <label className="text-[9px] text-muted-foreground mb-0.5 block">{stage.icon} {stage.label}</label>
+                                          <Input
+                                            value={auto[stage.key]}
+                                            onChange={e => updateSourceAuto(stage.key, e.target.value)}
+                                            className="h-7 text-[11px]"
+                                          />
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Notification Priority */}
+                                <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30">
+                                  <div className="flex items-center gap-2">
+                                    <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
+                                    <span className="text-[11px] font-semibold text-foreground">Prioridade de notificação</span>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    {(["normal", "high", "urgent"] as const).map(p => (
+                                      <button
+                                        key={p}
+                                        onClick={() => updateSourceAuto("notification_priority", p)}
+                                        className={`px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
+                                          auto.notification_priority === p
+                                            ? p === "urgent" ? "bg-destructive text-destructive-foreground"
+                                              : p === "high" ? "bg-amber-500 text-white"
+                                              : "bg-primary text-primary-foreground"
+                                            : "bg-muted text-muted-foreground hover:bg-accent"
+                                        }`}
+                                      >
+                                        {p === "normal" ? "Normal" : p === "high" ? "Alta" : "Urgente"}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                {/* Notify via WhatsApp */}
+                                <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30">
+                                  <div className="flex items-center gap-2">
+                                    <Send className="w-3.5 h-3.5 text-green-500" />
+                                    <span className="text-[11px] font-semibold text-foreground">Notificar closer via WhatsApp</span>
+                                  </div>
+                                  <button onClick={() => updateSourceAuto("notify_via_whatsapp", !auto.notify_via_whatsapp)} className="p-0.5">
+                                    {auto.notify_via_whatsapp
+                                      ? <ToggleRight className="w-5 h-5 text-primary" />
+                                      : <ToggleLeft className="w-5 h-5 text-muted-foreground" />}
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </div>
                       </div>
                     )}
                   </div>
