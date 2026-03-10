@@ -136,6 +136,39 @@ serve(async (req) => {
       });
     }
 
+    // BLACKLIST CHECK
+    if (features.blacklist && contact_phone) {
+      const blacklist: string[] = config.blacklist_numbers || [];
+      const normalizedPhone = contact_phone.replace(/\D/g, "");
+      const isBlocked = blacklist.some(n => normalizedPhone.endsWith(n.replace(/\D/g, "")));
+      if (isBlocked) {
+        console.log("[ai-sdr] Phone is blacklisted:", contact_phone);
+        return new Response(JSON.stringify({ skipped: "blacklisted" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    // RATE LIMIT CHECK
+    if (features.rate_limit && !isProactive) {
+      const rateLimitPerHour = config.rate_limit_per_hour || 5;
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      const { count: recentCount } = await supabase
+        .from("wa_messages")
+        .select("*", { count: "exact", head: true })
+        .eq("conversation_id", conversation_id)
+        .eq("sender", "agent")
+        .eq("agent_name", "SDR IA 🤖")
+        .gte("created_at", oneHourAgo);
+      
+      if ((recentCount || 0) >= rateLimitPerHour) {
+        console.log(`[ai-sdr] Rate limit reached: ${recentCount}/${rateLimitPerHour} msgs/hour for conversation ${conversation_id}`);
+        return new Response(JSON.stringify({ skipped: "rate_limited" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     // CONCURRENCY GUARD
     const guardWindow = isProactive ? 5 * 60 * 1000 : 15 * 1000;
     const { data: recentAgentMsg } = await supabase
