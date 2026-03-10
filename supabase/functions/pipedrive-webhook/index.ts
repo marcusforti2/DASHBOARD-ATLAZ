@@ -594,38 +594,30 @@ async function handleDeal(supabase: any, event: string, current: any, previous: 
       .update({ wa_conversation_id: conversationId, team_member_id: targetInstance.closer_id || targetInstance.sdr_id })
       .eq('pipedrive_id', d.id);
 
-    // Trigger AI SDR proactive outreach
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
+    // ENQUEUE for rate-limited processing (15s between each trigger)
     try {
-      const sdrResp = await fetch(`${SUPABASE_URL}/functions/v1/ai-sdr-agent`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      await supabase.from('pipedrive_sdr_queue').insert({
+        deal_pipedrive_id: d.id,
+        person_name: personName || d.title,
+        person_phone: formattedPhone,
+        instance_id: targetInstance.id,
+        instance_name: targetInstance.instance_name,
+        conversation_id: conversationId,
+        contact_id: contactId,
+        team_member_id: targetInstance.closer_id || targetInstance.sdr_id || null,
+        pipedrive_context: {
+          deal_title: d.title,
+          deal_value: d.value,
+          org_name: orgName,
+          origin: d.origin || 'ManuallyCreated',
+          label_id: matchedLabelId,
+          lead_source_name: matchedSourceName,
+          lead_source_context: matchedSourceContext,
         },
-        body: JSON.stringify({
-          conversation_id: conversationId,
-          instance_id: targetInstance.id,
-          instance_name: targetInstance.instance_name,
-          contact_phone: formattedPhone,
-          contact_name: personName || d.title,
-          trigger_type: 'proactive',
-          pipedrive_context: {
-            deal_title: d.title,
-            deal_value: d.value,
-            org_name: orgName,
-            origin: d.origin || 'ManuallyCreated',
-            label_id: matchedLabelId,
-            lead_source_name: matchedSourceName,
-            lead_source_context: matchedSourceContext,
-          },
-        }),
+        status: 'pending',
       });
 
-      const sdrResult = await sdrResp.json();
-      console.log(`[pipedrive-webhook] AI SDR proactive result on ${targetInstance.instance_name}:`, JSON.stringify(sdrResult));
+      console.log(`[pipedrive-webhook] ✅ Enqueued proactive SDR for deal ${d.id} (${personName}) on ${targetInstance.instance_name}`);
 
       // Mark as triggered for dedup
       await supabase.from('pipedrive_webhook_logs').insert({
@@ -635,8 +627,8 @@ async function handleDeal(supabase: any, event: string, current: any, previous: 
         processed: true,
         error: 'proactive_triggered', // used as dedup flag
       });
-    } catch (sdrErr) {
-      console.error(`[pipedrive-webhook] AI SDR trigger error:`, sdrErr);
+    } catch (queueErr) {
+      console.error(`[pipedrive-webhook] Queue insert error:`, queueErr);
     }
   }
 }
