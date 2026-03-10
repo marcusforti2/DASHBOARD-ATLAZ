@@ -145,9 +145,23 @@ async function handlePerson(supabase: any, event: string, current: any, previous
   const p = current;
   if (!p?.id) return;
 
-  // Extract primary phone and email
-  const phone = Array.isArray(p.phone) ? p.phone[0]?.value : (p.phone || null);
-  const email = Array.isArray(p.email) ? p.email[0]?.value : (p.email || null);
+  // Support v1 (phone/email arrays with {value}) and v2 (phones/emails arrays with {value})
+  const phoneArr = p.phone || p.phones || [];
+  const emailArr = p.email || p.emails || [];
+  const phone = Array.isArray(phoneArr) ? phoneArr[0]?.value : (phoneArr || null);
+  const email = Array.isArray(emailArr) ? emailArr[0]?.value : (emailArr || null);
+
+  // Also check custom_fields for phone (Pipedrive v2 sometimes puts phone there)
+  let resolvedPhone = phone;
+  if (!resolvedPhone && p.custom_fields) {
+    for (const key of Object.keys(p.custom_fields)) {
+      const cf = p.custom_fields[key];
+      if (cf && typeof cf === 'object' && cf.type === 'phone' && cf.value) {
+        resolvedPhone = cf.value;
+        break;
+      }
+    }
+  }
 
   // Try to match with wa_contact by phone
   let waContactId = null;
