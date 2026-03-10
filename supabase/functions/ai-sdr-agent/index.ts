@@ -81,19 +81,22 @@ serve(async (req) => {
       });
     }
 
-    // CONCURRENCY GUARD: Skip if AI already responded in this conversation in the last 15 seconds
+    // CONCURRENCY GUARD: Skip if AI already responded in this conversation recently
+    // For proactive triggers: check last 5 minutes (prevent duplicate proactive sends)
+    // For incoming messages: check last 15 seconds (prevent rapid duplicate responses)
+    const guardWindow = isProactive ? 5 * 60 * 1000 : 15 * 1000;
     const { data: recentAgentMsg } = await supabase
       .from("wa_messages")
       .select("id, created_at")
       .eq("conversation_id", conversation_id)
       .eq("sender", "agent")
-      .gte("created_at", new Date(Date.now() - 15 * 1000).toISOString())
+      .gte("created_at", new Date(Date.now() - guardWindow).toISOString())
       .limit(1)
       .maybeSingle();
 
-    if (recentAgentMsg && !isProactive) {
-      console.log("[ai-sdr] Skipping: recent agent message found (concurrency guard)", recentAgentMsg.id);
-      return new Response(JSON.stringify({ skipped: "concurrency_guard" }), {
+    if (recentAgentMsg) {
+      console.log(`[ai-sdr] Skipping: recent agent message found (${isProactive ? 'proactive' : 'concurrency'} guard)`, recentAgentMsg.id);
+      return new Response(JSON.stringify({ skipped: isProactive ? "proactive_guard" : "concurrency_guard" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
