@@ -96,6 +96,7 @@ const DEFAULT_CONFIG: AiSdrConfig = {
   escalation_hours: 48,
   rate_limit_per_hour: 5,
   blacklist_numbers: [],
+  daily_summary_admin_ids: [],
   target_audience: "",
   pain_points: "",
   desires: "",
