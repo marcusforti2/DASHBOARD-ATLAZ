@@ -1218,12 +1218,17 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
     if (parsed.meeting_confirmed && conversation?.contact_id) {
       console.log("[ai-sdr] Meeting confirmed:", parsed.meeting_datetime);
 
-      // Try to parse the meeting datetime
+      // Try to parse the meeting datetime — FORCE BRT (UTC-3)
       let meetingTime: Date | null = null;
       if (parsed.meeting_datetime) {
         try {
-          // Try various formats
-          meetingTime = new Date(parsed.meeting_datetime);
+          let dtStr = String(parsed.meeting_datetime).trim();
+          // If the AI returned a datetime WITHOUT timezone info, append BRT offset
+          // e.g. "2026-03-11T14:00:00" → "2026-03-11T14:00:00-03:00"
+          if (dtStr.length >= 16 && !dtStr.includes('+') && !dtStr.includes('Z') && !/\-\d{2}:\d{2}$/.test(dtStr)) {
+            dtStr += '-03:00'; // America/Sao_Paulo = UTC-3
+          }
+          meetingTime = new Date(dtStr);
           if (isNaN(meetingTime.getTime())) meetingTime = null;
         } catch { meetingTime = null; }
       }
