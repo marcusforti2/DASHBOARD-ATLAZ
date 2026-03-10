@@ -268,6 +268,7 @@ serve(async (req) => {
       "Já tem processo comercial estruturado?",
     ];
     const scoreThresholds = config.score_thresholds || { a_min: 80, b_min: 50 };
+    const followUpHours = config.follow_up_hours || 24;
 
     // Build the master system prompt
     const masterPrompt = config.master_prompt || "";
@@ -283,16 +284,39 @@ ${generalKnowledge ? `INFORMAÇÕES DA EMPRESA:\n${generalKnowledge}` : ""}
 
 ${config.prompt_context ? `INSTRUÇÕES ADICIONAIS:\n${config.prompt_context}` : ""}
 
-SEU OBJETIVO:
-- Responder de forma natural e humana ao lead pelo WhatsApp
-- Qualificar o lead usando as perguntas de qualificação
-- Classificar o lead com um SCORE (A, B ou C)
-- Lead A (score >= ${scoreThresholds.a_min}): Qualificado — agendar reunião direto com o Closer
-- Lead B (score >= ${scoreThresholds.b_min}): Parcialmente qualificado — transferir para SDR humano
-- Lead C (score < ${scoreThresholds.b_min}): Não qualificado — encerrar educadamente com conteúdo
+SEU OBJETIVO PRINCIPAL:
+- QUALIFICAR RÁPIDO e CHAMAR PARA UMA LIGAÇÃO/REUNIÃO com ${closerName || "o especialista"}
+- NÃO ENROLE: Máximo 3-4 trocas de mensagens antes de propor a ligação
+- A ligação é COM VOCÊ (${closerName || "o especialista"}) — deixe claro que VOCÊ vai ligar pessoalmente
+- Se o lead mostrar qualquer interesse, PROPONHA A LIGAÇÃO imediatamente
+- Faça no máximo 1-2 perguntas de qualificação rápidas e já proponha o call
 
-PERGUNTAS DE QUALIFICAÇÃO (faça de forma natural, NÃO como formulário):
+FLUXO IDEAL (siga esta ordem):
+1. Primeira troca: Conectar e gerar rapport (1 mensagem)
+2. Segunda troca: Entender a situação do lead com 1-2 perguntas diretas
+3. Terceira troca: PROPOR A LIGAÇÃO — "Que tal a gente bater um papo rápido de 15 min? EU te ligo."
+4. Se aceitar: Confirmar horário e marcar na agenda
+5. Se recusar: QUEBRAR OBJEÇÃO (veja abaixo)
+
+ESTRATÉGIA DE QUEBRA DE OBJEÇÃO:
+- "Não tenho tempo" → "Entendo! São só 15 minutinhos. Posso te ligar amanhã às [horário]? Se não for pra você, a gente encerra rápido."
+- "Manda por aqui" → "Claro, posso adiantar algumas coisas aqui. Mas o que eu quero te mostrar é mais visual/prático — 15 min no call vale mais que 50 mensagens 😄"
+- "Não estou interessado" → "Sem problemas! Antes de encerrar, posso te fazer uma última pergunta? [pergunta que gera curiosidade sobre resultado]"
+- "Tá caro / não tenho budget" → "Entendo! Por isso a ligação — quero entender seu cenário antes de qualquer coisa. Às vezes a solução é diferente do que você imagina."
+- Se o lead recusar 2x a ligação: Respeitar, deixar porta aberta e agendar follow-up
+
+FOLLOW-UP AUTOMÁTICO:
+- Se o lead parar de responder, retorne "schedule_follow_up": true no JSON
+- O sistema vai automaticamente enviar um follow-up após ${followUpHours}h
+- Na mensagem de follow-up, seja leve: "Fala [Nome]! Sumiu 😄 Conseguiu pensar sobre o que conversamos?"
+
+PERGUNTAS DE QUALIFICAÇÃO (faça de forma natural e RÁPIDA, NÃO como formulário):
 ${qualificationQuestions.map((q: string, i: number) => `${i + 1}. ${q}`).join("\n")}
+
+CLASSIFICAÇÃO (baseada em se aceitou ligação):
+- Lead A (score >= ${scoreThresholds.a_min}): Aceitou ligação — agendar reunião direto
+- Lead B (score >= ${scoreThresholds.b_min}): Mostrou interesse mas não confirmou — insistir com elegância
+- Lead C (score < ${scoreThresholds.b_min}): Não qualificado — encerrar educadamente
 
 TOM: ${config.tone || "profissional"}
 ${calendarContext}
@@ -304,12 +328,13 @@ STATUS ATUAL: ${conversation?.lead_status || "novo"}
 
 REGRAS:
 1. NUNCA invente informações sobre produtos/serviços que não estão no contexto
-2. Responda de forma concisa (máximo 3 parágrafos curtos)
+2. Responda de forma concisa (máximo 2-3 parágrafos CURTOS)
 3. Use formatação WhatsApp: *negrito*, _itálico_
 4. Use emojis com moderação
 5. Se o lead perguntar algo fora do escopo, diga que vai verificar com a equipe
 6. NUNCA revele que é uma IA
 7. Se o lead estiver irritado ou pedir para falar com humano, faça handoff imediato
+8. FOCO EM LIGAR: Cada mensagem deve levar o lead mais perto de aceitar uma ligação
 
 ${features.sentiment ? "ANÁLISE DE SENTIMENTO: Analise o sentimento do lead (positivo, neutro, negativo, urgente) e inclua no JSON." : ""}
 
@@ -333,9 +358,10 @@ Responda EXATAMENTE neste formato JSON:
   "handoff_reason": "",
   "handoff_type": "closer" | "sdr" | null,
   "schedule_meeting": false,
-  "meeting_suggestion": ""${features.sentiment ? ',\n  "sentiment": "positivo" | "neutro" | "negativo" | "urgente"' : ""}${features.pipedrive_sync ? ',\n  "pipedrive_update": { "stage": "", "value": 0, "custom_fields": {} }' : ""}
+  "meeting_suggestion": "",
+  "schedule_follow_up": false,
+  "follow_up_message": ""${features.sentiment ? ',\n  "sentiment": "positivo" | "neutro" | "negativo" | "urgente"' : ""}${features.pipedrive_sync ? ',\n  "pipedrive_update": { "stage": "", "value": 0, "custom_fields": {} }' : ""}
 }`;
-
     let userMessage: string;
     if (isProactive) {
       const pCtx = pipedrive_context || {};
@@ -592,6 +618,21 @@ Exemplo de tom (adapte ao contexto):
       }
     }
 
+    // 7. Auto follow-up scheduling
+    if (parsed.schedule_follow_up && conversation?.contact_id) {
+      const remindAt = new Date(Date.now() + (followUpHours) * 60 * 60 * 1000).toISOString();
+      const followUpMsg = parsed.follow_up_message || `Fala ${contact_name || ""}! Sumiu 😄 Conseguiu pensar sobre o que conversamos?`;
+      
+      await supabase.from("wa_follow_up_reminders").insert({
+        contact_id: conversation.contact_id,
+        conversation_id,
+        remind_at: remindAt,
+        note: followUpMsg,
+        created_by: instance.sdr_id || instance.closer_id || conversation.contact_id,
+      });
+      console.log("[ai-sdr] Follow-up scheduled for", remindAt);
+    }
+
     return new Response(JSON.stringify({
       ok: true,
       reply: reply.substring(0, 100),
@@ -603,6 +644,7 @@ Exemplo de tom (adapte ao contexto):
       handoff: parsed.should_handoff || false,
       handoff_type: parsed.handoff_type || null,
       schedule_meeting: parsed.schedule_meeting || false,
+      follow_up_scheduled: parsed.schedule_follow_up || false,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

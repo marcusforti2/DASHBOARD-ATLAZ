@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import {
   Bot, ToggleLeft, ToggleRight, ChevronDown, ChevronUp,
   Loader2, Save, Settings2, MessageSquare, Users, Clock, Sparkles,
+  Phone, CalendarClock,
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,9 @@ interface AiSdrConfig {
   max_messages_before_handoff: number;
   business_hours_only: boolean;
   prompt_context: string;
+  follow_up_hours: number;
+  follow_up_enabled: boolean;
+  call_focus_mode: boolean;
 }
 
 interface Props {
@@ -32,6 +36,9 @@ const DEFAULT_CONFIG: AiSdrConfig = {
   max_messages_before_handoff: 10,
   business_hours_only: false,
   prompt_context: "",
+  follow_up_hours: 24,
+  follow_up_enabled: true,
+  call_focus_mode: true,
 };
 
 const TONES = [
@@ -188,8 +195,39 @@ export function AiSdrConfigPanel({ instanceId, instanceName, aiSdrEnabled, aiSdr
             </div>
           </div>
 
+          {/* Follow-up automático */}
+          <div>
+            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+              <CalendarClock size={10} /> Follow-up automático (se não responder)
+            </label>
+            <div className="mt-1 flex items-center gap-2">
+              <Input
+                type="number"
+                min={1}
+                max={168}
+                value={localConfig.follow_up_hours}
+                onChange={e => update("follow_up_hours", parseInt(e.target.value) || 24)}
+                className="h-8 w-20 text-xs"
+              />
+              <span className="text-[11px] text-muted-foreground">horas</span>
+            </div>
+            <p className="text-[9px] text-muted-foreground mt-1">
+              Se o lead parar de responder, a IA agenda um follow-up automático após esse período.
+            </p>
+          </div>
+
           {/* Toggles */}
           <div className="flex flex-wrap gap-4">
+            <button onClick={() => update("call_focus_mode", !localConfig.call_focus_mode)}
+              className="flex items-center gap-2 text-[11px] text-card-foreground">
+              {localConfig.call_focus_mode ? <ToggleRight size={18} className="text-primary" /> : <ToggleLeft size={18} className="text-muted-foreground" />}
+              <Phone size={12} /> Foco em Ligação
+            </button>
+            <button onClick={() => update("follow_up_enabled", !localConfig.follow_up_enabled)}
+              className="flex items-center gap-2 text-[11px] text-card-foreground">
+              {localConfig.follow_up_enabled ? <ToggleRight size={18} className="text-primary" /> : <ToggleLeft size={18} className="text-muted-foreground" />}
+              <CalendarClock size={12} /> Follow-up Auto
+            </button>
             <button onClick={() => update("auto_tag", !localConfig.auto_tag)}
               className="flex items-center gap-2 text-[11px] text-card-foreground">
               {localConfig.auto_tag ? <ToggleRight size={18} className="text-primary" /> : <ToggleLeft size={18} className="text-muted-foreground" />}
