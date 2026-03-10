@@ -226,7 +226,7 @@ export function WaCrmView({ conversations, tags, getTagsForContact, onAddTag, on
             </thead>
             <tbody>
               {filteredConversations.map(conv => (
-                <tr key={conv.id} className="border-t border-border hover:bg-muted/30">
+                <tr key={conv.id} className="border-t border-border hover:bg-muted/30 cursor-pointer" onClick={() => setSelectedConv(conv)}>
                   <td className="px-4 py-2.5 font-medium text-foreground">{conv.contact.name}</td>
                   <td className="px-4 py-2.5 text-muted-foreground text-xs">{conv.contact.phone}</td>
                   <td className="px-4 py-2.5">
