@@ -763,7 +763,6 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
           await new Promise(resolve => setTimeout(resolve, gap));
         }
 
-        const resolvedInstName = instName || instance.instance_name;
         const sendResp = await fetch(`${baseUrl}/message/sendText/${resolvedInstName}`, {
           method: "POST",
           headers: { apikey: EVOLUTION_API_KEY, "Content-Type": "application/json" },
