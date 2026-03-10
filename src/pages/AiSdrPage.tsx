@@ -34,6 +34,17 @@ interface AiSdrConfig {
   split_messages: boolean;
   urgent_call_alert: boolean;
   meeting_followups: boolean;
+  feature_rate_limit: boolean;
+  feature_reengagement: boolean;
+  feature_blacklist: boolean;
+  feature_daily_summary: boolean;
+  feature_language_detection: boolean;
+  feature_linkedin_lookup: boolean;
+  feature_time_escalation: boolean;
+  reengagement_days: number;
+  escalation_hours: number;
+  rate_limit_per_hour: number;
+  blacklist_numbers: string[];
   qualification_questions: string[];
   score_thresholds: { a_min: number; b_min: number };
 }
