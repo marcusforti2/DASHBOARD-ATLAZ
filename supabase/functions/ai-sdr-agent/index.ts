@@ -55,7 +55,7 @@ function getNextBusinessDateTime(from: Date, hoursToAdd: number): Date {
 }
 
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
