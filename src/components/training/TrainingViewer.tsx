@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { GraduationCap, Play, BookOpen, ChevronLeft, BookMarked, Sparkles, ArrowRight, Video, FileText } from "lucide-react";
+import { GraduationCap, Play, BookOpen, ChevronLeft, BookMarked, Sparkles, ArrowRight, Video, FileText, FileCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getMemberRoles } from "@/lib/db";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { PlaybookViewerUser } from "./PlaybookViewerUser";
 import { Badge } from "@/components/ui/badge";
+import { ProcessesHub } from "./validated-processes/ProcessesHub";
 
 interface TrainingViewerProps {
   memberRole: string;
@@ -39,7 +40,7 @@ function extractEmbedUrl(url: string, type: string): string {
   return url;
 }
 
-type ViewMode = "home" | "courses" | "playbooks";
+type ViewMode = "home" | "courses" | "playbooks" | "processes";
 
 export function TrainingViewer({ memberRole, previewAll }: TrainingViewerProps) {
   const roles = getMemberRoles({ member_role: memberRole });
@@ -240,8 +241,42 @@ export function TrainingViewer({ memberRole, previewAll }: TrainingViewerProps) 
             </div>
           </button>
         </div>
+
+        {/* Processos Validados Card */}
+        <button
+          onClick={() => setViewMode("processes")}
+          className="group relative overflow-hidden rounded-2xl border border-border bg-card hover:border-accent/40 hover:shadow-xl hover:shadow-accent/5 transition-all duration-300 text-left"
+        >
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-accent via-accent/80 to-accent/50" />
+          <div className="p-6 sm:p-8">
+            <div className="flex items-start justify-between mb-5">
+              <div className="w-14 h-14 rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center group-hover:scale-110 group-hover:bg-accent/15 transition-all duration-300">
+                <FileCheck size={24} className="text-accent" />
+              </div>
+              <ArrowRight size={18} className="text-muted-foreground/30 group-hover:text-accent group-hover:translate-x-1 transition-all duration-300 mt-2" />
+            </div>
+            
+            <h2 className="text-lg font-extrabold text-foreground group-hover:text-accent transition-colors">
+              Processos Validados
+            </h2>
+            <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+              Scripts completos e processos de vendas validados pela equipe, prontos para aplicar no dia a dia.
+            </p>
+            
+            <div className="flex items-center gap-3 mt-5 pt-4 border-t border-border/50">
+              <Badge variant="outline" className="text-[9px] gap-1">
+                <FileCheck size={10} /> 1 processo
+              </Badge>
+            </div>
+          </div>
+        </button>
       </div>
     );
+  }
+
+  // ── Processes View ──
+  if (viewMode === "processes" && !selectedCourse) {
+    return <ProcessesHub onBack={() => setViewMode("home")} />;
   }
 
   // ── Courses List ──
