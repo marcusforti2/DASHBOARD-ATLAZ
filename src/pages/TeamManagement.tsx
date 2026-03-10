@@ -673,6 +673,8 @@ function MemberCard({
   const isSdr = memberHasRole(member, "sdr");
   const hasDualRole = isCloser && isSdr;
   const [selectedMonthId, setSelectedMonthId] = useState<string | undefined>(months?.[0]?.id);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showToggleConfirm, setShowToggleConfirm] = useState(false);
   const activeMonthId = selectedMonthId || months?.[0]?.id;
   const activeMonth = months?.find(m => m.id === activeMonthId);
 
