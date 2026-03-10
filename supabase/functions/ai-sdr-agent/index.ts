@@ -364,47 +364,77 @@ Exemplo de tom (adapte ao contexto):
       userMessage = `HISTÓRICO DA CONVERSA:\n${conversationText}\n\nÚLTIMA MENSAGEM DO LEAD:\n${incoming_message}`;
     }
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userMessage },
-        ],
-      }),
-    });
+    // AI call with retry + failover
+    const aiModels = [
+      "google/gemini-3-flash-preview",
+      "google/gemini-2.5-flash",
+      "openai/gpt-5-mini",
+    ];
 
-    if (!aiResponse.ok) {
-      const errText = await aiResponse.text();
-      console.error("[ai-sdr] AI error:", aiResponse.status, errText);
-      if (aiResponse.status === 429 || aiResponse.status === 402) {
-        return new Response(JSON.stringify({ error: "AI rate limit or credits" }), {
-          status: aiResponse.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    let reply = "";
+    let parsed: any = {};
+
+    for (const model of aiModels) {
+      try {
+        console.log(`[ai-sdr] Trying model: ${model}`);
+        const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userMessage },
+            ],
+          }),
         });
+
+        if (!aiResponse.ok) {
+          const errText = await aiResponse.text();
+          console.error(`[ai-sdr] Model ${model} error: ${aiResponse.status}`, errText);
+          if (aiResponse.status === 429 || aiResponse.status === 402) {
+            // Rate limit - try next model
+            continue;
+          }
+          if (aiResponse.status >= 400 && aiResponse.status < 500) {
+            throw new Error(`Client error ${aiResponse.status}`);
+          }
+          continue; // 5xx → try next
+        }
+
+        const aiData = await aiResponse.json();
+        const content = aiData.choices?.[0]?.message?.content || "";
+
+        if (!content.trim()) {
+          console.warn(`[ai-sdr] Model ${model} returned empty content, trying next`);
+          continue;
+        }
+
+        try {
+          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          if (!jsonMatch) throw new Error("No JSON");
+          parsed = JSON.parse(jsonMatch[0]);
+        } catch {
+          parsed = { reply: content.replace(/```json|```/g, "").trim() };
+        }
+
+        reply = parsed.reply || "";
+        if (reply) {
+          console.log(`[ai-sdr] Success with model: ${model}`);
+          break;
+        }
+        console.warn(`[ai-sdr] Model ${model} parsed but empty reply, trying next`);
+      } catch (modelErr) {
+        console.error(`[ai-sdr] Model ${model} failed:`, modelErr);
+        continue;
       }
-      throw new Error("AI gateway error");
     }
 
-    const aiData = await aiResponse.json();
-    const content = aiData.choices?.[0]?.message?.content || "";
-
-    let parsed: any;
-    try {
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error("No JSON");
-      parsed = JSON.parse(jsonMatch[0]);
-    } catch {
-      parsed = { reply: content.replace(/```json|```/g, "").trim() };
-    }
-
-    const reply = parsed.reply || "";
     if (!reply) {
-      return new Response(JSON.stringify({ error: "AI returned empty reply" }), {
+      return new Response(JSON.stringify({ error: "All AI models failed or returned empty reply" }), {
         status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
