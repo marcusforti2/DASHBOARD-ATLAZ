@@ -318,6 +318,14 @@ const AUTOMATIONS: AutomationDef[] = [
       { key: "escalation_hours", label: "Escalar se sem resposta após", type: "number" as const, suffix: "horas", min: 1, max: 168 },
     ],
   },
+  {
+    key: "feature_tts_reply", icon: MessageCircle, title: "Resposta em áudio (TTS)", desc: "Responde com áudio quando lead envia áudio",
+    color: "text-pink-500",
+    explanation: "Quando o lead envia uma mensagem de áudio, a IA transcreve (usando ElevenLabs STT), gera a resposta em texto E TAMBÉM envia um áudio de voz via ElevenLabs TTS. Isso cria uma experiência mais natural e pessoal. O texto é enviado primeiro, seguido do áudio. Requer ElevenLabs configurado.",
+    fields: [
+      { key: "tts_voice_id", label: "Voice ID do ElevenLabs", type: "text" as const, placeholder: "onwK4e9ZLuTAKqWW03F9 (Daniel)" },
+    ],
+  },
 ];
 
 export default function AiSdrPage() {
