@@ -104,12 +104,14 @@ serve(async (req) => {
         .eq('instance_id', instance.id).eq('phone', phone).single();
 
       if (!contact) {
+        const contactName = (!isFromMe && pushName && pushName !== phone) ? pushName : phone;
         const { data: newContact } = await supabase
           .from('wa_contacts')
-          .insert({ instance_id: instance.id, phone, name: pushName || phone })
+          .insert({ instance_id: instance.id, phone, name: contactName })
           .select('id').single();
         contact = newContact;
-      } else if (pushName && pushName !== phone) {
+      } else if (!isFromMe && pushName && pushName !== phone) {
+        // Only update contact name from incoming messages (not from own profile name)
         await supabase.from('wa_contacts')
           .update({ name: pushName, updated_at: new Date().toISOString() })
           .eq('id', contact.id);

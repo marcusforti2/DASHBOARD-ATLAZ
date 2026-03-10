@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Send, Loader2, Image, Mic, Square, Paperclip, Zap, Sparkles, ChevronDown, User } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, Image, Mic, Square, Paperclip, Zap, Sparkles, ChevronDown, User, Sticker } from 'lucide-react';
 import { WaConversation, WaMessage, useQuickReplies } from '@/hooks/use-wa-hub';
 import { WaAiTools } from './WaAiTools';
 import { WaContactTagBadges } from './WaContactTagBadges';
@@ -40,6 +40,7 @@ interface Props {
   onSend: (text: string) => Promise<void>;
   onSendMedia?: (mediaType: string, mediaUrl: string, caption?: string) => Promise<void>;
   onSendAudio?: (audioUrl: string) => Promise<void>;
+  onSendSticker?: (imageUrl: string) => Promise<void>;
   tags?: WaTag[];
   assignedTagIds?: string[];
   onAddTag?: (contactId: string, tagId: string) => Promise<void>;
@@ -51,6 +52,12 @@ interface Props {
 function AudioBubble({ mediaUrl }: { mediaUrl: string }) {
   const [transcription, setTranscription] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [audioError, setAudioError] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const handleOpenExternal = () => {
+    window.open(mediaUrl, '_blank');
+  };
 
   const handleTranscribe = async () => {
     setLoading(true);
@@ -71,8 +78,24 @@ function AudioBubble({ mediaUrl }: { mediaUrl: string }) {
   };
 
   return (
-    <div className="space-y-1">
-      <audio src={mediaUrl} controls className="max-w-full min-w-[200px]" preload="metadata" />
+    <div className="space-y-1.5">
+      {!audioError ? (
+        <audio
+          ref={audioRef}
+          src={mediaUrl}
+          controls
+          className="max-w-full min-w-[220px] h-10"
+          preload="auto"
+          onError={() => setAudioError(true)}
+        />
+      ) : (
+        <button
+          onClick={handleOpenExternal}
+          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-background/50 text-xs text-foreground hover:bg-background transition-colors"
+        >
+          <Mic className="w-3.5 h-3.5" /> Ouvir áudio ↗
+        </button>
+      )}
       {transcription ? (
         <p className="text-[10px] italic text-muted-foreground bg-background/50 rounded px-2 py-1">📝 {transcription}</p>
       ) : (
@@ -122,7 +145,7 @@ function getSupportedAudioMime(): string {
   return '';
 }
 
-export default function WaChatView({ conversation, messages, messagesLoading, onBack, onSend, onSendMedia, onSendAudio, tags, assignedTagIds, onAddTag, onRemoveTag, onToggleProfile, showProfileButton }: Props) {
+export default function WaChatView({ conversation, messages, messagesLoading, onBack, onSend, onSendMedia, onSendAudio, onSendSticker, tags, assignedTagIds, onAddTag, onRemoveTag, onToggleProfile, showProfileButton }: Props) {
   const [msgText, setMsgText] = useState('');
   const [sending, setSending] = useState(false);
   const [recording, setRecording] = useState(false);
@@ -133,6 +156,7 @@ export default function WaChatView({ conversation, messages, messagesLoading, on
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const stickerInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { replies } = useQuickReplies();
@@ -204,6 +228,24 @@ export default function WaChatView({ conversation, messages, messagesLoading, on
     } catch (err) { console.error('Error uploading media:', err); toast.error('Erro ao enviar mídia.'); } finally {
       setUploadingMedia(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleStickerSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !onSendSticker) return;
+    if (file.size > 1024 * 1024) { toast.error('Figurinha muito grande. Máximo 1MB.'); if (stickerInputRef.current) stickerInputRef.current.value = ''; return; }
+    try {
+      setUploadingMedia(true);
+      const ext = file.name.split('.').pop() || 'webp';
+      const filePath = `sticker_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
+      const { error: uploadError } = await supabase.storage.from('wa-media').upload(filePath, file, { contentType: file.type, upsert: false });
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage.from('wa-media').getPublicUrl(filePath);
+      await onSendSticker(publicUrl);
+    } catch (err) { console.error('Error sending sticker:', err); toast.error('Erro ao enviar figurinha.'); } finally {
+      setUploadingMedia(false);
+      if (stickerInputRef.current) stickerInputRef.current.value = '';
     }
   };
 
@@ -355,6 +397,7 @@ export default function WaChatView({ conversation, messages, messagesLoading, on
       {/* Input */}
       <div className="px-5 py-3 border-t border-border bg-card shrink-0">
         <input ref={fileInputRef} type="file" accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx" className="hidden" onChange={handleFileSelect} />
+        <input ref={stickerInputRef} type="file" accept="image/*,.webp" className="hidden" onChange={handleStickerSelect} />
         <div className="flex items-center gap-2">
           {/* Quick replies toggle */}
           <button
@@ -379,6 +422,13 @@ export default function WaChatView({ conversation, messages, messagesLoading, on
           {onSendMedia && (
             <button onClick={() => fileInputRef.current?.click()} disabled={uploadingMedia || sending || recording} className="p-2.5 rounded-xl text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50" title="Enviar foto/vídeo/documento">
               {uploadingMedia ? <Loader2 className="w-4 h-4 animate-spin" /> : <Image className="w-4 h-4" />}
+            </button>
+          )}
+
+          {/* Sticker */}
+          {onSendSticker && (
+            <button onClick={() => stickerInputRef.current?.click()} disabled={uploadingMedia || sending || recording} className="p-2.5 rounded-xl text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50" title="Enviar figurinha">
+              <Sticker className="w-4 h-4" />
             </button>
           )}
 

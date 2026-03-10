@@ -131,7 +131,11 @@ export function WaConversationList({
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-foreground truncate">{conv.contact.name}</span>
+                  <span className="text-sm font-medium text-foreground truncate">
+                    {conv.contact.name === conv.contact.phone
+                      ? conv.contact.phone.replace(/^55(\d{2})(\d{4,5})(\d{4})$/, '($1) $2-$3')
+                      : conv.contact.name}
+                  </span>
                   <span className="text-[10px] text-muted-foreground shrink-0">{formatTime(conv.last_message_at)}</span>
                 </div>
                 <p className={`text-xs truncate ${conv.unread_count > 0 ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>

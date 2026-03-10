@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { createInstance, setWebhook, getWebhookUrl, sendMedia, sendAudio, restartInstance } from '@/lib/evolutionApi';
+import { createInstance, setWebhook, getWebhookUrl, sendMedia, sendAudio, sendSticker, restartInstance } from '@/lib/evolutionApi';
 import { WaConversationList } from '@/components/wa-hub/WaConversationList';
 import WaChatView from '@/components/wa-hub/WaChatView';
 import { WaDashboard } from '@/components/wa-hub/WaDashboard';
@@ -263,6 +263,19 @@ export default function WaHubPage() {
     }
   };
 
+  const handleSendSticker = async (imageUrl: string) => {
+    if (!selectedConv) return;
+    const inst = getSelectedInstance();
+    if (!inst) { toast.error('Instância não encontrada'); return; }
+    try {
+      await sendSticker(inst.instance_name, selectedConv.contact.phone, imageUrl);
+      toast.success('Figurinha enviada!');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao enviar figurinha');
+      throw err;
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -342,6 +355,7 @@ export default function WaHubPage() {
                   }}
                   onSendMedia={handleSendMedia}
                   onSendAudio={handleSendAudio}
+                  onSendSticker={handleSendSticker}
                   tags={tags}
                   assignedTagIds={getTagsForContact(selectedConv.contact.id).map(t => t.tag_id)}
                   onAddTag={addTag}
