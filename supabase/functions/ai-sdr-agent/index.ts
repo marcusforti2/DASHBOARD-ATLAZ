@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { conversation_id, instance_id, contact_phone, instance_name, contact_name, incoming_message, trigger_type, pipedrive_context } = body;
+    const { conversation_id, instance_id, contact_phone, instance_name, contact_name, incoming_message, trigger_type, pipedrive_context, force } = body;
     const instName = instance_name;
 
     const isProactive = trigger_type === "proactive";
@@ -154,7 +154,7 @@ Deno.serve(async (req) => {
         .limit(1)
         .maybeSingle();
 
-      if (recentHumanMsg && !isProactive) {
+      if (recentHumanMsg && !isProactive && !force) {
         console.log("[ai-sdr] Skipping: human agent responded recently (human takeover mode)", recentHumanMsg.agent_name);
         return new Response(JSON.stringify({ skipped: "human_takeover_active" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -194,7 +194,7 @@ Deno.serve(async (req) => {
     }
 
     // RATE LIMIT CHECK
-    if (features.rate_limit && !isProactive) {
+    if (features.rate_limit && !isProactive && !force) {
       const rateLimitPerHour = config.rate_limit_per_hour || 5;
       const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
       const { count: recentCount } = await supabase
