@@ -60,6 +60,17 @@ interface ExecutionRecord {
   error_message: string | null;
 }
 
+interface SendLog {
+  id: string;
+  flow_id: string;
+  recipient_email: string;
+  recipient_name: string | null;
+  subject: string;
+  status: string;
+  error_message: string | null;
+  sent_at: string;
+}
+
 export default function EmailMarketingPage() {
   const [flows, setFlows] = useState<EmailFlow[]>([]);
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
