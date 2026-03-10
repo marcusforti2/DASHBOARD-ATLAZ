@@ -52,7 +52,16 @@ interface AiSdrConfig {
   desires: string;
   qualification_questions: string[];
   daily_summary_admin_ids: string[];
+  lead_sources: LeadSource[];
   score_thresholds: { a_min: number; b_min: number };
+}
+
+interface LeadSource {
+  id: string;
+  name: string;
+  active: boolean;
+  context: string;
+  color: string;
 }
 
 interface Instance {
@@ -97,6 +106,11 @@ const DEFAULT_CONFIG: AiSdrConfig = {
   rate_limit_per_hour: 5,
   blacklist_numbers: [],
   daily_summary_admin_ids: [],
+  lead_sources: [
+    { id: "linkedin", name: "Prospecção LinkedIn", active: true, context: "Lead veio de prospecção ativa no LinkedIn. Você já se conectou com ele e agora está dando continuidade à conversa. Seja pessoal, mencione algo do perfil dele. NÃO diga o nome da empresa logo de cara.", color: "#0A66C2" },
+    { id: "dripify", name: "Dripify / Automação", active: false, context: "Lead recebeu uma sequência automatizada (Dripify ou similar) e respondeu. O contexto é diferente da prospecção manual — ele pode não lembrar quem você é. Apresente-se brevemente e retome o interesse.", color: "#8B5CF6" },
+    { id: "indicacao", name: "Indicação", active: false, context: "Lead veio por indicação de alguém. Mencione quem indicou (se disponível) e use isso como ponte de confiança. Tom mais próximo e caloroso.", color: "#F59E0B" },
+  ],
   target_audience: "",
   pain_points: "",
   desires: "",
@@ -408,10 +422,105 @@ export default function AiSdrPage() {
               </div>
             </div>
 
+            {/* Lead Sources */}
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-3">
+                <Tag className="w-3.5 h-3.5" /> Origens de Lead — Contexto por Canal
+              </label>
+              <p className="text-xs text-muted-foreground mb-3">
+                Cada origem tem um contexto diferente. A IA adapta a abordagem inicial com base em como o lead chegou.
+              </p>
+              <div className="space-y-3">
+                {(localConfig.lead_sources || []).map((src, idx) => (
+                  <div key={src.id} className={`rounded-xl border transition-all ${src.active ? "border-primary/30 bg-primary/5" : "border-border bg-card opacity-70"}`}>
+                    <div className="flex items-center gap-3 p-4">
+                      <div className="w-3 h-8 rounded-full shrink-0" style={{ backgroundColor: src.color }} />
+                      <div className="flex-1 min-w-0">
+                        {src.id.startsWith("custom_") ? (
+                          <Input
+                            value={src.name}
+                            onChange={e => {
+                              const sources = [...(localConfig.lead_sources || [])];
+                              sources[idx] = { ...sources[idx], name: e.target.value };
+                              update("lead_sources", sources);
+                            }}
+                            className="h-7 text-xs font-bold border-none bg-transparent p-0 focus-visible:ring-0"
+                          />
+                        ) : (
+                          <p className={`text-xs font-bold ${src.active ? "text-foreground" : "text-muted-foreground"}`}>{src.name}</p>
+                        )}
+                      </div>
+                      {src.id.startsWith("custom_") && (
+                        <button
+                          onClick={() => {
+                            const sources = (localConfig.lead_sources || []).filter((_, i) => i !== idx);
+                            update("lead_sources", sources);
+                          }}
+                          className="p-1 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => {
+                          const sources = [...(localConfig.lead_sources || [])];
+                          sources[idx] = { ...sources[idx], active: !sources[idx].active };
+                          update("lead_sources", sources);
+                        }}
+                        className="p-1 rounded-md hover:bg-accent/50 transition-colors"
+                      >
+                        {src.active
+                          ? <ToggleRight className="w-6 h-6 text-primary" />
+                          : <ToggleLeft className="w-6 h-6 text-muted-foreground" />}
+                      </button>
+                    </div>
+                    {src.active && (
+                      <div className="px-4 pb-4 pt-0">
+                        <Textarea
+                          value={src.context}
+                          onChange={e => {
+                            const sources = [...(localConfig.lead_sources || [])];
+                            sources[idx] = { ...sources[idx], context: e.target.value };
+                            update("lead_sources", sources);
+                          }}
+                          placeholder="Descreva o contexto e como a IA deve abordar leads dessa origem..."
+                          rows={4}
+                          className="text-sm resize-none bg-card"
+                        />
+                        <p className="text-[11px] text-muted-foreground mt-1.5">
+                          A IA usará esse contexto para adaptar a primeira mensagem e o tom da conversa.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {/* Add custom source */}
+                <button
+                  onClick={() => {
+                    const sources = [...(localConfig.lead_sources || [])];
+                    const colors = ["#EC4899", "#14B8A6", "#F97316", "#6366F1", "#84CC16"];
+                    sources.push({
+                      id: `custom_${Date.now()}`,
+                      name: `Nova Origem ${sources.length + 1}`,
+                      active: false,
+                      context: "",
+                      color: colors[sources.length % colors.length],
+                    });
+                    update("lead_sources", sources);
+                  }}
+                  className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border border-dashed border-border hover:border-primary/40 hover:bg-primary/5 transition-all text-muted-foreground hover:text-primary"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span className="text-xs font-semibold">Adicionar origem</span>
+                </button>
+              </div>
+            </div>
+
             {/* Greeting */}
             <div>
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-2">
-                <Send className="w-3.5 h-3.5" /> Primeira mensagem (saudação proativa)
+                <Send className="w-3.5 h-3.5" /> Primeira mensagem (saudação padrão)
               </label>
               <Textarea
                 value={localConfig.greeting}
@@ -421,7 +530,7 @@ export default function AiSdrPage() {
                 className="text-sm resize-none"
               />
               <p className="text-[11px] text-muted-foreground mt-1.5">
-                Enviada quando a IA inicia conversa proativamente (via Pipedrive) ou na primeira mensagem de um lead novo.
+                Usada quando a origem do lead não é identificada ou não tem contexto específico configurado.
               </p>
             </div>
           </div>
