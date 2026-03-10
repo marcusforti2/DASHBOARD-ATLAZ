@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { WaContactTagBadges } from './WaContactTagBadges';
+import { LeadDetailModal } from './LeadDetailModal';
 import type { WaTag } from '@/hooks/use-wa-tags';
 import type { WaConversation } from '@/hooks/use-wa-hub';
 
