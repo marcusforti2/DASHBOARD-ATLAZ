@@ -14,6 +14,8 @@ export function PipedriveTab() {
   const [webhooksLoading, setWebhooksLoading] = useState(false);
   const [stats, setStats] = useState({ deals: 0, persons: 0, activities: 0, notes: 0 });
   const [logs, setLogs] = useState<any[]>([]);
+  const [importingStages, setImportingStages] = useState(false);
+  const [pipelines, setPipelines] = useState<any[]>([]);
 
   const WEBHOOK_URL = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/pipedrive-webhook`;
 
