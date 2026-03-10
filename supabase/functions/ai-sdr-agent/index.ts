@@ -1068,18 +1068,26 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
     }
 
     // 9. Auto follow-up scheduling (for no-response cases)
+    // ===== BUG FIX #2 & #7: Use valid team_member_id and respect business hours =====
     if (parsed.schedule_follow_up && conversation?.contact_id) {
-      const remindAt = new Date(Date.now() + (followUpHours) * 60 * 60 * 1000).toISOString();
-      const followUpMsg = parsed.follow_up_message || `Fala ${contact_name || ""}! Sumiu 😄 Conseguiu pensar sobre o que conversamos?`;
-      
-      await supabase.from("wa_follow_up_reminders").insert({
-        contact_id: conversation.contact_id,
-        conversation_id,
-        remind_at: remindAt,
-        note: followUpMsg,
-        created_by: instance.sdr_id || instance.closer_id || conversation.contact_id,
-      });
-      console.log("[ai-sdr] Follow-up scheduled for", remindAt);
+      const validCreator = instance.sdr_id || instance.closer_id;
+      if (!validCreator) {
+        console.warn("[ai-sdr] Cannot schedule follow-up: no sdr_id or closer_id on instance");
+      } else {
+        // BUG FIX #7: Use business datetime instead of raw hours addition
+        const nextBizTime = getNextBusinessDateTime(new Date(), followUpHours);
+        const remindAt = nextBizTime.toISOString();
+        const followUpMsg = parsed.follow_up_message || `Fala ${contact_name || ""}! Sumiu 😄 Conseguiu pensar sobre o que conversamos?`;
+        
+        await supabase.from("wa_follow_up_reminders").insert({
+          contact_id: conversation.contact_id,
+          conversation_id,
+          remind_at: remindAt,
+          note: followUpMsg,
+          created_by: validCreator,
+        });
+        console.log("[ai-sdr] Follow-up scheduled for", remindAt, "(business hours)");
+      }
     }
 
     // 10. Time escalation: alert manager if lead hasn't responded in X hours
