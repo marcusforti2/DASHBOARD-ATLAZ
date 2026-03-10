@@ -51,6 +51,7 @@ interface AiSdrConfig {
   pain_points: string;
   desires: string;
   qualification_questions: string[];
+  daily_summary_admin_ids: string[];
   score_thresholds: { a_min: number; b_min: number };
 }
 
