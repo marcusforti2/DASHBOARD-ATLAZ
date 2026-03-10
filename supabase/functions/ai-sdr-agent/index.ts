@@ -669,6 +669,9 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
     }
 
     if (!reply) {
+      // Remove the lock message since we have nothing to send
+      await supabase.from("wa_messages").delete().eq("id", lockId);
+      console.log("[ai-sdr] Lock released (no reply):", lockId);
       return new Response(JSON.stringify({ error: "All AI models failed or returned empty reply" }), {
         status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
