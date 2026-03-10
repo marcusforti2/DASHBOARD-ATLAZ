@@ -185,7 +185,9 @@ export default function WaChatView({
         </div>
       </div>
 
-      <StickerPreviewDialog imageUrl={stickerPreviewUrl} onSend={handleSendSticker} onOpenChange={setStickerPreviewUrl} />
+      {stickerPreviewUrl && (
+        <StickerPreviewDialog open={!!stickerPreviewUrl} onClose={() => setStickerPreviewUrl(null)} imageFile={null} onSend={handleSendSticker} />
+      )}
     </div>
   );
 }
