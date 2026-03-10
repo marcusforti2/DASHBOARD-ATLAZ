@@ -13,6 +13,7 @@ import DnaMappingPage from "@/pages/DnaMappingPage";
 import ProcessosPage from "@/pages/ProcessosPage";
 import AdminCalendarPage from "@/pages/AdminCalendarPage";
 import TrainingAdminPage from "@/pages/TrainingAdminPage";
+import AiSdrPage from "@/pages/AiSdrPage";
 import { AppSidebar, AdminView } from "@/components/AppSidebar";
 import { AiReportPanel } from "@/components/dashboard/AiReportPanel";
 import { UserHub } from "@/components/user/UserHub";
