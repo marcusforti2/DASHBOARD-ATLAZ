@@ -139,6 +139,7 @@ Deno.serve(async (req) => {
         contact_name: person_name || "",
         incoming_message: "",
         trigger_type: "proactive",
+        pipedrive_context: pipedrive_context || {},
       }),
     });
 
