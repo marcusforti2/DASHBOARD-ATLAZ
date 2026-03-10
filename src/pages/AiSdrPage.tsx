@@ -139,6 +139,8 @@ const DEFAULT_CONFIG: AiSdrConfig = {
   feature_language_detection: false,
   feature_linkedin_lookup: false,
   feature_time_escalation: false,
+  feature_tts_reply: false,
+  tts_voice_id: "onwK4e9ZLuTAKqWW03F9",
   reengagement_days: 7,
   escalation_hours: 48,
   rate_limit_per_hour: 5,
