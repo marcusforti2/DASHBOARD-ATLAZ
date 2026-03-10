@@ -52,7 +52,16 @@ interface AiSdrConfig {
   desires: string;
   qualification_questions: string[];
   daily_summary_admin_ids: string[];
+  lead_sources: LeadSource[];
   score_thresholds: { a_min: number; b_min: number };
+}
+
+interface LeadSource {
+  id: string;
+  name: string;
+  active: boolean;
+  context: string;
+  color: string;
 }
 
 interface Instance {
