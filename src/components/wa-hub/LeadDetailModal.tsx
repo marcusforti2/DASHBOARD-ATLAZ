@@ -199,6 +199,7 @@ export function LeadDetailModal({ open, onOpenChange, conversation, tags, assign
       const { error } = await supabase.functions.invoke('ai-sdr-agent', {
         body: {
           conversation_id: conversation.id,
+          instance_id: conversation.instance_id,
           force: true,
           double_check: true,
         },
