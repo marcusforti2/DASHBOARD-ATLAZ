@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, RefreshCw, Link2, Copy, Trash2, Check, AlertCircle, ArrowDownUp, ExternalLink } from 'lucide-react';
+import { Loader2, RefreshCw, Link2, Copy, Trash2, Check, AlertCircle, ArrowDownUp, ExternalLink, Download } from 'lucide-react';
 
 export function PipedriveTab() {
   const [loading, setLoading] = useState(false);
@@ -14,6 +14,8 @@ export function PipedriveTab() {
   const [webhooksLoading, setWebhooksLoading] = useState(false);
   const [stats, setStats] = useState({ deals: 0, persons: 0, activities: 0, notes: 0 });
   const [logs, setLogs] = useState<any[]>([]);
+  const [importingStages, setImportingStages] = useState(false);
+  const [pipelines, setPipelines] = useState<any[]>([]);
 
   const WEBHOOK_URL = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/pipedrive-webhook`;
 
@@ -133,6 +135,51 @@ export function PipedriveTab() {
     toast.success('URL copiada!');
   };
 
+  const handleImportStages = async () => {
+    setImportingStages(true);
+    try {
+      // 1. Get pipelines
+      const pipelinesRes = await callPipedriveApi('get_pipelines');
+      const allPipelines = pipelinesRes?.data || [];
+      setPipelines(allPipelines);
+
+      // 2. Get stages for each pipeline
+      let allStages: { name: string; pipeline: string; order: number }[] = [];
+      for (const p of allPipelines) {
+        const stagesRes = await callPipedriveApi('get_stages', { pipeline_id: p.id });
+        const stages = stagesRes?.data || [];
+        stages.forEach((s: any) => {
+          allStages.push({ name: s.name, pipeline: p.name, order: s.order_nr || 0 });
+        });
+      }
+
+      // 3. Get existing stage tags to avoid duplicates
+      const { data: existingTags } = await supabase.from('wa_tags').select('name').eq('is_stage', true);
+      const existingNames = new Set((existingTags || []).map(t => t.name.toLowerCase()));
+
+      // 4. Create missing stages as tags
+      const STAGE_COLORS = ['#3b82f6', '#8b5cf6', '#f59e0b', '#10b981', '#ef4444', '#ec4899', '#14b8a6', '#f97316', '#06b6d4', '#6b7280'];
+      let created = 0;
+      for (const stage of allStages) {
+        const tagName = allPipelines.length > 1 ? `${stage.pipeline} → ${stage.name}` : stage.name;
+        if (!existingNames.has(tagName.toLowerCase())) {
+          await supabase.from('wa_tags').insert({
+            name: tagName,
+            color: STAGE_COLORS[created % STAGE_COLORS.length],
+            is_stage: true,
+            sort_order: stage.order,
+          });
+          created++;
+        }
+      }
+
+      toast.success(`Importação concluída! ${created} etapas novas criadas, ${allStages.length - created} já existiam.`);
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao importar etapas');
+    }
+    setImportingStages(false);
+  };
+
   return (
     <div className="space-y-6">
       {/* Connection Status */}
@@ -164,11 +211,15 @@ export function PipedriveTab() {
             ))}
           </div>
 
-          {/* Sync Button */}
-          <div className="flex gap-2">
+          {/* Sync + Import Buttons */}
+          <div className="flex gap-2 flex-wrap">
             <Button onClick={handleSync} disabled={syncing} className="gap-2">
               {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowDownUp className="w-4 h-4" />}
               {syncing ? 'Sincronizando...' : 'Sincronizar Tudo'}
+            </Button>
+            <Button onClick={handleImportStages} disabled={importingStages} variant="secondary" className="gap-2">
+              {importingStages ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+              {importingStages ? 'Importando...' : 'Importar Etapas do CRM'}
             </Button>
             <Button onClick={() => { loadStats(); loadLogs(); }} variant="outline" className="gap-2">
               <RefreshCw className="w-4 h-4" /> Atualizar
