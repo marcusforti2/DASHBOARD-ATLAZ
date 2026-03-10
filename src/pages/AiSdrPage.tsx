@@ -56,6 +56,32 @@ interface AiSdrConfig {
   score_thresholds: { a_min: number; b_min: number };
 }
 
+interface LeadSourceAutomation {
+  follow_up_enabled: boolean;
+  follow_up_hours: number;
+  auto_stage_change: boolean;
+  stage_on_contact: string;
+  stage_on_qualified: string;
+  stage_on_meeting: string;
+  stage_on_no_response: string;
+  notification_priority: "normal" | "high" | "urgent";
+  notify_via_whatsapp: boolean;
+  flow_id?: string | null;
+}
+
+const DEFAULT_SOURCE_AUTOMATION: LeadSourceAutomation = {
+  follow_up_enabled: true,
+  follow_up_hours: 24,
+  auto_stage_change: true,
+  stage_on_contact: "Em contato",
+  stage_on_qualified: "Qualificado",
+  stage_on_meeting: "Reunião agendada",
+  stage_on_no_response: "Sem resposta",
+  notification_priority: "normal",
+  notify_via_whatsapp: false,
+  flow_id: null,
+};
+
 interface LeadSource {
   id: string;
   name: string;
@@ -63,6 +89,7 @@ interface LeadSource {
   context: string;
   color: string;
   pipedrive_label_id?: number | null;
+  automation?: LeadSourceAutomation;
 }
 
 interface Instance {
