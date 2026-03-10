@@ -198,16 +198,17 @@ async function handleDeal(supabase: any, event: string, current: any, previous: 
   console.log(`[pipedrive-webhook] Deal upserted: ${d.title} (${d.id}) status=${d.status}`);
 
   // PROACTIVE SDR IA: On new deal with phone, auto-create contact + conversation and trigger AI outreach
-  // Only trigger for deals WITHOUT a label (white/blank label in Pipedrive)
+  // Only trigger for deals with label 43 (PROSPECÇÃO/LINKEDIN)
   const dealLabel = d.label || null;
   const dealLabelIds = d.label_ids || [];
-  const hasLabel = dealLabel || (Array.isArray(dealLabelIds) && dealLabelIds.length > 0);
+  const isProspeccaoLinkedin = dealLabel === 43 || dealLabel === '43' || 
+    (Array.isArray(dealLabelIds) && dealLabelIds.includes(43));
 
-  if (hasLabel) {
-    console.log(`[pipedrive-webhook] Skipping proactive: deal ${d.id} has label (${dealLabel || dealLabelIds.join(',')}), only white/blank labels trigger`);
+  if (!isProspeccaoLinkedin) {
+    console.log(`[pipedrive-webhook] Skipping proactive: deal ${d.id} label is not PROSPECÇÃO/LINKEDIN (43). Label: ${dealLabel}, label_ids: ${JSON.stringify(dealLabelIds)}`);
   }
 
-  if (event === 'create' && !hasLabel && (dealPhone || (personId && current))) {
+  if (event === 'create' && isProspeccaoLinkedin && (dealPhone || (personId && current))) {
     // DEDUP: Check if we already processed a "create" webhook for this same deal (multiple Pipedrive events)
     const { count: previousCreateCount } = await supabase
       .from('pipedrive_webhook_logs')
