@@ -276,6 +276,26 @@ export default function FlowEditor({ flow, templates, onSave, onClose }: FlowEdi
                   <p className="text-[10px] text-muted-foreground">
                     Variáveis: {"{{nome}}"}, {"{{email}}"}, {"{{role}}"}, {"{{metricas_hoje}}"}, {"{{progresso_meta}}"}
                   </p>
+                  {(selectedNode.data.body as string)?.trim() && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full mt-2"
+                      onClick={() => {
+                        const html = (selectedNode.data.body as string || '')
+                          .replace(/\{\{nome\}\}/g, 'João Silva')
+                          .replace(/\{\{email\}\}/g, 'joao@email.com')
+                          .replace(/\{\{role\}\}/g, 'SDR')
+                          .replace(/\{\{metricas_hoje\}\}/g, '12 conexões, 5 reuniões')
+                          .replace(/\{\{progresso_meta\}\}/g, '87%');
+                        setPreviewHtml(html);
+                        setIsEmailPreviewOpen(true);
+                      }}
+                    >
+                      <Eye className="h-3.5 w-3.5 mr-2" />
+                      Preview do Email
+                    </Button>
+                  )}
                 </div>
               )}
 
