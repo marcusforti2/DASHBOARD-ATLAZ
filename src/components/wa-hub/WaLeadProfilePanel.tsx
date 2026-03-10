@@ -60,16 +60,7 @@ interface Props {
   onTransfer: (toMemberId: string, toRole: string, note: string) => Promise<void>;
 }
 
-const AVATAR_COLORS = ['152 60% 36%', '210 90% 50%', '280 65% 50%', '30 90% 50%', '0 72% 51%', '180 60% 40%'];
-function getAvatarColor(name: string) {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-}
-
-function formatDate(d: string) {
-  return new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
-}
+import { getAvatarColor, formatDateWithTime } from '@/lib/wa-utils';
 
 function getRiskColor(risk: string) {
   switch (risk) {
