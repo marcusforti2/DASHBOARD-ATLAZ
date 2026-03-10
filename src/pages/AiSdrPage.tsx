@@ -48,6 +48,7 @@ interface AiSdrConfig {
   feature_linkedin_lookup: boolean;
   feature_time_escalation: boolean;
   feature_tts_reply: boolean;
+  feature_calendar_auto: boolean;
   tts_voice_id: string;
   reengagement_days: number;
   escalation_hours: number;
@@ -140,6 +141,7 @@ const DEFAULT_CONFIG: AiSdrConfig = {
   feature_linkedin_lookup: false,
   feature_time_escalation: false,
   feature_tts_reply: false,
+  feature_calendar_auto: true,
   tts_voice_id: "onwK4e9ZLuTAKqWW03F9",
   reengagement_days: 7,
   escalation_hours: 48,
@@ -325,6 +327,11 @@ const AUTOMATIONS: AutomationDef[] = [
     fields: [
       { key: "tts_voice_id", label: "Voice ID do ElevenLabs", type: "text" as const, placeholder: "onwK4e9ZLuTAKqWW03F9 (Daniel)" },
     ],
+  },
+  {
+    key: "feature_calendar_auto", icon: CalendarClock, title: "Agenda automática", desc: "Cria evento no Google Calendar ao agendar",
+    color: "text-emerald-500",
+    explanation: "Quando a IA confirma um agendamento com o lead, cria automaticamente um evento no Google Calendar do Closer responsável com: título com nome do lead, duração de 30 min, link Google Meet e lembretes de 15 e 5 min antes. Além disso, envia uma notificação via WhatsApp ao Closer com os dados do agendamento. Requer que o Closer tenha a agenda conectada.",
   },
 ];
 
