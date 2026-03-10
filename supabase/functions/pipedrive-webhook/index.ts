@@ -322,6 +322,26 @@ async function handleDeal(supabase: any, event: string, current: any, previous: 
 
     console.log(`[pipedrive-webhook] Using instance: ${targetInstance.instance_name} (closer: ${targetInstance.closer_id})`);
 
+    // Match deal label with configured lead_sources
+    const instConfig = targetInstance.ai_sdr_config || {};
+    const leadSources = instConfig.lead_sources || [];
+    for (const labelId of resolvedLabelIds) {
+      const matchedSource = leadSources.find((s: any) => s.active && Number(s.pipedrive_label_id) === labelId);
+      if (matchedSource) {
+        matchedLabelId = labelId;
+        matchedSourceContext = matchedSource.context || "";
+        matchedSourceName = matchedSource.name || "";
+        break;
+      }
+    }
+
+    if (!matchedLabelId) {
+      console.log(`[pipedrive-webhook] Skipping proactive: no active lead_source matches labels ${JSON.stringify(resolvedLabelIds)}`);
+      return;
+    }
+
+    console.log(`[pipedrive-webhook] Matched lead source: ${matchedSourceName} (label ${matchedLabelId})`);
+
     // Find or create wa_contact on this instance
     let contactId: string | null = null;
     const { data: existingContact } = await supabase
