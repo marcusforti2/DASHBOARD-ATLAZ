@@ -863,7 +863,7 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
             conversation_id,
             remind_at: oneHBefore.toISOString(),
             note: `Opa ${contact_name || ""}! Daqui a 1 hora temos nosso bate-papo 🔥 Te ligo no horário combinado, beleza?`,
-            created_by: instance.sdr_id || instance.closer_id || conversation.contact_id,
+            created_by: instance.sdr_id || instance.closer_id!,
           });
           console.log("[ai-sdr] 1h follow-up scheduled for", oneHBefore.toISOString());
         }
