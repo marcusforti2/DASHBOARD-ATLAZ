@@ -211,11 +211,15 @@ export function PipedriveTab() {
             ))}
           </div>
 
-          {/* Sync Button */}
-          <div className="flex gap-2">
+          {/* Sync + Import Buttons */}
+          <div className="flex gap-2 flex-wrap">
             <Button onClick={handleSync} disabled={syncing} className="gap-2">
               {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowDownUp className="w-4 h-4" />}
               {syncing ? 'Sincronizando...' : 'Sincronizar Tudo'}
+            </Button>
+            <Button onClick={handleImportStages} disabled={importingStages} variant="secondary" className="gap-2">
+              {importingStages ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+              {importingStages ? 'Importando...' : 'Importar Etapas do CRM'}
             </Button>
             <Button onClick={() => { loadStats(); loadLogs(); }} variant="outline" className="gap-2">
               <RefreshCw className="w-4 h-4" /> Atualizar
