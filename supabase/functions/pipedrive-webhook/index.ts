@@ -245,18 +245,27 @@ async function handleDeal(supabase: any, event: string, current: any, previous: 
     console.log(`[pipedrive-webhook] Skipping proactive: deal ${d.id} has no labels`);
   }
 
-  if (event === 'create' && hasAnyLabel) {
-    // DEDUP: Check if we already processed a "create" webhook for this same deal
-    const { count: previousCreateCount } = await supabase
+  if ((event === 'create' || event === 'change') && hasAnyLabel) {
+    // DEDUP: Check if we already triggered proactive SDR for this deal
+    const { count: previousProactiveCount } = await supabase
       .from('pipedrive_webhook_logs')
       .select('id', { count: 'exact', head: true })
       .eq('pipedrive_id', d.id)
       .eq('entity', 'deal')
-      .eq('event', 'create')
-      .eq('processed', true);
+      .eq('processed', true)
+      .or(`event.eq.create,event.eq.change`)
+      .not('error', 'is', null);
 
-    if ((previousCreateCount || 0) > 0) {
-      console.log(`[pipedrive-webhook] Skipping proactive: deal ${d.id} already processed`);
+    // Check for a specific "proactive_triggered" marker in error field (used as flag)
+    const { count: alreadyTriggered } = await supabase
+      .from('pipedrive_webhook_logs')
+      .select('id', { count: 'exact', head: true })
+      .eq('pipedrive_id', d.id)
+      .eq('entity', 'deal')
+      .eq('error', 'proactive_triggered');
+
+    if ((alreadyTriggered || 0) > 0) {
+      console.log(`[pipedrive-webhook] Skipping proactive: deal ${d.id} already triggered`);
       return;
     }
 
