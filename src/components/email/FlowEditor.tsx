@@ -17,7 +17,10 @@ import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet";
 import {
-  ArrowLeft, Save, Plus, Mail, Clock, GitBranch, Zap, Users, Send, Trash2,
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  ArrowLeft, Save, Plus, Mail, Clock, GitBranch, Zap, Users, Send, Trash2, Eye,
 } from "lucide-react";
 
 import TriggerNode from './nodes/TriggerNode';
@@ -67,6 +70,8 @@ export default function FlowEditor({ flow, templates, onSave, onClose }: FlowEdi
   const [flowName, setFlowName] = useState(flow.name);
   const [flowDescription, setFlowDescription] = useState(flow.description || '');
   const [isEditingName, setIsEditingName] = useState(false);
+  const [isEmailPreviewOpen, setIsEmailPreviewOpen] = useState(false);
+  const [previewHtml, setPreviewHtml] = useState('');
 
   useEffect(() => {
     if (nodes.length === 0) {
@@ -271,6 +276,26 @@ export default function FlowEditor({ flow, templates, onSave, onClose }: FlowEdi
                   <p className="text-[10px] text-muted-foreground">
                     Variáveis: {"{{nome}}"}, {"{{email}}"}, {"{{role}}"}, {"{{metricas_hoje}}"}, {"{{progresso_meta}}"}
                   </p>
+                  {(selectedNode.data.body as string)?.trim() && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full mt-2"
+                      onClick={() => {
+                        const html = (selectedNode.data.body as string || '')
+                          .replace(/\{\{nome\}\}/g, 'João Silva')
+                          .replace(/\{\{email\}\}/g, 'joao@email.com')
+                          .replace(/\{\{role\}\}/g, 'SDR')
+                          .replace(/\{\{metricas_hoje\}\}/g, '12 conexões, 5 reuniões')
+                          .replace(/\{\{progresso_meta\}\}/g, '87%');
+                        setPreviewHtml(html);
+                        setIsEmailPreviewOpen(true);
+                      }}
+                    >
+                      <Eye className="h-3.5 w-3.5 mr-2" />
+                      Preview do Email
+                    </Button>
+                  )}
                 </div>
               )}
 
@@ -333,6 +358,21 @@ export default function FlowEditor({ flow, templates, onSave, onClose }: FlowEdi
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Email Preview Dialog */}
+      <Dialog open={isEmailPreviewOpen} onOpenChange={setIsEmailPreviewOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-auto p-0">
+          <DialogHeader className="p-6 pb-3">
+            <DialogTitle className="flex items-center gap-2"><Eye className="h-5 w-5" />Preview do Email</DialogTitle>
+          </DialogHeader>
+          <div className="mx-6 mb-2 p-3 bg-muted rounded-lg">
+            <p className="text-sm"><strong>Assunto:</strong> {(selectedNode?.data?.subject as string || '').replace(/\{\{nome\}\}/g, 'João Silva')}</p>
+          </div>
+          <div className="mx-6 mb-6 rounded-lg overflow-hidden border bg-white">
+            <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
