@@ -98,6 +98,7 @@ Deno.serve(async (req) => {
       });
     }
 
+    const config: any = instance.ai_sdr_config || {};
 
     // Check feature toggles
     const features = {
@@ -290,6 +291,17 @@ Deno.serve(async (req) => {
       .from("wa_contact_tags")
       .select("tag_id, wa_tags(name)")
       .eq("contact_id", conversation?.contact_id || "");
+
+    // Get closer name
+    let closerName = "";
+    if (instance.closer_id) {
+      const { data: closerMember } = await supabase
+        .from("team_members")
+        .select("name")
+        .eq("id", instance.closer_id)
+        .single();
+      closerName = closerMember?.name || "";
+    }
 
     // Get ALL knowledge
     const { data: knowledge } = await supabase
