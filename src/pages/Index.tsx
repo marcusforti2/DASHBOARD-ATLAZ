@@ -79,6 +79,16 @@ export default function Index() {
     return () => window.removeEventListener("keydown", onKey);
   }, [toggleFullscreen]);
 
+  // Listen for navigation events from child components (e.g. WaHub summary card)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail) setAdminView(detail as AdminView);
+    };
+    window.addEventListener('navigate-admin', handler);
+    return () => window.removeEventListener('navigate-admin', handler);
+  }, []);
+
   const activeMonthId = selectedMonthId || months?.[0]?.id;
   const activeMonth = months?.find(m => m.id === activeMonthId);
 
