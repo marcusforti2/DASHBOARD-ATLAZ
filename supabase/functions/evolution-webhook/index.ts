@@ -79,6 +79,16 @@ serve(async (req) => {
 
       const phone = remoteJid.replace('@s.whatsapp.net', '');
       const isFromMe = msgData.key.fromMe === true;
+
+      // Auto-populate instance phone from participant JID when sending messages
+      if (isFromMe && msgData.key.participant) {
+        const ownPhone = msgData.key.participant.replace('@s.whatsapp.net', '');
+        if (ownPhone && !instance.phone) {
+          await supabase.from('wa_instances').update({ phone: ownPhone }).eq('id', instance.id);
+          console.log(`[webhook] Auto-set instance phone: ${instanceName} -> ${ownPhone}`);
+        }
+      }
+
       const pushName = msgData.pushName || '';
       const { text: messageText, mediaType, mediaUrl, mediaMime } = extractMessageContent(msgData.message, msgData);
 
