@@ -1,4 +1,3 @@
-// No external serve import needed - using Deno.serve
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -6,163 +5,129 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const DELAY_BETWEEN_SENDS_MS = 15_000; // 15 seconds between each trigger
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /**
- * Triggered when a deal enters the first stage in Pipedrive.
- * Creates/finds WhatsApp conversation and activates SDR IA proactively.
- * 
- * Can be called:
- * 1. Via Pipedrive webhook (deal.updated with stage change)
- * 2. Manually from the UI
- * 3. Via pipedrive-webhook edge function forwarding
+ * Queue processor for Pipedrive SDR proactive outreach.
+ * Processes pending items one by one with 15s delay between each.
+ * Called by pg_cron every minute.
  */
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL");
-  const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_KEY");
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   try {
-    const { deal_id, person_name, person_phone, instance_id, pipedrive_context } = await req.json();
+    // Get pending items ordered by creation time (FIFO)
+    const { data: pendingItems, error: fetchErr } = await supabase
+      .from("pipedrive_sdr_queue")
+      .select("*")
+      .eq("status", "pending")
+      .order("created_at", { ascending: true })
+      .limit(4); // Max 4 per minute (4 x 15s = 60s)
 
-    if (!person_phone) {
-      return new Response(JSON.stringify({ error: "No phone number provided" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    if (fetchErr) throw fetchErr;
+
+    if (!pendingItems || pendingItems.length === 0) {
+      return new Response(JSON.stringify({ ok: true, processed: 0, message: "No pending items" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Clean phone number
-    const cleanPhone = person_phone.replace(/\D/g, "");
-    if (cleanPhone.length < 10) {
-      return new Response(JSON.stringify({ error: "Invalid phone number" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    console.log(`[pipedrive-sdr-trigger] Processing ${pendingItems.length} queued items`);
+
+    let processed = 0;
+    let errors = 0;
+
+    for (let i = 0; i < pendingItems.length; i++) {
+      const item = pendingItems[i];
+
+      // Mark as processing
+      await supabase
+        .from("pipedrive_sdr_queue")
+        .update({ status: "processing", attempts: (item.attempts || 0) + 1 })
+        .eq("id", item.id);
+
+      try {
+        console.log(`[pipedrive-sdr-trigger] Processing item ${i + 1}/${pendingItems.length}: deal ${item.deal_pipedrive_id} → ${item.person_name} (${item.person_phone})`);
+
+        // Call ai-sdr-agent with proactive trigger
+        const aiSdrResp = await fetch(`${SUPABASE_URL}/functions/v1/ai-sdr-agent`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            conversation_id: item.conversation_id,
+            instance_id: item.instance_id,
+            contact_phone: item.person_phone,
+            instance_name: item.instance_name,
+            contact_name: item.person_name || "",
+            incoming_message: "",
+            trigger_type: "proactive",
+            pipedrive_context: item.pipedrive_context || {},
+          }),
+        });
+
+        const aiSdrResult = await aiSdrResp.json();
+        console.log(`[pipedrive-sdr-trigger] ✅ AI SDR result for deal ${item.deal_pipedrive_id}:`, JSON.stringify(aiSdrResult).slice(0, 200));
+
+        // Mark as done
+        await supabase
+          .from("pipedrive_sdr_queue")
+          .update({
+            status: "done",
+            processed_at: new Date().toISOString(),
+          })
+          .eq("id", item.id);
+
+        processed++;
+      } catch (itemErr) {
+        const errMsg = itemErr instanceof Error ? itemErr.message : "Unknown error";
+        console.error(`[pipedrive-sdr-trigger] ❌ Error processing deal ${item.deal_pipedrive_id}:`, errMsg);
+
+        // Mark as failed (will retry if attempts < 3)
+        const newStatus = (item.attempts || 0) + 1 >= 3 ? "failed" : "pending";
+        await supabase
+          .from("pipedrive_sdr_queue")
+          .update({
+            status: newStatus,
+            error: errMsg,
+          })
+          .eq("id", item.id);
+
+        errors++;
+      }
+
+      // Wait 15 seconds before processing next item (except for the last one)
+      if (i < pendingItems.length - 1) {
+        console.log(`[pipedrive-sdr-trigger] Waiting ${DELAY_BETWEEN_SENDS_MS / 1000}s before next...`);
+        await sleep(DELAY_BETWEEN_SENDS_MS);
+      }
     }
 
-    // Find the instance to use (provided or first with AI SDR enabled)
-    let targetInstance: any;
-    if (instance_id) {
-      const { data } = await supabase
-        .from("wa_instances")
-        .select("*")
-        .eq("id", instance_id)
-        .eq("ai_sdr_enabled", true)
-        .single();
-      targetInstance = data;
-    } else {
-      const { data } = await supabase
-        .from("wa_instances")
-        .select("*")
-        .eq("ai_sdr_enabled", true)
-        .eq("is_connected", true)
-        .limit(1)
-        .single();
-      targetInstance = data;
-    }
-
-    if (!targetInstance) {
-      return new Response(JSON.stringify({ error: "No AI SDR instance available" }), {
-        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Find or create contact
-    let contact: any;
-    const { data: existingContact } = await supabase
-      .from("wa_contacts")
-      .select("id")
-      .eq("instance_id", targetInstance.id)
-      .or(`phone.eq.${cleanPhone},phone.like.%${cleanPhone.slice(-9)}`)
-      .limit(1)
-      .single();
-
-    if (existingContact) {
-      contact = existingContact;
-    } else {
-      const { data: newContact, error: contactErr } = await supabase
-        .from("wa_contacts")
-        .insert({
-          instance_id: targetInstance.id,
-          phone: cleanPhone,
-          name: person_name || cleanPhone,
-        })
-        .select()
-        .single();
-
-      if (contactErr) throw new Error(`Contact creation failed: ${contactErr.message}`);
-      contact = newContact;
-    }
-
-    // Find or create conversation
-    let conversationId: string;
-    const { data: existingConv } = await supabase
-      .from("wa_conversations")
-      .select("id")
-      .eq("contact_id", contact.id)
-      .eq("instance_id", targetInstance.id)
-      .limit(1)
-      .single();
-
-    if (existingConv) {
-      conversationId = existingConv.id;
-    } else {
-      const { data: newConv, error: convErr } = await supabase
-        .from("wa_conversations")
-        .insert({
-          contact_id: contact.id,
-          instance_id: targetInstance.id,
-          lead_status: "novo",
-          status: "open",
-        })
-        .select()
-        .single();
-
-      if (convErr) throw new Error(`Conversation creation failed: ${convErr.message}`);
-      conversationId = newConv.id;
-    }
-
-    // Call ai-sdr-agent with proactive trigger
-    const aiSdrResp = await fetch(`${SUPABASE_URL}/functions/v1/ai-sdr-agent`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        conversation_id: conversationId,
-        instance_id: targetInstance.id,
-        contact_phone: cleanPhone,
-        instance_name: targetInstance.instance_name,
-        contact_name: person_name || "",
-        incoming_message: "",
-        trigger_type: "proactive",
-        pipedrive_context: pipedrive_context || {},
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        processed,
+        errors,
+        total: pendingItems.length,
       }),
-    });
-
-    const aiSdrResult = await aiSdrResp.json();
-    console.log("[pipedrive-sdr-trigger] AI SDR result:", aiSdrResult);
-
-    // Update conversation status
-    await supabase.from("wa_conversations").update({
-      lead_status: "em_contato",
-    }).eq("id", conversationId);
-
-    return new Response(JSON.stringify({
-      ok: true,
-      conversation_id: conversationId,
-      contact_id: contact.id,
-      ai_result: aiSdrResult,
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   } catch (e) {
     console.error("[pipedrive-sdr-trigger] Error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 });
