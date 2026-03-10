@@ -113,98 +113,177 @@ Deno.serve(async (req) => {
         const firstName = (recipient.name || '').split(' ')[0] || 'Olá';
 
         const htmlContent = `<!DOCTYPE html>
-<html lang="pt-BR" xmlns="http://www.w3.org/1999/xhtml">
+<html lang="pt-BR" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
   <title>${personalizedSubject}</title>
-  <!--[if mso]><style>table,td{font-family:Arial,sans-serif!important}</style><![endif]-->
+  <!--[if mso]>
+  <noscript><xml><o:OfficeDocumentSettings><o:AllowPNG/><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
+  <style>table,td{font-family:Arial,Helvetica,sans-serif!important}a{color:#c9a84c!important}</style>
+  <![endif]-->
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    * { box-sizing: border-box; }
+    body { margin:0; padding:0; }
+    a { text-decoration: none; }
+    @media only screen and (max-width: 620px) {
+      .outer-td { padding: 16px 8px !important; }
+      .main-table { width: 100% !important; }
+      .hero-td { padding: 40px 24px 32px !important; }
+      .content-td { padding: 24px !important; }
+      .footer-td { padding: 24px !important; }
+      .cta-btn { padding: 16px 28px !important; }
+      h1 { font-size: 22px !important; }
+    }
+  </style>
 </head>
-<body style="margin:0;padding:0;background-color:#f0f0f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;">
-  <!-- Outer wrapper -->
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f0f0f5;">
-    <tr><td align="center" style="padding:24px 16px;">
+<body style="margin:0;padding:0;background-color:#eef0f4;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;">
 
-      <!-- Main container 600px -->
-      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;border-radius:16px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.08);">
+  <!-- Preheader text (hidden) -->
+  <div style="display:none;font-size:1px;color:#eef0f4;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;">
+    ${personalizedSubject} — Learning Brand Sales Tracker
+  </div>
 
-        <!-- HERO HEADER with gradient -->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#eef0f4;">
+    <tr><td align="center" class="outer-td" style="padding:32px 16px;">
+
+      <!-- Container 600px -->
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" class="main-table" style="max-width:600px;width:100%;border-collapse:separate;border-spacing:0;">
+
+        <!-- ═══════════ HERO HEADER ═══════════ -->
         <tr>
-          <td style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 40%,#0f3460 100%);padding:48px 40px 40px;text-align:center;">
-            <!-- Logo -->
-            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 24px;">
+          <td class="hero-td" style="background:linear-gradient(145deg,#0a0e27 0%,#111640 35%,#1a2366 70%,#0f3460 100%);padding:52px 44px 44px;text-align:center;border-radius:20px 20px 0 0;">
+
+            <!-- Logo Badge -->
+            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 28px;">
               <tr>
-                <td style="background:linear-gradient(135deg,#c9a84c,#f0d78c);width:48px;height:48px;border-radius:12px;text-align:center;vertical-align:middle;">
-                  <span style="color:#1a1a2e;font-size:20px;font-weight:800;letter-spacing:-1px;">LB</span>
+                <td style="width:56px;height:56px;border-radius:16px;text-align:center;vertical-align:middle;background:linear-gradient(135deg,#d4af37 0%,#f5e6a3 50%,#c9a84c 100%);box-shadow:0 4px 20px rgba(201,168,76,0.4);">
+                  <span style="color:#0a0e27;font-size:22px;font-weight:800;letter-spacing:-1px;font-family:'Inter',Arial,sans-serif;">LB</span>
                 </td>
               </tr>
             </table>
-            <!-- Subject as headline -->
-            <h1 style="margin:0 0 12px;color:#ffffff;font-size:26px;font-weight:700;line-height:1.3;letter-spacing:-0.3px;">${personalizedSubject}</h1>
-            <p style="margin:0;color:rgba(255,255,255,0.65);font-size:14px;font-weight:400;">Learning Brand · Sales Tracker</p>
-          </td>
-        </tr>
 
-        <!-- GREETING -->
-        <tr>
-          <td style="background-color:#ffffff;padding:36px 40px 0;">
-            <p style="margin:0;color:#1a1a2e;font-size:16px;font-weight:600;">Olá, ${firstName} 👋</p>
-          </td>
-        </tr>
-
-        <!-- BODY CONTENT -->
-        <tr>
-          <td style="background-color:#ffffff;padding:20px 40px 32px;">
-            <div style="color:#4a4a68;font-size:15px;line-height:1.7;">
-              ${personalizedBody}
-            </div>
-          </td>
-        </tr>
-
-        <!-- ACCENT DIVIDER -->
-        <tr>
-          <td style="background-color:#ffffff;padding:0 40px;">
-            <div style="height:3px;border-radius:2px;background:linear-gradient(90deg,#c9a84c 0%,#f0d78c 50%,#c9a84c 100%);"></div>
-          </td>
-        </tr>
-
-        <!-- CTA SECTION -->
-        <tr>
-          <td style="background-color:#ffffff;padding:32px 40px;text-align:center;">
-            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
-              <tr>
-                <td style="background:linear-gradient(135deg,#1a1a2e,#0f3460);border-radius:12px;padding:14px 36px;">
-                  <a href="#" style="color:#f0d78c;font-size:14px;font-weight:700;text-decoration:none;letter-spacing:0.5px;text-transform:uppercase;">Acessar Dashboard →</a>
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-
-        <!-- FOOTER -->
-        <tr>
-          <td style="background-color:#1a1a2e;padding:32px 40px;text-align:center;">
-            <!-- Social icons row -->
+            <!-- Decorative tag -->
             <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 20px;">
               <tr>
-                <td style="padding:0 8px;"><a href="#" style="display:inline-block;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.08);text-align:center;line-height:36px;color:#c9a84c;font-size:14px;text-decoration:none;">in</a></td>
-                <td style="padding:0 8px;"><a href="#" style="display:inline-block;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.08);text-align:center;line-height:36px;color:#c9a84c;font-size:14px;text-decoration:none;">ig</a></td>
-                <td style="padding:0 8px;"><a href="#" style="display:inline-block;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.08);text-align:center;line-height:36px;color:#c9a84c;font-size:14px;text-decoration:none;">yt</a></td>
+                <td style="background:rgba(201,168,76,0.15);border:1px solid rgba(201,168,76,0.3);border-radius:20px;padding:6px 18px;">
+                  <span style="color:#f0d78c;font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;font-family:'Inter',Arial,sans-serif;">Sales Tracker</span>
+                </td>
               </tr>
             </table>
-            <p style="margin:0 0 8px;color:rgba(255,255,255,0.5);font-size:12px;line-height:1.5;">
-              Abraços,<br><strong style="color:#f0d78c;">Equipe Learning Brand</strong>
-            </p>
-            <p style="margin:0;color:rgba(255,255,255,0.3);font-size:11px;line-height:1.5;">
-              © ${year} Learning Brand · Todos os direitos reservados<br>
+
+            <!-- Headline -->
+            <h1 style="margin:0 0 16px;color:#ffffff;font-size:28px;font-weight:800;line-height:1.25;letter-spacing:-0.5px;font-family:'Inter',Arial,sans-serif;">${personalizedSubject}</h1>
+            
+            <!-- Subtle separator -->
+            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
+              <tr>
+                <td style="width:48px;height:3px;border-radius:2px;background:linear-gradient(90deg,#c9a84c,#f0d78c);"></td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- ═══════════ GREETING CARD ═══════════ -->
+        <tr>
+          <td style="background-color:#ffffff;padding:0;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td class="content-td" style="padding:36px 44px 8px;">
+                  <table role="presentation" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <!-- Avatar circle -->
+                      <td style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#0a0e27,#1a2366);text-align:center;vertical-align:middle;">
+                        <span style="color:#f0d78c;font-size:18px;font-weight:700;font-family:'Inter',Arial,sans-serif;">${firstName.charAt(0).toUpperCase()}</span>
+                      </td>
+                      <td style="padding-left:14px;">
+                        <p style="margin:0;color:#0a0e27;font-size:17px;font-weight:700;font-family:'Inter',Arial,sans-serif;">Olá, ${firstName}! 👋</p>
+                        <p style="margin:4px 0 0;color:#8b8fa3;font-size:13px;font-weight:400;font-family:'Inter',Arial,sans-serif;">Temos novidades para você</p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- ═══════════ BODY CONTENT ═══════════ -->
+        <tr>
+          <td style="background-color:#ffffff;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td class="content-td" style="padding:20px 44px 12px;">
+                  <!-- Content card with subtle bg -->
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8f9fc;border-radius:14px;border:1px solid #eef0f4;">
+                    <tr>
+                      <td style="padding:28px 28px;">
+                        <div style="color:#3a3d52;font-size:15px;line-height:1.75;font-family:'Inter',Arial,sans-serif;">
+                          ${personalizedBody}
+                        </div>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- ═══════════ CTA BUTTON ═══════════ -->
+        <tr>
+          <td style="background-color:#ffffff;padding:24px 44px 36px;text-align:center;">
+            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
+              <tr>
+                <td class="cta-btn" style="background:linear-gradient(135deg,#0a0e27 0%,#1a2366 100%);border-radius:14px;padding:16px 40px;box-shadow:0 6px 24px rgba(10,14,39,0.25);">
+                  <a href="#" style="color:#f0d78c;font-size:14px;font-weight:700;text-decoration:none;letter-spacing:0.8px;text-transform:uppercase;font-family:'Inter',Arial,sans-serif;">Acessar Dashboard &#8594;</a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- ═══════════ ACCENT STRIP ═══════════ -->
+        <tr>
+          <td style="background-color:#ffffff;padding:0;">
+            <div style="height:4px;background:linear-gradient(90deg,#c9a84c 0%,#f0d78c 30%,#d4af37 60%,#c9a84c 100%);"></div>
+          </td>
+        </tr>
+
+        <!-- ═══════════ FOOTER ═══════════ -->
+        <tr>
+          <td class="footer-td" style="background:linear-gradient(180deg,#0a0e27 0%,#070a1a 100%);padding:36px 44px;text-align:center;border-radius:0 0 20px 20px;">
+
+            <!-- Social icons -->
+            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 24px;">
+              <tr>
+                <td style="padding:0 6px;"><a href="#" style="display:inline-block;width:38px;height:38px;border-radius:10px;background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.2);text-align:center;line-height:38px;color:#c9a84c;font-size:13px;font-weight:600;text-decoration:none;font-family:'Inter',Arial,sans-serif;">in</a></td>
+                <td style="padding:0 6px;"><a href="#" style="display:inline-block;width:38px;height:38px;border-radius:10px;background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.2);text-align:center;line-height:38px;color:#c9a84c;font-size:13px;font-weight:600;text-decoration:none;font-family:'Inter',Arial,sans-serif;">ig</a></td>
+                <td style="padding:0 6px;"><a href="#" style="display:inline-block;width:38px;height:38px;border-radius:10px;background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.2);text-align:center;line-height:38px;color:#c9a84c;font-size:13px;font-weight:600;text-decoration:none;font-family:'Inter',Arial,sans-serif;">yt</a></td>
+              </tr>
+            </table>
+
+            <!-- Signature -->
+            <p style="margin:0 0 6px;color:rgba(255,255,255,0.6);font-size:13px;font-weight:400;font-family:'Inter',Arial,sans-serif;">Abraços,</p>
+            <p style="margin:0 0 20px;color:#f0d78c;font-size:14px;font-weight:700;font-family:'Inter',Arial,sans-serif;">Equipe Learning Brand</p>
+
+            <!-- Divider -->
+            <div style="height:1px;background:rgba(255,255,255,0.06);margin:0 0 20px;"></div>
+
+            <!-- Legal -->
+            <p style="margin:0;color:rgba(255,255,255,0.25);font-size:11px;line-height:1.6;font-family:'Inter',Arial,sans-serif;">
+              &copy; ${year} Learning Brand &middot; Todos os direitos reservados<br>
               Este email foi enviado automaticamente pelo Sales Tracker
             </p>
           </td>
         </tr>
 
       </table>
-      <!-- /Main container -->
+      <!-- /Container -->
 
     </td></tr>
   </table>
