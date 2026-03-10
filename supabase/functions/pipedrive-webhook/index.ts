@@ -88,19 +88,38 @@ async function handleDeal(supabase: any, event: string, current: any, previous: 
   // Try to match with wa_conversation by person phone
   let waConversationId = null;
   let teamMemberId = null;
-  let personName = d.person_name || null;
+  let personName = d.person_name || d.title || null;
 
-  // Extract phone from deal custom_fields (Pipedrive v2 stores phone there)
+  // Extract phone from ALL possible locations (v1 and v2 Pipedrive formats)
   let dealPhone: string | null = null;
-  if (d.custom_fields) {
+
+  // 1. Direct phone field on deal (v1)
+  if (d.phone) {
+    dealPhone = String(d.phone).replace(/\D/g, '');
+  }
+
+  // 2. custom_fields (v2 format — phone stored as {type:"phone", value:"..."})
+  if (!dealPhone && d.custom_fields) {
     for (const key of Object.keys(d.custom_fields)) {
       const cf = d.custom_fields[key];
       if (cf && typeof cf === 'object' && cf.type === 'phone' && cf.value) {
         dealPhone = String(cf.value).replace(/\D/g, '');
         break;
       }
+      // Also handle plain string values that look like phones
+      if (cf && typeof cf === 'string' && cf.replace(/\D/g, '').length >= 10) {
+        dealPhone = cf.replace(/\D/g, '');
+        break;
+      }
     }
   }
+
+  // 3. person_phone (some Pipedrive setups embed it directly)
+  if (!dealPhone && d.person_phone) {
+    dealPhone = String(d.person_phone).replace(/\D/g, '');
+  }
+
+  console.log(`[pipedrive-webhook] Phone extraction: dealPhone=${dealPhone}, person_name=${personName}`);
 
   // V2: person_name might not exist, try to get from pipedrive_persons
   if (personId) {
