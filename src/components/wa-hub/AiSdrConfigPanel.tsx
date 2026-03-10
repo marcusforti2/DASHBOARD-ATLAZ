@@ -15,6 +15,9 @@ interface AiSdrConfig {
   max_messages_before_handoff: number;
   business_hours_only: boolean;
   prompt_context: string;
+  follow_up_hours: number;
+  follow_up_enabled: boolean;
+  call_focus_mode: boolean;
 }
 
 interface Props {
@@ -32,6 +35,9 @@ const DEFAULT_CONFIG: AiSdrConfig = {
   max_messages_before_handoff: 10,
   business_hours_only: false,
   prompt_context: "",
+  follow_up_hours: 24,
+  follow_up_enabled: true,
+  call_focus_mode: true,
 };
 
 const TONES = [
