@@ -245,18 +245,27 @@ async function handleDeal(supabase: any, event: string, current: any, previous: 
     console.log(`[pipedrive-webhook] Skipping proactive: deal ${d.id} has no labels`);
   }
 
-  if (event === 'create' && hasAnyLabel) {
-    // DEDUP: Check if we already processed a "create" webhook for this same deal
-    const { count: previousCreateCount } = await supabase
+  if ((event === 'create' || event === 'change') && hasAnyLabel) {
+    // DEDUP: Check if we already triggered proactive SDR for this deal
+    const { count: previousProactiveCount } = await supabase
       .from('pipedrive_webhook_logs')
       .select('id', { count: 'exact', head: true })
       .eq('pipedrive_id', d.id)
       .eq('entity', 'deal')
-      .eq('event', 'create')
-      .eq('processed', true);
+      .eq('processed', true)
+      .or(`event.eq.create,event.eq.change`)
+      .not('error', 'is', null);
 
-    if ((previousCreateCount || 0) > 0) {
-      console.log(`[pipedrive-webhook] Skipping proactive: deal ${d.id} already processed`);
+    // Check for a specific "proactive_triggered" marker in error field (used as flag)
+    const { count: alreadyTriggered } = await supabase
+      .from('pipedrive_webhook_logs')
+      .select('id', { count: 'exact', head: true })
+      .eq('pipedrive_id', d.id)
+      .eq('entity', 'deal')
+      .eq('error', 'proactive_triggered');
+
+    if ((alreadyTriggered || 0) > 0) {
+      console.log(`[pipedrive-webhook] Skipping proactive: deal ${d.id} already triggered`);
       return;
     }
 
@@ -272,6 +281,40 @@ async function handleDeal(supabase: any, event: string, current: any, previous: 
         .single();
       if (personRec?.phone) {
         resolvedPhone = personRec.phone.replace(/\D/g, '');
+      }
+    }
+
+    // Fallback: fetch person phone directly from Pipedrive API
+    if (!resolvedPhone && personId) {
+      const PIPEDRIVE_API_TOKEN = Deno.env.get('PIPEDRIVE_API_TOKEN');
+      if (PIPEDRIVE_API_TOKEN) {
+        try {
+          const pipeResp = await fetch(
+            `https://api.pipedrive.com/v1/persons/${personId}?api_token=${PIPEDRIVE_API_TOKEN}`
+          );
+          const pipeData = await pipeResp.json();
+          if (pipeData?.success && pipeData.data?.phone) {
+            const phones = pipeData.data.phone;
+            for (const ph of phones) {
+              if (ph.value) {
+                resolvedPhone = String(ph.value).replace(/\D/g, '');
+                console.log(`[pipedrive-webhook] Got phone from Pipedrive API: ${resolvedPhone}`);
+                // Also update local person record
+                await supabase.from('pipedrive_persons')
+                  .upsert({
+                    pipedrive_id: personId,
+                    name: pipeData.data.name || personName || '',
+                    phone: resolvedPhone,
+                    email: pipeData.data.email?.[0]?.value || null,
+                    raw_data: pipeData.data,
+                  }, { onConflict: 'pipedrive_id' });
+                break;
+              }
+            }
+          }
+        } catch (apiErr) {
+          console.error(`[pipedrive-webhook] Pipedrive API fallback error:`, apiErr);
+        }
       }
     }
 
@@ -445,6 +488,15 @@ async function handleDeal(supabase: any, event: string, current: any, previous: 
 
       const sdrResult = await sdrResp.json();
       console.log(`[pipedrive-webhook] AI SDR proactive result on ${targetInstance.instance_name}:`, JSON.stringify(sdrResult));
+
+      // Mark as triggered for dedup
+      await supabase.from('pipedrive_webhook_logs').insert({
+        event: 'proactive_sdr',
+        entity: 'deal',
+        pipedrive_id: d.id,
+        processed: true,
+        error: 'proactive_triggered', // used as dedup flag
+      });
     } catch (sdrErr) {
       console.error(`[pipedrive-webhook] AI SDR trigger error:`, sdrErr);
     }
