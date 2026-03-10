@@ -47,6 +47,17 @@ serve(async (req) => {
 
     const event = payload.event;
 
+    // Handle connection status changes in real-time
+    if (event === 'connection.update') {
+      const state = payload.data?.state || payload.data?.status;
+      const isConn = state === 'open' || state === 'connected';
+      await supabase.from('wa_instances').update({ is_connected: isConn }).eq('id', instance.id);
+      console.log(`[webhook] Connection update: ${instanceName} -> ${state} (is_connected=${isConn})`);
+      return new Response(JSON.stringify({ ok: true, connection: state }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     if (event === 'messages.upsert') {
       const msgData = payload.data;
       if (!msgData?.key?.remoteJid || !msgData?.message) {

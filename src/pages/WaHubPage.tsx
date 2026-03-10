@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useWaConversations, useWaInstances, useWaMessages } from '@/hooks/use-wa-hub';
 import { useWaTags, useWaContactTags } from '@/hooks/use-wa-tags';
 import { supabase } from '@/integrations/supabase/client';
@@ -52,6 +52,34 @@ export default function WaHubPage() {
       setTeamMembers(data ?? []);
     });
   }, []);
+
+  // Auto-sync all instances' real connection status on load (once)
+  const hasSynced = useRef(false);
+  useEffect(() => {
+    if (instances.length === 0 || hasSynced.current) return;
+    hasSynced.current = true;
+    const syncStatuses = async () => {
+      let changed = false;
+      for (const inst of instances) {
+        try {
+          const { getInstanceStatus } = await import('@/lib/evolutionApi');
+          const data = await getInstanceStatus(inst.instance_name);
+          const isConn = data?.state === 'open';
+          if (inst.is_connected !== isConn) {
+            await supabase.from('wa_instances').update({ is_connected: isConn } as any).eq('id', inst.id);
+            changed = true;
+          }
+        } catch {
+          if (inst.is_connected) {
+            await supabase.from('wa_instances').update({ is_connected: false } as any).eq('id', inst.id);
+            changed = true;
+          }
+        }
+      }
+      if (changed) refetchInstances();
+    };
+    syncStatuses();
+  }, [instances.length]);
 
   const handleCreateInstance = async () => {
     const name = newName.trim();
@@ -558,7 +586,7 @@ export default function WaHubPage() {
                     />
 
                     {/* Connection panel */}
-                    <WaInstancePanel instanceName={inst.instance_name} closerName={displayName} />
+                    <WaInstancePanel instanceName={inst.instance_name} closerName={displayName} instanceId={inst.id} />
                   </div>
                 );
               })
