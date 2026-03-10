@@ -128,7 +128,7 @@ Deno.serve(async (req) => {
     }
 
     // ===== BUG FIX #1: STOP AI AFTER HANDOFF =====
-    // If lead_status is "agendado", the closer took over — AI must NOT respond
+    // If lead_status is "agendado" or "urgente", the closer took over — AI must NOT respond
     {
       const { data: convCheck } = await supabase
         .from("wa_conversations")
@@ -136,9 +136,10 @@ Deno.serve(async (req) => {
         .eq("id", conversation_id)
         .single();
 
-      if (convCheck?.lead_status === "agendado" && !isProactive && !force) {
-        console.log("[ai-sdr] Skipping: lead status is 'agendado' — human takeover active");
-        return new Response(JSON.stringify({ skipped: "human_takeover_agendado" }), {
+      const blockedStatuses = ["agendado", "urgente"];
+      if (convCheck?.lead_status && blockedStatuses.includes(convCheck.lead_status) && !isProactive && !force) {
+        console.log(`[ai-sdr] Skipping: lead status is '${convCheck.lead_status}' — human takeover active`);
+        return new Response(JSON.stringify({ skipped: `human_takeover_${convCheck.lead_status}` }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -1204,27 +1205,31 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
         }
       }
 
-      // Mark conversation for human takeover
+      // Mark conversation for human takeover (urgent_call uses its own status)
       await supabase.from("wa_conversations").update({
-        lead_status: "agendado",
+        lead_status: "urgente",
         assigned_to: instance.closer_id,
         assigned_role: "closer",
       }).eq("id", conversation_id);
 
-      // Disable AI for this conversation by updating status
-      // The AI won't respond anymore because we set lead_status to "agendado"
+      // AI won't respond because lead_status changed from normal flow
     }
 
     // 7. Meeting confirmed: schedule 6h and 1h follow-ups
     if (parsed.meeting_confirmed && conversation?.contact_id) {
       console.log("[ai-sdr] Meeting confirmed:", parsed.meeting_datetime);
 
-      // Try to parse the meeting datetime
+      // Try to parse the meeting datetime — FORCE BRT (UTC-3)
       let meetingTime: Date | null = null;
       if (parsed.meeting_datetime) {
         try {
-          // Try various formats
-          meetingTime = new Date(parsed.meeting_datetime);
+          let dtStr = String(parsed.meeting_datetime).trim();
+          // If the AI returned a datetime WITHOUT timezone info, append BRT offset
+          // e.g. "2026-03-11T14:00:00" → "2026-03-11T14:00:00-03:00"
+          if (dtStr.length >= 16 && !dtStr.includes('+') && !dtStr.includes('Z') && !/\-\d{2}:\d{2}$/.test(dtStr)) {
+            dtStr += '-03:00'; // America/Sao_Paulo = UTC-3
+          }
+          meetingTime = new Date(dtStr);
           if (isNaN(meetingTime.getTime())) meetingTime = null;
         } catch { meetingTime = null; }
       }
@@ -1554,25 +1559,37 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
     }
 
     // 9. Auto follow-up scheduling (for no-response cases)
-    // ===== BUG FIX #2 & #7: Use valid team_member_id and respect business hours =====
-    if (parsed.schedule_follow_up && conversation?.contact_id) {
-      const validCreator = instance.sdr_id || instance.closer_id;
-      if (!validCreator) {
-        console.warn("[ai-sdr] Cannot schedule follow-up: no sdr_id or closer_id on instance");
+    // ===== BUG FIX: Only schedule generic follow-up if meeting was NOT confirmed =====
+    // When meeting_confirmed=true, follow-ups are already created in section 7 (6h and 1h before)
+    if (parsed.schedule_follow_up && !parsed.meeting_confirmed && conversation?.contact_id) {
+      // Check if there's already a pending follow-up for this conversation to avoid duplicates
+      const { count: existingReminders } = await supabase
+        .from("wa_follow_up_reminders")
+        .select("*", { count: "exact", head: true })
+        .eq("conversation_id", conversation_id)
+        .eq("completed", false)
+        .gte("remind_at", new Date().toISOString());
+
+      if ((existingReminders || 0) >= 2) {
+        console.log("[ai-sdr] Skipping follow-up: already has", existingReminders, "pending reminders");
       } else {
-        // BUG FIX #7: Use business datetime instead of raw hours addition
-        const nextBizTime = getNextBusinessDateTime(new Date(), followUpHours);
-        const remindAt = nextBizTime.toISOString();
-        const followUpMsg = parsed.follow_up_message || `Fala ${contact_name || ""}! Sumiu 😄 Conseguiu pensar sobre o que conversamos?`;
-        
-        await supabase.from("wa_follow_up_reminders").insert({
-          contact_id: conversation.contact_id,
-          conversation_id,
-          remind_at: remindAt,
-          note: followUpMsg,
-          created_by: validCreator,
-        });
-        console.log("[ai-sdr] Follow-up scheduled for", remindAt, "(business hours)");
+        const validCreator = instance.sdr_id || instance.closer_id;
+        if (!validCreator) {
+          console.warn("[ai-sdr] Cannot schedule follow-up: no sdr_id or closer_id on instance");
+        } else {
+          const nextBizTime = getNextBusinessDateTime(new Date(), followUpHours);
+          const remindAt = nextBizTime.toISOString();
+          const followUpMsg = parsed.follow_up_message || `Fala ${contact_name || ""}! Sumiu 😄 Conseguiu pensar sobre o que conversamos?`;
+          
+          await supabase.from("wa_follow_up_reminders").insert({
+            contact_id: conversation.contact_id,
+            conversation_id,
+            remind_at: remindAt,
+            note: followUpMsg,
+            created_by: validCreator,
+          });
+          console.log("[ai-sdr] Follow-up scheduled for", remindAt, "(business hours)");
+        }
       }
     }
 
