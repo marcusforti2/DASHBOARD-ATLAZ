@@ -925,6 +925,81 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
         last_message_at: new Date().toISOString(),
         unread_count: 0,
       }).eq("id", conversation_id);
+
+      // TTS: Send audio version of the reply if enabled and incoming was audio
+      const ELEVENLABS_API_KEY = Deno.env.get("ELEVENLABS_API_KEY");
+      const shouldSendAudio = features.tts_reply && ELEVENLABS_API_KEY && incoming_is_audio;
+      
+      if (shouldSendAudio) {
+        try {
+          // Combine all parts into one text for TTS
+          const ttsText = fullReply.join(". ").replace(/\|\|\|/g, ". ").substring(0, 2000);
+          const voiceId = config.tts_voice_id || "onwK4e9ZLuTAKqWW03F9"; // Daniel (default)
+          
+          console.log("[ai-sdr] Generating TTS audio with ElevenLabs...");
+          
+          const ttsResp = await fetch(
+            `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream?output_format=mp3_22050_32`,
+            {
+              method: "POST",
+              headers: {
+                "xi-api-key": ELEVENLABS_API_KEY!,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                text: ttsText,
+                model_id: "eleven_turbo_v2_5",
+                voice_settings: {
+                  stability: 0.5,
+                  similarity_boost: 0.75,
+                  speed: 1.05,
+                },
+              }),
+            }
+          );
+
+          if (ttsResp.ok) {
+            // Upload audio to storage
+            const audioBuffer = await ttsResp.arrayBuffer();
+            const audioBytes = new Uint8Array(audioBuffer);
+            const audioFileName = `tts_${Date.now()}_${Math.random().toString(36).substring(7)}.mp3`;
+
+            const { error: uploadErr } = await supabase.storage
+              .from("wa-media")
+              .upload(audioFileName, audioBytes, { contentType: "audio/mpeg", upsert: false });
+
+            if (!uploadErr) {
+              const audioPublicUrl = `${SUPABASE_URL}/storage/v1/object/public/wa-media/${audioFileName}`;
+
+              // Small delay to feel natural
+              await new Promise(r => setTimeout(r, Math.floor(Math.random() * 1500) + 1000));
+
+              // Send audio via Evolution API
+              await fetch(`${baseUrl}/message/sendWhatsAppAudio/${resolvedInstName}`, {
+                method: "POST",
+                headers: { apikey: EVOLUTION_API_KEY!, "Content-Type": "application/json" },
+                body: JSON.stringify({ number: contact_phone, audio: audioPublicUrl }),
+              });
+
+              // Save audio message to DB
+              await supabase.from("wa_messages").insert({
+                conversation_id, instance_id, sender: "agent",
+                agent_name: "SDR IA 🤖", text: "🎵 Áudio",
+                media_type: "audio", media_url: audioPublicUrl,
+                media_mime_type: "audio/mpeg",
+              });
+
+              console.log("[ai-sdr] TTS audio sent to", contact_phone);
+            } else {
+              console.error("[ai-sdr] TTS upload error:", uploadErr);
+            }
+          } else {
+            console.error("[ai-sdr] TTS generation error:", ttsResp.status, await ttsResp.text());
+          }
+        } catch (ttsErr) {
+          console.error("[ai-sdr] TTS error (non-blocking):", ttsErr);
+        }
+      }
     }
 
     // 2. Auto-update lead status
