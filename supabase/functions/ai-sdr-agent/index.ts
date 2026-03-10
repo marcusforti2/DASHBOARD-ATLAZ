@@ -28,7 +28,6 @@ serve(async (req) => {
     const body = await req.json();
     const { conversation_id, instance_id, contact_phone, instance_name, contact_name, incoming_message, trigger_type, pipedrive_context } = body;
 
-    // trigger_type: "incoming" (default) or "proactive" (pipedrive trigger)
     const isProactive = trigger_type === "proactive";
 
     if (!conversation_id || !instance_id) {
@@ -74,16 +73,13 @@ serve(async (req) => {
       pipedrive_sync: config.feature_pipedrive_sync === true,
     };
 
-    // If auto_reply is off and this is not a proactive trigger, skip
     if (!features.auto_reply && !isProactive) {
       return new Response(JSON.stringify({ skipped: "auto_reply disabled" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // CONCURRENCY GUARD: Skip if AI already responded in this conversation recently
-    // For proactive triggers: check last 5 minutes (prevent duplicate proactive sends)
-    // For incoming messages: check last 15 seconds (prevent rapid duplicate responses)
+    // CONCURRENCY GUARD
     const guardWindow = isProactive ? 5 * 60 * 1000 : 15 * 1000;
     const { data: recentAgentMsg } = await supabase
       .from("wa_messages")
@@ -138,7 +134,7 @@ serve(async (req) => {
       .select("tag_id, wa_tags(name)")
       .eq("contact_id", conversation?.contact_id || "");
 
-    // Get ALL knowledge: company_knowledge (active) + ai_prompts
+    // Get ALL knowledge
     const { data: knowledge } = await supabase
       .from("company_knowledge")
       .select("title, content, category")
@@ -160,11 +156,10 @@ serve(async (req) => {
     const currentTagNames = (currentTags || []).map((ct: any) => ct.wa_tags?.name).filter(Boolean);
     const availableTagNames = (tags || []).map(t => `${t.name}${t.is_stage ? " (estágio)" : ""}`);
 
-    // Get closer's calendar availability if qualification feature is on
+    // Get closer's calendar availability
     let calendarContext = "";
     if (features.qualification && instance.closer_id) {
       try {
-        // Find user_id linked to closer
         const { data: closerProfile } = await supabase
           .from("profiles")
           .select("id")
@@ -179,11 +174,9 @@ serve(async (req) => {
             .single();
 
           if (calToken) {
-            // Check if token needs refresh
             let accessToken = calToken.access_token;
             const expiresAt = new Date(calToken.token_expires_at);
             if (expiresAt < new Date()) {
-              // Refresh token
               const GOOGLE_CLIENT_ID = Deno.env.get("GOOGLE_CLIENT_ID");
               const GOOGLE_CLIENT_SECRET = Deno.env.get("GOOGLE_CLIENT_SECRET");
               if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
@@ -208,7 +201,6 @@ serve(async (req) => {
               }
             }
 
-            // Fetch next 3 days availability
             const now = new Date();
             const timeMin = now.toISOString();
             const timeMax = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString();
@@ -237,7 +229,7 @@ serve(async (req) => {
       }
     }
 
-    // Get Pipedrive deal context if sync is enabled
+    // Get Pipedrive deal context
     let pipedriveContext = "";
     if (features.pipedrive_sync && conversation?.contact_id) {
       try {
@@ -263,7 +255,6 @@ serve(async (req) => {
       }
     }
 
-    // Build qualification questions config
     const qualificationQuestions = config.qualification_questions || [
       "Como posso te chamar?",
       "Qual tipo de negócio você atua?",
@@ -313,6 +304,19 @@ FOLLOW-UP AUTOMÁTICO:
 - O sistema vai automaticamente enviar um follow-up após ${followUpHours}h
 - Na mensagem de follow-up, seja leve: "Fala [Nome]! Sumiu 😄 Conseguiu pensar sobre o que conversamos?"
 
+QUANDO O LEAD CONFIRMAR HORÁRIO/DATA DA LIGAÇÃO:
+- Retorne "meeting_confirmed": true e "meeting_datetime": "data e hora confirmada"
+- Finalize a conversa de forma positiva: "Perfeito! Anotado aqui. Te ligo [dia] às [hora]! 🤝"
+- NÃO continue a conversa após confirmar. Apenas encerre.
+- O sistema vai agendar follow-ups automáticos de 6h e 1h antes da ligação.
+
+QUANDO O LEAD PEDIR PARA LIGAR AGORA / NA HORA:
+- Se o lead disser "pode ligar agora", "estou disponível agora", "liga agora", "vamos conversar agora":
+  - Retorne "urgent_call": true no JSON
+  - Responda: "Show! Deixa eu verificar aqui rapidão e já te ligo, ok? 🔥"
+  - O sistema vai alertar o closer para ligar IMEDIATAMENTE
+  - PARE DE RESPONDER após isso — um humano vai assumir
+
 PERGUNTAS DE QUALIFICAÇÃO (faça de forma natural e RÁPIDA, NÃO como formulário):
 ${qualificationQuestions.map((q: string, i: number) => `${i + 1}. ${q}`).join("\n")}
 
@@ -329,21 +333,30 @@ ETIQUETAS DISPONÍVEIS: ${availableTagNames.join(", ")}
 ETIQUETAS ATUAIS: ${currentTagNames.length > 0 ? currentTagNames.join(", ") : "Nenhuma"}
 STATUS ATUAL: ${conversation?.lead_status || "novo"}
 
-REGRAS:
-1. NUNCA invente informações sobre produtos/serviços que não estão no contexto
-2. Responda de forma concisa (máximo 2-3 parágrafos CURTOS)
-3. Use formatação WhatsApp: *negrito*, _itálico_
-4. Use emojis com moderação
-5. Se o lead perguntar algo fora do escopo, diga que vai verificar com a equipe
-6. NUNCA revele que é uma IA
-7. Se o lead estiver irritado ou pedir para falar com humano, faça handoff imediato
-8. FOCO EM LIGAR: Cada mensagem deve levar o lead mais perto de aceitar uma ligação
+REGRAS DE FORMATO (MUITO IMPORTANTE):
+1. QUEBRE suas respostas em MENSAGENS CURTAS separadas por "|||"
+2. Cada parte deve ter NO MÁXIMO 2 linhas
+3. Pareça humano: uma pessoa real no WhatsApp manda várias mensagens curtas, não um textão
+4. Exemplo: "Fala João! 😊|||Vi seu perfil e curti demais sua trajetória|||Te chamei aqui pra trocar uma ideia rápida sobre algo que pode fazer sentido pra você|||Posso te fazer uma pergunta?"
+5. Use entre 2 e 4 mensagens separadas por "|||"
+6. NUNCA invente informações sobre produtos/serviços que não estão no contexto
+7. Use formatação WhatsApp: *negrito*, _itálico_
+8. Use emojis com moderação
+9. Se o lead perguntar algo fora do escopo, diga que vai verificar com a equipe
+10. NUNCA revele que é uma IA
+11. Se o lead estiver irritado ou pedir para falar com humano, faça handoff imediato
+12. FOCO EM LIGAR: Cada mensagem deve levar o lead mais perto de aceitar uma ligação
+
+IMPORTANTE SOBRE MENSAGENS DO LEAD:
+- O lead pode enviar várias mensagens seguidas quebrando em linhas
+- Trate TODAS as mensagens recentes como UMA ÚNICA mensagem — responda uma vez só
+- NÃO responda cada mensagem separadamente
 
 ${features.sentiment ? "ANÁLISE DE SENTIMENTO: Analise o sentimento do lead (positivo, neutro, negativo, urgente) e inclua no JSON." : ""}
 
 Responda EXATAMENTE neste formato JSON:
 {
-  "reply": "Sua mensagem de resposta aqui",
+  "reply": "Primeira parte|||Segunda parte|||Terceira parte",
   "new_lead_status": "novo" | "em_contato" | "qualificado" | "agendado" | "perdido" | null,
   "lead_score": "A" | "B" | "C" | null,
   "lead_score_value": 0-100,
@@ -362,6 +375,9 @@ Responda EXATAMENTE neste formato JSON:
   "handoff_type": "closer" | "sdr" | null,
   "schedule_meeting": false,
   "meeting_suggestion": "",
+  "meeting_confirmed": false,
+  "meeting_datetime": "",
+  "urgent_call": false,
   "schedule_follow_up": false,
   "follow_up_message": ""${features.sentiment ? ',\n  "sentiment": "positivo" | "neutro" | "negativo" | "urgente"' : ""}${features.pipedrive_sync ? ',\n  "pipedrive_update": { "stage": "", "value": 0, "custom_fields": {} }' : ""}
 }`;
@@ -394,9 +410,11 @@ EXEMPLOS DE ABERTURAS (varie entre eles, adapte ao contexto):
 - "Fala [Nome]! Vi seu perfil no LinkedIn e curti demais sua trajetória na área de [área]. Resolvi te chamar aqui pra facilitar. Posso te fazer uma pergunta rápida?"
 - "E aí [Nome], tudo certo? Tava olhando seu LinkedIn e vi que você é de [área]. Me chamou atenção! Te mandei mensagem aqui pra gente trocar uma ideia rápida, pode ser?"
 - "[Nome], beleza? Achei seu perfil no LinkedIn e queria trocar uma ideia contigo sobre [tema relacionado à área]. Bora?"
-- "Oi [Nome]! Cheguei até você pelo LinkedIn. Tô entrando em contato porque acho que posso te ajudar com algo que faz sentido pro seu momento. Posso te contar?"`;
+- "Oi [Nome]! Cheguei até você pelo LinkedIn. Tô entrando em contato porque acho que posso te ajudar com algo que faz sentido pro seu momento. Posso te contar?"
+
+LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
     } else {
-      userMessage = `HISTÓRICO DA CONVERSA:\n${conversationText}\n\nÚLTIMA MENSAGEM DO LEAD:\n${incoming_message}`;
+      userMessage = `HISTÓRICO DA CONVERSA:\n${conversationText}\n\nÚLTIMA(S) MENSAGEM(NS) DO LEAD (podem ser várias mensagens seguidas — responda como UMA SÓ resposta):\n${incoming_message}`;
     }
 
     // AI call with retry + failover
@@ -430,14 +448,11 @@ EXEMPLOS DE ABERTURAS (varie entre eles, adapte ao contexto):
         if (!aiResponse.ok) {
           const errText = await aiResponse.text();
           console.error(`[ai-sdr] Model ${model} error: ${aiResponse.status}`, errText);
-          if (aiResponse.status === 429 || aiResponse.status === 402) {
-            // Rate limit - try next model
-            continue;
-          }
+          if (aiResponse.status === 429 || aiResponse.status === 402) continue;
           if (aiResponse.status >= 400 && aiResponse.status < 500) {
             throw new Error(`Client error ${aiResponse.status}`);
           }
-          continue; // 5xx → try next
+          continue;
         }
 
         const aiData = await aiResponse.json();
@@ -474,33 +489,50 @@ EXEMPLOS DE ABERTURAS (varie entre eles, adapte ao contexto):
       });
     }
 
-    // Human-like random delay (1-5 seconds)
-    const delay = Math.floor(Math.random() * 4000) + 1000;
-    console.log(`[ai-sdr] Waiting ${delay}ms before sending (human-like delay)`);
-    await new Promise(resolve => setTimeout(resolve, delay));
+    // Split reply into multiple messages using "|||" separator
+    const replyParts = reply.split("|||").map(p => p.trim()).filter(p => p.length > 0);
+    console.log(`[ai-sdr] Reply split into ${replyParts.length} parts`);
 
-    // 1. Send message via Evolution API
+    // Send each part with human-like random delays
     if (EVOLUTION_API_URL && EVOLUTION_API_KEY && features.auto_reply) {
       const baseUrl = EVOLUTION_API_URL.replace(/\/$/, "");
-      const sendResp = await fetch(`${baseUrl}/message/sendText/${instName}`, {
-        method: "POST",
-        headers: { apikey: EVOLUTION_API_KEY, "Content-Type": "application/json" },
-        body: JSON.stringify({ number: contact_phone, text: reply }),
-      });
+      const fullReply: string[] = [];
 
-      if (!sendResp.ok) {
-        console.error("[ai-sdr] Send error:", sendResp.status, await sendResp.text());
-      } else {
-        console.log("[ai-sdr] Message sent to", contact_phone);
+      for (let i = 0; i < replyParts.length; i++) {
+        const part = replyParts[i];
+
+        // Human-like random delay: 1-5 seconds between messages
+        const delay = Math.floor(Math.random() * 4000) + 1000;
+        console.log(`[ai-sdr] Part ${i + 1}/${replyParts.length}: waiting ${delay}ms`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+
+        const sendResp = await fetch(`${baseUrl}/message/sendText/${instName}`, {
+          method: "POST",
+          headers: { apikey: EVOLUTION_API_KEY, "Content-Type": "application/json" },
+          body: JSON.stringify({ number: contact_phone, text: part }),
+        });
+
+        if (!sendResp.ok) {
+          console.error("[ai-sdr] Send error part", i + 1, ":", sendResp.status, await sendResp.text());
+        } else {
+          console.log("[ai-sdr] Message part", i + 1, "sent to", contact_phone);
+        }
+
+        fullReply.push(part);
       }
 
-      await supabase.from("wa_messages").insert({
-        conversation_id, instance_id, sender: "agent",
-        agent_name: "SDR IA 🤖", text: reply,
-      });
+      // Save all parts as individual messages in DB
+      for (const part of fullReply) {
+        await supabase.from("wa_messages").insert({
+          conversation_id, instance_id, sender: "agent",
+          agent_name: "SDR IA 🤖", text: part,
+        });
+      }
 
+      // Update conversation with last message
+      const lastPart = fullReply[fullReply.length - 1] || reply;
       await supabase.from("wa_conversations").update({
-        last_message: reply,
+        last_message: lastPart,
         last_message_at: new Date().toISOString(),
         unread_count: 0,
       }).eq("id", conversation_id);
@@ -542,7 +574,6 @@ EXEMPLOS DE ABERTURAS (varie entre eles, adapte ao contexto):
 
     // 4. Lead scoring + handoff logic
     if (parsed.lead_score && conversation?.contact_id) {
-      // Update lead score in wa_lead_scores
       await supabase.from("wa_lead_scores").upsert({
         contact_id: conversation.contact_id,
         score: parsed.lead_score_value || 0,
@@ -583,12 +614,112 @@ EXEMPLOS DE ABERTURAS (varie entre eles, adapte ao contexto):
       console.log("[ai-sdr] Handoff →", handoffType, "for", contact_phone);
     }
 
-    // 6. Pipedrive sync
+    // 6. URGENT CALL: Lead wants to talk NOW
+    if (parsed.urgent_call) {
+      console.log("[ai-sdr] 🚨 URGENT CALL requested by lead", contact_phone);
+
+      // Alert the closer AND sdr
+      const alertTargets = [instance.closer_id, instance.sdr_id].filter(Boolean);
+      for (const memberId of alertTargets) {
+        await supabase.from("proactive_alerts").insert({
+          member_id: memberId!,
+          title: "🚨 URGENTE: Lead quer ligar AGORA!",
+          message: `O lead ${contact_name || contact_phone} pediu para falar AGORA pelo telefone!\n\n📞 Ligue imediatamente: ${contact_phone}\n\nA IA parou de responder. O lead está esperando a ligação.`,
+          severity: "high",
+          alert_type: "urgent_call",
+          data: {
+            conversation_id,
+            contact_phone,
+            contact_name: contact_name || "",
+            urgent: true,
+          },
+        });
+      }
+
+      // Send WhatsApp alert to closer's phone
+      if (EVOLUTION_API_URL && EVOLUTION_API_KEY && instance.closer_id) {
+        const { data: closerMember } = await supabase
+          .from("team_members")
+          .select("phone")
+          .eq("id", instance.closer_id)
+          .single();
+
+        if (closerMember?.phone) {
+          const baseUrl = EVOLUTION_API_URL.replace(/\/$/, "");
+          const alertMsg = `🚨 *URGENTE — Lead quer ligar AGORA!*\n\n👤 ${contact_name || "Lead"}\n📞 ${contact_phone}\n\nO lead pediu pra ligar na hora. Ligue AGORA! A IA parou de responder.`;
+          await fetch(`${baseUrl}/message/sendText/${instName}`, {
+            method: "POST",
+            headers: { apikey: EVOLUTION_API_KEY, "Content-Type": "application/json" },
+            body: JSON.stringify({ number: closerMember.phone, text: alertMsg }),
+          });
+          console.log("[ai-sdr] Urgent alert sent to closer phone:", closerMember.phone);
+        }
+      }
+
+      // Mark conversation for human takeover
+      await supabase.from("wa_conversations").update({
+        lead_status: "agendado",
+        assigned_to: instance.closer_id,
+        assigned_role: "closer",
+      }).eq("id", conversation_id);
+
+      // Disable AI for this conversation by updating status
+      // The AI won't respond anymore because we set lead_status to "agendado"
+    }
+
+    // 7. Meeting confirmed: schedule 6h and 1h follow-ups
+    if (parsed.meeting_confirmed && conversation?.contact_id) {
+      console.log("[ai-sdr] Meeting confirmed:", parsed.meeting_datetime);
+
+      // Try to parse the meeting datetime
+      let meetingTime: Date | null = null;
+      if (parsed.meeting_datetime) {
+        try {
+          // Try various formats
+          meetingTime = new Date(parsed.meeting_datetime);
+          if (isNaN(meetingTime.getTime())) meetingTime = null;
+        } catch { meetingTime = null; }
+      }
+
+      if (meetingTime && meetingTime.getTime() > Date.now()) {
+        // Schedule 6h before follow-up
+        const sixHBefore = new Date(meetingTime.getTime() - 6 * 60 * 60 * 1000);
+        if (sixHBefore.getTime() > Date.now()) {
+          await supabase.from("wa_follow_up_reminders").insert({
+            contact_id: conversation.contact_id,
+            conversation_id,
+            remind_at: sixHBefore.toISOString(),
+            note: `Fala ${contact_name || ""}! 😊 Passando pra confirmar nosso papo de hoje. Tudo certo pro horário combinado?`,
+            created_by: instance.sdr_id || instance.closer_id || conversation.contact_id,
+          });
+          console.log("[ai-sdr] 6h follow-up scheduled for", sixHBefore.toISOString());
+        }
+
+        // Schedule 1h before follow-up
+        const oneHBefore = new Date(meetingTime.getTime() - 1 * 60 * 60 * 1000);
+        if (oneHBefore.getTime() > Date.now()) {
+          await supabase.from("wa_follow_up_reminders").insert({
+            contact_id: conversation.contact_id,
+            conversation_id,
+            remind_at: oneHBefore.toISOString(),
+            note: `Opa ${contact_name || ""}! Daqui a 1 hora temos nosso bate-papo 🔥 Te ligo no horário combinado, beleza?`,
+            created_by: instance.sdr_id || instance.closer_id || conversation.contact_id,
+          });
+          console.log("[ai-sdr] 1h follow-up scheduled for", oneHBefore.toISOString());
+        }
+      }
+
+      // Update lead status to agendado
+      await supabase.from("wa_conversations").update({
+        lead_status: "agendado",
+      }).eq("id", conversation_id);
+    }
+
+    // 8. Pipedrive sync
     if (features.pipedrive_sync && PIPEDRIVE_API_TOKEN && parsed.qualification_data) {
       try {
         const qualData = parsed.qualification_data;
 
-        // Find or check existing person in Pipedrive
         const { data: existingPerson } = await supabase
           .from("pipedrive_persons")
           .select("pipedrive_id")
@@ -596,7 +727,6 @@ EXEMPLOS DE ABERTURAS (varie entre eles, adapte ao contexto):
           .single();
 
         if (existingPerson?.pipedrive_id) {
-          // Update person name if we learned it
           if (qualData.name) {
             await fetch(`https://api.pipedrive.com/v1/persons/${existingPerson.pipedrive_id}?api_token=${PIPEDRIVE_API_TOKEN}`, {
               method: "PUT",
@@ -605,7 +735,6 @@ EXEMPLOS DE ABERTURAS (varie entre eles, adapte ao contexto):
             });
           }
 
-          // Update deal stage if pipedrive_update provided
           if (parsed.pipedrive_update?.stage) {
             const { data: deals } = await supabase
               .from("pipedrive_deals")
@@ -615,7 +744,6 @@ EXEMPLOS DE ABERTURAS (varie entre eles, adapte ao contexto):
               .limit(1);
 
             if (deals?.[0]) {
-              // Add note with qualification data
               await fetch(`https://api.pipedrive.com/v1/notes?api_token=${PIPEDRIVE_API_TOKEN}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -632,7 +760,7 @@ EXEMPLOS DE ABERTURAS (varie entre eles, adapte ao contexto):
       }
     }
 
-    // 7. Auto follow-up scheduling
+    // 9. Auto follow-up scheduling (for no-response cases)
     if (parsed.schedule_follow_up && conversation?.contact_id) {
       const remindAt = new Date(Date.now() + (followUpHours) * 60 * 60 * 1000).toISOString();
       const followUpMsg = parsed.follow_up_message || `Fala ${contact_name || ""}! Sumiu 😄 Conseguiu pensar sobre o que conversamos?`;
@@ -650,6 +778,7 @@ EXEMPLOS DE ABERTURAS (varie entre eles, adapte ao contexto):
     return new Response(JSON.stringify({
       ok: true,
       reply: reply.substring(0, 100),
+      parts_sent: replyParts.length,
       lead_score: parsed.lead_score || null,
       lead_score_value: parsed.lead_score_value || null,
       status_changed: parsed.new_lead_status || null,
@@ -658,6 +787,8 @@ EXEMPLOS DE ABERTURAS (varie entre eles, adapte ao contexto):
       handoff: parsed.should_handoff || false,
       handoff_type: parsed.handoff_type || null,
       schedule_meeting: parsed.schedule_meeting || false,
+      meeting_confirmed: parsed.meeting_confirmed || false,
+      urgent_call: parsed.urgent_call || false,
       follow_up_scheduled: parsed.schedule_follow_up || false,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

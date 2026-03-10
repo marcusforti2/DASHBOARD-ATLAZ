@@ -51,7 +51,6 @@ serve(async (req) => {
     if (event === 'connection.update') {
       const state = payload.data?.state || payload.data?.status;
       const isConn = state === 'open' || state === 'connected';
-      // Try to extract the instance's own phone number from connection data
       const instancePhone = payload.data?.ownerJid?.replace('@s.whatsapp.net', '') || null;
       const updateData: any = { is_connected: isConn };
       if (instancePhone && isConn) updateData.phone = instancePhone;
@@ -165,7 +164,6 @@ serve(async (req) => {
           finalMediaUrl = await saveBase64ToStorage(supabase, finalMediaUrl, mediaMime);
         } catch (e) {
           console.error('[webhook] Error saving base64 media:', e);
-          // Keep the original URL as fallback
         }
       }
 
@@ -187,7 +185,8 @@ serve(async (req) => {
       console.log('[webhook] Message saved:', isFromMe ? 'sent' : 'received', phone, mediaType || 'text', displayText.substring(0, 50));
 
       // Trigger AI SDR agent for incoming messages from contacts
-      // IMPORTANT: Skip if sender phone belongs to another managed instance (prevents AI-to-AI loops)
+      // DEBOUNCE: Wait 3 seconds to allow batching of rapid sequential messages from the lead
+      // The AI SDR agent will fetch recent messages from DB and combine them
       if (!isFromMe && instance.ai_sdr_enabled && messageText) {
         // Check if the sender is another managed WhatsApp instance
         const { data: senderInstance } = await supabase
@@ -199,41 +198,62 @@ serve(async (req) => {
         if (senderInstance) {
           console.log('[webhook] Skipping AI SDR: sender is managed instance', phone);
         } else {
-          try {
-            const aiSdrUrl = `${SUPABASE_URL}/functions/v1/ai-sdr-agent`;
-            const aiSdrResp = await fetch(aiSdrUrl, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-              },
-              body: JSON.stringify({
-                conversation_id: conversation.id,
-                instance_id: instance.id,
-                contact_phone: phone,
-                instance_name: instanceName,
-                contact_name: pushName || phone,
-                incoming_message: messageText,
-              }),
-            });
-            const aiResult = await aiSdrResp.json();
-            console.log('[webhook] AI SDR result:', JSON.stringify(aiResult).substring(0, 200));
-          } catch (aiErr) {
-            console.error('[webhook] AI SDR trigger failed:', aiErr);
+          // DEBOUNCE: Wait 3 seconds to batch rapid messages
+          console.log('[webhook] Waiting 3s debounce before triggering AI SDR...');
+          await new Promise(resolve => setTimeout(resolve, 3000));
+
+          // After debounce, check if a NEWER message arrived (if so, skip - the newer webhook will handle it)
+          const { data: newerMsgs } = await supabase
+            .from('wa_messages')
+            .select('id, created_at')
+            .eq('conversation_id', conversation.id)
+            .eq('sender', 'contact')
+            .gt('created_at', msgData.messageTimestamp
+              ? new Date(msgData.messageTimestamp * 1000).toISOString()
+              : now)
+            .limit(1);
+
+          if (newerMsgs && newerMsgs.length > 0) {
+            console.log('[webhook] Skipping AI SDR: newer message exists, letting that webhook handle it');
+          } else {
+            // Fetch all recent contact messages (last 30s) to batch them
+            const batchWindow = new Date(Date.now() - 30000).toISOString();
+            const { data: recentMsgs } = await supabase
+              .from('wa_messages')
+              .select('text')
+              .eq('conversation_id', conversation.id)
+              .eq('sender', 'contact')
+              .gte('created_at', batchWindow)
+              .order('created_at', { ascending: true });
+
+            const batchedMessage = (recentMsgs || []).map(m => m.text).join('\n');
+
+            try {
+              const aiSdrUrl = `${SUPABASE_URL}/functions/v1/ai-sdr-agent`;
+              const aiSdrResp = await fetch(aiSdrUrl, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                },
+                body: JSON.stringify({
+                  conversation_id: conversation.id,
+                  instance_id: instance.id,
+                  contact_phone: phone,
+                  instance_name: instanceName,
+                  contact_name: pushName || phone,
+                  incoming_message: batchedMessage || messageText,
+                }),
+              });
+              const aiResult = await aiSdrResp.json();
+              console.log('[webhook] AI SDR result:', JSON.stringify(aiResult).substring(0, 200));
+            } catch (aiErr) {
+              console.error('[webhook] AI SDR trigger failed:', aiErr);
+            }
           }
         }
       }
     } // <-- close messages.upsert block
-
-    if (event === 'connection.update') {
-      const state = payload.data?.state;
-      if (state) {
-        await supabase.from('wa_instances')
-          .update({ is_connected: state === 'open' })
-          .eq('id', instance.id);
-        console.log('[webhook] Connection update:', instanceName, state);
-      }
-    }
 
     return new Response(JSON.stringify({ ok: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -248,7 +268,6 @@ serve(async (req) => {
 });
 
 async function saveBase64ToStorage(supabase: any, base64Data: string, mimeType: string | null): Promise<string> {
-  // Extract pure base64 from data URI
   const matches = base64Data.match(/^data:([^;]+);base64,(.+)$/);
   if (!matches) return base64Data;
 
@@ -257,7 +276,6 @@ async function saveBase64ToStorage(supabase: any, base64Data: string, mimeType: 
   const ext = mime.split('/')[1]?.split(';')[0] || 'bin';
   const fileName = `webhook_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
 
-  // Decode base64 to Uint8Array
   const binaryString = atob(data);
   const bytes = new Uint8Array(binaryString.length);
   for (let i = 0; i < binaryString.length; i++) {
@@ -297,7 +315,6 @@ interface MediaContent {
 function extractMessageContent(message: Record<string, unknown>, msgData?: Record<string, unknown>): MediaContent {
   if (!message) return { text: '', mediaType: null, mediaUrl: null, mediaMime: null };
 
-  // Evolution API may provide mediaUrl at the top level (when webhookBase64 is enabled)
   const evolutionMediaUrl = (msgData as any)?.mediaUrl || null;
 
   if (typeof message.conversation === 'string') {
