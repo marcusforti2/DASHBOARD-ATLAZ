@@ -780,6 +780,44 @@ function MemberCard({
           <TeamMemberMetricsButton memberId={member.id} memberName={member.name} memberRole={member.member_role || "sdr"} />
         </div>
       )}
+
+      {/* Confirmation: Toggle Active */}
+      <AlertDialog open={showToggleConfirm} onOpenChange={setShowToggleConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{member.active ? "Desativar" : "Ativar"} {member.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {member.active
+                ? `${member.name} será desativado(a) e não aparecerá mais nas listagens e rankings.`
+                : `${member.name} será reativado(a) e voltará a aparecer nas listagens.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setShowToggleConfirm(false); onToggleActive(); }}>
+              {member.active ? "Desativar" : "Ativar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmation: Delete */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir {member.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. Todos os dados deste membro serão removidos permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => { setShowDeleteConfirm(false); onDelete(); }}>
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
