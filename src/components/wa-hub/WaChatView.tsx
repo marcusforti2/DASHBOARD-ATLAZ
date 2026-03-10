@@ -397,6 +397,7 @@ export default function WaChatView({ conversation, messages, messagesLoading, on
       {/* Input */}
       <div className="px-5 py-3 border-t border-border bg-card shrink-0">
         <input ref={fileInputRef} type="file" accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx" className="hidden" onChange={handleFileSelect} />
+        <input ref={stickerInputRef} type="file" accept="image/*,.webp" className="hidden" onChange={handleStickerSelect} />
         <div className="flex items-center gap-2">
           {/* Quick replies toggle */}
           <button
@@ -421,6 +422,13 @@ export default function WaChatView({ conversation, messages, messagesLoading, on
           {onSendMedia && (
             <button onClick={() => fileInputRef.current?.click()} disabled={uploadingMedia || sending || recording} className="p-2.5 rounded-xl text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50" title="Enviar foto/vídeo/documento">
               {uploadingMedia ? <Loader2 className="w-4 h-4 animate-spin" /> : <Image className="w-4 h-4" />}
+            </button>
+          )}
+
+          {/* Sticker */}
+          {onSendSticker && (
+            <button onClick={() => stickerInputRef.current?.click()} disabled={uploadingMedia || sending || recording} className="p-2.5 rounded-xl text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50" title="Enviar figurinha">
+              <Sticker className="w-4 h-4" />
             </button>
           )}
 
