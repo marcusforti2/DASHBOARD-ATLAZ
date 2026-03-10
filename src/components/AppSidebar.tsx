@@ -61,6 +61,7 @@ const toolCategories: { label: string; icon: React.ElementType; items: SidebarIt
       { id: "whatsapp", title: "WhatsApp", icon: MessageCircle },
       { id: "wa-hub", title: "WhatsApp Hub", icon: Smartphone },
       { id: "ai-sdr", title: "SDR IA", icon: Brain },
+      { id: "email-marketing", title: "Email Marketing", icon: Mail },
     ],
   },
   {
