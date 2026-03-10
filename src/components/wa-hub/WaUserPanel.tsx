@@ -24,7 +24,7 @@ export function WaUserPanel({ teamMemberId, memberName, memberRole }: Props) {
   const [tab, setTab] = useState<'chat' | 'pipeline' | 'reminders'>('chat');
   const { conversations, loading } = useWaConversations(null);
   const { instances } = useWaInstances();
-  const { tags } = useWaTags();
+  const { tags, createTag, deleteTag } = useWaTags();
   const { getTagsForContact, addTag, removeTag } = useWaContactTags();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showProfile, setShowProfile] = useState(false);
