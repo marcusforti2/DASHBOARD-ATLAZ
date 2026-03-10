@@ -51,6 +51,7 @@ interface AiSdrConfig {
   pain_points: string;
   desires: string;
   qualification_questions: string[];
+  daily_summary_admin_ids: string[];
   score_thresholds: { a_min: number; b_min: number };
 }
 
@@ -95,6 +96,7 @@ const DEFAULT_CONFIG: AiSdrConfig = {
   escalation_hours: 48,
   rate_limit_per_hour: 5,
   blacklist_numbers: [],
+  daily_summary_admin_ids: [],
   target_audience: "",
   pain_points: "",
   desires: "",
@@ -223,9 +225,12 @@ const AUTOMATIONS: AutomationDef[] = [
     ],
   },
   {
-    key: "feature_daily_summary", icon: BarChart3, title: "Resumo diário WhatsApp", desc: "Envia resumo de leads quentes ao closer",
+    key: "feature_daily_summary", icon: BarChart3, title: "Resumo diário WhatsApp", desc: "Envia resumo de leads quentes aos gestores",
     color: "text-indigo-500",
-    explanation: "Todo dia útil às 8h, a IA envia um resumo via WhatsApp para o closer vinculado contendo: quantidade de novos leads, leads quentes (Score A), reuniões agendadas para o dia e leads que precisam de atenção. Mantém o closer informado sem precisar acessar o painel.",
+    explanation: "Todo dia útil às 8h, a IA envia um resumo via WhatsApp para os administradores selecionados contendo: quantidade de novos leads, leads quentes (Score A), reuniões agendadas para o dia e leads que precisam de atenção. Selecione abaixo quais gestores devem receber o resumo.",
+    fields: [
+      { key: "daily_summary_admin_ids", label: "Administradores que receberão o resumo", type: "multi-select" as const, options: [] },
+    ],
   },
   {
     key: "feature_language_detection", icon: Sparkles, title: "Detecção de idioma", desc: "Adapta idioma automaticamente (PT/EN/ES)",
@@ -512,11 +517,21 @@ export default function AiSdrPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {AUTOMATIONS.map(def => {
-                const isOn = localConfig[def.key as keyof AiSdrConfig] as boolean;
+                // Inject dynamic options for multi-select fields
+                const enrichedDef = { ...def };
+                if (enrichedDef.fields) {
+                  enrichedDef.fields = enrichedDef.fields.map(f => {
+                    if (f.key === "daily_summary_admin_ids" && f.type === "multi-select") {
+                      return { ...f, options: teamMembers.filter(m => m.member_role === "admin" || m.member_role === "closer").map(m => ({ value: m.id, label: m.name })) };
+                    }
+                    return f;
+                  });
+                }
+                const isOn = localConfig[enrichedDef.key as keyof AiSdrConfig] as boolean;
                 return (
                   <AutomationCard
-                    key={def.key}
-                    def={def}
+                    key={enrichedDef.key}
+                    def={enrichedDef}
                     isOn={isOn}
                     config={{
                       ...localConfig,

@@ -1,17 +1,24 @@
 import { useState } from "react";
-import { ChevronDown, ToggleLeft, ToggleRight, Info } from "lucide-react";
+import { ChevronDown, ToggleLeft, ToggleRight, Info, Check } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Checkbox } from "@/components/ui/checkbox";
+
+export interface AutomationFieldOption {
+  value: string;
+  label: string;
+}
 
 export interface AutomationField {
   key: string;
   label: string;
-  type: "number" | "text" | "textarea";
+  type: "number" | "text" | "textarea" | "multi-select";
   placeholder?: string;
   suffix?: string;
   min?: number;
   max?: number;
+  options?: AutomationFieldOption[];
 }
 
 export interface AutomationDef {
@@ -80,11 +87,11 @@ export function AutomationCard({ def, isOn, config, onToggle, onFieldChange }: A
 
             {/* Warnings */}
             {def.warnings && def.warnings.length > 0 && (
-              <div className="flex gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                <span className="text-amber-500 text-xs shrink-0 mt-0.5">⚠️</span>
+              <div className="flex gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                <span className="text-destructive text-xs shrink-0 mt-0.5">⚠️</span>
                 <div className="space-y-1">
                   {def.warnings.map((w, i) => (
-                    <p key={i} className="text-[11px] text-amber-600 dark:text-amber-400 leading-relaxed">{w}</p>
+                    <p key={i} className="text-[11px] text-destructive/80 leading-relaxed">{w}</p>
                   ))}
                 </div>
               </div>
@@ -117,6 +124,32 @@ export function AutomationCard({ def, isOn, config, onToggle, onFieldChange }: A
                           className="h-9 w-24 text-sm"
                         />
                         {field.suffix && <span className="text-xs text-muted-foreground">{field.suffix}</span>}
+                      </div>
+                    ) : field.type === "multi-select" && field.options ? (
+                      <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                        {field.options.length === 0 ? (
+                          <p className="text-[11px] text-muted-foreground/60 italic">Nenhum membro disponível.</p>
+                        ) : (
+                          field.options.map(opt => {
+                            const selectedIds: string[] = config[field.key] || [];
+                            const isChecked = selectedIds.includes(opt.value);
+                            return (
+                              <label key={opt.value} className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-accent/50 cursor-pointer transition-colors">
+                                <Checkbox
+                                  checked={isChecked}
+                                  onCheckedChange={(checked) => {
+                                    const current: string[] = config[field.key] || [];
+                                    const next = checked
+                                      ? [...current, opt.value]
+                                      : current.filter((id: string) => id !== opt.value);
+                                    onFieldChange(field.key, next);
+                                  }}
+                                />
+                                <span className="text-xs text-foreground">{opt.label}</span>
+                              </label>
+                            );
+                          })
+                        )}
                       </div>
                     ) : (
                       <Input
