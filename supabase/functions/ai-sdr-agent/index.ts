@@ -837,6 +837,7 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
           },
           body: JSON.stringify({
             model,
+            temperature: 0.85 + Math.random() * 0.15, // 0.85-1.0 for natural variation
             messages: [
               { role: "system", content: systemPrompt },
               { role: "user", content: userMessage },
