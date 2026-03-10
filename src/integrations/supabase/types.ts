@@ -1003,6 +1003,89 @@ export type Database = {
           },
         ]
       }
+      pipedrive_sdr_queue: {
+        Row: {
+          attempts: number | null
+          contact_id: string | null
+          conversation_id: string | null
+          created_at: string
+          deal_pipedrive_id: number
+          error: string | null
+          id: string
+          instance_id: string
+          instance_name: string
+          person_name: string | null
+          person_phone: string
+          pipedrive_context: Json | null
+          processed_at: string | null
+          status: string
+          team_member_id: string | null
+        }
+        Insert: {
+          attempts?: number | null
+          contact_id?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          deal_pipedrive_id: number
+          error?: string | null
+          id?: string
+          instance_id: string
+          instance_name: string
+          person_name?: string | null
+          person_phone: string
+          pipedrive_context?: Json | null
+          processed_at?: string | null
+          status?: string
+          team_member_id?: string | null
+        }
+        Update: {
+          attempts?: number | null
+          contact_id?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          deal_pipedrive_id?: number
+          error?: string | null
+          id?: string
+          instance_id?: string
+          instance_name?: string
+          person_name?: string | null
+          person_phone?: string
+          pipedrive_context?: Json | null
+          processed_at?: string | null
+          status?: string
+          team_member_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pipedrive_sdr_queue_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "wa_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pipedrive_sdr_queue_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "wa_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pipedrive_sdr_queue_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "wa_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pipedrive_sdr_queue_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pipedrive_webhook_logs: {
         Row: {
           created_at: string
