@@ -274,6 +274,11 @@ export function TrainingViewer({ memberRole, previewAll }: TrainingViewerProps) 
     );
   }
 
+  // ── Processes View ──
+  if (viewMode === "processes" && !selectedCourse) {
+    return <ProcessesHub onBack={() => setViewMode("home")} />;
+  }
+
   // ── Courses List ──
   if (viewMode === "courses" && !selectedCourse) {
     return (
