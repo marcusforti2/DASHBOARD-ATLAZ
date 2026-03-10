@@ -436,8 +436,31 @@ export default function AiSdrPage() {
                     <div className="flex items-center gap-3 p-4">
                       <div className="w-3 h-8 rounded-full shrink-0" style={{ backgroundColor: src.color }} />
                       <div className="flex-1 min-w-0">
-                        <p className={`text-xs font-bold ${src.active ? "text-foreground" : "text-muted-foreground"}`}>{src.name}</p>
+                        {src.id.startsWith("custom_") ? (
+                          <Input
+                            value={src.name}
+                            onChange={e => {
+                              const sources = [...(localConfig.lead_sources || [])];
+                              sources[idx] = { ...sources[idx], name: e.target.value };
+                              update("lead_sources", sources);
+                            }}
+                            className="h-7 text-xs font-bold border-none bg-transparent p-0 focus-visible:ring-0"
+                          />
+                        ) : (
+                          <p className={`text-xs font-bold ${src.active ? "text-foreground" : "text-muted-foreground"}`}>{src.name}</p>
+                        )}
                       </div>
+                      {src.id.startsWith("custom_") && (
+                        <button
+                          onClick={() => {
+                            const sources = (localConfig.lead_sources || []).filter((_, i) => i !== idx);
+                            update("lead_sources", sources);
+                          }}
+                          className="p-1 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                       <button
                         onClick={() => {
                           const sources = [...(localConfig.lead_sources || [])];
