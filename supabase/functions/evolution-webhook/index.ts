@@ -184,10 +184,39 @@ serve(async (req) => {
 
       console.log('[webhook] Message saved:', isFromMe ? 'sent' : 'received', phone, mediaType || 'text', displayText.substring(0, 50));
 
+      // Transcribe audio messages from contacts using Gemini
+      let transcribedText = '';
+      if (!isFromMe && mediaType === 'audio' && finalMediaUrl) {
+        try {
+          transcribedText = await transcribeAudio(finalMediaUrl, mediaMime);
+          if (transcribedText) {
+            console.log('[webhook] Audio transcribed:', transcribedText.substring(0, 100));
+            // Update the saved message with transcription
+            await supabase.from('wa_messages')
+              .update({ text: `🎵 Áudio: "${transcribedText}"` })
+              .eq('conversation_id', conversation.id)
+              .eq('created_at', msgData.messageTimestamp
+                ? new Date(msgData.messageTimestamp * 1000).toISOString()
+                : now)
+              .eq('sender', 'contact');
+            // Also update conversation last_message
+            await supabase.from('wa_conversations')
+              .update({ last_message: `🎵 "${transcribedText.substring(0, 80)}"` })
+              .eq('id', conversation.id);
+          }
+        } catch (transcErr) {
+          console.error('[webhook] Audio transcription failed:', transcErr);
+        }
+      }
+
+      // Determine effective message text (original text or transcription)
+      const effectiveMessage = messageText !== '🎵 Áudio' && messageText !== '📷 Imagem' ? messageText : '';
+      const aiTriggerMessage = transcribedText || effectiveMessage;
+
       // Trigger AI SDR agent for incoming messages from contacts
       // DEBOUNCE: Wait 3 seconds to allow batching of rapid sequential messages from the lead
       // The AI SDR agent will fetch recent messages from DB and combine them
-      if (!isFromMe && instance.ai_sdr_enabled && messageText) {
+      if (!isFromMe && instance.ai_sdr_enabled && aiTriggerMessage) {
         // Check if the sender is another managed WhatsApp instance
         const { data: senderInstance } = await supabase
           .from('wa_instances')
@@ -382,4 +411,78 @@ function extractMessageContent(message: Record<string, unknown>, msgData?: Recor
   if (typeof message.contactMessage === 'object') return { text: '👤 Contato', mediaType: 'contact', mediaUrl: null, mediaMime: null };
 
   return { text: '', mediaType: null, mediaUrl: null, mediaMime: null };
+}
+
+async function transcribeAudio(audioUrl: string, mimeType: string | null): Promise<string> {
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  if (!LOVABLE_API_KEY) {
+    console.error('[transcribe] LOVABLE_API_KEY not configured');
+    return '';
+  }
+
+  try {
+    // Fetch the audio file and convert to base64
+    const audioResp = await fetch(audioUrl);
+    if (!audioResp.ok) {
+      console.error('[transcribe] Failed to fetch audio:', audioResp.status);
+      return '';
+    }
+
+    const audioBuffer = await audioResp.arrayBuffer();
+    const audioBytes = new Uint8Array(audioBuffer);
+    let base64Audio = '';
+    // Convert to base64 in chunks to avoid stack overflow
+    const chunkSize = 8192;
+    for (let i = 0; i < audioBytes.length; i += chunkSize) {
+      const chunk = audioBytes.slice(i, i + chunkSize);
+      base64Audio += String.fromCharCode(...chunk);
+    }
+    base64Audio = btoa(base64Audio);
+
+    const mime = mimeType || 'audio/ogg';
+
+    // Use Gemini Flash (supports audio natively) via Lovable AI Gateway
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: 'Transcreva este áudio em português brasileiro. Retorne APENAS o texto transcrito, sem aspas, sem prefixos, sem explicações. Se o áudio estiver inaudível, retorne "áudio inaudível".',
+              },
+              {
+                type: 'input_audio',
+                input_audio: {
+                  data: base64Audio,
+                  format: mime.includes('ogg') ? 'ogg' : mime.includes('mp4') || mime.includes('m4a') ? 'mp4' : mime.includes('wav') ? 'wav' : 'ogg',
+                },
+              },
+            ],
+          },
+        ],
+        max_tokens: 500,
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error('[transcribe] AI gateway error:', response.status, errText);
+      return '';
+    }
+
+    const data = await response.json();
+    const transcription = data.choices?.[0]?.message?.content?.trim() || '';
+    return transcription;
+  } catch (err) {
+    console.error('[transcribe] Error:', err);
+    return '';
+  }
 }
