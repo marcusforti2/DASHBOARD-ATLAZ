@@ -68,3 +68,9 @@ verify_jwt = false
 
 [functions.ai-sdr-agent]
 verify_jwt = false
+
+[functions.generate-email-campaign]
+verify_jwt = false
+
+[functions.execute-email-flow]
+verify_jwt = false

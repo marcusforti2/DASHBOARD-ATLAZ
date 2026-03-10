@@ -2,7 +2,7 @@ import { useState } from "react";
 import {
   BarChart3, LayoutDashboard, Users, Target, Sparkles, Eye, Settings, LogOut,
   MessageCircle, BookOpen, Brain, GitBranch, GraduationCap, ChevronRight,
-  Wrench, FlaskConical, Megaphone, Calendar, Smartphone
+  Wrench, FlaskConical, Megaphone, Calendar, Smartphone, Mail
 } from "lucide-react";
 import {
   Sidebar,
@@ -21,7 +21,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
-export type AdminView = "dashboard" | "team" | "goals" | "reports" | "inspect-team" | "settings" | "whatsapp" | "popups" | "knowledge" | "dna-mapping" | "processos" | "training" | "calendars" | "wa-hub" | "ai-sdr";
+export type AdminView = "dashboard" | "team" | "goals" | "reports" | "inspect-team" | "settings" | "whatsapp" | "popups" | "knowledge" | "dna-mapping" | "processos" | "training" | "calendars" | "wa-hub" | "ai-sdr" | "email-marketing";
 export type CloserView = "hub";
 
 interface AppSidebarProps {
@@ -61,6 +61,7 @@ const toolCategories: { label: string; icon: React.ElementType; items: SidebarIt
       { id: "whatsapp", title: "WhatsApp", icon: MessageCircle },
       { id: "wa-hub", title: "WhatsApp Hub", icon: Smartphone },
       { id: "ai-sdr", title: "SDR IA", icon: Brain },
+      { id: "email-marketing", title: "Email Marketing", icon: Mail },
     ],
   },
   {

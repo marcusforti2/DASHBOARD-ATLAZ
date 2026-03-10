@@ -14,6 +14,7 @@ import ProcessosPage from "@/pages/ProcessosPage";
 import AdminCalendarPage from "@/pages/AdminCalendarPage";
 import TrainingAdminPage from "@/pages/TrainingAdminPage";
 import AiSdrPage from "@/pages/AiSdrPage";
+import EmailMarketingPage from "@/pages/EmailMarketingPage";
 import { AppSidebar, AdminView } from "@/components/AppSidebar";
 import { AiReportPanel } from "@/components/dashboard/AiReportPanel";
 import { UserHub } from "@/components/user/UserHub";
@@ -218,6 +219,7 @@ export default function Index() {
       case "whatsapp": return "WhatsApp";
       case "wa-hub": return "WhatsApp Hub";
       case "ai-sdr": return "SDR de Inteligência Artificial";
+      case "email-marketing": return "Email Marketing";
       case "popups": return "Popups Motivacionais";
       case "knowledge": return "Conhecimento IA";
       case "dna-mapping": return "Sales DNA Decoder";
@@ -266,6 +268,8 @@ export default function Index() {
         return <ProcessosPage />;
       case "ai-sdr":
         return <AiSdrPage />;
+      case "email-marketing":
+        return <EmailMarketingPage />;
       case "calendars":
         return <AdminCalendarPage />;
       default:
