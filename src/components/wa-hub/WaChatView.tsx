@@ -498,9 +498,29 @@ export default function WaChatView({ conversation, messages, messagesLoading, on
 
           {/* Sticker */}
           {onSendSticker && (
-            <button onClick={() => stickerInputRef.current?.click()} disabled={uploadingMedia || sending || recording} className="p-2.5 rounded-xl text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50" title="Enviar figurinha">
-              <Sticker className="w-4 h-4" />
-            </button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button disabled={uploadingMedia || sending || recording} className="p-2.5 rounded-xl text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50" title="Figurinhas">
+                  {stickerMode === 'processing' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sticker className="w-4 h-4" />}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-48 p-2" side="top">
+                <div className="space-y-1">
+                  <button
+                    onClick={() => { setStickerCreateMode(false); stickerInputRef.current?.click(); }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs rounded-lg hover:bg-muted transition-colors"
+                  >
+                    <Sticker className="w-3.5 h-3.5" /> Enviar figurinha
+                  </button>
+                  <button
+                    onClick={() => { setStickerCreateMode(true); stickerInputRef.current?.click(); }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs rounded-lg hover:bg-muted transition-colors"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Criar de foto (IA)
+                  </button>
+                </div>
+              </PopoverContent>
+            </Popover>
           )}
 
           {/* Audio record */}
