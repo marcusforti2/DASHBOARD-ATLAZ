@@ -158,6 +158,7 @@ export default function WaChatView({ conversation, messages, messagesLoading, on
   const [stickerCreateMode, setStickerCreateMode] = useState(false);
   const [stickerFile, setStickerFile] = useState<File | null>(null);
   const [stickerDialogOpen, setStickerDialogOpen] = useState(false);
+  const [stickerAutoMode, setStickerAutoMode] = useState<'normal' | 'process' | undefined>(undefined);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
