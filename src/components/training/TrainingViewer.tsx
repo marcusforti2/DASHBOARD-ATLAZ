@@ -40,7 +40,7 @@ function extractEmbedUrl(url: string, type: string): string {
   return url;
 }
 
-type ViewMode = "home" | "courses" | "playbooks";
+type ViewMode = "home" | "courses" | "playbooks" | "processes";
 
 export function TrainingViewer({ memberRole, previewAll }: TrainingViewerProps) {
   const roles = getMemberRoles({ member_role: memberRole });
