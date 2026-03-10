@@ -5,46 +5,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-async function fetchContext(supabase: any, sources: string[]) {
-  const context: string[] = [];
-
-  if (sources.includes('knowledge')) {
-    const { data } = await supabase.from('company_knowledge').select('title, content, category').eq('active', true).limit(10);
-    if (data?.length) {
-      context.push("=== BASE DE CONHECIMENTO DA EMPRESA ===");
-      data.forEach((k: any) => context.push(`[${k.category}] ${k.title}: ${k.content.substring(0, 500)}`));
-    }
-  }
-
-  if (sources.includes('metrics')) {
-    const { data: goals } = await supabase.from('monthly_goals').select('*, months(label)').limit(5);
-    if (goals?.length) {
-      context.push("\n=== METAS MENSAIS ===");
-      goals.forEach((g: any) => context.push(
-        `${g.months?.label || 'Mês'}: Conexões=${g.conexoes}, Reuniões Agendadas=${g.reuniao_agendada}, Reuniões Realizadas=${g.reuniao_realizada}`
-      ));
-    }
-  }
-
-  if (sources.includes('team')) {
-    const { data: members } = await supabase.from('team_members').select('name, member_role, email').eq('active', true);
-    if (members?.length) {
-      context.push("\n=== EQUIPE ATIVA ===");
-      members.forEach((m: any) => context.push(`${m.name} (${m.member_role}) - ${m.email || 'sem email'}`));
-    }
-  }
-
-  if (sources.includes('playbooks')) {
-    const { data: playbooks } = await supabase.from('training_playbooks').select('title, description, category, target_role').eq('is_published', true).limit(8);
-    if (playbooks?.length) {
-      context.push("\n=== PLAYBOOKS PUBLICADOS ===");
-      playbooks.forEach((p: any) => context.push(`[${p.category}/${p.target_role}] ${p.title}: ${p.description || ''}`));
-    }
-  }
-
-  return context.join("\n");
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -68,23 +28,21 @@ Deno.serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const { prompt, sources = ['knowledge', 'metrics', 'team'] } = await req.json();
+    const { prompt, context } = await req.json();
     if (!prompt || typeof prompt !== "string" || prompt.trim().length < 5) {
       return new Response(JSON.stringify({ error: "Descreva a campanha (mínimo 5 caracteres)" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Fetch context from selected sources
-    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-    const contextData = await fetchContext(supabase, sources);
+    const contextBlock = context
+      ? `\nCONTEXTO DA EMPRESA (fornecido pelo usuário — use para personalizar os emails):\n${context}\n`
+      : '';
 
     const systemPrompt = `Você é um especialista em email marketing para equipes de vendas (SDRs e Closers).
 Dado uma descrição de campanha e contexto da empresa, crie um fluxo de automação de emails completo.
-
-${contextData ? `CONTEXTO DA EMPRESA (use para personalizar os emails):\n${contextData}\n` : ''}
-
-IMPORTANTE: Retorne APENAS o JSON válido, sem markdown, sem explicações.
+${contextBlock}
+IMPORTANTE: Retorne APENAS o JSON válido, sem markdown, sem explicações, sem blocos de código.
 
 O JSON deve ter esta estrutura:
 {
@@ -96,7 +54,7 @@ O JSON deve ter esta estrutura:
     {
       "type": "email",
       "subject": "Assunto do email",
-      "body": "HTML do email no estilo Apple/Nubank (clean, moderno, minimalista)"
+      "body": "HTML do email completo"
     },
     {
       "type": "wait",
@@ -108,12 +66,12 @@ O JSON deve ter esta estrutura:
 
 ESTILO DOS EMAILS HTML - OBRIGATÓRIO:
 - Design minimalista inspirado em Apple e Nubank
-- Use uma estrutura com max-width: 600px centralizada
-- Fundo do body: #f5f5f7 (cinza claro Apple)
+- Estrutura com max-width: 600px centralizada
+- Fundo do body: #f5f5f7
 - Card principal: #ffffff com border-radius: 16px e padding generoso (40px)
 - Tipografia: font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif
 - Títulos grandes e bold (28-32px), corpo 16px, line-height: 1.6
-- Cores de destaque: use um gradiente sutil (#6C63FF → #4F46E5) para CTAs
+- Cores de destaque: gradiente sutil (#6C63FF → #4F46E5) para CTAs
 - Botões com border-radius: 12px, padding: 16px 32px, sem bordas
 - Espaçamento generoso entre seções (32-40px)
 - Sem imagens pesadas, foque em tipografia e whitespace
@@ -122,15 +80,12 @@ ESTILO DOS EMAILS HTML - OBRIGATÓRIO:
 - Dividers sutis: 1px solid #e5e5ea
 
 Variáveis dinâmicas disponíveis:
-- {{nome}} - Nome do membro
-- {{email}} - Email do membro
+- {{nome}} - Nome do destinatário
+- {{email}} - Email do destinatário
 - {{role}} - Função (SDR/Closer)
-- {{metricas_hoje}} - Métricas do dia
-- {{progresso_meta}} - Progresso vs meta
 
-Crie emails persuasivos, motivacionais e profissionais usando o contexto da empresa.
-Use dados reais da base de conhecimento para personalizar copy, referências a produtos, ICP e processos.
-Os emails devem ter CTAs claros e criar conexão emocional.`;
+Crie emails persuasivos, profissionais e com CTAs claros.
+Se o contexto da empresa foi fornecido, USE-O para personalizar copy, referências a produtos, ICP e processos.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -139,7 +94,7 @@ Os emails devem ter CTAs claros e criar conexão emocional.`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Crie uma campanha de email marketing para: ${prompt}` },
@@ -216,6 +171,8 @@ Os emails devem ter CTAs claros e criar conexão emocional.`;
       previousNodeId = nodeId;
       yPosition += 150;
     });
+
+    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     const { data: flowData, error: flowError } = await supabase
       .from("email_flows")

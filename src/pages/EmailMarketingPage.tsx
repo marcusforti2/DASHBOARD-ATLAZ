@@ -578,49 +578,41 @@ export default function EmailMarketingPage() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-primary" />Criar Campanha com IA</DialogTitle>
-            <DialogDescription>Descreva a campanha e escolha de onde a IA puxa o contexto</DialogDescription>
+            <DialogDescription>Descreva a campanha e enriqueça com contexto próprio</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <Textarea
-              value={aiPrompt}
-              onChange={(e) => setAiPrompt(e.target.value)}
-              placeholder="Ex: Campanha de boas-vindas para novos SDRs com 3 emails motivacionais espaçados de 2 dias..."
-              rows={4}
-            />
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Fontes de Conhecimento</Label>
-              <p className="text-xs text-muted-foreground">Selecione de onde a IA deve puxar contexto para gerar os emails</p>
-              <div className="grid grid-cols-2 gap-2 mt-2">
-                {[
-                  { id: 'knowledge', label: 'Base de Conhecimento', desc: 'ICP, produtos, objeções', icon: '📚' },
-                  { id: 'metrics', label: 'Métricas & Metas', desc: 'Performance da equipe', icon: '📊' },
-                  { id: 'team', label: 'Dados do Time', desc: 'SDRs, Closers ativos', icon: '👥' },
-                  { id: 'playbooks', label: 'Playbooks', desc: 'Roteiros e processos', icon: '📋' },
-                ].map((source) => {
-                  const isSelected = aiSources.includes(source.id);
-                  return (
-                    <button
-                      key={source.id}
-                      type="button"
-                      onClick={() => setAiSources(prev => isSelected ? prev.filter(s => s !== source.id) : [...prev, source.id])}
-                      className={`flex items-start gap-2 p-3 rounded-lg border text-left transition-all ${
-                        isSelected ? 'border-primary bg-primary/10 ring-1 ring-primary/30' : 'border-border hover:border-muted-foreground/30'
-                      }`}
-                    >
-                      <span className="text-lg">{source.icon}</span>
-                      <div>
-                        <p className="text-xs font-medium">{source.label}</p>
-                        <p className="text-[10px] text-muted-foreground">{source.desc}</p>
-                      </div>
-                    </button>
-                  );
-                })}
+          <ScrollArea className="max-h-[60vh]">
+            <div className="space-y-4 pr-2">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">O que você quer?</Label>
+                <Textarea
+                  value={aiPrompt}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                  placeholder="Ex: Campanha de boas-vindas para novos SDRs com 3 emails motivacionais espaçados de 2 dias..."
+                  rows={3}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm font-medium">Contexto & Enriquecimento</Label>
+                  <Badge variant="secondary" className="text-[9px]">Opcional</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Cole aqui informações sobre sua empresa, produto, ICP, tom de voz, ou qualquer contexto que a IA deve usar para personalizar os emails.
+                </p>
+                <Textarea
+                  value={aiContext}
+                  onChange={(e) => setAiContext(e.target.value)}
+                  placeholder={`Exemplos do que colar aqui:\n\n• Nome da empresa: Acme Corp\n• Produto: SaaS de vendas B2B\n• ICP: Gerentes comerciais, 50-200 funcionários\n• Tom: Profissional mas amigável\n• Dores do cliente: Falta de controle de pipeline\n• Diferenciais: IA integrada, setup em 5min\n• CTA principal: Agendar demo gratuita`}
+                  rows={8}
+                  className="font-mono text-xs"
+                />
               </div>
             </div>
-          </div>
+          </ScrollArea>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAIDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleGenerateWithAI} disabled={isGenerating}>
+            <Button onClick={handleGenerateWithAI} disabled={isGenerating || !aiPrompt.trim()}>
               {isGenerating ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Gerando...</> : <><Sparkles className="h-4 w-4 mr-2" />Gerar Campanha</>}
             </Button>
           </DialogFooter>
