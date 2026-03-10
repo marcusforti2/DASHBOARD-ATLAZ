@@ -38,9 +38,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check business hours (8h-19h BRT = UTC-3)
+    // Check business hours (8h-21h BRT = UTC-3)
     const brtHour = (now.getUTCHours() - 3 + 24) % 24;
-    const isBusinessHours = brtHour >= 8 && brtHour < 19;
+    const isBusinessHours = brtHour >= 8 && brtHour < 21;
     const isWeekday = now.getDay() >= 1 && now.getDay() <= 5;
 
     if (!isBusinessHours || !isWeekday) {

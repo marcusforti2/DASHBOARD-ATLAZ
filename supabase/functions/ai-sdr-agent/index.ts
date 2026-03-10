@@ -38,9 +38,9 @@ function getNextBusinessDateTime(from: Date, hoursToAdd: number): Date {
     result.setTime(result.getTime() + diff * 60 * 60 * 1000);
   }
   
-  // If after 19h BRT, move to next business day 9am
+  // If after 21h BRT, move to next business day 9am
   brtHour = getBrtHour(result);
-  if (brtHour >= 19) {
+  if (brtHour >= 21) {
     // Move to next day 9am BRT
     result.setTime(result.getTime() + (24 - brtHour + 9) * 60 * 60 * 1000);
     // Check if weekend again
