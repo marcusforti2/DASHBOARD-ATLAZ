@@ -701,6 +701,24 @@ export default function GoalsManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Confirmation: Delete Month */}
+      <AlertDialog open={!!monthToDelete} onOpenChange={(open) => !open && setMonthToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir "{monthToDelete?.label}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Todos os dados deste mês (métricas diárias, metas semanais e mensais) serão excluídos permanentemente. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => monthToDelete && handleDeleteMonth(monthToDelete)}>
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
