@@ -436,7 +436,63 @@ export default function AiSdrPage() {
                     </div>
                   </div>
                 )}
+                {localConfig.feature_rate_limit && (
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-2">
+                      <Shield className="w-3.5 h-3.5" /> Limite por contato/hora
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <Input type="number" min={1} max={30} value={localConfig.rate_limit_per_hour}
+                        onChange={e => update("rate_limit_per_hour", parseInt(e.target.value) || 5)}
+                        className="h-9 w-20 text-sm" />
+                      <span className="text-xs text-muted-foreground">msgs/hora</span>
+                    </div>
+                  </div>
+                )}
+                {localConfig.feature_reengagement && (
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-2">
+                      <MessageSquare className="w-3.5 h-3.5" /> Reengajar após inatividade
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <Input type="number" min={1} max={90} value={localConfig.reengagement_days}
+                        onChange={e => update("reengagement_days", parseInt(e.target.value) || 7)}
+                        className="h-9 w-20 text-sm" />
+                      <span className="text-xs text-muted-foreground">dias</span>
+                    </div>
+                  </div>
+                )}
+                {localConfig.feature_time_escalation && (
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-2">
+                      <AlertTriangle className="w-3.5 h-3.5" /> Escalar se sem resposta após
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <Input type="number" min={1} max={168} value={localConfig.escalation_hours}
+                        onChange={e => update("escalation_hours", parseInt(e.target.value) || 48)}
+                        className="h-9 w-20 text-sm" />
+                      <span className="text-xs text-muted-foreground">horas</span>
+                    </div>
+                  </div>
+                )}
               </div>
+
+              {/* Blacklist numbers */}
+              {localConfig.feature_blacklist && (
+                <div className="pt-3 border-t border-border">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-2">
+                    <Users className="w-3.5 h-3.5" /> Números na Blacklist (DNC)
+                  </label>
+                  <Textarea
+                    value={(localConfig.blacklist_numbers || []).join("\n")}
+                    onChange={e => update("blacklist_numbers", e.target.value.split("\n").map(n => n.trim()).filter(Boolean))}
+                    placeholder="Um número por linha, ex:&#10;5511999999999&#10;5521888888888"
+                    rows={4}
+                    className="text-sm resize-none font-mono"
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-1">A IA nunca enviará mensagem para esses números.</p>
+                </div>
+              )}
             </div>
           </div>
         );

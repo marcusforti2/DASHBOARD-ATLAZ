@@ -121,6 +121,13 @@ serve(async (req) => {
       handoff: config.feature_handoff !== false,
       sentiment: config.feature_sentiment === true,
       pipedrive_sync: config.feature_pipedrive_sync === true,
+      rate_limit: config.feature_rate_limit !== false,
+      reengagement: config.feature_reengagement === true,
+      blacklist: config.feature_blacklist === true,
+      daily_summary: config.feature_daily_summary === true,
+      language_detection: config.feature_language_detection === true,
+      linkedin_lookup: config.feature_linkedin_lookup === true,
+      time_escalation: config.feature_time_escalation === true,
     };
 
     if (!features.auto_reply && !isProactive) {
