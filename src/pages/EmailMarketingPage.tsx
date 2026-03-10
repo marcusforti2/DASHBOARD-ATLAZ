@@ -492,14 +492,27 @@ export default function EmailMarketingPage() {
                         </Badge>
                       </div>
 
+                      {/* Contacts & Stats row */}
                       <div className="flex items-center gap-3 text-xs text-muted-foreground mb-3">
                         <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{emailNodes.length} emails</span>
                         {stats && <span className="flex items-center gap-1"><Send className="h-3 w-3" />{stats.total_executions} envios</span>}
+                        {(flowContactCounts.get(flow.id) || 0) > 0 && (
+                          <button
+                            className="flex items-center gap-1 text-primary hover:underline cursor-pointer"
+                            onClick={() => handleViewContacts(flow.id)}
+                          >
+                            <UserPlus className="h-3 w-3" />
+                            {flowContactCounts.get(flow.id)} contatos
+                          </button>
+                        )}
                       </div>
 
                       <div className="flex gap-1.5 flex-wrap">
                         <Button variant="outline" size="sm" className="h-7 text-[10px]" onClick={() => { setSelectedFlow(flow); setIsFlowEditorOpen(true); }}>
                           <Edit3 className="h-3 w-3 mr-1" />Editar
+                        </Button>
+                        <Button variant="outline" size="sm" className="h-7 text-[10px]" onClick={() => handleOpenImport(flow.id)}>
+                          <Upload className="h-3 w-3 mr-1" />Importar
                         </Button>
                         <Button variant="outline" size="sm" className="h-7 text-[10px]" onClick={() => handleToggleFlowActive(flow.id, flow.is_active)}>
                           {flow.is_active ? <Pause className="h-3 w-3 mr-1" /> : <Play className="h-3 w-3 mr-1" />}
