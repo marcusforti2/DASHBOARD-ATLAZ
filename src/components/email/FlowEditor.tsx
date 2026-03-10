@@ -358,6 +358,21 @@ export default function FlowEditor({ flow, templates, onSave, onClose }: FlowEdi
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Email Preview Dialog */}
+      <Dialog open={isEmailPreviewOpen} onOpenChange={setIsEmailPreviewOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-auto p-0">
+          <DialogHeader className="p-6 pb-3">
+            <DialogTitle className="flex items-center gap-2"><Eye className="h-5 w-5" />Preview do Email</DialogTitle>
+          </DialogHeader>
+          <div className="mx-6 mb-2 p-3 bg-muted rounded-lg">
+            <p className="text-sm"><strong>Assunto:</strong> {(selectedNode?.data?.subject as string || '').replace(/\{\{nome\}\}/g, 'João Silva')}</p>
+          </div>
+          <div className="mx-6 mb-6 rounded-lg overflow-hidden border bg-white">
+            <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
