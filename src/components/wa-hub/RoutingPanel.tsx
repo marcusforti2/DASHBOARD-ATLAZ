@@ -14,6 +14,12 @@ interface RoutingMap {
   ai_sdr_enabled: boolean;
   closer_name: string | null;
   closer_email: string | null;
+  closer_pipedrive_id: number | null;
+  sdr_name: string | null;
+  phone: string | null;
+  lead_sources: { name: string; pipedrive_label_id: number; active: boolean }[];
+  issues: string[];
+}
   sdr_name: string | null;
   phone: string | null;
   lead_sources: { name: string; pipedrive_label_id: number; active: boolean }[];
