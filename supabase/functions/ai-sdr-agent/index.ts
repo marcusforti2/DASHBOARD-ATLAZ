@@ -1172,7 +1172,7 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
           console.log("[ai-sdr] 1h follow-up scheduled for", oneHBefore.toISOString());
         }
         // === CREATE GOOGLE CALENDAR EVENT FOR CLOSER ===
-        if (instance.closer_id) {
+        if (instance.closer_id && (config.feature_calendar_auto !== false)) {
           try {
             const { data: closerProfile } = await supabase
               .from("profiles")
