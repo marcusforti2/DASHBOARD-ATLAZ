@@ -82,7 +82,8 @@ serve(async (req) => {
       case 'sendSticker': {
         url = `${baseUrl}/message/sendSticker/${instanceName}`;
         method = 'POST';
-        // Evolution API expects: { number, stickerMessage: { image: "<url or base64>" } }
+        // Evolution API expects: { number, stickerMessage: { image: "<url or raw base64>" } }
+        // It does NOT accept data URIs (data:image/...) — only plain URLs or raw base64
         const imgSrc = data?.image as string | undefined;
         if (!imgSrc) {
           return new Response(JSON.stringify({ error: 'Missing sticker image data' }), {
@@ -92,34 +93,14 @@ serve(async (req) => {
 
         let stickerImageValue = imgSrc;
 
-        // If it's a URL, fetch and convert to base64 for reliability
-        if (imgSrc.startsWith('http')) {
-          try {
-            const imgResp = await fetch(imgSrc);
-            if (!imgResp.ok) throw new Error(`Failed to fetch image: ${imgResp.status}`);
-            const imgBuf = await imgResp.arrayBuffer();
-            const bytes = new Uint8Array(imgBuf);
-            let binary = '';
-            const chunkSize = 8192;
-            for (let i = 0; i < bytes.length; i += chunkSize) {
-              const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
-              for (let j = 0; j < chunk.length; j++) binary += String.fromCharCode(chunk[j]);
-            }
-            const rawB64 = btoa(binary);
-            const mime = imgResp.headers.get('content-type') || 'image/webp';
-            stickerImageValue = `data:${mime};base64,${rawB64}`;
-          } catch (e) {
-            console.error('[evolution-api] Failed to fetch sticker image for base64 conversion:', e);
-            // Fallback: send original URL
-            stickerImageValue = imgSrc;
-          }
-        } else if (imgSrc.startsWith('data:')) {
-          // Already a data URI, use as-is
+        if (imgSrc.startsWith('data:')) {
+          // Strip data URI prefix to get raw base64
+          stickerImageValue = imgSrc.replace(/^data:image\/\w+;base64,/, '');
+        } else if (imgSrc.startsWith('http')) {
+          // Send URL directly — Evolution API accepts URLs
           stickerImageValue = imgSrc;
-        } else {
-          // Raw base64 — wrap it
-          stickerImageValue = `data:image/webp;base64,${imgSrc}`;
         }
+        // else: assume raw base64, use as-is
 
         body = JSON.stringify({
           number: data?.number,
