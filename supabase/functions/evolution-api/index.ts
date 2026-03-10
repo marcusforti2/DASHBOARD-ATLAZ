@@ -82,8 +82,7 @@ serve(async (req) => {
       case 'sendSticker': {
         url = `${baseUrl}/message/sendSticker/${instanceName}`;
         method = 'POST';
-        // Evolution API expects: { number, stickerMessage: { image: "<url or raw base64>" } }
-        // It does NOT accept data URIs (data:image/...) — only plain URLs or raw base64
+        // Evolution API sendSticker expects: { number, stickerMessage: { image: "<url or raw base64>" } }
         const imgSrc = data?.image as string | undefined;
         if (!imgSrc) {
           return new Response(JSON.stringify({ error: 'Missing sticker image data' }), {
@@ -95,10 +94,27 @@ serve(async (req) => {
 
         if (imgSrc.startsWith('data:')) {
           // Strip data URI prefix to get raw base64
-          stickerImageValue = imgSrc.replace(/^data:image\/\w+;base64,/, '');
+          stickerImageValue = imgSrc.replace(/^data:image\/[^;]+;base64,/, '');
         } else if (imgSrc.startsWith('http')) {
-          // Send URL directly — Evolution API accepts URLs
-          stickerImageValue = imgSrc;
+          // Fetch image and convert to raw base64 — more reliable than passing URL
+          try {
+            const imgResp = await fetch(imgSrc);
+            if (!imgResp.ok) throw new Error(`Fetch failed: ${imgResp.status}`);
+            const imgBuf = await imgResp.arrayBuffer();
+            const bytes = new Uint8Array(imgBuf);
+            let binary = '';
+            const chunkSize = 8192;
+            for (let i = 0; i < bytes.length; i += chunkSize) {
+              const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+              for (let j = 0; j < chunk.length; j++) binary += String.fromCharCode(chunk[j]);
+            }
+            stickerImageValue = btoa(binary);
+            console.log(`[evolution-api] Converted sticker URL to raw base64 (${stickerImageValue.length} chars)`);
+          } catch (e) {
+            console.error('[evolution-api] Failed to convert sticker URL to base64:', e);
+            // Fallback: try sending URL directly
+            stickerImageValue = imgSrc;
+          }
         }
         // else: assume raw base64, use as-is
 
