@@ -44,7 +44,7 @@ export function RoutingPanel() {
 
       const { data: members } = await supabase
         .from("team_members")
-        .select("id, name, email")
+        .select("id, name, email, pipedrive_user_id")
         .in("id", allIds.length > 0 ? allIds : ["__none__"]);
 
       const memberMap = new Map((members || []).map(m => [m.id, m]));
