@@ -995,7 +995,6 @@ export default function TeamManagement() {
   };
 
   const handleDelete = async (member: DbTeamMember) => {
-    if (!confirm(`Excluir ${member.name}? Esta ação não pode ser desfeita.`)) return;
     // Also try to delete the auth user via edge function
     try {
       const { data: profile } = await supabase.from("profiles").select("id").eq("team_member_id", member.id).single();
