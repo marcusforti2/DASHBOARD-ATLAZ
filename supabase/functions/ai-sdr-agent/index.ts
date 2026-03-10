@@ -415,13 +415,14 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Get Pipedrive deal context
+    // Get Pipedrive deal context + LinkedIn enrichment
     let pipedriveContext = "";
+    let linkedinContext = "";
     if (features.pipedrive_sync && conversation?.contact_id) {
       try {
         const { data: pipeContact } = await supabase
           .from("pipedrive_persons")
-          .select("pipedrive_id, name, org_name")
+          .select("pipedrive_id, name, org_name, raw_data")
           .eq("wa_contact_id", conversation.contact_id)
           .single();
 
@@ -434,6 +435,89 @@ Deno.serve(async (req) => {
 
           if (deals?.length) {
             pipedriveContext = `\n\nDADOS DO PIPEDRIVE:\nContato: ${pipeContact.name} (${pipeContact.org_name || "sem empresa"})\nDeals:\n${deals.map(d => `- ${d.title}: ${d.status} | ${d.stage_name} | ${d.currency} ${d.value}`).join("\n")}`;
+          }
+
+          // LinkedIn scraping via Piloterr
+          const PILOTERR_API_KEY = Deno.env.get("PILOTERR_API_KEY");
+          if (PILOTERR_API_KEY) {
+            try {
+              // Try to extract LinkedIn URL from Pipedrive raw_data
+              const rawData: any = pipeContact.raw_data || {};
+              let linkedinUrl = "";
+              
+              // Pipedrive stores social profiles in various fields
+              if (typeof rawData === 'object') {
+                // Check common fields for LinkedIn URL
+                const jsonStr = JSON.stringify(rawData).toLowerCase();
+                const linkedinMatch = jsonStr.match(/https?:\/\/(?:www\.)?linkedin\.com\/in\/[a-zA-Z0-9_-]+/i);
+                if (linkedinMatch) {
+                  linkedinUrl = linkedinMatch[0];
+                }
+              }
+
+              if (linkedinUrl) {
+                console.log("[ai-sdr] LinkedIn URL found in Pipedrive:", linkedinUrl);
+                const scraperResp = await fetch(`${SUPABASE_URL}/functions/v1/linkedin-scraper`, {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({ linkedin_url: linkedinUrl }),
+                });
+
+                if (scraperResp.ok) {
+                  const scraperData = await scraperResp.json();
+                  if (scraperData.found && scraperData.profile) {
+                    const p = scraperData.profile;
+                    linkedinContext = `\n\nPERFIL LINKEDIN DO LEAD (use para personalizar a abordagem):
+- Nome: ${p.full_name}
+- Cargo: ${p.company_role || p.headline}
+- Empresa: ${p.company}
+- Setor: ${p.industry || "N/A"}
+- Localização: ${p.location || "N/A"}
+- Resumo: ${p.summary ? p.summary.substring(0, 300) : "N/A"}
+${p.experience?.length ? `- Experiência recente:\n${p.experience.map((e: any) => `  • ${e.title} @ ${e.company} (${e.duration})`).join("\n")}` : ""}
+${p.education?.length ? `- Formação: ${p.education.map((e: any) => `${e.degree} - ${e.school}`).join(", ")}` : ""}
+
+IMPORTANTE: Use essas informações para criar rapport GENUÍNO. Mencione algo específico do perfil dele (cargo, empresa, setor) para mostrar que você pesquisou. NÃO seja genérico.`;
+                    console.log("[ai-sdr] LinkedIn enrichment success:", p.full_name, p.company);
+                  }
+                }
+              } else {
+                // Try searching by name + company
+                const searchQuery = `${pipeContact.name} ${pipeContact.org_name || ""}`.trim();
+                if (searchQuery.length > 3) {
+                  console.log("[ai-sdr] Searching LinkedIn by name:", searchQuery);
+                  const scraperResp = await fetch(`${SUPABASE_URL}/functions/v1/linkedin-scraper`, {
+                    method: "POST",
+                    headers: {
+                      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ query: searchQuery }),
+                  });
+
+                  if (scraperResp.ok) {
+                    const scraperData = await scraperResp.json();
+                    if (scraperData.found && scraperData.profile) {
+                      const p = scraperData.profile;
+                      linkedinContext = `\n\nPERFIL LINKEDIN ENCONTRADO (possível match - use com cuidado):
+- Nome: ${p.full_name}
+- Cargo: ${p.company_role || p.headline}
+- Empresa: ${p.company}
+- Setor: ${p.industry || "N/A"}
+- Localização: ${p.location || "N/A"}
+
+Use essas informações para personalizar a abordagem, mas NÃO mencione diretamente que buscou no LinkedIn.`;
+                      console.log("[ai-sdr] LinkedIn search match:", p.full_name);
+                    }
+                  }
+                }
+              }
+            } catch (linkedinErr) {
+              console.error("[ai-sdr] LinkedIn scraping error (non-blocking):", linkedinErr);
+            }
           }
         }
       } catch (pipeErr) {
