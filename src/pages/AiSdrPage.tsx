@@ -93,6 +93,9 @@ const DEFAULT_CONFIG: AiSdrConfig = {
   escalation_hours: 48,
   rate_limit_per_hour: 5,
   blacklist_numbers: [],
+  target_audience: "",
+  pain_points: "",
+  desires: "",
   qualification_questions: [
     "Como posso te chamar?",
     "Qual tipo de negócio você atua?",
