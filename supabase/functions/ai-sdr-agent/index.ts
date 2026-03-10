@@ -128,7 +128,7 @@ Deno.serve(async (req) => {
     }
 
     // ===== BUG FIX #1: STOP AI AFTER HANDOFF =====
-    // If lead_status is "agendado", the closer took over — AI must NOT respond
+    // If lead_status is "agendado" or "urgente", the closer took over — AI must NOT respond
     {
       const { data: convCheck } = await supabase
         .from("wa_conversations")
@@ -136,9 +136,10 @@ Deno.serve(async (req) => {
         .eq("id", conversation_id)
         .single();
 
-      if (convCheck?.lead_status === "agendado" && !isProactive && !force) {
-        console.log("[ai-sdr] Skipping: lead status is 'agendado' — human takeover active");
-        return new Response(JSON.stringify({ skipped: "human_takeover_agendado" }), {
+      const blockedStatuses = ["agendado", "urgente"];
+      if (convCheck?.lead_status && blockedStatuses.includes(convCheck.lead_status) && !isProactive && !force) {
+        console.log(`[ai-sdr] Skipping: lead status is '${convCheck.lead_status}' — human takeover active`);
+        return new Response(JSON.stringify({ skipped: `human_takeover_${convCheck.lead_status}` }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
