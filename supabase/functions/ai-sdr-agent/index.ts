@@ -98,6 +98,7 @@ Deno.serve(async (req) => {
       });
     }
 
+    const config: any = instance.ai_sdr_config || {};
 
     // Check feature toggles
     const features = {
