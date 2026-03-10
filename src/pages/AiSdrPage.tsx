@@ -22,6 +22,10 @@ interface AiSdrConfig {
   auto_tag: boolean;
   max_messages_before_handoff: number;
   business_hours_only: boolean;
+  business_hours_start: number;
+  business_hours_end: number;
+  human_takeover_mode: boolean;
+  human_takeover_minutes: number;
   prompt_context: string;
   master_prompt: string;
   follow_up_hours: number;
