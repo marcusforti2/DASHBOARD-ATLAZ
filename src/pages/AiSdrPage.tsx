@@ -482,27 +482,34 @@ export default function AiSdrPage() {
                             <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">
                               Pipedrive Label ID
                             </label>
-                            <Input
-                              type="number"
-                              value={src.pipedrive_label_id ?? ""}
-                              onChange={e => {
-                                const sources = [...(localConfig.lead_sources || [])];
-                                const val = e.target.value ? parseInt(e.target.value) : null;
-                                sources[idx] = { ...sources[idx], pipedrive_label_id: val };
-                                update("lead_sources", sources);
-                              }}
-                              placeholder="Ex: 43"
-                              className="h-8 w-28 text-xs font-mono"
-                            />
+                            <div className="h-8 w-28 flex items-center px-2 rounded-md bg-muted/50 border border-border text-xs font-mono text-muted-foreground">
+                              {src.pipedrive_label_id ?? "—"}
+                            </div>
                           </div>
                           <p className="text-[10px] text-muted-foreground flex-1">
                             ID da etiqueta no Pipedrive. A IA só dispara proativamente para deals com essa etiqueta.
                           </p>
                         </div>
                         <div>
-                          <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">
-                            Contexto / Instruções para a IA
-                          </label>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                              Contexto / Instruções para a IA
+                            </label>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 text-[11px] gap-1.5 text-primary hover:text-primary hover:bg-primary/10"
+                              disabled={enrichingSourceId === src.id}
+                              onClick={() => handleEnrichContext(idx, src)}
+                            >
+                              {enrichingSourceId === src.id ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Sparkles className="w-3 h-3" />
+                              )}
+                              Enriquecer com IA
+                            </Button>
+                          </div>
                           <Textarea
                             value={src.context}
                             onChange={e => {
