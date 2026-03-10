@@ -130,6 +130,13 @@ const FEATURES = [
   { key: "feature_sentiment" as const, icon: Brain, title: "Análise de sentimento", desc: "Detecta frustração e risco", color: "text-purple-500" },
   { key: "feature_pipedrive_sync" as const, icon: Zap, title: "Sync Pipedrive", desc: "Atualiza deals e notas no CRM", color: "text-primary" },
   { key: "business_hours_only" as const, icon: Clock, title: "Só Horário Comercial", desc: "IA só responde 8h-18h Seg-Sex", color: "text-slate-500" },
+  { key: "feature_rate_limit" as const, icon: Shield, title: "Anti-Spam / Rate Limit", desc: "Limita msgs por contato/hora", color: "text-rose-500" },
+  { key: "feature_reengagement" as const, icon: MessageSquare, title: "Reengajamento automático", desc: "Reativa leads inativos há X dias", color: "text-teal-500" },
+  { key: "feature_blacklist" as const, icon: Users, title: "Blacklist / DNC", desc: "Números que a IA nunca contata", color: "text-red-600" },
+  { key: "feature_daily_summary" as const, icon: BarChart3, title: "Resumo diário WhatsApp", desc: "Envia resumo de leads quentes ao closer", color: "text-indigo-500" },
+  { key: "feature_language_detection" as const, icon: Sparkles, title: "Detecção de idioma", desc: "Adapta idioma automaticamente (PT/EN/ES)", color: "text-cyan-500" },
+  { key: "feature_linkedin_lookup" as const, icon: TrendingUp, title: "Auto-pesquisa LinkedIn", desc: "Enriquece lead com dados do LinkedIn", color: "text-blue-600" },
+  { key: "feature_time_escalation" as const, icon: AlertTriangle, title: "Escalonamento por tempo", desc: "Escala ao gestor se sem resposta em X horas", color: "text-orange-600" },
 ];
 
 export default function AiSdrPage() {
