@@ -286,7 +286,7 @@ export default function EmailMarketingPage() {
     setIsGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke('generate-email-campaign', {
-        body: { prompt: aiPrompt, sources: aiSources },
+        body: { prompt: aiPrompt, context: aiContext || undefined },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
