@@ -1,0 +1,1 @@
+UPDATE team_members SET active = true WHERE id = '7dd297ce-3dc9-4303-b365-23b3f8571aac';
