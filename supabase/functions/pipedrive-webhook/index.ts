@@ -363,9 +363,12 @@ async function handleDeal(supabase: any, event: string, current: any, previous: 
 
     console.log(`[pipedrive-webhook] Resolved phone: ${formattedPhone} for ${personName}`);
 
+    // ===== VALIDATE WHATSAPP NUMBER =====
+    const EVOLUTION_API_URL = Deno.env.get('EVOLUTION_API_URL');
+    const EVOLUTION_API_KEY = Deno.env.get('EVOLUTION_API_KEY');
+    
     // Determine which instance to use based on deal owner → closer mapping
-    // Try to match deal owner to a team_member, then find their instance
-    const ownerId = d.owner_id;
+    const ownerId2 = d.owner_id;
     let targetInstance: any = null;
 
     // Get all AI SDR enabled instances
@@ -381,10 +384,7 @@ async function handleDeal(supabase: any, event: string, current: any, previous: 
     }
 
     // If deal has an owner, try to match to a closer's instance
-    if (ownerId) {
-      // Check if any team member is mapped to this pipedrive owner
-      // For now, use the instance whose closer matches the deal assignment
-      // or fall back to any available instance
+    if (ownerId2) {
       for (const inst of sdrInstances) {
         if (inst.closer_id === teamMemberId && teamMemberId) {
           targetInstance = inst;
@@ -393,12 +393,93 @@ async function handleDeal(supabase: any, event: string, current: any, previous: 
       }
     }
 
-    // Fallback: use first available instance
+    // FALLBACK INTELIGENTE: se o closer dono não tem instância, tentar por email do owner
+    if (!targetInstance && ownerEmail) {
+      // Try to find any closer whose email matches and has an instance
+      const { data: matchedMember } = await supabase
+        .from('team_members')
+        .select('id')
+        .eq('email', ownerEmail)
+        .limit(1)
+        .single();
+      
+      if (matchedMember) {
+        const matched = sdrInstances.find((inst: any) => inst.closer_id === matchedMember.id);
+        if (matched) {
+          targetInstance = matched;
+          console.log(`[pipedrive-webhook] Fallback: matched owner email ${ownerEmail} to instance ${matched.instance_name}`);
+        }
+      }
+    }
+
+    // FALLBACK 2: use first available instance with label match
+    if (!targetInstance) {
+      // Try to find an instance that has matching lead_source config
+      for (const inst of sdrInstances) {
+        const ic = inst.ai_sdr_config || {};
+        const ls = ic.lead_sources || [];
+        const hasMatch = resolvedLabelIds.some((lid: number) => 
+          ls.some((s: any) => s.active && Number(s.pipedrive_label_id) === lid)
+        );
+        if (hasMatch) {
+          targetInstance = inst;
+          console.log(`[pipedrive-webhook] Fallback 2: using instance ${inst.instance_name} (has matching label config)`);
+          break;
+        }
+      }
+    }
+
+    // FALLBACK 3: first available
     if (!targetInstance) {
       targetInstance = sdrInstances[0];
+      console.log(`[pipedrive-webhook] Fallback 3: using first available instance ${targetInstance.instance_name}`);
     }
 
     console.log(`[pipedrive-webhook] Using instance: ${targetInstance.instance_name} (closer: ${targetInstance.closer_id})`);
+
+    // ===== VALIDATE NUMBER ON WHATSAPP BEFORE SENDING =====
+    if (EVOLUTION_API_URL && EVOLUTION_API_KEY) {
+      try {
+        const checkResp = await fetch(
+          `${EVOLUTION_API_URL}/chat/whatsappNumbers/${targetInstance.instance_name}`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              apikey: EVOLUTION_API_KEY,
+            },
+            body: JSON.stringify({ numbers: [formattedPhone] }),
+          }
+        );
+        const checkData = await checkResp.json();
+        const numberInfo = Array.isArray(checkData) ? checkData[0] : checkData?.[0];
+        
+        if (numberInfo && numberInfo.exists === false) {
+          console.log(`[pipedrive-webhook] ❌ Number ${formattedPhone} does NOT exist on WhatsApp. Skipping proactive.`);
+          // Log the failure
+          await supabase.from('pipedrive_webhook_logs').insert({
+            event: 'proactive_sdr',
+            entity: 'deal',
+            pipedrive_id: d.id,
+            processed: true,
+            error: `number_not_on_whatsapp:${formattedPhone}`,
+          });
+          return;
+        }
+        
+        // If the API returns a different JID number, use that
+        if (numberInfo?.jid) {
+          const correctedNumber = numberInfo.jid.split('@')[0];
+          if (correctedNumber && correctedNumber !== formattedPhone) {
+            console.log(`[pipedrive-webhook] Number corrected: ${formattedPhone} → ${correctedNumber}`);
+          }
+        }
+        
+        console.log(`[pipedrive-webhook] ✅ Number ${formattedPhone} exists on WhatsApp`);
+      } catch (checkErr) {
+        console.error('[pipedrive-webhook] WhatsApp number check failed (proceeding anyway):', checkErr);
+      }
+    }
 
     // Match deal label with configured lead_sources
     const instConfig = targetInstance.ai_sdr_config || {};
