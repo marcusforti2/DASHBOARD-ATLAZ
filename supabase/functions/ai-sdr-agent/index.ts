@@ -81,19 +81,22 @@ serve(async (req) => {
       });
     }
 
-    // CONCURRENCY GUARD: Skip if AI already responded in this conversation in the last 15 seconds
+    // CONCURRENCY GUARD: Skip if AI already responded in this conversation recently
+    // For proactive triggers: check last 5 minutes (prevent duplicate proactive sends)
+    // For incoming messages: check last 15 seconds (prevent rapid duplicate responses)
+    const guardWindow = isProactive ? 5 * 60 * 1000 : 15 * 1000;
     const { data: recentAgentMsg } = await supabase
       .from("wa_messages")
       .select("id, created_at")
       .eq("conversation_id", conversation_id)
       .eq("sender", "agent")
-      .gte("created_at", new Date(Date.now() - 15 * 1000).toISOString())
+      .gte("created_at", new Date(Date.now() - guardWindow).toISOString())
       .limit(1)
       .maybeSingle();
 
-    if (recentAgentMsg && !isProactive) {
-      console.log("[ai-sdr] Skipping: recent agent message found (concurrency guard)", recentAgentMsg.id);
-      return new Response(JSON.stringify({ skipped: "concurrency_guard" }), {
+    if (recentAgentMsg) {
+      console.log(`[ai-sdr] Skipping: recent agent message found (${isProactive ? 'proactive' : 'concurrency'} guard)`, recentAgentMsg.id);
+      return new Response(JSON.stringify({ skipped: isProactive ? "proactive_guard" : "concurrency_guard" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -365,6 +368,7 @@ Responda EXATAMENTE neste formato JSON:
     let userMessage: string;
     if (isProactive) {
       const pCtx = pipedrive_context || {};
+      const linkedinUrl = pCtx.linkedin_url || "";
       userMessage = `Este é um NOVO LEAD que acabou de ser cadastrado no CRM (Pipedrive). Você deve iniciar a conversa proativamente pelo WhatsApp.
 
 CONTEXTO DO LEAD:
@@ -372,20 +376,25 @@ CONTEXTO DO LEAD:
 - Telefone: ${contact_phone}
 - Deal: ${pCtx.deal_title || "N/A"}
 - Valor: ${pCtx.deal_value || 0}
-- Empresa: ${pCtx.org_name || "Não informada"}
 - Origem: ${pCtx.origin || "Manual"}
+${linkedinUrl ? `- LinkedIn: ${linkedinUrl}` : ""}
 
 INSTRUÇÕES PARA PRIMEIRA MENSAGEM:
 1. Aja como se vocês já tivessem tido contato pelo LinkedIn (prospecção ativa)
-2. Mencione que viu o perfil/empresa no LinkedIn e achou interessante
-3. Seja natural e pessoal — use o primeiro nome do lead
-4. Faça uma transição suave para o WhatsApp: "resolvi te chamar aqui pra facilitar"
-5. NÃO faça pitch direto — gere curiosidade e abra a conversa
-6. Termine com uma pergunta aberta para engajar o lead
-7. Mantenha a mensagem curta (máximo 4 linhas)
+2. Mencione que viu o PERFIL da pessoa no LinkedIn — NÃO mencione o nome da empresa dela
+3. Adapte a abordagem ao perfil da pessoa (cargo, área de atuação) — NÃO cite a empresa
+4. Seja natural e pessoal — use o primeiro nome do lead
+5. Faça uma transição suave para o WhatsApp: "resolvi te chamar aqui pra facilitar"
+6. NÃO faça pitch direto — gere curiosidade e abra a conversa
+7. Termine com uma pergunta aberta para engajar o lead
+8. Mantenha a mensagem curta (máximo 4 linhas)
+9. Varie o estilo: às vezes mais direto, às vezes mais descontraído — não use sempre o mesmo template
 
-Exemplo de tom (adapte ao contexto):
-"Fala [Nome]! Tudo bem? Vi seu perfil no LinkedIn e achei muito bacana o trabalho da [empresa]. Resolvi te chamar aqui no WhatsApp pra facilitar. Posso te fazer uma pergunta rápida?"`;
+EXEMPLOS DE ABERTURAS (varie entre eles, adapte ao contexto):
+- "Fala [Nome]! Vi seu perfil no LinkedIn e curti demais sua trajetória na área de [área]. Resolvi te chamar aqui pra facilitar. Posso te fazer uma pergunta rápida?"
+- "E aí [Nome], tudo certo? Tava olhando seu LinkedIn e vi que você é de [área]. Me chamou atenção! Te mandei mensagem aqui pra gente trocar uma ideia rápida, pode ser?"
+- "[Nome], beleza? Achei seu perfil no LinkedIn e queria trocar uma ideia contigo sobre [tema relacionado à área]. Bora?"
+- "Oi [Nome]! Cheguei até você pelo LinkedIn. Tô entrando em contato porque acho que posso te ajudar com algo que faz sentido pro seu momento. Posso te contar?"`;
     } else {
       userMessage = `HISTÓRICO DA CONVERSA:\n${conversationText}\n\nÚLTIMA MENSAGEM DO LEAD:\n${incoming_message}`;
     }
