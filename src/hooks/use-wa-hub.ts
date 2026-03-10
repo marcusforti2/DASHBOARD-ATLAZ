@@ -208,8 +208,8 @@ export function useWaDashboardStats() {
         waiting: all.filter((c: any) => c.status === 'waiting').length,
         closed: all.filter((c: any) => c.status === 'closed').length,
         instances: (insts ?? []).filter((i: any) => i.is_connected).length,
-        totalMessages: (allMsgs as any)?.length ?? 0,
-        todayMessages: (todayMsgs as any)?.length ?? 0,
+        totalMessages: (allMsgs as any)?.count ?? 0,
+        todayMessages: (todayMsgs as any)?.count ?? 0,
         avgResponseTime: 0,
       });
       setLoading(false);
