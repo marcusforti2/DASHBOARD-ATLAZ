@@ -268,6 +268,8 @@ export default function Index() {
         return <ProcessosPage />;
       case "ai-sdr":
         return <AiSdrPage />;
+      case "email-marketing":
+        return <EmailMarketingPage />;
       case "calendars":
         return <AdminCalendarPage />;
       default:
