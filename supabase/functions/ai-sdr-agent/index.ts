@@ -259,7 +259,7 @@ Deno.serve(async (req) => {
     // Get conversation history
     const { data: messages } = await supabase
       .from("wa_messages")
-      .select("sender, text, created_at")
+      .select("sender, text, created_at, agent_name")
       .eq("conversation_id", conversation_id)
       .order("created_at", { ascending: false })
       .limit(20);
