@@ -1171,6 +1171,104 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
           });
           console.log("[ai-sdr] 1h follow-up scheduled for", oneHBefore.toISOString());
         }
+        // === CREATE GOOGLE CALENDAR EVENT FOR CLOSER ===
+        if (instance.closer_id) {
+          try {
+            const { data: closerProfile } = await supabase
+              .from("profiles")
+              .select("id")
+              .eq("team_member_id", instance.closer_id)
+              .single();
+
+            if (closerProfile) {
+              const { data: calToken } = await supabase
+                .from("google_calendar_tokens")
+                .select("access_token, refresh_token, token_expires_at")
+                .eq("user_id", closerProfile.id)
+                .single();
+
+              if (calToken) {
+                let accessToken = calToken.access_token;
+                const expiresAt = new Date(calToken.token_expires_at);
+                if (expiresAt < new Date()) {
+                  const GCI = Deno.env.get("GOOGLE_CLIENT_ID");
+                  const GCS = Deno.env.get("GOOGLE_CLIENT_SECRET");
+                  if (GCI && GCS) {
+                    const refreshResp = await fetch("https://oauth2.googleapis.com/token", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                      body: new URLSearchParams({ client_id: GCI, client_secret: GCS, refresh_token: calToken.refresh_token, grant_type: "refresh_token" }),
+                    });
+                    if (refreshResp.ok) {
+                      const tokens = await refreshResp.json();
+                      accessToken = tokens.access_token;
+                      await supabase.from("google_calendar_tokens").update({
+                        access_token: accessToken,
+                        token_expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
+                      }).eq("user_id", closerProfile.id);
+                    }
+                  }
+                }
+
+                const meetingEnd = new Date(meetingTime.getTime() + 30 * 60 * 1000); // 30 min duration
+                const event = {
+                  summary: `📞 Ligação — ${contact_name || "Lead"}`,
+                  description: `Lead agendado pela SDR IA.\n\nNome: ${contact_name || "N/A"}\nTelefone: ${contact_phone || "N/A"}\n\nConversa: ${conversation_id}`,
+                  start: { dateTime: meetingTime.toISOString(), timeZone: "America/Sao_Paulo" },
+                  end: { dateTime: meetingEnd.toISOString(), timeZone: "America/Sao_Paulo" },
+                  reminders: { useDefault: false, overrides: [{ method: "popup", minutes: 15 }, { method: "popup", minutes: 5 }] },
+                  conferenceData: { createRequest: { requestId: `sdr-${conversation_id.slice(0, 8)}`, conferenceSolutionKey: { type: "hangoutsMeet" } } },
+                };
+
+                const calCreateResp = await fetch(
+                  "https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1",
+                  {
+                    method: "POST",
+                    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+                    body: JSON.stringify(event),
+                  }
+                );
+
+                if (calCreateResp.ok) {
+                  const createdEvent = await calCreateResp.json();
+                  const meetLink = createdEvent.hangoutLink || "";
+                  console.log("[ai-sdr] Google Calendar event created:", createdEvent.id, meetLink);
+
+                  // Send WhatsApp notification to closer
+                  if (EVOLUTION_API_URL && EVOLUTION_API_KEY) {
+                    const { data: closerMember } = await supabase
+                      .from("team_members")
+                      .select("phone, name")
+                      .eq("id", instance.closer_id)
+                      .single();
+
+                    if (closerMember?.phone) {
+                      const baseUrl = EVOLUTION_API_URL.replace(/\/$/, "");
+                      const resolvedInstName = instName || instance.instance_name;
+                      const dateStr = meetingTime.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "2-digit" });
+                      const timeStr = meetingTime.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
+                      const alertMsg = `📅 *Novo agendamento confirmado!*\n\n👤 ${contact_name || "Lead"}\n📞 ${contact_phone}\n🗓 ${dateStr} às ${timeStr}\n${meetLink ? `🔗 Meet: ${meetLink}\n` : ""}\n✅ Evento criado na sua agenda automaticamente.\n\n_Agendado pela SDR IA 🤖_`;
+                      
+                      await fetch(`${baseUrl}/message/sendText/${resolvedInstName}`, {
+                        method: "POST",
+                        headers: { apikey: EVOLUTION_API_KEY, "Content-Type": "application/json" },
+                        body: JSON.stringify({ number: closerMember.phone, text: alertMsg }),
+                      }).catch(e => console.error("[ai-sdr] Failed to notify closer via WhatsApp:", e));
+                      console.log("[ai-sdr] Closer notified via WhatsApp:", closerMember.name);
+                    }
+                  }
+                } else {
+                  const calErr = await calCreateResp.text();
+                  console.error("[ai-sdr] Failed to create calendar event:", calCreateResp.status, calErr);
+                }
+              } else {
+                console.log("[ai-sdr] Closer has no Google Calendar connected, skipping event creation");
+              }
+            }
+          } catch (calEventErr) {
+            console.error("[ai-sdr] Calendar event creation error:", calEventErr);
+          }
+        }
       }
 
       // Update lead status to agendado
