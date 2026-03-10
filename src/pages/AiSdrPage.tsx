@@ -522,12 +522,12 @@ export default function AiSdrPage() {
                       ...localConfig,
                       blacklist_numbers: (localConfig.blacklist_numbers || []).join("\n"),
                     }}
-                    onToggle={() => update(def.key, !isOn)}
+                    onToggle={() => update(def.key as keyof AiSdrConfig, !isOn)}
                     onFieldChange={(key, value) => {
                       if (key === "blacklist_numbers") {
-                        update(key, String(value).split("\n").map((n: string) => n.trim()).filter(Boolean));
+                        update("blacklist_numbers", String(value).split("\n").map((n: string) => n.trim()).filter(Boolean));
                       } else {
-                        update(key, value);
+                        update(key as keyof AiSdrConfig, value);
                       }
                     }}
                   />
