@@ -939,24 +939,26 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
       };
 
       // ===== SMART DELAY: Initial "reading + thinking" pause before any response =====
-      // Simulates time a human would take to read the incoming message and think
-      const incomingLength = (incoming_message || "").length;
-      const isFirstMessage = isProactive; // proactive = no reading delay needed
+      const smartDelayEnabled = config.feature_smart_delay !== false;
+      const isFirstMessage = isProactive;
       
-      if (!isFirstMessage) {
-        // Base delay: 3-8 seconds for short messages, 5-15 seconds for longer ones
-        const baseDelay = incomingLength > 100 
-          ? Math.floor(Math.random() * 10000) + 5000   // 5-15s for long messages
-          : incomingLength > 30 
-            ? Math.floor(Math.random() * 7000) + 4000  // 4-11s for medium messages  
-            : Math.floor(Math.random() * 5000) + 3000; // 3-8s for short messages
+      if (smartDelayEnabled && !isFirstMessage) {
+        const incomingLength = (incoming_message || "").length;
+        const minDelaySec = config.smart_delay_min_seconds || 3;
+        const maxDelaySec = config.smart_delay_max_seconds || 20;
+        const minMs = minDelaySec * 1000;
+        const maxMs = maxDelaySec * 1000;
         
-        // Add extra random variance (0-5s) to make it unpredictable
-        const extraVariance = Math.floor(Math.random() * 5000);
-        const totalReadingDelay = baseDelay + extraVariance;
+        // Scale delay based on message length within configured range
+        const lengthFactor = Math.min(1, incomingLength / 150); // 0-1 based on msg length
+        const baseDelay = minMs + (maxMs - minMs) * lengthFactor;
+        // Add random variance (±30%)
+        const variance = baseDelay * 0.3;
+        const totalDelay = Math.floor(baseDelay - variance + Math.random() * variance * 2);
+        const clampedDelay = Math.max(minMs, Math.min(maxMs, totalDelay));
         
-        console.log(`[ai-sdr] Smart delay: waiting ${totalReadingDelay}ms before responding (msg length: ${incomingLength} chars)`);
-        await new Promise(r => setTimeout(r, totalReadingDelay));
+        console.log(`[ai-sdr] Smart delay: waiting ${clampedDelay}ms (range: ${minDelaySec}-${maxDelaySec}s, msg: ${incomingLength} chars)`);
+        await new Promise(r => setTimeout(r, clampedDelay));
       }
 
       for (let i = 0; i < replyParts.length; i++) {
