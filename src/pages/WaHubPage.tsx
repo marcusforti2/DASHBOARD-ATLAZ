@@ -53,6 +53,28 @@ export default function WaHubPage() {
     });
   }, []);
 
+  // Auto-sync all instances' real connection status on load
+  useEffect(() => {
+    const syncStatuses = async () => {
+      if (instances.length === 0) return;
+      for (const inst of instances) {
+        try {
+          const data = await import('@/lib/evolutionApi').then(m => m.getInstanceStatus(inst.instance_name));
+          const isConn = data?.state === 'open';
+          if (inst.is_connected !== isConn) {
+            await supabase.from('wa_instances').update({ is_connected: isConn } as any).eq('id', inst.id);
+          }
+        } catch {
+          if (inst.is_connected) {
+            await supabase.from('wa_instances').update({ is_connected: false } as any).eq('id', inst.id);
+          }
+        }
+      }
+      refetchInstances();
+    };
+    syncStatuses();
+  }, [instances.length]);
+
   const handleCreateInstance = async () => {
     const name = newName.trim();
     if (!name) { toast.error('Nome da instância obrigatório'); return; }
