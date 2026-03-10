@@ -240,29 +240,13 @@ export function AiSdrTab({ instances, teamMembers, onRefetch }: Props) {
         )}
       </div>
 
-      {/* Flow diagram */}
+      {/* Interactive Flow diagram */}
       <div className="rounded-xl border border-border bg-card p-4">
-        <h3 className="text-sm font-bold text-foreground mb-3">🔄 Fluxo Completo do Agente</h3>
-        <div className="flex items-center gap-2 overflow-x-auto pb-2">
-          {[
-            { icon: Zap, label: "Pipedrive trigger", color: "text-primary" },
-            { icon: Phone, label: "IA inicia conversa", color: "text-blue-500" },
-            { icon: MessageSquare, label: "Qualifica lead", color: "text-green-500" },
-            { icon: Target, label: "Score A/B/C", color: "text-yellow-500" },
-            { icon: Calendar, label: "Agenda reunião", color: "text-orange-500" },
-            { icon: Users, label: "Handoff humano", color: "text-red-500" },
-          ].map((step, i, arr) => (
-            <div key={i} className="flex items-center gap-2 shrink-0">
-              <div className="flex flex-col items-center gap-1">
-                <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">
-                  <step.icon className={`w-5 h-5 ${step.color}`} />
-                </div>
-                <span className="text-[9px] text-muted-foreground text-center w-16">{step.label}</span>
-              </div>
-              {i < arr.length - 1 && <ArrowRight className="w-3.5 h-3.5 text-muted-foreground shrink-0 mb-4" />}
-            </div>
-          ))}
-        </div>
+        <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
+          🔄 Fluxo Completo do Agente
+          {closerName && <Badge variant="secondary" className="text-[10px]">Responde como {closerName}</Badge>}
+        </h3>
+        <AiSdrFlowView config={localConfig} closerName={closerName} />
       </div>
 
       {/* Instance selector + config */}
