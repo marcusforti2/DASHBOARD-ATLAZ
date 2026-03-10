@@ -550,8 +550,8 @@ export default function AiSdrPage() {
                               sources[idx] = { ...sources[idx], context: e.target.value };
                               update("lead_sources", sources);
                             }}
-                            placeholder="Descreva o contexto e como a IA deve abordar leads dessa origem..."
-                            rows={4}
+                            placeholder={"Ex: Lead veio do LinkedIn por prospecção ativa.\n\n• Tom: casual e direto, como um colega\n• Mencione algo do perfil dele (cargo, área)\n• NÃO cite o nome da empresa logo de cara\n• Gatilho: gerar curiosidade sobre resultados\n• Objetivo: marcar ligação em 3-4 mensagens"}
+                            rows={8}
                             className="text-sm resize-none bg-card"
                           />
                           <p className="text-[11px] text-muted-foreground mt-1.5">
