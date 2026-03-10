@@ -51,6 +51,12 @@ interface Props {
 function AudioBubble({ mediaUrl }: { mediaUrl: string }) {
   const [transcription, setTranscription] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [audioError, setAudioError] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const handleOpenExternal = () => {
+    window.open(mediaUrl, '_blank');
+  };
 
   const handleTranscribe = async () => {
     setLoading(true);
@@ -71,8 +77,24 @@ function AudioBubble({ mediaUrl }: { mediaUrl: string }) {
   };
 
   return (
-    <div className="space-y-1">
-      <audio src={mediaUrl} controls className="max-w-full min-w-[200px]" preload="metadata" />
+    <div className="space-y-1.5">
+      {!audioError ? (
+        <audio
+          ref={audioRef}
+          src={mediaUrl}
+          controls
+          className="max-w-full min-w-[220px] h-10"
+          preload="auto"
+          onError={() => setAudioError(true)}
+        />
+      ) : (
+        <button
+          onClick={handleOpenExternal}
+          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-background/50 text-xs text-foreground hover:bg-background transition-colors"
+        >
+          <Mic className="w-3.5 h-3.5" /> Ouvir áudio ↗
+        </button>
+      )}
       {transcription ? (
         <p className="text-[10px] italic text-muted-foreground bg-background/50 rounded px-2 py-1">📝 {transcription}</p>
       ) : (
