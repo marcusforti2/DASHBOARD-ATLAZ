@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AiSdrFlowView } from "@/components/wa-hub/AiSdrFlowView";
+import { AiPromptsTab } from "@/components/wa-hub/AiPromptsTab";
 
 interface AiSdrConfig {
   greeting: string;
