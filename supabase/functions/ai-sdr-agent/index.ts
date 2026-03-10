@@ -99,19 +99,6 @@ serve(async (req) => {
       });
     }
 
-    const config = instance.ai_sdr_config || {};
-    const instName = instance_name || instance.instance_name;
-
-    // Get closer name to impersonate
-    let closerName = "";
-    if (instance.closer_id) {
-      const { data: closerMember } = await supabase
-        .from("team_members")
-        .select("name")
-        .eq("id", instance.closer_id)
-        .single();
-      closerName = closerMember?.name || "";
-    }
 
     // Check feature toggles
     const features = {
