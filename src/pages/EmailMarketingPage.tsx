@@ -100,6 +100,18 @@ export default function EmailMarketingPage() {
 
   const [isSending, setIsSending] = useState<string | null>(null);
 
+  // Import contacts state
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [importFlowId, setImportFlowId] = useState<string | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [flowContactCounts, setFlowContactCounts] = useState<Map<string, number>>(new Map());
+  const [isContactsOpen, setIsContactsOpen] = useState(false);
+  const [contactsFlowId, setContactsFlowId] = useState<string | null>(null);
+  const [flowContacts, setFlowContacts] = useState<{ id: string; email: string; name: string | null; source_file: string | null }[]>([]);
+  const [isContactsLoading, setIsContactsLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const { toast } = useToast();
 
   useEffect(() => { fetchData(); }, []);
