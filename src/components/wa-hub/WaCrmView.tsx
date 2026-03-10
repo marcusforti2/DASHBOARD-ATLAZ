@@ -304,7 +304,7 @@ export function WaCrmView({ conversations, tags, getTagsForContact, onAddTag, on
 }
 
 function KanbanCard({
-  conv, tags, assignedTagIds, onAddTag, onRemoveTag, onDragStart,
+  conv, tags, assignedTagIds, onAddTag, onRemoveTag, onDragStart, onClick,
 }: {
   conv: WaConversation;
   tags: WaTag[];
@@ -312,6 +312,7 @@ function KanbanCard({
   onAddTag: (contactId: string, tagId: string) => Promise<void>;
   onRemoveTag: (contactId: string, tagId: string) => Promise<void>;
   onDragStart: (convId: string) => void;
+  onClick?: () => void;
 }) {
   const avatarColor = getAvatarColor(conv.contact.name);
 
