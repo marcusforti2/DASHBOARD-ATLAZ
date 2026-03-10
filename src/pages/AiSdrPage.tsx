@@ -243,10 +243,24 @@ const AUTOMATIONS: AutomationDef[] = [
     explanation: "Sincroniza automaticamente as informações da conversa com o Pipedrive: cria/atualiza deals, adiciona notas com resumo da conversa, e move o deal entre estágios conforme a qualificação avança. Requer integração Pipedrive configurada no WhatsApp Hub.",
   },
   {
-    key: "business_hours_only", icon: Clock, title: "Só Horário Comercial", desc: "IA só responde 8h-18h Seg-Sex",
+    key: "business_hours_only", icon: Clock, title: "Só Horário Comercial", desc: "IA só responde dentro do horário configurado",
     color: "text-slate-500",
-    explanation: "Restringe as respostas automáticas da IA para o horário comercial: segunda a sexta, das 8h às 18h (horário de Brasília). Mensagens recebidas fora deste horário ficam pendentes e são respondidas no próximo dia útil. Ideal para manter uma imagem profissional.",
+    explanation: "Restringe as respostas automáticas da IA para o horário comercial (horário de Brasília). Mensagens recebidas fora deste horário NÃO são respondidas até o próximo dia útil. A IA também NÃO responde aos finais de semana.",
     warnings: ["Conflita com 'Resposta automática' se você espera respostas 24h. Ative apenas um dos dois cenários."],
+    fields: [
+      { key: "business_hours_start", label: "Hora de início (BRT)", type: "number" as const, suffix: "h", min: 0, max: 23 },
+      { key: "business_hours_end", label: "Hora de fim (BRT)", type: "number" as const, suffix: "h", min: 1, max: 24 },
+    ],
+  },
+  {
+    key: "human_takeover_mode", icon: User, title: "Modo Humano / Takeover", desc: "IA para quando closer humano responder",
+    color: "text-indigo-500",
+    explanation: "Se o closer humano enviar uma mensagem na conversa, a IA PARA de responder automaticamente pelo tempo configurado (em minutos). Isso evita que a IA responda 'por cima' do closer quando ele estiver atendendo manualmente. Após o tempo expirar sem nova mensagem humana, a IA volta a funcionar normalmente.",
+    warnings: ["A IA também para se o lead tiver status 'agendado' (após urgent_call ou meeting_confirmed)."],
+    fields: [
+      { key: "human_takeover_minutes", label: "Tempo de silêncio da IA após resposta humana", type: "number" as const, suffix: "minutos", min: 5, max: 1440 },
+    ],
+  },
   },
   {
     key: "feature_rate_limit", icon: Shield, title: "Anti-Spam / Rate Limit", desc: "Limita msgs por contato/hora",
