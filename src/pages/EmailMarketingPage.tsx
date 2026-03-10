@@ -404,7 +404,7 @@ export default function EmailMarketingPage() {
     } catch (e) { console.error(e); }
   };
 
-
+  if (isLoading) {
     return <div className="flex items-center justify-center h-[calc(100vh-8rem)]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
