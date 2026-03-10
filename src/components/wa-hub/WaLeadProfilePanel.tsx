@@ -60,16 +60,7 @@ interface Props {
   onTransfer: (toMemberId: string, toRole: string, note: string) => Promise<void>;
 }
 
-const AVATAR_COLORS = ['152 60% 36%', '210 90% 50%', '280 65% 50%', '30 90% 50%', '0 72% 51%', '180 60% 40%'];
-function getAvatarColor(name: string) {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-}
-
-function formatDate(d: string) {
-  return new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
-}
+import { getAvatarColor, formatDateWithTime } from '@/lib/wa-utils';
 
 function getRiskColor(risk: string) {
   switch (risk) {
@@ -332,7 +323,7 @@ export function WaLeadProfilePanel({ conversation, messages, tags, assignedTagId
               notes.map(note => (
                 <div key={note.id} className="rounded-lg bg-muted/50 p-2.5 space-y-1">
                   <p className="text-xs text-foreground whitespace-pre-wrap">{note.content}</p>
-                  <p className="text-[9px] text-muted-foreground">{note.author_name} · {formatDate(note.created_at)}</p>
+                  <p className="text-[9px] text-muted-foreground">{note.author_name} · {formatDateWithTime(note.created_at)}</p>
                 </div>
               ))
             )}
@@ -349,7 +340,7 @@ export function WaLeadProfilePanel({ conversation, messages, tags, assignedTagId
                   <div className="w-1 rounded-full bg-border shrink-0" />
                   <div className="space-y-0.5">
                     <p className="text-xs text-foreground">{evt.content}</p>
-                    <p className="text-[9px] text-muted-foreground">{formatDate(evt.date)}</p>
+                    <p className="text-[9px] text-muted-foreground">{formatDateWithTime(evt.date)}</p>
                   </div>
                 </div>
               ))

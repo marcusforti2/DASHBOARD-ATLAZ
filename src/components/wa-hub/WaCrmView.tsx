@@ -1,10 +1,12 @@
-import { useState, useMemo, useCallback } from 'react';
-import { LayoutGrid, List, Plus, Trash2, GripVertical } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { LayoutGrid, List, Plus, Trash2, GripVertical, Inbox } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { WaContactTagBadges } from './WaContactTagBadges';
 import { LeadDetailModal } from './LeadDetailModal';
+import { getAvatarColor, formatCrmDate } from '@/lib/wa-utils';
 import type { WaTag } from '@/hooks/use-wa-tags';
 import type { WaConversation } from '@/hooks/use-wa-hub';
 
@@ -19,19 +21,6 @@ interface Props {
 }
 
 const TAG_COLORS = ['#6b7280', '#3b82f6', '#f59e0b', '#8b5cf6', '#10b981', '#ef4444', '#ec4899', '#14b8a6', '#f97316', '#06b6d4'];
-
-const AVATAR_COLORS = ['152 60% 36%', '210 90% 50%', '280 65% 50%', '30 90% 50%', '0 72% 51%', '180 60% 40%'];
-
-function getAvatarColor(name: string) {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-}
-
-function formatTime(dateStr: string | null) {
-  if (!dateStr) return '';
-  return new Date(dateStr).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-}
 
 export function WaCrmView({ conversations, tags, getTagsForContact, onAddTag, onRemoveTag, onCreateTag, onDeleteTag }: Props) {
   const [view, setView] = useState<'kanban' | 'table'>('kanban');
@@ -62,24 +51,17 @@ export function WaCrmView({ conversations, tags, getTagsForContact, onAddTag, on
     return list;
   }, [conversations, search, filterTag, getTagsForContact]);
 
-  // Track which conversations are already placed in a stage column
-  // A contact with multiple stage tags goes to the FIRST matching stage only
   const stageAssignments = useMemo(() => {
-    const map = new Map<string, string>(); // convId -> stageTagId
+    const map = new Map<string, string>();
     for (const conv of filteredConversations) {
       const ct = getTagsForContact(conv.contact.id);
       const firstStage = stageTags.find(st => ct.some(t => t.tag_id === st.id));
-      if (firstStage) {
-        map.set(conv.id, firstStage.id);
-      }
+      if (firstStage) map.set(conv.id, firstStage.id);
     }
     return map;
   }, [filteredConversations, stageTags, getTagsForContact]);
 
-  const getConvsForStage = (tagId: string) => {
-    return filteredConversations.filter(c => stageAssignments.get(c.id) === tagId);
-  };
-
+  const getConvsForStage = (tagId: string) => filteredConversations.filter(c => stageAssignments.get(c.id) === tagId);
   const untaggedConvs = filteredConversations.filter(c => !stageAssignments.has(c.id));
 
   const handleCreateTag = async () => {
@@ -88,68 +70,52 @@ export function WaCrmView({ conversations, tags, getTagsForContact, onAddTag, on
     setNewTagName('');
   };
 
-  // Drag & drop handlers
-  const handleDragStart = (convId: string) => {
-    setDraggingConvId(convId);
-  };
-
-  const handleDragOver = (e: React.DragEvent, stageId: string) => {
-    e.preventDefault();
-    setDragOverStage(stageId);
-  };
-
-  const handleDragLeave = () => {
-    setDragOverStage(null);
-  };
+  const handleDragStart = (convId: string) => setDraggingConvId(convId);
+  const handleDragOver = (e: React.DragEvent, stageId: string) => { e.preventDefault(); setDragOverStage(stageId); };
+  const handleDragLeave = () => setDragOverStage(null);
 
   const handleDrop = async (targetStageId: string) => {
     if (!draggingConvId) return;
     setDragOverStage(null);
     setDraggingConvId(null);
-
     const conv = conversations.find(c => c.id === draggingConvId);
     if (!conv) return;
-
     const contactId = conv.contact.id;
     const currentTags = getTagsForContact(contactId);
-
-    // Remove all existing stage tags
     for (const ct of currentTags) {
-      const isStageTag = stageTags.find(st => st.id === ct.tag_id);
-      if (isStageTag) {
-        await onRemoveTag(contactId, ct.tag_id);
-      }
+      if (stageTags.find(st => st.id === ct.tag_id)) await onRemoveTag(contactId, ct.tag_id);
     }
-
-    // Add new stage tag (unless dropping into "untagged")
-    if (targetStageId !== '__untagged__') {
-      await onAddTag(contactId, targetStageId);
-    }
+    if (targetStageId !== '__untagged__') await onAddTag(contactId, targetStageId);
   };
 
   return (
     <div className="space-y-4">
       {/* Toolbar */}
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex items-center gap-3">
         <Input placeholder="Buscar contato..." value={search} onChange={e => setSearch(e.target.value)} className="h-8 text-sm w-56" />
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => setFilterTag(null)}
-            className={`text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors ${
-              !filterTag ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-accent'
-            }`}
-          >Todas</button>
-          {tags.map(tag => (
+
+        {/* Scrollable tag filter */}
+        <ScrollArea className="flex-1 max-w-[500px]">
+          <div className="flex items-center gap-1 pb-1">
             <button
-              key={tag.id}
-              onClick={() => setFilterTag(filterTag === tag.id ? null : tag.id)}
-              className={`text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors ${
-                filterTag === tag.id ? 'text-white' : 'text-muted-foreground hover:bg-accent'
+              onClick={() => setFilterTag(null)}
+              className={`text-[10px] px-2.5 py-1 rounded-full font-medium transition-colors whitespace-nowrap ${
+                !filterTag ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-accent'
               }`}
-              style={filterTag === tag.id ? { backgroundColor: tag.color } : {}}
-            >{tag.name}</button>
-          ))}
-        </div>
+            >Todas</button>
+            {tags.map(tag => (
+              <button
+                key={tag.id}
+                onClick={() => setFilterTag(filterTag === tag.id ? null : tag.id)}
+                className={`text-[10px] px-2.5 py-1 rounded-full font-medium transition-colors whitespace-nowrap ${
+                  filterTag === tag.id ? 'text-white' : 'text-muted-foreground hover:bg-accent'
+                }`}
+                style={filterTag === tag.id ? { backgroundColor: tag.color } : {}}
+              >{tag.name}</button>
+            ))}
+          </div>
+          <ScrollBar orientation="horizontal" />
+        </ScrollArea>
 
         <div className="ml-auto flex items-center gap-2">
           <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setShowManageTags(true)}>
@@ -166,54 +132,40 @@ export function WaCrmView({ conversations, tags, getTagsForContact, onAddTag, on
         </div>
       </div>
 
-      {/* Kanban View with Drag & Drop */}
+      {/* Kanban View */}
       {view === 'kanban' && (
         <div className="flex gap-3 overflow-x-auto pb-4" style={{ minHeight: 'calc(100vh - 320px)' }}>
           {/* Untagged column */}
-          <div
-            className={`min-w-[260px] max-w-[280px] flex-shrink-0 rounded-xl p-2 transition-colors ${
-              dragOverStage === '__untagged__' ? 'bg-accent/50 ring-2 ring-primary/30' : ''
-            }`}
-            onDragOver={(e) => handleDragOver(e, '__untagged__')}
-            onDragLeave={handleDragLeave}
-            onDrop={() => handleDrop('__untagged__')}
+          <KanbanColumn
+            label="Sem etapa" color="#6b7280" count={untaggedConvs.length}
+            stageId="__untagged__" dragOverStage={dragOverStage}
+            onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}
           >
-            <div className="flex items-center gap-2 mb-3 px-1">
-              <span className="w-2.5 h-2.5 rounded-full bg-muted-foreground/30" />
-              <span className="text-xs font-semibold text-muted-foreground">Sem etapa</span>
-              <span className="text-[10px] text-muted-foreground ml-auto bg-muted px-1.5 py-0.5 rounded-full">{untaggedConvs.length}</span>
-            </div>
-            <div className="space-y-2">
-              {untaggedConvs.map(conv => (
-                <KanbanCard key={conv.id} conv={conv} tags={tags} assignedTagIds={getTagsForContact(conv.contact.id).map(t => t.tag_id)} onAddTag={onAddTag} onRemoveTag={onRemoveTag} onDragStart={handleDragStart} onClick={() => setSelectedConv(conv)} />
-              ))}
-            </div>
-          </div>
+            {untaggedConvs.length === 0 ? (
+              <EmptyColumn />
+            ) : (
+              untaggedConvs.map(conv => (
+                <KanbanCard key={conv.id} conv={conv} stageColor="#6b7280" tags={tags} assignedTagIds={getTagsForContact(conv.contact.id).map(t => t.tag_id)} onAddTag={onAddTag} onRemoveTag={onRemoveTag} onDragStart={handleDragStart} onClick={() => setSelectedConv(conv)} />
+              ))
+            )}
+          </KanbanColumn>
 
           {stageTags.map(stageTag => {
             const stageConvs = getConvsForStage(stageTag.id);
             return (
-              <div
-                key={stageTag.id}
-                className={`min-w-[260px] max-w-[280px] flex-shrink-0 rounded-xl p-2 transition-all ${
-                  dragOverStage === stageTag.id ? 'ring-2 ring-primary/30' : ''
-                }`}
-                style={dragOverStage === stageTag.id ? { backgroundColor: `${stageTag.color}15` } : {}}
-                onDragOver={(e) => handleDragOver(e, stageTag.id)}
-                onDragLeave={handleDragLeave}
-                onDrop={() => handleDrop(stageTag.id)}
+              <KanbanColumn
+                key={stageTag.id} label={stageTag.name} color={stageTag.color}
+                count={stageConvs.length} stageId={stageTag.id} dragOverStage={dragOverStage}
+                onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}
               >
-                <div className="flex items-center gap-2 mb-3 px-1">
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: stageTag.color }} />
-                  <span className="text-xs font-semibold text-foreground">{stageTag.name}</span>
-                  <span className="text-[10px] text-muted-foreground ml-auto bg-muted px-1.5 py-0.5 rounded-full">{stageConvs.length}</span>
-                </div>
-                <div className="space-y-2">
-                  {stageConvs.map(conv => (
-                    <KanbanCard key={conv.id} conv={conv} tags={tags} assignedTagIds={getTagsForContact(conv.contact.id).map(t => t.tag_id)} onAddTag={onAddTag} onRemoveTag={onRemoveTag} onDragStart={handleDragStart} onClick={() => setSelectedConv(conv)} />
-                  ))}
-                </div>
-              </div>
+                {stageConvs.length === 0 ? (
+                  <EmptyColumn />
+                ) : (
+                  stageConvs.map(conv => (
+                    <KanbanCard key={conv.id} conv={conv} stageColor={stageTag.color} tags={tags} assignedTagIds={getTagsForContact(conv.contact.id).map(t => t.tag_id)} onAddTag={onAddTag} onRemoveTag={onRemoveTag} onDragStart={handleDragStart} onClick={() => setSelectedConv(conv)} />
+                  ))
+                )}
+              </KanbanColumn>
             );
           })}
         </div>
@@ -241,7 +193,7 @@ export function WaCrmView({ conversations, tags, getTagsForContact, onAddTag, on
                     <WaContactTagBadges contactId={conv.contact.id} assignedTagIds={getTagsForContact(conv.contact.id).map(t => t.tag_id)} allTags={tags} onAdd={onAddTag} onRemove={onRemoveTag} />
                   </td>
                   <td className="px-4 py-2.5 text-xs text-muted-foreground truncate max-w-[200px]">{conv.last_message}</td>
-                  <td className="px-4 py-2.5 text-xs text-muted-foreground">{formatTime(conv.last_message_at)}</td>
+                  <td className="px-4 py-2.5 text-xs text-muted-foreground">{formatCrmDate(conv.last_message_at)}</td>
                 </tr>
               ))}
             </tbody>
@@ -276,9 +228,7 @@ export function WaCrmView({ conversations, tags, getTagsForContact, onAddTag, on
                 <input type="checkbox" checked={newTagIsStage} onChange={e => setNewTagIsStage(e.target.checked)} id="is-stage" className="rounded" />
                 <label htmlFor="is-stage" className="text-[10px] text-muted-foreground">Etapa</label>
               </div>
-              <Button size="sm" className="h-8 text-xs" onClick={handleCreateTag}>
-                <Plus className="w-3 h-3" />
-              </Button>
+              <Button size="sm" className="h-8 text-xs" onClick={handleCreateTag}><Plus className="w-3 h-3" /></Button>
             </div>
             <div className="space-y-1 max-h-[40vh] overflow-y-auto">
               {tags.map(tag => (
@@ -286,57 +236,92 @@ export function WaCrmView({ conversations, tags, getTagsForContact, onAddTag, on
                   <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: tag.color }} />
                   <span className="text-sm text-foreground flex-1">{tag.name}</span>
                   {tag.is_stage && <span className="text-[9px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">Etapa</span>}
-                  <button onClick={() => onDeleteTag(tag.id)} className="text-muted-foreground hover:text-destructive p-1">
-                    <Trash2 className="w-3 h-3" />
-                  </button>
+                  <button onClick={() => onDeleteTag(tag.id)} className="text-muted-foreground hover:text-destructive p-1"><Trash2 className="w-3 h-3" /></button>
                 </div>
               ))}
             </div>
           </div>
         </DialogContent>
       </Dialog>
-      {/* Lead Detail Modal */}
+
       {selectedConv && (
-        <LeadDetailModal
-          open={!!selectedConv}
-          onOpenChange={(open) => { if (!open) setSelectedConv(null); }}
-          conversation={selectedConv}
-          tags={tags}
-          assignedTagIds={getTagsForContact(selectedConv.contact.id).map(t => t.tag_id)}
-          onAddTag={onAddTag}
-          onRemoveTag={onRemoveTag}
+        <LeadDetailModal open={!!selectedConv} onOpenChange={(open) => { if (!open) setSelectedConv(null); }}
+          conversation={selectedConv} tags={tags} assignedTagIds={getTagsForContact(selectedConv.contact.id).map(t => t.tag_id)}
+          onAddTag={onAddTag} onRemoveTag={onRemoveTag}
         />
       )}
     </div>
   );
 }
 
-function KanbanCard({
-  conv, tags, assignedTagIds, onAddTag, onRemoveTag, onDragStart, onClick,
-}: {
-  conv: WaConversation;
-  tags: WaTag[];
-  assignedTagIds: string[];
+/* ── Kanban Column ── */
+function KanbanColumn({ label, color, count, stageId, dragOverStage, onDragOver, onDragLeave, onDrop, children }: {
+  label: string; color: string; count: number; stageId: string; dragOverStage: string | null;
+  onDragOver: (e: React.DragEvent, id: string) => void; onDragLeave: () => void; onDrop: (id: string) => void;
+  children: React.ReactNode;
+}) {
+  const isOver = dragOverStage === stageId;
+  return (
+    <div
+      className={`min-w-[290px] max-w-[310px] flex-shrink-0 rounded-xl p-2.5 transition-all ${isOver ? 'ring-2 ring-primary/40 scale-[1.01]' : ''}`}
+      style={isOver ? { backgroundColor: `${color}12` } : {}}
+      onDragOver={(e) => onDragOver(e, stageId)}
+      onDragLeave={onDragLeave}
+      onDrop={() => onDrop(stageId)}
+    >
+      <div className="flex items-center gap-2 mb-3 px-1">
+        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+        <span className="text-xs font-semibold text-foreground">{label}</span>
+        <span className="text-[10px] text-muted-foreground ml-auto bg-muted px-1.5 py-0.5 rounded-full font-mono">{count}</span>
+      </div>
+      <div className="space-y-2">{children}</div>
+    </div>
+  );
+}
+
+/* ── Empty Column Placeholder ── */
+function EmptyColumn() {
+  return (
+    <div className="flex flex-col items-center justify-center py-8 text-center opacity-50">
+      <Inbox className="w-6 h-6 text-muted-foreground mb-2" />
+      <p className="text-[10px] text-muted-foreground">Arraste leads para cá</p>
+    </div>
+  );
+}
+
+/* ── Kanban Card ── */
+function KanbanCard({ conv, stageColor, tags, assignedTagIds, onAddTag, onRemoveTag, onDragStart, onClick }: {
+  conv: WaConversation; stageColor: string; tags: WaTag[]; assignedTagIds: string[];
   onAddTag: (contactId: string, tagId: string) => Promise<void>;
   onRemoveTag: (contactId: string, tagId: string) => Promise<void>;
-  onDragStart: (convId: string) => void;
-  onClick?: () => void;
+  onDragStart: (convId: string) => void; onClick?: () => void;
 }) {
   const avatarColor = getAvatarColor(conv.contact.name);
+
+  // Time since last message
+  const timeSince = useMemo(() => {
+    if (!conv.last_message_at) return null;
+    const diff = Date.now() - new Date(conv.last_message_at).getTime();
+    const hours = Math.floor(diff / 3600000);
+    if (hours < 1) return null;
+    if (hours < 24) return `${hours}h`;
+    const days = Math.floor(hours / 24);
+    return `${days}d`;
+  }, [conv.last_message_at]);
 
   return (
     <div
       draggable
       onDragStart={() => onDragStart(conv.id)}
       onClick={(e) => {
-        // Don't open modal if clicking tags or during drag
         if ((e.target as HTMLElement).closest('[data-tag-badge]')) return;
         onClick?.();
       }}
-      className="rounded-lg border border-border bg-card p-3 space-y-2 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer active:cursor-grabbing"
+      className="rounded-lg border border-border bg-card p-3 space-y-2 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer active:cursor-grabbing active:opacity-70 active:scale-[0.98]"
+      style={{ borderLeftWidth: '3px', borderLeftColor: stageColor }}
     >
       <div className="flex items-center gap-2">
-        <GripVertical className="w-3 h-3 text-muted-foreground/40 shrink-0" />
+        <GripVertical className="w-3 h-3 text-muted-foreground/30 shrink-0 cursor-grab" />
         <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0" style={{ backgroundColor: `hsl(${avatarColor})` }}>
           {conv.contact.name.charAt(0).toUpperCase()}
         </div>
@@ -344,11 +329,20 @@ function KanbanCard({
           <p className="text-xs font-semibold text-foreground truncate">{conv.contact.name}</p>
           <p className="text-[9px] text-muted-foreground">{conv.contact.phone}</p>
         </div>
+        {timeSince && (
+          <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium shrink-0 ${
+            parseInt(timeSince) > 24 || timeSince.includes('d') ? 'bg-destructive/15 text-destructive' : 'bg-amber-500/15 text-amber-600'
+          }`}>
+            ⏰ {timeSince}
+          </span>
+        )}
       </div>
       {conv.last_message && (
-        <p className="text-[10px] text-muted-foreground truncate">{conv.last_message}</p>
+        <p className="text-[10px] text-muted-foreground truncate pl-5">{conv.last_message}</p>
       )}
-      <WaContactTagBadges contactId={conv.contact.id} assignedTagIds={assignedTagIds} allTags={tags} onAdd={onAddTag} onRemove={onRemoveTag} />
+      <div className="pl-5">
+        <WaContactTagBadges contactId={conv.contact.id} assignedTagIds={assignedTagIds} allTags={tags} onAdd={onAddTag} onRemove={onRemoveTag} />
+      </div>
     </div>
   );
 }

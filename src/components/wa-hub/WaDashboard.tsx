@@ -54,13 +54,15 @@ export function WaDashboard() {
       }));
       setDailyVolume(days);
 
-      // Messages per instance
-      const instVol: InstanceVolume[] = [];
-      for (const inst of instances) {
-        const { count } = await supabase.from('wa_messages').select('id', { count: 'exact', head: true })
-          .eq('instance_id', inst.id);
-        instVol.push({ name: inst.instance_name.replace(/^wpp_/i, ''), count: count || 0 });
-      }
+      // Messages per instance — batch in parallel
+      const instQueries = instances.map(inst =>
+        supabase.from('wa_messages').select('id', { count: 'exact', head: true }).eq('instance_id', inst.id)
+      );
+      const instResults = await Promise.all(instQueries);
+      const instVol: InstanceVolume[] = instances.map((inst, i) => ({
+        name: inst.instance_name.replace(/^wpp_/i, ''),
+        count: instResults[i].count || 0,
+      }));
       setInstanceVolume(instVol);
 
       setLoadingCharts(false);

@@ -62,12 +62,7 @@ interface Props {
   onRemoveTag: (contactId: string, tagId: string) => Promise<void>;
 }
 
-const AVATAR_COLORS = ['152 60% 36%', '210 90% 50%', '280 65% 50%', '30 90% 50%', '0 72% 51%', '180 60% 40%'];
-function getAvatarColor(name: string) {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-}
+import { getAvatarColor } from '@/lib/wa-utils';
 
 function getRiskBadge(risk: string) {
   switch (risk) {

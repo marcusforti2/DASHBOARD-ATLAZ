@@ -2,28 +2,8 @@ import { useState, useMemo } from 'react';
 import { Loader2, Search } from 'lucide-react';
 import { WaConversation, WaInstance } from '@/hooks/use-wa-hub';
 import { WaContactTagBadges } from './WaContactTagBadges';
+import { getAvatarColor, formatSmartTime } from '@/lib/wa-utils';
 import type { WaTag } from '@/hooks/use-wa-tags';
-
-const AVATAR_COLORS = ['152 60% 36%', '210 90% 50%', '280 65% 50%', '30 90% 50%', '0 72% 51%', '180 60% 40%'];
-
-function getAvatarColor(name: string) {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-}
-
-function formatTime(dateStr: string | null) {
-  if (!dateStr) return '';
-  const d = new Date(dateStr);
-  const today = new Date();
-  if (d.toDateString() === today.toDateString()) {
-    return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-  }
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  if (d.toDateString() === yesterday.toDateString()) return 'Ontem';
-  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-}
 
 interface Props {
   conversations: WaConversation[];
@@ -61,39 +41,23 @@ export function WaConversationList({
     <div className="w-80 border-r border-border flex flex-col bg-card shrink-0">
       <div className="px-4 py-3 border-b border-border space-y-2">
         <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-
-        {/* Search */}
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-          <input
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
+          <input type="text" value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Buscar nome, telefone..."
             className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-secondary text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
-
-        {/* Instance filter */}
         <div className="flex gap-1 flex-wrap">
-          <button
-            onClick={() => onInstanceFilter(null)}
+          <button onClick={() => onInstanceFilter(null)}
             className={`text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors ${
               !instanceFilter ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-accent'
-            }`}
-          >
-            Todas
-          </button>
+            }`}>Todas</button>
           {instances.map(inst => (
-            <button
-              key={inst.id}
-              onClick={() => onInstanceFilter(inst.id)}
+            <button key={inst.id} onClick={() => onInstanceFilter(inst.id)}
               className={`text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors ${
                 instanceFilter === inst.id ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-accent'
-              }`}
-            >
-              {inst.instance_name.replace(/^wpp_/i, '')}
-            </button>
+              }`}>{inst.instance_name.replace(/^wpp_/i, '')}</button>
           ))}
         </div>
       </div>
@@ -108,54 +72,58 @@ export function WaConversationList({
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto">
-          {filtered.map(conv => (
-            <button
-              key={conv.id}
-              onClick={() => onSelect(conv.id)}
-              className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors border-b border-border/50 ${
-                selectedId === conv.id ? 'bg-accent' : 'hover:bg-muted/50'
-              }`}
-            >
-              <div className="relative">
-                <div
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
-                  style={{ backgroundColor: `hsl(${getAvatarColor(conv.contact.name)})` }}
-                >
-                  {conv.contact.name.charAt(0).toUpperCase()}
-                </div>
-                {conv.unread_count > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center">
-                    {conv.unread_count > 9 ? '9+' : conv.unread_count}
-                  </span>
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-foreground truncate">
-                    {conv.contact.name === conv.contact.phone
-                      ? conv.contact.phone.replace(/^55(\d{2})(\d{4,5})(\d{4})$/, '($1) $2-$3')
-                      : conv.contact.name}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground shrink-0">{formatTime(conv.last_message_at)}</span>
-                </div>
-                <p className={`text-xs truncate ${conv.unread_count > 0 ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
-                  {conv.last_message}
-                </p>
-                {tags && getTagsForContact && (
-                  <div className="flex items-center gap-1 mt-1 flex-wrap">
-                    <WaContactTagBadges
-                      contactId={conv.contact.id}
-                      assignedTagIds={getTagsForContact(conv.contact.id).map(t => t.tag_id)}
-                      allTags={tags}
-                      onAdd={onAddTag || (async () => {})}
-                      onRemove={onRemoveTag || (async () => {})}
-                      compact
-                    />
+          {filtered.map(conv => {
+            // Time since last message for urgency indicator
+            const hoursSince = conv.last_message_at
+              ? Math.floor((Date.now() - new Date(conv.last_message_at).getTime()) / 3600000)
+              : 0;
+
+            return (
+              <button key={conv.id} onClick={() => onSelect(conv.id)}
+                className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors border-b border-border/50 ${
+                  selectedId === conv.id ? 'bg-accent' : 'hover:bg-muted/50'
+                }`}
+              >
+                <div className="relative">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
+                    style={{ backgroundColor: `hsl(${getAvatarColor(conv.contact.name)})` }}>
+                    {conv.contact.name.charAt(0).toUpperCase()}
                   </div>
-                )}
-              </div>
-            </button>
-          ))}
+                  {conv.unread_count > 0 && (
+                    <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center">
+                      {conv.unread_count > 9 ? '9+' : conv.unread_count}
+                    </span>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-foreground truncate">
+                      {conv.contact.name === conv.contact.phone
+                        ? conv.contact.phone.replace(/^55(\d{2})(\d{4,5})(\d{4})$/, '($1) $2-$3')
+                        : conv.contact.name}
+                    </span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {hoursSince >= 4 && (
+                        <span className={`text-[8px] px-1 py-0.5 rounded ${hoursSince >= 24 ? 'bg-destructive/15 text-destructive' : 'bg-amber-500/15 text-amber-600'}`}>
+                          {hoursSince >= 24 ? `${Math.floor(hoursSince / 24)}d` : `${hoursSince}h`}
+                        </span>
+                      )}
+                      <span className="text-[10px] text-muted-foreground">{formatSmartTime(conv.last_message_at)}</span>
+                    </div>
+                  </div>
+                  <p className={`text-xs truncate ${conv.unread_count > 0 ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
+                    {conv.last_message}
+                  </p>
+                  {tags && getTagsForContact && (
+                    <div className="flex items-center gap-1 mt-1 flex-wrap">
+                      <WaContactTagBadges contactId={conv.contact.id} assignedTagIds={getTagsForContact(conv.contact.id).map(t => t.tag_id)}
+                        allTags={tags} onAdd={onAddTag || (async () => {})} onRemove={onRemoveTag || (async () => {})} compact />
+                    </div>
+                  )}
+                </div>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
