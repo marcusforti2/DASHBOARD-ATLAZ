@@ -688,6 +688,111 @@ export default function EmailMarketingPage() {
           </ScrollArea>
         </DialogContent>
       </Dialog>
+
+      {/* Import Contacts Dialog */}
+      <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Upload className="h-5 w-5 text-primary" />Importar Lista de Emails</DialogTitle>
+            <DialogDescription>Suba um arquivo (CSV, TXT, Excel) ou cole o texto com os emails. A IA vai extrair e organizar automaticamente.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* File upload */}
+            <div>
+              <Label className="text-sm font-medium mb-2 block">Upload de Arquivo</Label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,.txt,.xlsx,.xls,.tsv,.md"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+              <Button
+                variant="outline"
+                className="w-full h-20 border-dashed flex flex-col gap-1"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isImporting}
+              >
+                <FileText className="h-5 w-5 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">CSV, TXT, Excel, TSV</span>
+              </Button>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-1 bg-border" />
+              <span className="text-xs text-muted-foreground">ou</span>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+
+            {/* Paste text */}
+            <div>
+              <Label className="text-sm font-medium mb-2 block">Cole o Texto</Label>
+              <Textarea
+                value={importText}
+                onChange={(e) => setImportText(e.target.value)}
+                placeholder={"Exemplo:\nJoão Silva, joao@empresa.com\nMaria Souza, maria@teste.com\n\nOu cole qualquer formato — a IA organiza"}
+                rows={6}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsImportOpen(false)}>Cancelar</Button>
+            <Button onClick={handleImportFromText} disabled={isImporting || !importText.trim()}>
+              {isImporting ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Processando...</> : <><Sparkles className="h-4 w-4 mr-2" />Extrair Emails</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Contacts List Dialog */}
+      <Dialog open={isContactsOpen} onOpenChange={setIsContactsOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Users className="h-5 w-5" />Contatos Importados</DialogTitle>
+            <DialogDescription>{flowContacts.length} contato(s) nesta campanha</DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="h-[350px]">
+            {isContactsLoading ? (
+              <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>
+            ) : flowContacts.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">Nenhum contato importado</p>
+            ) : (
+              <div className="space-y-1.5">
+                {flowContacts.map((c) => (
+                  <div key={c.id} className="flex items-center gap-3 p-2.5 rounded-lg border group">
+                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary shrink-0">
+                      {(c.name || c.email).charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      {c.name && <p className="text-xs font-medium truncate">{c.name}</p>}
+                      <p className="text-[10px] text-muted-foreground truncate">{c.email}</p>
+                      {c.source_file && <p className="text-[9px] text-muted-foreground/60">{c.source_file}</p>}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 text-destructive"
+                      onClick={() => handleDeleteContact(c.id)}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+          {flowContacts.length > 0 && contactsFlowId && (
+            <DialogFooter>
+              <Button variant="outline" size="sm" onClick={() => handleOpenImport(contactsFlowId)}>
+                <Plus className="h-3 w-3 mr-1" />Adicionar Mais
+              </Button>
+              <Button variant="destructive" size="sm" onClick={() => handleClearContacts(contactsFlowId)}>
+                <Trash2 className="h-3 w-3 mr-1" />Limpar Todos
+              </Button>
+            </DialogFooter>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
