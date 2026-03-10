@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { GraduationCap, Play, BookOpen, ChevronLeft, BookMarked, Sparkles, ArrowRight, Video, FileText } from "lucide-react";
+import { GraduationCap, Play, BookOpen, ChevronLeft, BookMarked, Sparkles, ArrowRight, Video, FileText, FileCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getMemberRoles } from "@/lib/db";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { PlaybookViewerUser } from "./PlaybookViewerUser";
 import { Badge } from "@/components/ui/badge";
+import { ProcessesHub } from "./validated-processes/ProcessesHub";
 
 interface TrainingViewerProps {
   memberRole: string;
