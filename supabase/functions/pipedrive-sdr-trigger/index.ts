@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   try {
-    const { deal_id, person_name, person_phone, instance_id } = await req.json();
+    const { deal_id, person_name, person_phone, instance_id, pipedrive_context } = await req.json();
 
     if (!person_phone) {
       return new Response(JSON.stringify({ error: "No phone number provided" }), {
