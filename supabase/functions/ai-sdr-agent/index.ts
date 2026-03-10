@@ -6,6 +6,56 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+/**
+ * Calculate the next business date/time adding N hours, respecting business hours (08-19h BRT, Mon-Fri).
+ */
+function getNextBusinessDateTime(from: Date, hoursToAdd: number): Date {
+  // Work in BRT (UTC-3)
+  const BRT_OFFSET = -3;
+  const result = new Date(from.getTime() + hoursToAdd * 60 * 60 * 1000);
+  
+  // Get BRT hour
+  const getBrtHour = (d: Date) => {
+    const utcHour = d.getUTCHours();
+    return (utcHour + BRT_OFFSET + 24) % 24;
+  };
+  
+  const getBrtDay = (d: Date) => {
+    const shifted = new Date(d.getTime() + BRT_OFFSET * 60 * 60 * 1000);
+    return shifted.getUTCDay();
+  };
+  
+  // If weekend, move to Monday 9am BRT
+  let day = getBrtDay(result);
+  while (day === 0 || day === 6) {
+    result.setTime(result.getTime() + 24 * 60 * 60 * 1000);
+    day = getBrtDay(result);
+  }
+  
+  // If before 8am BRT, set to 9am
+  let brtHour = getBrtHour(result);
+  if (brtHour < 8) {
+    const diff = 9 - brtHour;
+    result.setTime(result.getTime() + diff * 60 * 60 * 1000);
+  }
+  
+  // If after 19h BRT, move to next business day 9am
+  brtHour = getBrtHour(result);
+  if (brtHour >= 19) {
+    // Move to next day 9am BRT
+    result.setTime(result.getTime() + (24 - brtHour + 9) * 60 * 60 * 1000);
+    // Check if weekend again
+    day = getBrtDay(result);
+    while (day === 0 || day === 6) {
+      result.setTime(result.getTime() + 24 * 60 * 60 * 1000);
+      day = getBrtDay(result);
+    }
+  }
+  
+  return result;
+}
+
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
