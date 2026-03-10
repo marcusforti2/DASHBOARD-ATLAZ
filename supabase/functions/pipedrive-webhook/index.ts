@@ -432,6 +432,13 @@ async function handleDeal(supabase: any, event: string, current: any, previous: 
 
     if (existingContact) {
       contactId = existingContact.id;
+      // Update contact name if Pipedrive provides a different one
+      if (personName) {
+        await supabase.from('wa_contacts')
+          .update({ name: personName })
+          .eq('id', contactId);
+        console.log(`[pipedrive-webhook] Updated wa_contact name to: ${personName}`);
+      }
     } else {
       const { data: newContact } = await supabase
         .from('wa_contacts')
