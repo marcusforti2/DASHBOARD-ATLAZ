@@ -368,6 +368,12 @@ ${generalKnowledge ? `INFORMAÇÕES DA EMPRESA:\n${generalKnowledge}` : ""}
 
 ${config.prompt_context ? `INSTRUÇÕES ADICIONAIS:\n${config.prompt_context}` : ""}
 
+${config.target_audience ? `PÚBLICO-ALVO (ICP):\n${config.target_audience}` : ""}
+
+${config.pain_points ? `DORES VISCERAIS DO PÚBLICO (use para gerar rapport e quebrar objeções):\n${config.pain_points}` : ""}
+
+${config.desires ? `DESEJOS PROFUNDOS DO PÚBLICO (use para criar urgência e motivação):\n${config.desires}` : ""}
+
 SEU OBJETIVO PRINCIPAL:
 - QUALIFICAR RÁPIDO e CHAMAR PARA UMA LIGAÇÃO/REUNIÃO com ${closerName || "o especialista"}
 - NÃO ENROLE: Máximo 3-4 trocas de mensagens antes de propor a ligação
