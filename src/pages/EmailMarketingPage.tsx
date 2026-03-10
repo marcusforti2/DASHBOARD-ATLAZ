@@ -161,6 +161,22 @@ export default function EmailMarketingPage() {
           setFlowStatsMap(statsMap);
         }
       }
+
+      // Fetch contact counts per flow
+      if (flowsData && flowsData.length > 0) {
+        const flowIds = (flowsData as any[]).map((f: any) => f.id);
+        const { data: contacts } = await supabase
+          .from('email_flow_contacts' as any)
+          .select('flow_id')
+          .in('flow_id', flowIds);
+        if (contacts) {
+          const countMap = new Map<string, number>();
+          for (const c of contacts as any[]) {
+            countMap.set(c.flow_id, (countMap.get(c.flow_id) || 0) + 1);
+          }
+          setFlowContactCounts(countMap);
+        }
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
