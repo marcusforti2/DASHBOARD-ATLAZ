@@ -415,13 +415,14 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Get Pipedrive deal context
+    // Get Pipedrive deal context + LinkedIn enrichment
     let pipedriveContext = "";
+    let linkedinContext = "";
     if (features.pipedrive_sync && conversation?.contact_id) {
       try {
         const { data: pipeContact } = await supabase
           .from("pipedrive_persons")
-          .select("pipedrive_id, name, org_name")
+          .select("pipedrive_id, name, org_name, raw_data")
           .eq("wa_contact_id", conversation.contact_id)
           .single();
 
@@ -434,6 +435,89 @@ Deno.serve(async (req) => {
 
           if (deals?.length) {
             pipedriveContext = `\n\nDADOS DO PIPEDRIVE:\nContato: ${pipeContact.name} (${pipeContact.org_name || "sem empresa"})\nDeals:\n${deals.map(d => `- ${d.title}: ${d.status} | ${d.stage_name} | ${d.currency} ${d.value}`).join("\n")}`;
+          }
+
+          // LinkedIn scraping via Piloterr
+          const PILOTERR_API_KEY = Deno.env.get("PILOTERR_API_KEY");
+          if (PILOTERR_API_KEY) {
+            try {
+              // Try to extract LinkedIn URL from Pipedrive raw_data
+              const rawData: any = pipeContact.raw_data || {};
+              let linkedinUrl = "";
+              
+              // Pipedrive stores social profiles in various fields
+              if (typeof rawData === 'object') {
+                // Check common fields for LinkedIn URL
+                const jsonStr = JSON.stringify(rawData).toLowerCase();
+                const linkedinMatch = jsonStr.match(/https?:\/\/(?:www\.)?linkedin\.com\/in\/[a-zA-Z0-9_-]+/i);
+                if (linkedinMatch) {
+                  linkedinUrl = linkedinMatch[0];
+                }
+              }
+
+              if (linkedinUrl) {
+                console.log("[ai-sdr] LinkedIn URL found in Pipedrive:", linkedinUrl);
+                const scraperResp = await fetch(`${SUPABASE_URL}/functions/v1/linkedin-scraper`, {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({ linkedin_url: linkedinUrl }),
+                });
+
+                if (scraperResp.ok) {
+                  const scraperData = await scraperResp.json();
+                  if (scraperData.found && scraperData.profile) {
+                    const p = scraperData.profile;
+                    linkedinContext = `\n\nPERFIL LINKEDIN DO LEAD (use para personalizar a abordagem):
+- Nome: ${p.full_name}
+- Cargo: ${p.company_role || p.headline}
+- Empresa: ${p.company}
+- Setor: ${p.industry || "N/A"}
+- Localização: ${p.location || "N/A"}
+- Resumo: ${p.summary ? p.summary.substring(0, 300) : "N/A"}
+${p.experience?.length ? `- Experiência recente:\n${p.experience.map((e: any) => `  • ${e.title} @ ${e.company} (${e.duration})`).join("\n")}` : ""}
+${p.education?.length ? `- Formação: ${p.education.map((e: any) => `${e.degree} - ${e.school}`).join(", ")}` : ""}
+
+IMPORTANTE: Use essas informações para criar rapport GENUÍNO. Mencione algo específico do perfil dele (cargo, empresa, setor) para mostrar que você pesquisou. NÃO seja genérico.`;
+                    console.log("[ai-sdr] LinkedIn enrichment success:", p.full_name, p.company);
+                  }
+                }
+              } else {
+                // Try searching by name + company
+                const searchQuery = `${pipeContact.name} ${pipeContact.org_name || ""}`.trim();
+                if (searchQuery.length > 3) {
+                  console.log("[ai-sdr] Searching LinkedIn by name:", searchQuery);
+                  const scraperResp = await fetch(`${SUPABASE_URL}/functions/v1/linkedin-scraper`, {
+                    method: "POST",
+                    headers: {
+                      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ query: searchQuery }),
+                  });
+
+                  if (scraperResp.ok) {
+                    const scraperData = await scraperResp.json();
+                    if (scraperData.found && scraperData.profile) {
+                      const p = scraperData.profile;
+                      linkedinContext = `\n\nPERFIL LINKEDIN ENCONTRADO (possível match - use com cuidado):
+- Nome: ${p.full_name}
+- Cargo: ${p.company_role || p.headline}
+- Empresa: ${p.company}
+- Setor: ${p.industry || "N/A"}
+- Localização: ${p.location || "N/A"}
+
+Use essas informações para personalizar a abordagem, mas NÃO mencione diretamente que buscou no LinkedIn.`;
+                      console.log("[ai-sdr] LinkedIn search match:", p.full_name);
+                    }
+                  }
+                }
+              }
+            } catch (linkedinErr) {
+              console.error("[ai-sdr] LinkedIn scraping error (non-blocking):", linkedinErr);
+            }
           }
         }
       } catch (pipeErr) {
@@ -520,6 +604,7 @@ CLASSIFICAÇÃO (baseada em se aceitou ligação):
 TOM: ${config.tone || "profissional"}
 ${calendarContext}
 ${pipedriveContext}
+${linkedinContext}
 
 ETIQUETAS DISPONÍVEIS: ${availableTagNames.join(", ")}
 ETIQUETAS ATUAIS: ${currentTagNames.length > 0 ? currentTagNames.join(", ") : "Nenhuma"}
@@ -604,6 +689,44 @@ Responda EXATAMENTE neste formato JSON:
         if (matched) finalSourceContext = matched.context || "";
       }
 
+      // Enrich with LinkedIn data via Piloterr for proactive triggers
+      let proactiveLinkedinContext = linkedinContext; // may already be set from pipedrive_persons
+      if (!proactiveLinkedinContext && linkedinUrl) {
+        const PILOTERR_API_KEY = Deno.env.get("PILOTERR_API_KEY");
+        if (PILOTERR_API_KEY) {
+          try {
+            console.log("[ai-sdr] Proactive: scraping LinkedIn URL:", linkedinUrl);
+            const scraperResp = await fetch(`${SUPABASE_URL}/functions/v1/linkedin-scraper`, {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ linkedin_url: linkedinUrl }),
+            });
+            if (scraperResp.ok) {
+              const scraperData = await scraperResp.json();
+              if (scraperData.found && scraperData.profile) {
+                const p = scraperData.profile;
+                proactiveLinkedinContext = `\n\nPERFIL LINKEDIN DO LEAD (use para personalizar a primeira mensagem):
+- Nome: ${p.full_name}
+- Cargo: ${p.company_role || p.headline}
+- Empresa: ${p.company}
+- Setor: ${p.industry || "N/A"}
+- Localização: ${p.location || "N/A"}
+- Resumo: ${p.summary ? p.summary.substring(0, 300) : "N/A"}
+${p.experience?.length ? `- Experiência recente:\n${p.experience.map((e: any) => `  • ${e.title} @ ${e.company} (${e.duration})`).join("\n")}` : ""}
+
+IMPORTANTE: Mencione algo ESPECÍFICO do perfil (cargo, empresa, setor) para criar rapport genuíno na primeira mensagem.`;
+                console.log("[ai-sdr] Proactive LinkedIn enrichment:", p.full_name, p.company);
+              }
+            }
+          } catch (liErr) {
+            console.error("[ai-sdr] Proactive LinkedIn scrape error (non-blocking):", liErr);
+          }
+        }
+      }
+
       userMessage = `Este é um NOVO LEAD que acabou de ser cadastrado no CRM (Pipedrive). Você deve iniciar a conversa proativamente pelo WhatsApp.
 
 ORIGEM DO LEAD: ${sourceName}
@@ -615,6 +738,7 @@ CONTEXTO DO LEAD:
 - Valor: ${pCtx.deal_value || 0}
 - Origem: ${pCtx.origin || "Manual"}
 ${linkedinUrl ? `- LinkedIn: ${linkedinUrl}` : ""}
+${proactiveLinkedinContext || ""}
 
 ${finalSourceContext ? `INSTRUÇÕES ESPECÍFICAS PARA ESTA ORIGEM (siga à risca):\n${finalSourceContext}\n` : ""}
 INSTRUÇÕES GERAIS PARA PRIMEIRA MENSAGEM:
@@ -624,6 +748,7 @@ INSTRUÇÕES GERAIS PARA PRIMEIRA MENSAGEM:
 4. Termine com uma pergunta aberta para engajar o lead
 5. Mantenha a mensagem curta (máximo 4 linhas)
 6. Varie o estilo: às vezes mais direto, às vezes mais descontraído — não use sempre o mesmo template
+${proactiveLinkedinContext ? "7. USE os dados do LinkedIn para criar uma abordagem PERSONALIZADA e DIFERENCIADA" : ""}
 
 LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
     } else {
