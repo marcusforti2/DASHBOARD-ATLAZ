@@ -90,6 +90,7 @@ Deno.serve(async (req) => {
     let successCount = 0;
     let errorCount = 0;
     const errors: string[] = [];
+    const sendLogs: any[] = [];
 
     for (const recipient of recipients) {
       for (let i = 0; i < emailNodes.length; i++) {
@@ -145,17 +146,44 @@ Deno.serve(async (req) => {
 
           if (sendResp.ok) {
             successCount++;
+            sendLogs.push({
+              flow_id: flowId,
+              recipient_email: recipient.email,
+              recipient_name: recipient.name || null,
+              subject: personalizedSubject,
+              status: 'sent',
+              sent_at: new Date().toISOString(),
+            });
           } else {
             const errText = await sendResp.text();
             errorCount++;
             errors.push(`${recipient.email}: ${errText}`);
+            sendLogs.push({
+              flow_id: flowId,
+              recipient_email: recipient.email,
+              recipient_name: recipient.name || null,
+              subject: personalizedSubject,
+              status: 'failed',
+              error_message: errText.substring(0, 500),
+              sent_at: new Date().toISOString(),
+            });
           }
         } catch (err: any) {
           errorCount++;
           errors.push(`${recipient.email}: ${err.message}`);
+          sendLogs.push({
+            flow_id: flowId,
+            recipient_email: recipient.email,
+            recipient_name: recipient.name || null,
+            subject: personalizedSubject,
+            status: 'failed',
+            error_message: err.message?.substring(0, 500),
+            sent_at: new Date().toISOString(),
+          });
         }
       }
 
+      // Legacy execution record per member
       try {
         await supabase.from('email_flow_executions').insert({
           flow_id: flowId,
@@ -166,6 +194,15 @@ Deno.serve(async (req) => {
         });
       } catch (e) {
         console.error('Failed to record execution:', e);
+      }
+    }
+
+    // Insert detailed send logs in batch
+    if (sendLogs.length > 0) {
+      try {
+        await supabase.from('email_send_logs').insert(sendLogs);
+      } catch (e) {
+        console.error('Failed to insert send logs:', e);
       }
     }
 

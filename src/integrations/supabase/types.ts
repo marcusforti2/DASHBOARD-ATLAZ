@@ -570,6 +570,47 @@ export type Database = {
         }
         Relationships: []
       }
+      email_send_logs: {
+        Row: {
+          error_message: string | null
+          flow_id: string
+          id: string
+          recipient_email: string
+          recipient_name: string | null
+          sent_at: string
+          status: string
+          subject: string
+        }
+        Insert: {
+          error_message?: string | null
+          flow_id: string
+          id?: string
+          recipient_email: string
+          recipient_name?: string | null
+          sent_at?: string
+          status?: string
+          subject?: string
+        }
+        Update: {
+          error_message?: string | null
+          flow_id?: string
+          id?: string
+          recipient_email?: string
+          recipient_name?: string | null
+          sent_at?: string
+          status?: string
+          subject?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_send_logs_flow_id_fkey"
+            columns: ["flow_id"]
+            isOneToOne: false
+            referencedRelation: "email_flows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_templates: {
         Row: {
           body_html: string
