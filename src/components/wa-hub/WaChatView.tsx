@@ -192,7 +192,7 @@ export default function WaChatView({
 
 /* ── Chat Message ── */
 function ChatMessage({ message, conversation }: { message: WaMessage; conversation: WaConversation }) {
-  const isMe = message.sender === 'me';
+  const isMe = message.sender === 'agent';
   return (
     <div className={`flex flex-col gap-1.5 ${isMe ? 'items-end' : 'items-start'}`}>
       <div className={`flex items-start gap-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
