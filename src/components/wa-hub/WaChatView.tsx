@@ -346,25 +346,42 @@ export default function WaChatView({ conversation, messages, messagesLoading, on
                 </span>
               </div>
               <div className="space-y-2">
-                {group.msgs.map(msg => (
-                  <div key={msg.id} className={`flex ${msg.sender === 'agent' ? 'justify-end' : 'justify-start'} animate-msg-in`}>
-                    <div className={`max-w-[70%] px-4 py-2.5 rounded-2xl text-sm shadow-sm ${
-                      msg.sender === 'agent'
-                        ? 'bg-primary text-primary-foreground rounded-br-md'
-                        : 'bg-muted text-foreground rounded-bl-md'
-                    }`}>
-                      {msg.media_type && msg.media_type !== 'location' && msg.media_type !== 'contact' ? (
-                        <MediaBubble mediaType={msg.media_type} mediaUrl={msg.media_url} mediaMime={msg.media_mime_type} text={msg.text} />
+                {group.msgs.map(msg => {
+                  const isSticker = msg.media_type === 'sticker';
+                  return (
+                    <div key={msg.id} className={`flex ${msg.sender === 'agent' ? 'justify-end' : 'justify-start'} animate-msg-in`}>
+                      {isSticker ? (
+                        <div className="max-w-[70%]">
+                          {msg.media_url ? (
+                            <img src={msg.media_url} alt="sticker" className="w-36 h-36 object-contain drop-shadow-md" />
+                          ) : (
+                            <p className="text-sm italic opacity-70">🎨 Sticker</p>
+                          )}
+                          <p className="text-[9px] mt-0.5 text-muted-foreground text-right">
+                            {formatTime(msg.created_at)}
+                            {msg.id.startsWith('optimistic') && ' · enviando...'}
+                          </p>
+                        </div>
                       ) : (
-                        <p className="whitespace-pre-wrap">{msg.text}</p>
+                        <div className={`max-w-[70%] px-4 py-2.5 rounded-2xl text-sm shadow-sm ${
+                          msg.sender === 'agent'
+                            ? 'bg-primary text-primary-foreground rounded-br-md'
+                            : 'bg-muted text-foreground rounded-bl-md'
+                        }`}>
+                          {msg.media_type && msg.media_type !== 'location' && msg.media_type !== 'contact' ? (
+                            <MediaBubble mediaType={msg.media_type} mediaUrl={msg.media_url} mediaMime={msg.media_mime_type} text={msg.text} />
+                          ) : (
+                            <p className="whitespace-pre-wrap">{msg.text}</p>
+                          )}
+                          <p className={`text-[9px] mt-1 ${msg.sender === 'agent' ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
+                            {formatTime(msg.created_at)}
+                            {msg.id.startsWith('optimistic') && ' · enviando...'}
+                          </p>
+                        </div>
                       )}
-                      <p className={`text-[9px] mt-1 ${msg.sender === 'agent' ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
-                        {formatTime(msg.created_at)}
-                        {msg.id.startsWith('optimistic') && ' · enviando...'}
-                      </p>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ))
