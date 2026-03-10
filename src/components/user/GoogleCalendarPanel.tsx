@@ -683,31 +683,34 @@ export function GoogleCalendarPanel({ teamMemberId, memberRole }: GoogleCalendar
     const dayEvents = filteredEvents.filter(e => isSameDay(getEventStart(e), currentDate));
     const layout = getEventLayout(dayEvents);
 
+    const gridHeight = HOURS.length * HOUR_HEIGHT;
+
     return (
       <div className="border border-border rounded-lg overflow-hidden bg-card flex flex-col" style={{ height: "calc(100vh - 220px)", minHeight: "500px" }}>
         <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-none">
-          <div className="grid grid-cols-[48px_1fr] relative" style={{ height: `${HOURS.length * HOUR_HEIGHT}px` }}>
+          <div className="flex relative" style={{ height: `${gridHeight}px` }}>
             {/* Hour labels */}
-            <div className="relative border-r border-border">
-              {HOURS.map(hour => (
-                <div key={hour} className="absolute right-2 -translate-y-1/2 text-[10px] text-muted-foreground font-medium"
-                  style={{ top: `${(hour - HOURS[0]) * HOUR_HEIGHT}px` }}>
-                  {`${hour.toString().padStart(2, "0")}:00`}
+            <div className="w-12 shrink-0 relative border-r border-border">
+              {HOURS.map((hour, i) => (
+                <div key={hour} className="absolute right-2 text-[10px] text-muted-foreground font-medium"
+                  style={{ top: `${i * HOUR_HEIGHT - 6}px` }}>
+                  {i > 0 ? `${hour.toString().padStart(2, "0")}:00` : ""}
                 </div>
               ))}
             </div>
 
             {/* Day column */}
-            <div className="relative">
-              {HOURS.map(hour => (
-                <div key={hour} className="absolute left-0 right-0 border-t border-border/40"
-                  style={{ top: `${(hour - HOURS[0]) * HOUR_HEIGHT}px` }}>
-                  <div className="absolute left-0 right-0 border-t border-border/20"
-                    style={{ top: `${HOUR_HEIGHT / 2}px` }} />
+            <div className="flex-1 relative">
+              {HOURS.map((hour, i) => (
+                <div key={hour}>
+                  <div className="absolute left-0 right-0 border-t border-border/30"
+                    style={{ top: `${i * HOUR_HEIGHT}px` }} />
+                  <div className="absolute left-0 right-0 border-t border-border/15"
+                    style={{ top: `${i * HOUR_HEIGHT + HOUR_HEIGHT / 2}px` }} />
                 </div>
               ))}
 
-              <div className="absolute inset-0 mx-1">
+              <div className="absolute inset-x-1 top-0 bottom-0">
                 {layout.map(({ event, columnIndex, columnCount }) => (
                   <EventBlock key={event.id} event={event} columnCount={columnCount} columnIndex={columnIndex} />
                 ))}
