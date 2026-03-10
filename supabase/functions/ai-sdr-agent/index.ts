@@ -75,8 +75,10 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { conversation_id, instance_id, contact_phone, instance_name, contact_name, incoming_message, trigger_type, pipedrive_context, force } = body;
-    const instName = instance_name;
+    const { conversation_id, instance_id, contact_phone: _contact_phone, instance_name, contact_name: _contact_name, incoming_message, trigger_type, pipedrive_context, force } = body;
+    let contact_phone = _contact_phone;
+    let contact_name = _contact_name;
+    const instName = instance_name || null; // will be resolved after instance fetch
 
     const isProactive = trigger_type === "proactive";
 
@@ -275,7 +277,19 @@ Deno.serve(async (req) => {
       .eq("id", conversation_id)
       .single();
 
-    // Check handoff threshold
+    // Resolve contact_phone and contact_name if not provided in body
+    if ((!contact_phone || !contact_name) && conversation?.contact_id) {
+      const { data: contactData } = await supabase
+        .from("wa_contacts")
+        .select("phone, name")
+        .eq("id", conversation.contact_id)
+        .single();
+      if (contactData) {
+        contact_phone = contact_phone || contactData.phone;
+        contact_name = contact_name || contactData.name;
+      }
+    }
+    console.log("[ai-sdr] Resolved contact:", contact_name, contact_phone);
     if (features.handoff) {
       const agentMsgCount = history.filter(m => m.sender === "agent" && m.agent_name === "SDR IA 🤖").length;
       const maxBeforeHandoff = config.max_messages_before_handoff || 10;
@@ -708,7 +722,8 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
         console.log(`[ai-sdr] Part ${i + 1}/${replyParts.length}: waiting ${delay}ms`);
         await new Promise(resolve => setTimeout(resolve, delay));
 
-        const sendResp = await fetch(`${baseUrl}/message/sendText/${instName}`, {
+        const resolvedInstName = instName || instance.instance_name;
+        const sendResp = await fetch(`${baseUrl}/message/sendText/${resolvedInstName}`, {
           method: "POST",
           headers: { apikey: EVOLUTION_API_KEY, "Content-Type": "application/json" },
           body: JSON.stringify({ number: contact_phone, text: part }),
