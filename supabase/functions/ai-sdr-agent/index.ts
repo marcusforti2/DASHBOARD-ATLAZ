@@ -174,11 +174,59 @@ Deno.serve(async (req) => {
       const shifted = new Date(now.getTime() + BRT_OFFSET * 60 * 60 * 1000);
       const brtDay = shifted.getUTCDay();
       const startHour = config.business_hours_start ?? 8;
-      const endHour = config.business_hours_end ?? 19;
+      const endHour = config.business_hours_end ?? 21;
 
       if (brtDay === 0 || brtDay === 6 || brtHour < startHour || brtHour >= endHour) {
-        console.log(`[ai-sdr] Skipping: outside business hours (BRT ${brtHour}h, day ${brtDay})`);
-        return new Response(JSON.stringify({ skipped: "outside_business_hours" }), {
+        console.log(`[ai-sdr] Outside business hours (BRT ${brtHour}h, day ${brtDay}). Scheduling follow-up for next business morning.`);
+        
+        // Schedule a follow-up reminder for next business day at startHour
+        try {
+          const nextMorning = getNextBusinessDateTime(new Date(), 0);
+          const getBrtHourFn = (d: Date) => (d.getUTCHours() - 3 + 24) % 24;
+          const currentBrt = getBrtHourFn(nextMorning);
+          if (currentBrt >= endHour || currentBrt < startHour || brtDay === 0 || brtDay === 6) {
+            // Move to next business day at startHour+1 (9am)
+            const tomorrow = new Date(nextMorning.getTime() + 24 * 60 * 60 * 1000);
+            const tBrtDay = new Date(tomorrow.getTime() - 3 * 60 * 60 * 1000).getUTCDay();
+            let target = tomorrow;
+            while (true) {
+              const d = new Date(target.getTime() - 3 * 60 * 60 * 1000).getUTCDay();
+              if (d >= 1 && d <= 5) break;
+              target = new Date(target.getTime() + 24 * 60 * 60 * 1000);
+            }
+            // Set to startHour+1 BRT (e.g. 9am) = startHour+1+3 UTC
+            const remindAtUtc = new Date(target);
+            remindAtUtc.setUTCHours(startHour + 1 + 3, 0, 0, 0);
+            
+            // Create a follow-up reminder so the AI calls back
+            if (conversationId) {
+              const { data: existingReminder } = await supabase
+                .from("wa_follow_up_reminders")
+                .select("id")
+                .eq("conversation_id", conversationId)
+                .eq("completed", false)
+                .limit(1);
+              
+              if (!existingReminder || existingReminder.length === 0) {
+                const creatorId = instance?.sdr_id || instance?.closer_id;
+                if (creatorId && contactId) {
+                  await supabase.from("wa_follow_up_reminders").insert({
+                    conversation_id: conversationId,
+                    contact_id: contactId,
+                    remind_at: remindAtUtc.toISOString(),
+                    note: "[AUTO] Mensagem recebida fora do horário comercial - responder pela manhã",
+                    created_by: creatorId,
+                  });
+                  console.log("[ai-sdr] Off-hours follow-up scheduled for", remindAtUtc.toISOString());
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.error("[ai-sdr] Failed to schedule off-hours follow-up:", e);
+        }
+        
+        return new Response(JSON.stringify({ skipped: "outside_business_hours", queued_followup: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
