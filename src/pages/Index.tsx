@@ -254,6 +254,8 @@ export default function Index() {
         return <TrainingAdminPage />;
       case "processos":
         return <ProcessosPage />;
+      case "ai-sdr":
+        return <AiSdrPage />;
       case "calendars":
         return <AdminCalendarPage />;
       default:

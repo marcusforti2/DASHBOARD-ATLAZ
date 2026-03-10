@@ -60,6 +60,7 @@ const toolCategories: { label: string; icon: React.ElementType; items: SidebarIt
       { id: "processos", title: "Processos", icon: GitBranch },
       { id: "whatsapp", title: "WhatsApp", icon: MessageCircle },
       { id: "wa-hub", title: "WhatsApp Hub", icon: Smartphone },
+      { id: "ai-sdr", title: "SDR IA", icon: Brain },
     ],
   },
   {
