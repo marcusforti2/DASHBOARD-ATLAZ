@@ -88,7 +88,21 @@ export default function WaHubPage() {
     
     try {
       setCreating(true);
-      try { await createInstance(instanceName); } catch { /* continue */ }
+
+      // Check if already exists in DB
+      const { data: existing } = await supabase
+        .from('wa_instances')
+        .select('id')
+        .eq('instance_name', instanceName)
+        .maybeSingle();
+
+      if (existing) {
+        toast.error(`A instância "${instanceName}" já existe no sistema.`);
+        return;
+      }
+
+      // Try to create in Evolution API (ignore "already exists" errors)
+      try { await createInstance(instanceName); } catch { /* instance may already exist in Evolution API, continue */ }
 
       // Auto-register webhook
       try { await setWebhook(instanceName); } catch { /* continue */ }
