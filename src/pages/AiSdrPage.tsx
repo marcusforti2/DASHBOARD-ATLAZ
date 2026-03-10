@@ -5,7 +5,7 @@ import {
   Bot, Settings2, MessageSquare, Users, Tag, Clock,
   ToggleLeft, ToggleRight, Loader2, Save, Shield, Zap, Brain,
   Phone, CheckCircle2, AlertTriangle, TrendingUp, Send, Calendar,
-  Target, Plus, Trash2, GripVertical, Sparkles, ArrowRight,
+  Target, Plus, Trash2, GripVertical, Sparkles, ArrowRight, Timer,
   BarChart3, User, BookOpen, GitBranch, MessageCircle, CalendarClock,
 } from "lucide-react";
 import { AutomationCard, type AutomationDef } from "@/components/ai-sdr/AutomationCard";
