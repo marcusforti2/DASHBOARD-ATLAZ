@@ -125,26 +125,127 @@ const SECTIONS: { id: Section; label: string; icon: React.ElementType; desc: str
   { id: "analytics", label: "Analytics", icon: BarChart3, desc: "Métricas e performance" },
 ];
 
-const FEATURES = [
-  { key: "feature_auto_reply" as const, icon: Send, title: "Resposta automática", desc: "Responde leads em tempo real 24h", color: "text-blue-500" },
-  { key: "call_focus_mode" as const, icon: Phone, title: "Foco em Ligação", desc: "Prioriza agendar call em 3-4 trocas", color: "text-emerald-500" },
-  { key: "split_messages" as const, icon: MessageCircle, title: "Mensagens Quebradas", desc: "Divide em várias msgs curtas (mais humano)", color: "text-sky-500" },
-  { key: "follow_up_enabled" as const, icon: CalendarClock, title: "Follow-up Automático", desc: "Reenvia se lead não responder", color: "text-amber-500" },
-  { key: "urgent_call_alert" as const, icon: AlertTriangle, title: "Alerta Urgente", desc: "Se lead pedir pra ligar na hora, alerta closer", color: "text-red-500" },
-  { key: "meeting_followups" as const, icon: Calendar, title: "Follow-up Pré-Reunião", desc: "Lembrete 6h e 1h antes da ligação", color: "text-violet-500" },
-  { key: "feature_auto_tag" as const, icon: Tag, title: "Auto-etiquetas", desc: "Classifica leads por estágio", color: "text-yellow-500" },
-  { key: "feature_qualification" as const, icon: TrendingUp, title: "Qualificação + Score", desc: "Classifica leads A/B/C", color: "text-green-500" },
-  { key: "feature_handoff" as const, icon: ArrowRight, title: "Handoff inteligente", desc: "Score A→Closer, B→SDR, C→encerra", color: "text-orange-500" },
-  { key: "feature_sentiment" as const, icon: Brain, title: "Análise de sentimento", desc: "Detecta frustração e risco", color: "text-purple-500" },
-  { key: "feature_pipedrive_sync" as const, icon: Zap, title: "Sync Pipedrive", desc: "Atualiza deals e notas no CRM", color: "text-primary" },
-  { key: "business_hours_only" as const, icon: Clock, title: "Só Horário Comercial", desc: "IA só responde 8h-18h Seg-Sex", color: "text-slate-500" },
-  { key: "feature_rate_limit" as const, icon: Shield, title: "Anti-Spam / Rate Limit", desc: "Limita msgs por contato/hora", color: "text-rose-500" },
-  { key: "feature_reengagement" as const, icon: MessageSquare, title: "Reengajamento automático", desc: "Reativa leads inativos há X dias", color: "text-teal-500" },
-  { key: "feature_blacklist" as const, icon: Users, title: "Blacklist / DNC", desc: "Números que a IA nunca contata", color: "text-red-600" },
-  { key: "feature_daily_summary" as const, icon: BarChart3, title: "Resumo diário WhatsApp", desc: "Envia resumo de leads quentes ao closer", color: "text-indigo-500" },
-  { key: "feature_language_detection" as const, icon: Sparkles, title: "Detecção de idioma", desc: "Adapta idioma automaticamente (PT/EN/ES)", color: "text-cyan-500" },
-  { key: "feature_linkedin_lookup" as const, icon: TrendingUp, title: "Auto-pesquisa LinkedIn", desc: "Enriquece lead com dados do LinkedIn", color: "text-blue-600" },
-  { key: "feature_time_escalation" as const, icon: AlertTriangle, title: "Escalonamento por tempo", desc: "Escala ao gestor se sem resposta em X horas", color: "text-orange-600" },
+const AUTOMATIONS: AutomationDef[] = [
+  {
+    key: "feature_auto_reply", icon: Send, title: "Resposta automática", desc: "Responde leads em tempo real",
+    color: "text-blue-500",
+    explanation: "A IA responde automaticamente toda mensagem recebida de leads. Se 'Só Horário Comercial' estiver ativo, responde apenas de 8h às 18h. Caso contrário, responde 24 horas por dia, incluindo finais de semana.",
+    warnings: ["Se 'Só Horário Comercial' estiver ativo, a IA NÃO responderá fora do horário."],
+  },
+  {
+    key: "call_focus_mode", icon: Phone, title: "Foco em Ligação", desc: "Prioriza agendar call em 3-4 trocas",
+    color: "text-emerald-500",
+    explanation: "A IA direciona a conversa para agendar uma ligação/reunião o mais rápido possível (idealmente em 3-4 mensagens). Usa o Google Calendar do closer vinculado para sugerir horários disponíveis. Leads classificados como Score A recebem horários; Score B são transferidos para SDR humano.",
+  },
+  {
+    key: "split_messages", icon: MessageCircle, title: "Mensagens Quebradas", desc: "Divide em várias msgs curtas (mais humano)",
+    color: "text-sky-500",
+    explanation: "Em vez de enviar uma mensagem longa, a IA quebra a resposta em 2-4 mensagens curtas com pausas de 1-5 segundos entre elas, simulando digitação humana. Usa o separador ||| internamente.",
+    warnings: ["Cada mensagem quebrada conta individualmente no Rate Limit. Uma resposta dividida em 4 partes consome 4 do limite por hora."],
+  },
+  {
+    key: "follow_up_enabled", icon: CalendarClock, title: "Follow-up Automático", desc: "Reenvia se lead não responder",
+    color: "text-amber-500",
+    explanation: "Se o lead não responder após o tempo configurado, a IA envia uma mensagem de follow-up contextualizada automaticamente. A mensagem NÃO é genérica — a IA analisa o histórico da conversa para criar um follow-up relevante.",
+    warnings: ["Se 'Alerta Urgente' tiver sido acionado (lead pediu pra ligar), o follow-up é suspenso para evitar conflito com atendimento humano."],
+    fields: [
+      { key: "follow_up_hours", label: "Tempo antes do follow-up", type: "number" as const, suffix: "horas", min: 1, max: 168 },
+    ],
+  },
+  {
+    key: "urgent_call_alert", icon: AlertTriangle, title: "Alerta Urgente", desc: "Se lead pedir pra ligar na hora, alerta closer",
+    color: "text-red-500",
+    explanation: "Quando o lead diz algo como 'pode ligar agora?', 'estou disponível', a IA detecta a urgência, envia um alerta ao closer via WhatsApp e SUSPENDE as respostas automáticas para permitir intervenção humana imediata. O closer recebe o nome, telefone e contexto da conversa.",
+  },
+  {
+    key: "meeting_followups", icon: Calendar, title: "Follow-up Pré-Reunião", desc: "Lembrete 6h e 1h antes da ligação",
+    color: "text-violet-500",
+    explanation: "Após agendar uma reunião/ligação, a IA envia automaticamente 2 lembretes ao lead: um 6 horas antes e outro 1 hora antes do compromisso. Isso reduz a taxa de no-show significativamente. Os lembretes são personalizados com o nome do closer e o assunto da conversa.",
+  },
+  {
+    key: "feature_auto_tag", icon: Tag, title: "Auto-etiquetas", desc: "Classifica leads por estágio",
+    color: "text-yellow-500",
+    explanation: "A IA classifica automaticamente cada lead com etiquetas de estágio no WhatsApp Hub: 'Novo Lead', 'Em Qualificação', 'Reunião Agendada', 'Follow-up', etc. Isso mantém o funil organizado sem intervenção manual. As etiquetas são atualizadas em tempo real conforme a conversa evolui.",
+  },
+  {
+    key: "feature_qualification", icon: TrendingUp, title: "Qualificação + Score", desc: "Classifica leads A/B/C",
+    color: "text-green-500",
+    explanation: "A IA faz as perguntas de qualificação (configuradas na aba 'Qualificação') de forma natural durante a conversa e atribui um score de 0-100. Score A (≥80): lead quente, pronto para closer. Score B (≥50): potencial, precisa de nurturing. Score C (<50): baixa prioridade ou desqualificado.",
+  },
+  {
+    key: "feature_handoff", icon: ArrowRight, title: "Handoff inteligente", desc: "Score A→Closer, B→SDR, C→encerra",
+    color: "text-orange-500",
+    explanation: "Com base no score de qualificação, a IA transfere automaticamente: Score A → Closer (agenda ligação direto). Score B → SDR humano (precisa de mais trabalho). Score C → encerra educadamente. O handoff inclui um resumo da conversa para que o humano tenha contexto completo.",
+    fields: [
+      { key: "max_messages_before_handoff", label: "Máximo de mensagens antes de forçar handoff", type: "number" as const, suffix: "mensagens", min: 3, max: 50 },
+    ],
+  },
+  {
+    key: "feature_sentiment", icon: Brain, title: "Análise de sentimento", desc: "Detecta frustração e risco",
+    color: "text-purple-500",
+    explanation: "A IA analisa o tom emocional de cada mensagem do lead (positivo, neutro, frustrado, irritado). Se detectar frustração ou risco de perda, ajusta o tom da resposta para ser mais empático e pode acionar um alerta ao gestor. Útil para identificar leads que estão prestes a desistir.",
+  },
+  {
+    key: "feature_pipedrive_sync", icon: Zap, title: "Sync Pipedrive", desc: "Atualiza deals e notas no CRM",
+    color: "text-primary",
+    explanation: "Sincroniza automaticamente as informações da conversa com o Pipedrive: cria/atualiza deals, adiciona notas com resumo da conversa, e move o deal entre estágios conforme a qualificação avança. Requer integração Pipedrive configurada no WhatsApp Hub.",
+  },
+  {
+    key: "business_hours_only", icon: Clock, title: "Só Horário Comercial", desc: "IA só responde 8h-18h Seg-Sex",
+    color: "text-slate-500",
+    explanation: "Restringe as respostas automáticas da IA para o horário comercial: segunda a sexta, das 8h às 18h (horário de Brasília). Mensagens recebidas fora deste horário ficam pendentes e são respondidas no próximo dia útil. Ideal para manter uma imagem profissional.",
+    warnings: ["Conflita com 'Resposta automática' se você espera respostas 24h. Ative apenas um dos dois cenários."],
+  },
+  {
+    key: "feature_rate_limit", icon: Shield, title: "Anti-Spam / Rate Limit", desc: "Limita msgs por contato/hora",
+    color: "text-rose-500",
+    explanation: "Impede que a IA envie mensagens excessivas para um mesmo contato. Limita o número de mensagens enviadas por contato por hora. Se o limite for atingido, a IA para de responder até a próxima hora. Protege contra loops e spam acidental.",
+    warnings: ["'Mensagens Quebradas' conta cada parte como uma mensagem separada. Uma resposta dividida em 4 partes consome 4 do limite."],
+    fields: [
+      { key: "rate_limit_per_hour", label: "Limite de mensagens por contato/hora", type: "number" as const, suffix: "msgs/hora", min: 1, max: 30 },
+    ],
+  },
+  {
+    key: "feature_reengagement", icon: MessageSquare, title: "Reengajamento automático", desc: "Reativa leads inativos há X dias",
+    color: "text-teal-500",
+    explanation: "Envia uma mensagem de reengajamento para leads que não interagiram nos últimos X dias. A mensagem é contextualizada com base na última conversa. Diferente do follow-up (que age em horas), o reengajamento age em dias para leads 'frios' que já não respondem há muito tempo.",
+    warnings: ["Se 'Follow-up Automático' também estiver ativo, o lead receberá: follow-up em horas → reengajamento em dias. Certifique-se de que os tempos não se sobrepõem."],
+    fields: [
+      { key: "reengagement_days", label: "Reengajar após inatividade de", type: "number" as const, suffix: "dias", min: 1, max: 90 },
+    ],
+  },
+  {
+    key: "feature_blacklist", icon: Users, title: "Blacklist / DNC", desc: "Números que a IA nunca contata",
+    color: "text-red-600",
+    explanation: "Lista de números que a IA NUNCA deve contatar. Qualquer mensagem recebida desses números é completamente ignorada pela IA (nenhuma resposta automática, follow-up ou reengajamento). Útil para excluir fornecedores, parceiros ou leads que pediram para não serem contatados.",
+    fields: [
+      { key: "blacklist_numbers", label: "Números bloqueados (um por linha)", type: "textarea" as const, placeholder: "5511999999999\n5521888888888" },
+    ],
+  },
+  {
+    key: "feature_daily_summary", icon: BarChart3, title: "Resumo diário WhatsApp", desc: "Envia resumo de leads quentes ao closer",
+    color: "text-indigo-500",
+    explanation: "Todo dia útil às 8h, a IA envia um resumo via WhatsApp para o closer vinculado contendo: quantidade de novos leads, leads quentes (Score A), reuniões agendadas para o dia e leads que precisam de atenção. Mantém o closer informado sem precisar acessar o painel.",
+  },
+  {
+    key: "feature_language_detection", icon: Sparkles, title: "Detecção de idioma", desc: "Adapta idioma automaticamente (PT/EN/ES)",
+    color: "text-cyan-500",
+    explanation: "A IA detecta automaticamente o idioma da primeira mensagem do lead (Português, Inglês ou Espanhol) e continua toda a conversa nesse idioma. Ideal para empresas que recebem leads internacionais. A detecção é feita na primeira mensagem e mantida ao longo de toda a conversa.",
+  },
+  {
+    key: "feature_linkedin_lookup", icon: TrendingUp, title: "Auto-pesquisa LinkedIn", desc: "Enriquece lead com dados do LinkedIn",
+    color: "text-blue-600",
+    explanation: "Quando o lead menciona sua empresa, cargo ou setor, a IA ativa um gatilho de enriquecimento para buscar informações complementares no LinkedIn. Os dados são adicionados ao perfil do lead no WhatsApp Hub para que o closer tenha contexto antes da ligação.",
+  },
+  {
+    key: "feature_time_escalation", icon: AlertTriangle, title: "Escalonamento por tempo", desc: "Escala ao gestor se sem resposta em X horas",
+    color: "text-orange-600",
+    explanation: "Se um lead qualificado (Score A ou B) não responder após X horas, a IA cria um alerta de alta prioridade para o gestor. Diferente do follow-up (que tenta recontactar o lead), o escalonamento notifica o HUMANO para intervir manualmente. Deve ser configurado com tempo MAIOR que o follow-up.",
+    warnings: ["O tempo de escalonamento deve ser MAIOR que o tempo de follow-up. Caso contrário, o lead será escalado antes de receber follow-up."],
+    fields: [
+      { key: "escalation_hours", label: "Escalar se sem resposta após", type: "number" as const, suffix: "horas", min: 1, max: 168 },
+    ],
+  },
 ];
 
 export default function AiSdrPage() {
