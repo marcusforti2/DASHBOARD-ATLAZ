@@ -7,7 +7,7 @@ const corsHeaders = {
 
 const DEFAULT_VOICE_ID = "onwK4e9ZLuTAKqWW03F9";
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {

@@ -1,6 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   try {
     const url = new URL(req.url);
     const code = url.searchParams.get("code");
