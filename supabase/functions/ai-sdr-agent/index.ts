@@ -1558,25 +1558,37 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
     }
 
     // 9. Auto follow-up scheduling (for no-response cases)
-    // ===== BUG FIX #2 & #7: Use valid team_member_id and respect business hours =====
-    if (parsed.schedule_follow_up && conversation?.contact_id) {
-      const validCreator = instance.sdr_id || instance.closer_id;
-      if (!validCreator) {
-        console.warn("[ai-sdr] Cannot schedule follow-up: no sdr_id or closer_id on instance");
+    // ===== BUG FIX: Only schedule generic follow-up if meeting was NOT confirmed =====
+    // When meeting_confirmed=true, follow-ups are already created in section 7 (6h and 1h before)
+    if (parsed.schedule_follow_up && !parsed.meeting_confirmed && conversation?.contact_id) {
+      // Check if there's already a pending follow-up for this conversation to avoid duplicates
+      const { count: existingReminders } = await supabase
+        .from("wa_follow_up_reminders")
+        .select("*", { count: "exact", head: true })
+        .eq("conversation_id", conversation_id)
+        .eq("completed", false)
+        .gte("remind_at", new Date().toISOString());
+
+      if ((existingReminders || 0) >= 2) {
+        console.log("[ai-sdr] Skipping follow-up: already has", existingReminders, "pending reminders");
       } else {
-        // BUG FIX #7: Use business datetime instead of raw hours addition
-        const nextBizTime = getNextBusinessDateTime(new Date(), followUpHours);
-        const remindAt = nextBizTime.toISOString();
-        const followUpMsg = parsed.follow_up_message || `Fala ${contact_name || ""}! Sumiu 😄 Conseguiu pensar sobre o que conversamos?`;
-        
-        await supabase.from("wa_follow_up_reminders").insert({
-          contact_id: conversation.contact_id,
-          conversation_id,
-          remind_at: remindAt,
-          note: followUpMsg,
-          created_by: validCreator,
-        });
-        console.log("[ai-sdr] Follow-up scheduled for", remindAt, "(business hours)");
+        const validCreator = instance.sdr_id || instance.closer_id;
+        if (!validCreator) {
+          console.warn("[ai-sdr] Cannot schedule follow-up: no sdr_id or closer_id on instance");
+        } else {
+          const nextBizTime = getNextBusinessDateTime(new Date(), followUpHours);
+          const remindAt = nextBizTime.toISOString();
+          const followUpMsg = parsed.follow_up_message || `Fala ${contact_name || ""}! Sumiu 😄 Conseguiu pensar sobre o que conversamos?`;
+          
+          await supabase.from("wa_follow_up_reminders").insert({
+            contact_id: conversation.contact_id,
+            conversation_id,
+            remind_at: remindAt,
+            note: followUpMsg,
+            created_by: validCreator,
+          });
+          console.log("[ai-sdr] Follow-up scheduled for", remindAt, "(business hours)");
+        }
       }
     }
 
