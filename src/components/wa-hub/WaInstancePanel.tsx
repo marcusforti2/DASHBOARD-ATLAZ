@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Wifi, WifiOff, QrCode, RefreshCw, PowerOff, Loader2, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import {
   connectInstance,
   getInstanceStatus,
