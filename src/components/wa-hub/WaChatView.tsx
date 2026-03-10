@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Send, Loader2, Image, Mic, Square, Paperclip, Zap, Sparkles, ChevronDown, User } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, Image, Mic, Square, Paperclip, Zap, Sparkles, ChevronDown, User, Sticker } from 'lucide-react';
 import { WaConversation, WaMessage, useQuickReplies } from '@/hooks/use-wa-hub';
 import { WaAiTools } from './WaAiTools';
 import { WaContactTagBadges } from './WaContactTagBadges';
