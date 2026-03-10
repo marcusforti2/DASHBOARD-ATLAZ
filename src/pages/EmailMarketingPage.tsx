@@ -237,12 +237,12 @@ export default function EmailMarketingPage() {
     setIsHistoryLoading(true);
     try {
       const { data } = await supabase
-        .from('email_flow_executions' as any)
+        .from('email_send_logs' as any)
         .select('*')
         .eq('flow_id', flowId)
-        .order('started_at', { ascending: false })
-        .limit(50);
-      setHistoryRecords((data as any[]) || []);
+        .order('sent_at', { ascending: false })
+        .limit(100);
+      setSendLogs((data as any[]) || []);
     } catch (e) {
       console.error(e);
     } finally {
