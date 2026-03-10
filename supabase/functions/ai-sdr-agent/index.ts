@@ -390,25 +390,107 @@ Deno.serve(async (req) => {
             }
 
             const now = new Date();
+            const BRT_OFFSET_MS = -3 * 60 * 60 * 1000;
+            const nowBrt = new Date(now.getTime() + BRT_OFFSET_MS);
             const timeMin = now.toISOString();
             const timeMax = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString();
 
             const calResp = await fetch(
-              `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true&orderBy=startTime&maxResults=20`,
+              `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true&orderBy=startTime&maxResults=50`,
               { headers: { Authorization: `Bearer ${accessToken}` } }
             );
 
             if (calResp.ok) {
               const calData = await calResp.json();
-              const busySlots = (calData.items || [])
-                .filter((e: any) => e.status !== "cancelled")
-                .map((e: any) => {
-                  const start = new Date(e.start?.dateTime || e.start?.date);
-                  const end = new Date(e.end?.dateTime || e.end?.date);
-                  return `${start.toLocaleDateString("pt-BR")} ${start.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}-${end.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
-                });
+              const events = (calData.items || [])
+                .filter((e: any) => e.status !== "cancelled" && e.start?.dateTime)
+                .map((e: any) => ({
+                  start: new Date(e.start.dateTime),
+                  end: new Date(e.end.dateTime),
+                }));
 
-              calendarContext = `\n\nAGENDA DO CLOSER (próximos 3 dias - horários OCUPADOS):\n${busySlots.join("\n") || "Agenda livre"}\n\nHorário comercial: 9h às 18h, Seg-Sex. Sugira horários LIVRES (que não conflitem com os ocupados acima). Ofereça 3 opções.`;
+              // Calculate FREE slots for today and next 2 days
+              const WORK_START = 9; // 9h BRT
+              const WORK_END = 18; // 18h BRT
+              const SLOT_DURATION_MIN = 30; // 30-min slots
+              const dayNames = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+
+              const getFreeSlots = (targetDate: Date): string[] => {
+                const year = targetDate.getUTCFullYear();
+                const month = targetDate.getUTCMonth();
+                const day = targetDate.getUTCDate();
+                const dayOfWeek = targetDate.getUTCDay();
+                
+                // Skip weekends
+                if (dayOfWeek === 0 || dayOfWeek === 6) return [];
+
+                const slots: string[] = [];
+                
+                for (let h = WORK_START; h < WORK_END; h++) {
+                  for (let m = 0; m < 60; m += SLOT_DURATION_MIN) {
+                    // Create slot time in BRT → UTC
+                    const slotStartUtc = new Date(Date.UTC(year, month, day, h + 3, m)); // BRT+3 = UTC
+                    const slotEndUtc = new Date(slotStartUtc.getTime() + SLOT_DURATION_MIN * 60 * 1000);
+                    
+                    // Skip past slots
+                    if (slotStartUtc.getTime() < now.getTime() + 30 * 60 * 1000) continue; // at least 30min from now
+
+                    // Check conflict with any event
+                    const hasConflict = events.some((ev: any) => 
+                      slotStartUtc < ev.end && slotEndUtc > ev.start
+                    );
+                    
+                    if (!hasConflict) {
+                      const hStr = String(h).padStart(2, "0");
+                      const mStr = String(m).padStart(2, "0");
+                      slots.push(`${hStr}:${mStr}`);
+                    }
+                  }
+                }
+                return slots;
+              };
+
+              // Today in BRT
+              const todayBrt = new Date(Date.UTC(nowBrt.getUTCFullYear(), nowBrt.getUTCMonth(), nowBrt.getUTCDate()));
+              const tomorrowBrt = new Date(todayBrt.getTime() + 24 * 60 * 60 * 1000);
+              const dayAfterBrt = new Date(todayBrt.getTime() + 2 * 24 * 60 * 60 * 1000);
+
+              const todaySlots = getFreeSlots(todayBrt);
+              const tomorrowSlots = getFreeSlots(tomorrowBrt);
+              const dayAfterSlots = getFreeSlots(dayAfterBrt);
+
+              const todayName = dayNames[todayBrt.getUTCDay()];
+              const tomorrowName = dayNames[tomorrowBrt.getUTCDay()];
+              const dayAfterName = dayNames[dayAfterBrt.getUTCDay()];
+
+              const formatDate = (d: Date) => `${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+
+              let agendaText = `\n\nAGENDA DO CLOSER — HORÁRIOS LIVRES (use para propor ligação):\n`;
+              
+              if (todaySlots.length > 0) {
+                agendaText += `\n📅 HOJE (${todayName} ${formatDate(todayBrt)}) — PRIORIDADE MÁXIMA:\n${todaySlots.slice(0, 6).join(", ")}\n`;
+              } else {
+                agendaText += `\n📅 HOJE (${todayName} ${formatDate(todayBrt)}): Sem horários disponíveis\n`;
+              }
+              
+              if (tomorrowSlots.length > 0) {
+                agendaText += `\n📅 AMANHÃ (${tomorrowName} ${formatDate(tomorrowBrt)}):\n${tomorrowSlots.slice(0, 6).join(", ")}\n`;
+              }
+              
+              if (dayAfterSlots.length > 0 && tomorrowSlots.length === 0) {
+                agendaText += `\n📅 ${dayAfterName} (${formatDate(dayAfterBrt)}):\n${dayAfterSlots.slice(0, 6).join(", ")}\n`;
+              }
+
+              agendaText += `\nREGRAS DE AGENDAMENTO:
+1. PRIORIZE O HORÁRIO MAIS RÁPIDO POSSÍVEL — idealmente HOJE
+2. Ofereça o horário mais próximo de HOJE como opção principal
+3. Ofereça também UMA opção de amanhã como alternativa
+4. Exemplo: "Consigo te ligar hoje às 14:30, topa? Se preferir, amanhã às 10:00 também tenho disponível."
+5. NÃO ofereça horários que NÃO estão na lista acima
+6. Se não houver horário hoje, ofereça o mais cedo de amanhã
+7. Quando o lead confirmar, retorne "meeting_confirmed": true e "meeting_datetime" no formato ISO (YYYY-MM-DDTHH:mm:00-03:00)`;
+
+              calendarContext = agendaText;
             }
           }
         }
@@ -643,10 +725,17 @@ FOLLOW-UP AUTOMÁTICO:
 - Na mensagem de follow-up, seja leve: "Fala [Nome]! Sumiu 😄 Conseguiu pensar sobre o que conversamos?"
 
 QUANDO O LEAD CONFIRMAR HORÁRIO/DATA DA LIGAÇÃO:
-- Retorne "meeting_confirmed": true e "meeting_datetime": "data e hora confirmada"
+- Retorne "meeting_confirmed": true e "meeting_datetime": "data e hora confirmada no formato ISO com -03:00"
 - Finalize a conversa de forma positiva: "Perfeito! Anotado aqui. Te ligo [dia] às [hora]! 🤝"
 - NÃO continue a conversa após confirmar. Apenas encerre.
 - O sistema vai agendar follow-ups automáticos de 6h e 1h antes da ligação.
+
+ESTRATÉGIA DE AGENDAMENTO (IMPORTANTE):
+- Quando propor a ligação, CONSULTE A AGENDA acima e ofereça o horário mais RÁPIDO possível (hoje, se houver)
+- Sempre ofereça 2 opções: a mais rápida (hoje) + uma alternativa (amanhã)
+- Se o lead disser "pode ser agora" ou "pode ser hoje", ofereça o slot mais próximo da agenda
+- Exemplo ideal: "Tenho um horário hoje às 15:30, topa? Se preferir, amanhã às 10:00 também consigo."
+- NUNCA invente horários — use SOMENTE os horários livres listados na agenda
 
 QUANDO O LEAD PEDIR PARA LIGAR AGORA / NA HORA:
 - Se o lead disser "pode ligar agora", "estou disponível agora", "liga agora", "vamos conversar agora":
