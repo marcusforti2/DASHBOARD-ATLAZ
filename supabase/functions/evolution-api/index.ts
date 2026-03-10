@@ -97,7 +97,7 @@ serve(async (req) => {
               for (let j = 0; j < chunk.length; j++) binary += String.fromCharCode(chunk[j]);
             }
             const b64 = btoa(binary);
-            stickerPayload.sticker = `data:image/png;base64,${b64}`;
+            stickerPayload.sticker = b64;
           } catch (e) {
             console.error('[evolution-api] Failed to fetch sticker image for base64 conversion:', e);
             stickerPayload.sticker = imgSrc;
