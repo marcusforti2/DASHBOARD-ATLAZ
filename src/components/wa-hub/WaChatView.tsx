@@ -40,6 +40,7 @@ interface Props {
   onSend: (text: string) => Promise<void>;
   onSendMedia?: (mediaType: string, mediaUrl: string, caption?: string) => Promise<void>;
   onSendAudio?: (audioUrl: string) => Promise<void>;
+  onSendSticker?: (imageUrl: string) => Promise<void>;
   tags?: WaTag[];
   assignedTagIds?: string[];
   onAddTag?: (contactId: string, tagId: string) => Promise<void>;
