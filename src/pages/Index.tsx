@@ -207,6 +207,7 @@ export default function Index() {
       case "reports": return "Relatórios IA";
       case "whatsapp": return "WhatsApp";
       case "wa-hub": return "WhatsApp Hub";
+      case "ai-sdr": return "SDR de Inteligência Artificial";
       case "popups": return "Popups Motivacionais";
       case "knowledge": return "Conhecimento IA";
       case "dna-mapping": return "Sales DNA Decoder";
