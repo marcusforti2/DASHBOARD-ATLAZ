@@ -56,6 +56,32 @@ interface AiSdrConfig {
   score_thresholds: { a_min: number; b_min: number };
 }
 
+interface LeadSourceAutomation {
+  follow_up_enabled: boolean;
+  follow_up_hours: number;
+  auto_stage_change: boolean;
+  stage_on_contact: string;
+  stage_on_qualified: string;
+  stage_on_meeting: string;
+  stage_on_no_response: string;
+  notification_priority: "normal" | "high" | "urgent";
+  notify_via_whatsapp: boolean;
+  flow_id?: string | null;
+}
+
+const DEFAULT_SOURCE_AUTOMATION: LeadSourceAutomation = {
+  follow_up_enabled: true,
+  follow_up_hours: 24,
+  auto_stage_change: true,
+  stage_on_contact: "Em contato",
+  stage_on_qualified: "Qualificado",
+  stage_on_meeting: "Reunião agendada",
+  stage_on_no_response: "Sem resposta",
+  notification_priority: "normal",
+  notify_via_whatsapp: false,
+  flow_id: null,
+};
+
 interface LeadSource {
   id: string;
   name: string;
@@ -63,6 +89,7 @@ interface LeadSource {
   context: string;
   color: string;
   pipedrive_label_id?: number | null;
+  automation?: LeadSourceAutomation;
 }
 
 interface Instance {
@@ -108,9 +135,9 @@ const DEFAULT_CONFIG: AiSdrConfig = {
   blacklist_numbers: [],
   daily_summary_admin_ids: [],
   lead_sources: [
-    { id: "linkedin", name: "PROSPECÇÃO/LINKEDIN", active: true, context: "Lead veio de prospecção ativa no LinkedIn. Você já se conectou com ele e agora está dando continuidade à conversa. Seja pessoal, mencione algo do perfil dele. NÃO diga o nome da empresa logo de cara.", color: "#4DA6FF", pipedrive_label_id: 43 },
-    { id: "dripify", name: "DRIPIFY/AUTOMAÇÃO", active: false, context: "Lead recebeu uma sequência automatizada (Dripify ou similar) e respondeu. O contexto é diferente da prospecção manual — ele pode não lembrar quem você é. Apresente-se brevemente e retome o interesse.", color: "#E8A441", pipedrive_label_id: 40 },
-    { id: "indicacao", name: "INDICAÇÃO", active: false, context: "Lead veio por indicação de alguém. Mencione quem indicou (se disponível) e use isso como ponte de confiança. Tom mais próximo e caloroso.", color: "#3B82F6", pipedrive_label_id: 27 },
+    { id: "linkedin", name: "PROSPECÇÃO/LINKEDIN", active: true, context: "Lead veio de prospecção ativa no LinkedIn. Você já se conectou com ele e agora está dando continuidade à conversa. Seja pessoal, mencione algo do perfil dele. NÃO diga o nome da empresa logo de cara.", color: "#4DA6FF", pipedrive_label_id: 43, automation: { ...DEFAULT_SOURCE_AUTOMATION, follow_up_hours: 24, notification_priority: "normal" as const } },
+    { id: "dripify", name: "DRIPIFY/AUTOMAÇÃO", active: false, context: "Lead recebeu uma sequência automatizada (Dripify ou similar) e respondeu. O contexto é diferente da prospecção manual — ele pode não lembrar quem você é. Apresente-se brevemente e retome o interesse.", color: "#E8A441", pipedrive_label_id: 40, automation: { ...DEFAULT_SOURCE_AUTOMATION, follow_up_hours: 48, notification_priority: "normal" as const } },
+    { id: "indicacao", name: "INDICAÇÃO", active: false, context: "Lead veio por indicação de alguém. Mencione quem indicou (se disponível) e use isso como ponte de confiança. Tom mais próximo e caloroso.", color: "#3B82F6", pipedrive_label_id: 27, automation: { ...DEFAULT_SOURCE_AUTOMATION, follow_up_hours: 12, notification_priority: "urgent" as const, notify_via_whatsapp: true } },
   ],
   target_audience: "",
   pain_points: "",
@@ -566,6 +593,124 @@ export default function AiSdrPage() {
                           <p className="text-[11px] text-muted-foreground mt-1.5">
                             A IA usará esse contexto para adaptar a primeira mensagem e o tom da conversa.
                           </p>
+                        </div>
+
+                        {/* Per-Label Automations */}
+                        <div className="border-t border-border/50 pt-3 mt-2">
+                          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                            <Zap className="w-3 h-3" /> Automações desta origem
+                          </p>
+                          {(() => {
+                            const auto = { ...DEFAULT_SOURCE_AUTOMATION, ...(src.automation || {}) };
+                            const updateSourceAuto = (key: keyof LeadSourceAutomation, value: any) => {
+                              const sources = [...(localConfig.lead_sources || [])];
+                              sources[idx] = { ...sources[idx], automation: { ...auto, [key]: value } };
+                              update("lead_sources", sources);
+                            };
+                            return (
+                              <div className="space-y-3">
+                                {/* Follow-up */}
+                                <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30">
+                                  <div className="flex items-center gap-2">
+                                    <CalendarClock className="w-3.5 h-3.5 text-amber-500" />
+                                    <span className="text-[11px] font-semibold text-foreground">Follow-up automático</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    {auto.follow_up_enabled && (
+                                      <div className="flex items-center gap-1">
+                                        <Input
+                                          type="number"
+                                          min={1}
+                                          max={168}
+                                          value={auto.follow_up_hours}
+                                          onChange={e => updateSourceAuto("follow_up_hours", parseInt(e.target.value) || 24)}
+                                          className="h-7 w-16 text-[11px]"
+                                        />
+                                        <span className="text-[10px] text-muted-foreground">h</span>
+                                      </div>
+                                    )}
+                                    <button onClick={() => updateSourceAuto("follow_up_enabled", !auto.follow_up_enabled)} className="p-0.5">
+                                      {auto.follow_up_enabled
+                                        ? <ToggleRight className="w-5 h-5 text-primary" />
+                                        : <ToggleLeft className="w-5 h-5 text-muted-foreground" />}
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Auto Stage Change */}
+                                <div className="p-2.5 rounded-lg bg-muted/30 space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <GitBranch className="w-3.5 h-3.5 text-emerald-500" />
+                                      <span className="text-[11px] font-semibold text-foreground">Mudança de estágio automática</span>
+                                    </div>
+                                    <button onClick={() => updateSourceAuto("auto_stage_change", !auto.auto_stage_change)} className="p-0.5">
+                                      {auto.auto_stage_change
+                                        ? <ToggleRight className="w-5 h-5 text-primary" />
+                                        : <ToggleLeft className="w-5 h-5 text-muted-foreground" />}
+                                    </button>
+                                  </div>
+                                  {auto.auto_stage_change && (
+                                    <div className="grid grid-cols-2 gap-2 pt-1">
+                                      {[
+                                        { key: "stage_on_contact" as const, label: "Ao contatar", icon: "💬" },
+                                        { key: "stage_on_qualified" as const, label: "Ao qualificar", icon: "✅" },
+                                        { key: "stage_on_meeting" as const, label: "Reunião agendada", icon: "📅" },
+                                        { key: "stage_on_no_response" as const, label: "Sem resposta", icon: "⏳" },
+                                      ].map(stage => (
+                                        <div key={stage.key}>
+                                          <label className="text-[9px] text-muted-foreground mb-0.5 block">{stage.icon} {stage.label}</label>
+                                          <Input
+                                            value={auto[stage.key]}
+                                            onChange={e => updateSourceAuto(stage.key, e.target.value)}
+                                            className="h-7 text-[11px]"
+                                          />
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Notification Priority */}
+                                <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30">
+                                  <div className="flex items-center gap-2">
+                                    <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
+                                    <span className="text-[11px] font-semibold text-foreground">Prioridade de notificação</span>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    {(["normal", "high", "urgent"] as const).map(p => (
+                                      <button
+                                        key={p}
+                                        onClick={() => updateSourceAuto("notification_priority", p)}
+                                        className={`px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
+                                          auto.notification_priority === p
+                                            ? p === "urgent" ? "bg-destructive text-destructive-foreground"
+                                              : p === "high" ? "bg-amber-500 text-white"
+                                              : "bg-primary text-primary-foreground"
+                                            : "bg-muted text-muted-foreground hover:bg-accent"
+                                        }`}
+                                      >
+                                        {p === "normal" ? "Normal" : p === "high" ? "Alta" : "Urgente"}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                {/* Notify via WhatsApp */}
+                                <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30">
+                                  <div className="flex items-center gap-2">
+                                    <Send className="w-3.5 h-3.5 text-green-500" />
+                                    <span className="text-[11px] font-semibold text-foreground">Notificar closer via WhatsApp</span>
+                                  </div>
+                                  <button onClick={() => updateSourceAuto("notify_via_whatsapp", !auto.notify_via_whatsapp)} className="p-0.5">
+                                    {auto.notify_via_whatsapp
+                                      ? <ToggleRight className="w-5 h-5 text-primary" />
+                                      : <ToggleLeft className="w-5 h-5 text-muted-foreground" />}
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
                     )}
