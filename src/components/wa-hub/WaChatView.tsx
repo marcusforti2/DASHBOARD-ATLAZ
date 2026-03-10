@@ -6,6 +6,7 @@ import { WaContactTagBadges } from './WaContactTagBadges';
 import type { WaTag } from '@/hooks/use-wa-tags';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import StickerPreviewDialog from './StickerPreviewDialog';
 
 const AVATAR_COLORS = ['152 60% 36%', '210 90% 50%', '280 65% 50%', '30 90% 50%', '0 72% 51%', '180 60% 40%'];
