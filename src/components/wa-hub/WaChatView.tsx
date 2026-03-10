@@ -153,6 +153,8 @@ export default function WaChatView({ conversation, messages, messagesLoading, on
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [aiSuggesting, setAiSuggesting] = useState(false);
   const [showQuickReplies, setShowQuickReplies] = useState(false);
+  const [stickerMode, setStickerMode] = useState<string | null>(null);
+  const [stickerCreateMode, setStickerCreateMode] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -234,17 +236,69 @@ export default function WaChatView({ conversation, messages, messagesLoading, on
   const handleStickerSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !onSendSticker) return;
-    if (file.size > 1024 * 1024) { toast.error('Figurinha muito grande. Máximo 1MB.'); if (stickerInputRef.current) stickerInputRef.current.value = ''; return; }
+    if (file.size > 5 * 1024 * 1024) { toast.error('Imagem muito grande. Máximo 5MB.'); if (stickerInputRef.current) stickerInputRef.current.value = ''; return; }
     try {
       setUploadingMedia(true);
+      setStickerMode('processing');
+
+      // Upload original image first
       const ext = file.name.split('.').pop() || 'webp';
       const filePath = `sticker_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
       const { error: uploadError } = await supabase.storage.from('wa-media').upload(filePath, file, { contentType: file.type, upsert: false });
       if (uploadError) throw uploadError;
       const { data: { publicUrl } } = supabase.storage.from('wa-media').getPublicUrl(filePath);
-      await onSendSticker(publicUrl);
+
+      if (stickerCreateMode) {
+        // Use AI to remove background and create sticker
+        toast.info('Criando figurinha com IA... ✨');
+        try {
+          const { data: aiResult, error: aiError } = await supabase.functions.invoke('ai-coach', {
+            body: {
+              model: 'google/gemini-3.1-flash-image-preview',
+              messages: [{
+                role: 'user',
+                content: [
+                  { type: 'text', text: 'Remove the background from this image completely, making it transparent. Keep only the main subject. Output as a sticker-style cutout on a clean white background.' },
+                  { type: 'image_url', image_url: { url: publicUrl } }
+                ]
+              }],
+              modalities: ['image', 'text']
+            },
+          });
+          if (aiError) throw aiError;
+
+          const aiImageUrl = aiResult?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+          if (aiImageUrl) {
+            // Upload AI-generated sticker
+            const base64Data = aiImageUrl.replace(/^data:image\/\w+;base64,/, '');
+            const binaryString = atob(base64Data);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
+            const stickerBlob = new Blob([bytes], { type: 'image/png' });
+            const stickerPath = `sticker_ai_${Date.now()}.png`;
+            const { error: stickerUploadErr } = await supabase.storage.from('wa-media').upload(stickerPath, stickerBlob, { contentType: 'image/png', upsert: false });
+            if (stickerUploadErr) throw stickerUploadErr;
+            const { data: { publicUrl: stickerUrl } } = supabase.storage.from('wa-media').getPublicUrl(stickerPath);
+            await onSendSticker(stickerUrl);
+            toast.success('Figurinha criada e enviada! 🎨');
+          } else {
+            // Fallback: send original
+            await onSendSticker(publicUrl);
+            toast.info('IA não conseguiu processar, figurinha original enviada.');
+          }
+        } catch (aiErr) {
+          console.error('AI sticker error:', aiErr);
+          await onSendSticker(publicUrl);
+          toast.info('Erro na IA, figurinha original enviada.');
+        }
+      } else {
+        await onSendSticker(publicUrl);
+        toast.success('Figurinha enviada!');
+      }
     } catch (err) { console.error('Error sending sticker:', err); toast.error('Erro ao enviar figurinha.'); } finally {
       setUploadingMedia(false);
+      setStickerMode(null);
+      setStickerCreateMode(false);
       if (stickerInputRef.current) stickerInputRef.current.value = '';
     }
   };
@@ -346,25 +400,42 @@ export default function WaChatView({ conversation, messages, messagesLoading, on
                 </span>
               </div>
               <div className="space-y-2">
-                {group.msgs.map(msg => (
-                  <div key={msg.id} className={`flex ${msg.sender === 'agent' ? 'justify-end' : 'justify-start'} animate-msg-in`}>
-                    <div className={`max-w-[70%] px-4 py-2.5 rounded-2xl text-sm shadow-sm ${
-                      msg.sender === 'agent'
-                        ? 'bg-primary text-primary-foreground rounded-br-md'
-                        : 'bg-muted text-foreground rounded-bl-md'
-                    }`}>
-                      {msg.media_type && msg.media_type !== 'location' && msg.media_type !== 'contact' ? (
-                        <MediaBubble mediaType={msg.media_type} mediaUrl={msg.media_url} mediaMime={msg.media_mime_type} text={msg.text} />
+                {group.msgs.map(msg => {
+                  const isSticker = msg.media_type === 'sticker';
+                  return (
+                    <div key={msg.id} className={`flex ${msg.sender === 'agent' ? 'justify-end' : 'justify-start'} animate-msg-in`}>
+                      {isSticker ? (
+                        <div className="max-w-[70%]">
+                          {msg.media_url ? (
+                            <img src={msg.media_url} alt="sticker" className="w-36 h-36 object-contain drop-shadow-md" />
+                          ) : (
+                            <p className="text-sm italic opacity-70">🎨 Sticker</p>
+                          )}
+                          <p className="text-[9px] mt-0.5 text-muted-foreground text-right">
+                            {formatTime(msg.created_at)}
+                            {msg.id.startsWith('optimistic') && ' · enviando...'}
+                          </p>
+                        </div>
                       ) : (
-                        <p className="whitespace-pre-wrap">{msg.text}</p>
+                        <div className={`max-w-[70%] px-4 py-2.5 rounded-2xl text-sm shadow-sm ${
+                          msg.sender === 'agent'
+                            ? 'bg-primary text-primary-foreground rounded-br-md'
+                            : 'bg-muted text-foreground rounded-bl-md'
+                        }`}>
+                          {msg.media_type && msg.media_type !== 'location' && msg.media_type !== 'contact' ? (
+                            <MediaBubble mediaType={msg.media_type} mediaUrl={msg.media_url} mediaMime={msg.media_mime_type} text={msg.text} />
+                          ) : (
+                            <p className="whitespace-pre-wrap">{msg.text}</p>
+                          )}
+                          <p className={`text-[9px] mt-1 ${msg.sender === 'agent' ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
+                            {formatTime(msg.created_at)}
+                            {msg.id.startsWith('optimistic') && ' · enviando...'}
+                          </p>
+                        </div>
                       )}
-                      <p className={`text-[9px] mt-1 ${msg.sender === 'agent' ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
-                        {formatTime(msg.created_at)}
-                        {msg.id.startsWith('optimistic') && ' · enviando...'}
-                      </p>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ))
@@ -427,9 +498,29 @@ export default function WaChatView({ conversation, messages, messagesLoading, on
 
           {/* Sticker */}
           {onSendSticker && (
-            <button onClick={() => stickerInputRef.current?.click()} disabled={uploadingMedia || sending || recording} className="p-2.5 rounded-xl text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50" title="Enviar figurinha">
-              <Sticker className="w-4 h-4" />
-            </button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button disabled={uploadingMedia || sending || recording} className="p-2.5 rounded-xl text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50" title="Figurinhas">
+                  {stickerMode === 'processing' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sticker className="w-4 h-4" />}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-48 p-2" side="top">
+                <div className="space-y-1">
+                  <button
+                    onClick={() => { setStickerCreateMode(false); stickerInputRef.current?.click(); }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs rounded-lg hover:bg-muted transition-colors"
+                  >
+                    <Sticker className="w-3.5 h-3.5" /> Enviar figurinha
+                  </button>
+                  <button
+                    onClick={() => { setStickerCreateMode(true); stickerInputRef.current?.click(); }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs rounded-lg hover:bg-muted transition-colors"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Criar de foto (IA)
+                  </button>
+                </div>
+              </PopoverContent>
+            </Popover>
           )}
 
           {/* Audio record */}
