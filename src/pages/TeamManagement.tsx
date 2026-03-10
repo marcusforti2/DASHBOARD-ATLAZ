@@ -83,6 +83,8 @@ function MemberFormDialog({
       const updates: Record<string, any> = { name: name.trim(), member_role: newRole };
       if (email.trim()) updates.email = email.trim();
       if (phone.trim()) updates.phone = phone.trim().replace(/\D/g, "");
+      if (pipedriveUserId.trim()) updates.pipedrive_user_id = parseInt(pipedriveUserId.trim(), 10);
+      else updates.pipedrive_user_id = null;
       const { error } = await supabase.from("team_members").update(updates).eq("id", member.id);
       if (error) toast.error(error.message); else { toast.success("Membro atualizado!"); onSaved(); onClose(); }
       setSaving(false);
