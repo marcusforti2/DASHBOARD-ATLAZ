@@ -387,12 +387,15 @@ export default function WaHubPage() {
         <TabsContent value="instances" className="mt-4">
           <div className="space-y-4">
             {/* Create instance button / form */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               {!showCreate && (
                 <Button onClick={() => setShowCreate(true)} variant="outline" className="gap-2">
                   <Plus className="w-4 h-4" /> Nova Instância
                 </Button>
               )}
+              <Button onClick={handleReconnectAll} variant="default" className="gap-2 text-xs">
+                <RefreshCw className="w-3.5 h-3.5" /> Reconectar Todas
+              </Button>
               <Button onClick={handleReconfigureAllWebhooks} variant="secondary" className="gap-2 text-xs">
                 <Link2 className="w-3.5 h-3.5" /> Reconfigurar Webhooks
               </Button>
