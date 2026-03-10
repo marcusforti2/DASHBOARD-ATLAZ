@@ -727,7 +727,7 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
         const sendResp = await fetch(`${baseUrl}/message/sendText/${resolvedInstName}`, {
           method: "POST",
           headers: { apikey: EVOLUTION_API_KEY, "Content-Type": "application/json" },
-          body: JSON.stringify({ number: contact_phone, text: part }),
+          body: JSON.stringify({ number: resolvedPhone, text: part }),
         });
 
         if (!sendResp.ok) {
