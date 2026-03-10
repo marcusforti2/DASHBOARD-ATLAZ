@@ -183,12 +183,47 @@ async function handleDeal(supabase: any, event: string, current: any, previous: 
     }
   }
 
-  // V2: owner_id can be number, try to match to team_member by owner email from meta or custom fields
-  const ownerName = d.owner_name || null;
+  // V2: owner_id can be number — resolve owner name/email from Pipedrive API
+  let ownerName = d.owner_name || null;
+  let ownerEmail = d.cc_email || null;
+  const ownerId = typeof d.owner_id === 'object' ? d.owner_id?.value : d.owner_id;
+
+  if (ownerId && !ownerName) {
+    const PIPEDRIVE_API_TOKEN = Deno.env.get('PIPEDRIVE_API_TOKEN');
+    if (PIPEDRIVE_API_TOKEN) {
+      try {
+        const ownerResp = await fetch(
+          `https://api.pipedrive.com/v1/users/${ownerId}?api_token=${PIPEDRIVE_API_TOKEN}`
+        );
+        const ownerData = await ownerResp.json();
+        if (ownerData?.success && ownerData.data) {
+          ownerName = ownerData.data.name || null;
+          ownerEmail = ownerData.data.email || ownerEmail;
+          console.log(`[pipedrive-webhook] Resolved owner: ${ownerName} (${ownerEmail}) for deal ${d.id}`);
+        }
+      } catch (ownerErr) {
+        console.error(`[pipedrive-webhook] Owner fetch error:`, ownerErr);
+      }
+    }
+  }
 
   // Handle org_id as object or number
   const orgId = typeof d.org_id === 'object' ? d.org_id?.value : d.org_id;
   const orgName = d.org_name || (typeof d.org_id === 'object' ? d.org_id?.name : null);
+
+  // Try to match owner email to a team_member
+  if (ownerEmail && !teamMemberId) {
+    const { data: ownerMember } = await supabase
+      .from('team_members')
+      .select('id')
+      .eq('email', ownerEmail)
+      .limit(1)
+      .single();
+    if (ownerMember) {
+      teamMemberId = ownerMember.id;
+      console.log(`[pipedrive-webhook] Matched owner ${ownerEmail} to team_member ${teamMemberId}`);
+    }
+  }
 
   const dealData = {
     pipedrive_id: d.id,
@@ -206,7 +241,7 @@ async function handleDeal(supabase: any, event: string, current: any, previous: 
     close_time: d.close_time || null,
     lost_reason: d.lost_reason || null,
     owner_name: ownerName,
-    owner_email: d.cc_email || null,
+    owner_email: ownerEmail,
     wa_conversation_id: waConversationId,
     team_member_id: teamMemberId,
     raw_data: d,
