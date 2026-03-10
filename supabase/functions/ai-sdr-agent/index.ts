@@ -444,6 +444,10 @@ IMPORTANTE SOBRE MENSAGENS DO LEAD:
 
 ${features.sentiment ? "ANÁLISE DE SENTIMENTO: Analise o sentimento do lead (positivo, neutro, negativo, urgente) e inclua no JSON." : ""}
 
+${features.language_detection ? `DETECÇÃO DE IDIOMA: Identifique automaticamente o idioma do lead (português, inglês, espanhol, etc.) e RESPONDA NO MESMO IDIOMA. Se o lead escrever em inglês, responda em inglês. Se espanhol, responda em espanhol. Inclua "detected_language" no JSON.` : ""}
+
+${features.linkedin_lookup ? `PESQUISA LINKEDIN: Se o lead mencionar empresa, cargo ou nome completo, inclua "linkedin_lookup": true e "linkedin_query": "nome ou empresa" no JSON para enriquecimento automático.` : ""}
+
 MOVIMENTAÇÃO DE PIPELINE (IMPORTANTE):
 - Cada mudança de status do lead DEVE mover o deal no CRM automaticamente
 - O sistema faz isso baseado no "new_lead_status" que você retornar
@@ -481,7 +485,7 @@ Responda EXATAMENTE neste formato JSON:
   "urgent_call": false,
   "schedule_follow_up": false,
   "follow_up_message": "",
-  "activity_note": "Resumo curto da interação"${features.sentiment ? ',\n  "sentiment": "positivo" | "neutro" | "negativo" | "urgente"' : ""}
+  "activity_note": "Resumo curto da interação"${features.sentiment ? ',\n  "sentiment": "positivo" | "neutro" | "negativo" | "urgente"' : ""}${features.language_detection ? ',\n  "detected_language": "pt" | "en" | "es" | "other"' : ""}${features.linkedin_lookup ? ',\n  "linkedin_lookup": false,\n  "linkedin_query": ""' : ""}
 }`;
     let userMessage: string;
     if (isProactive) {
