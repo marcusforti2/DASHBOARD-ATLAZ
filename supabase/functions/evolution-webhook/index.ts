@@ -415,6 +415,60 @@ function extractMessageContent(message: Record<string, unknown>, msgData?: Recor
 }
 
 async function transcribeAudio(audioUrl: string, mimeType: string | null): Promise<string> {
+  const ELEVENLABS_API_KEY = Deno.env.get('ELEVENLABS_API_KEY');
+  
+  // Fallback to Gemini if ElevenLabs is not configured
+  if (!ELEVENLABS_API_KEY) {
+    console.log('[transcribe] ElevenLabs not configured, falling back to Gemini');
+    return transcribeAudioGemini(audioUrl, mimeType);
+  }
+
+  try {
+    // Fetch the audio file
+    const audioResp = await fetch(audioUrl);
+    if (!audioResp.ok) {
+      console.error('[transcribe] Failed to fetch audio:', audioResp.status);
+      return '';
+    }
+
+    const audioBlob = await audioResp.blob();
+    
+    // Use ElevenLabs Scribe v2 API
+    const formData = new FormData();
+    const ext = (mimeType || 'audio/ogg').split('/')[1]?.split(';')[0] || 'ogg';
+    formData.append('file', new File([audioBlob], `audio.${ext}`, { type: mimeType || 'audio/ogg' }));
+    formData.append('model_id', 'scribe_v2');
+    formData.append('tag_audio_events', 'false');
+    formData.append('diarize', 'false');
+    formData.append('language_code', 'por');
+
+    const response = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
+      method: 'POST',
+      headers: {
+        'xi-api-key': ELEVENLABS_API_KEY,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error('[transcribe] ElevenLabs STT error:', response.status, errText);
+      // Fallback to Gemini on ElevenLabs failure
+      console.log('[transcribe] Falling back to Gemini...');
+      return transcribeAudioGemini(audioUrl, mimeType);
+    }
+
+    const data = await response.json();
+    const transcription = data.text?.trim() || '';
+    console.log('[transcribe] ElevenLabs STT success:', transcription.substring(0, 100));
+    return transcription;
+  } catch (err) {
+    console.error('[transcribe] ElevenLabs error, falling back to Gemini:', err);
+    return transcribeAudioGemini(audioUrl, mimeType);
+  }
+}
+
+async function transcribeAudioGemini(audioUrl: string, mimeType: string | null): Promise<string> {
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
   if (!LOVABLE_API_KEY) {
     console.error('[transcribe] LOVABLE_API_KEY not configured');
@@ -422,7 +476,6 @@ async function transcribeAudio(audioUrl: string, mimeType: string | null): Promi
   }
 
   try {
-    // Fetch the audio file and convert to base64
     const audioResp = await fetch(audioUrl);
     if (!audioResp.ok) {
       console.error('[transcribe] Failed to fetch audio:', audioResp.status);
@@ -432,7 +485,6 @@ async function transcribeAudio(audioUrl: string, mimeType: string | null): Promi
     const audioBuffer = await audioResp.arrayBuffer();
     const audioBytes = new Uint8Array(audioBuffer);
     let base64Audio = '';
-    // Convert to base64 in chunks to avoid stack overflow
     const chunkSize = 8192;
     for (let i = 0; i < audioBytes.length; i += chunkSize) {
       const chunk = audioBytes.slice(i, i + chunkSize);
@@ -442,7 +494,6 @@ async function transcribeAudio(audioUrl: string, mimeType: string | null): Promi
 
     const mime = mimeType || 'audio/ogg';
 
-    // Use Gemini Flash (supports audio natively) via Lovable AI Gateway
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -475,7 +526,7 @@ async function transcribeAudio(audioUrl: string, mimeType: string | null): Promi
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error('[transcribe] AI gateway error:', response.status, errText);
+      console.error('[transcribe] Gemini error:', response.status, errText);
       return '';
     }
 
@@ -483,7 +534,7 @@ async function transcribeAudio(audioUrl: string, mimeType: string | null): Promi
     const transcription = data.choices?.[0]?.message?.content?.trim() || '';
     return transcription;
   } catch (err) {
-    console.error('[transcribe] Error:', err);
+    console.error('[transcribe] Gemini error:', err);
     return '';
   }
 }
