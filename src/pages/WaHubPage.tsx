@@ -2,12 +2,12 @@ import { useState, useEffect } from 'react';
 import { useWaConversations, useWaInstances, useWaMessages } from '@/hooks/use-wa-hub';
 import { useWaTags, useWaContactTags } from '@/hooks/use-wa-tags';
 import { supabase } from '@/integrations/supabase/client';
-import { Shield, Eye, Users, Loader2, MessageSquare, Wifi, Plus, Trash2, Pencil, Check, X, UserPlus, Link2, Copy, Tag, PanelRightOpen, Bot, ExternalLink, Brain } from 'lucide-react';
+import { Shield, Eye, Users, Loader2, MessageSquare, Wifi, Plus, Trash2, Pencil, Check, X, UserPlus, Link2, Copy, Tag, PanelRightOpen, Bot, ExternalLink, Brain, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { createInstance, setWebhook, getWebhookUrl, sendMedia, sendAudio } from '@/lib/evolutionApi';
+import { createInstance, setWebhook, getWebhookUrl, sendMedia, sendAudio, restartInstance } from '@/lib/evolutionApi';
 import { WaConversationList } from '@/components/wa-hub/WaConversationList';
 import WaChatView from '@/components/wa-hub/WaChatView';
 import { WaDashboard } from '@/components/wa-hub/WaDashboard';
@@ -109,6 +109,22 @@ export default function WaHubPage() {
       }
     }
     toast.success(`Webhooks reconfigurados: ${ok} OK, ${fail} falhas`);
+  };
+
+  const handleReconnectAll = async () => {
+    toast.info('Reconectando todas as instâncias...');
+    let ok = 0, fail = 0;
+    for (const inst of instances) {
+      try {
+        await restartInstance(inst.instance_name);
+        ok++;
+      } catch {
+        fail++;
+      }
+    }
+    // Update DB status
+    await refetchInstances();
+    toast.success(`Reconexão: ${ok} reiniciadas, ${fail} falhas`);
   };
 
   const handleCopyWebhookUrl = (instanceName: string) => {
@@ -371,12 +387,15 @@ export default function WaHubPage() {
         <TabsContent value="instances" className="mt-4">
           <div className="space-y-4">
             {/* Create instance button / form */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               {!showCreate && (
                 <Button onClick={() => setShowCreate(true)} variant="outline" className="gap-2">
                   <Plus className="w-4 h-4" /> Nova Instância
                 </Button>
               )}
+              <Button onClick={handleReconnectAll} variant="default" className="gap-2 text-xs">
+                <RefreshCw className="w-3.5 h-3.5" /> Reconectar Todas
+              </Button>
               <Button onClick={handleReconfigureAllWebhooks} variant="secondary" className="gap-2 text-xs">
                 <Link2 className="w-3.5 h-3.5" /> Reconfigurar Webhooks
               </Button>
