@@ -545,22 +545,6 @@ export default function AiSdrPage() {
               </div>
             </div>
 
-            {/* Greeting */}
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-2">
-                <Send className="w-3.5 h-3.5" /> Primeira mensagem (saudação padrão)
-              </label>
-              <Textarea
-                value={localConfig.greeting}
-                onChange={e => update("greeting", e.target.value)}
-                placeholder="Olá! 👋 Como posso ajudar?"
-                rows={3}
-                className="text-sm resize-none"
-              />
-              <p className="text-[11px] text-muted-foreground mt-1.5">
-                Usada quando a origem do lead não é identificada ou não tem contexto específico configurado.
-              </p>
-            </div>
           </div>
         );
 
