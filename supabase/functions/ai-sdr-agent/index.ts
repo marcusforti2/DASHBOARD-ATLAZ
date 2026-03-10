@@ -319,9 +319,33 @@ Responda EXATAMENTE neste formato JSON:
   "meeting_suggestion": ""${features.sentiment ? ',\n  "sentiment": "positivo" | "neutro" | "negativo" | "urgente"' : ""}${features.pipedrive_sync ? ',\n  "pipedrive_update": { "stage": "", "value": 0, "custom_fields": {} }' : ""}
 }`;
 
-    const userMessage = isProactive
-      ? `Este é um NOVO LEAD que acabou de entrar no funil via Pipedrive. Inicie a conversa proativamente com a saudação configurada. Nome do lead: ${contact_name || "Não informado"}. Telefone: ${contact_phone}.`
-      : `HISTÓRICO DA CONVERSA:\n${conversationText}\n\nÚLTIMA MENSAGEM DO LEAD:\n${incoming_message}`;
+    let userMessage: string;
+    if (isProactive) {
+      const pCtx = pipedrive_context || {};
+      userMessage = `Este é um NOVO LEAD que acabou de ser cadastrado no CRM (Pipedrive). Você deve iniciar a conversa proativamente pelo WhatsApp.
+
+CONTEXTO DO LEAD:
+- Nome: ${contact_name || "Não informado"}
+- Telefone: ${contact_phone}
+- Deal: ${pCtx.deal_title || "N/A"}
+- Valor: ${pCtx.deal_value || 0}
+- Empresa: ${pCtx.org_name || "Não informada"}
+- Origem: ${pCtx.origin || "Manual"}
+
+INSTRUÇÕES PARA PRIMEIRA MENSAGEM:
+1. Aja como se vocês já tivessem tido contato pelo LinkedIn (prospecção ativa)
+2. Mencione que viu o perfil/empresa no LinkedIn e achou interessante
+3. Seja natural e pessoal — use o primeiro nome do lead
+4. Faça uma transição suave para o WhatsApp: "resolvi te chamar aqui pra facilitar"
+5. NÃO faça pitch direto — gere curiosidade e abra a conversa
+6. Termine com uma pergunta aberta para engajar o lead
+7. Mantenha a mensagem curta (máximo 4 linhas)
+
+Exemplo de tom (adapte ao contexto):
+"Fala [Nome]! Tudo bem? Vi seu perfil no LinkedIn e achei muito bacana o trabalho da [empresa]. Resolvi te chamar aqui no WhatsApp pra facilitar. Posso te fazer uma pergunta rápida?"`;
+    } else {
+      userMessage = `HISTÓRICO DA CONVERSA:\n${conversationText}\n\nÚLTIMA MENSAGEM DO LEAD:\n${incoming_message}`;
+    }
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
