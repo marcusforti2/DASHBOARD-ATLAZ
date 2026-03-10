@@ -246,6 +246,11 @@ export default function WaChatView({ conversation, messages, messagesLoading, on
     if (stickerInputRef.current) stickerInputRef.current.value = '';
   };
 
+  const openStickerPicker = (mode: 'normal' | 'process') => {
+    setStickerAutoMode(mode === 'process' ? 'process' : undefined);
+    stickerInputRef.current?.click();
+  };
+
   const handleStickerSend = async (imageUrl: string) => {
     if (!onSendSticker) return;
     await onSendSticker(imageUrl);
