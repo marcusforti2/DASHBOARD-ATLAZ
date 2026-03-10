@@ -489,14 +489,16 @@ export default function GoalsManagement() {
     setExpandedMonthId(expandedMonthId === monthId ? null : monthId);
   };
 
+  const [monthToDelete, setMonthToDelete] = useState<DbMonth | null>(null);
+
   const handleDeleteMonth = async (month: DbMonth) => {
-    if (!confirm(`Excluir "${month.label}" e todos os dados?`)) return;
     await supabase.from("daily_metrics").delete().eq("month_id", month.id);
     await supabase.from("weekly_goals").delete().eq("month_id", month.id);
     await supabase.from("monthly_goals").delete().eq("month_id", month.id);
     await supabase.from("months").delete().eq("id", month.id);
     toast.success("Mês excluído");
     queryClient.invalidateQueries({ queryKey: ["months"] });
+    setMonthToDelete(null);
   };
 
   const handleEditMonth = async () => {
