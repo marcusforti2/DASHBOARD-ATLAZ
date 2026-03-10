@@ -76,6 +76,7 @@ export default function EmailMarketingPage() {
   const [isAIDialogOpen, setIsAIDialogOpen] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [aiSources, setAiSources] = useState<string[]>(['knowledge', 'metrics', 'team']);
 
   const [isNewFlowDialogOpen, setIsNewFlowDialogOpen] = useState(false);
   const [newFlowName, setNewFlowName] = useState("");
