@@ -82,12 +82,21 @@ serve(async (req) => {
       case 'sendSticker': {
         url = `${baseUrl}/message/sendSticker/${instanceName}`;
         method = 'POST';
-        // Evolution API requires sticker as base64, not URL
-        const stickerPayload: Record<string, unknown> = { number: data?.number };
+        // Evolution API expects: { number, stickerMessage: { image: "<url or base64>" } }
         const imgSrc = data?.image as string | undefined;
-        if (imgSrc && imgSrc.startsWith('http')) {
+        if (!imgSrc) {
+          return new Response(JSON.stringify({ error: 'Missing sticker image data' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        let stickerImageValue = imgSrc;
+
+        // If it's a URL, fetch and convert to base64 for reliability
+        if (imgSrc.startsWith('http')) {
           try {
             const imgResp = await fetch(imgSrc);
+            if (!imgResp.ok) throw new Error(`Failed to fetch image: ${imgResp.status}`);
             const imgBuf = await imgResp.arrayBuffer();
             const bytes = new Uint8Array(imgBuf);
             let binary = '';
@@ -96,16 +105,26 @@ serve(async (req) => {
               const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
               for (let j = 0; j < chunk.length; j++) binary += String.fromCharCode(chunk[j]);
             }
-            const b64 = btoa(binary);
-            stickerPayload.sticker = b64;
+            const rawB64 = btoa(binary);
+            const mime = imgResp.headers.get('content-type') || 'image/webp';
+            stickerImageValue = `data:${mime};base64,${rawB64}`;
           } catch (e) {
             console.error('[evolution-api] Failed to fetch sticker image for base64 conversion:', e);
-            stickerPayload.sticker = imgSrc;
+            // Fallback: send original URL
+            stickerImageValue = imgSrc;
           }
-        } else if (imgSrc) {
-          stickerPayload.sticker = imgSrc;
+        } else if (imgSrc.startsWith('data:')) {
+          // Already a data URI, use as-is
+          stickerImageValue = imgSrc;
+        } else {
+          // Raw base64 — wrap it
+          stickerImageValue = `data:image/webp;base64,${imgSrc}`;
         }
-        body = JSON.stringify(stickerPayload);
+
+        body = JSON.stringify({
+          number: data?.number,
+          stickerMessage: { image: stickerImageValue },
+        });
         break;
       }
       case 'setWebhook':
