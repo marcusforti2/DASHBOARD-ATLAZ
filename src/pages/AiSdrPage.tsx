@@ -261,7 +261,6 @@ const AUTOMATIONS: AutomationDef[] = [
       { key: "human_takeover_minutes", label: "Tempo de silêncio da IA após resposta humana", type: "number" as const, suffix: "minutos", min: 5, max: 1440 },
     ],
   },
-  },
   {
     key: "feature_rate_limit", icon: Shield, title: "Anti-Spam / Rate Limit", desc: "Limita msgs por contato/hora",
     color: "text-rose-500",
