@@ -13,6 +13,7 @@ import DnaMappingPage from "@/pages/DnaMappingPage";
 import ProcessosPage from "@/pages/ProcessosPage";
 import AdminCalendarPage from "@/pages/AdminCalendarPage";
 import TrainingAdminPage from "@/pages/TrainingAdminPage";
+import AiSdrPage from "@/pages/AiSdrPage";
 import { AppSidebar, AdminView } from "@/components/AppSidebar";
 import { AiReportPanel } from "@/components/dashboard/AiReportPanel";
 import { UserHub } from "@/components/user/UserHub";
@@ -77,6 +78,16 @@ export default function Index() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [toggleFullscreen]);
+
+  // Listen for navigation events from child components (e.g. WaHub summary card)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail) setAdminView(detail as AdminView);
+    };
+    window.addEventListener('navigate-admin', handler);
+    return () => window.removeEventListener('navigate-admin', handler);
+  }, []);
 
   const activeMonthId = selectedMonthId || months?.[0]?.id;
   const activeMonth = months?.find(m => m.id === activeMonthId);
@@ -206,6 +217,7 @@ export default function Index() {
       case "reports": return "Relatórios IA";
       case "whatsapp": return "WhatsApp";
       case "wa-hub": return "WhatsApp Hub";
+      case "ai-sdr": return "SDR de Inteligência Artificial";
       case "popups": return "Popups Motivacionais";
       case "knowledge": return "Conhecimento IA";
       case "dna-mapping": return "Sales DNA Decoder";
@@ -252,6 +264,8 @@ export default function Index() {
         return <TrainingAdminPage />;
       case "processos":
         return <ProcessosPage />;
+      case "ai-sdr":
+        return <AiSdrPage />;
       case "calendars":
         return <AdminCalendarPage />;
       default:

@@ -15,7 +15,7 @@ import { WaInstancePanel } from '@/components/wa-hub/WaInstancePanel';
 import { WaCrmView } from '@/components/wa-hub/WaCrmView';
 import { WaLeadProfilePanel } from '@/components/wa-hub/WaLeadProfilePanel';
 import { AiSdrConfigPanel } from '@/components/wa-hub/AiSdrConfigPanel';
-import { AiSdrTab } from '@/components/wa-hub/AiSdrTab';
+import { AiSdrSummaryCard } from '@/components/wa-hub/AiSdrSummaryCard';
 import { PipedriveTab } from '@/components/wa-hub/PipedriveTab';
 import { AiPromptsTab } from '@/components/wa-hub/AiPromptsTab';
 
@@ -397,11 +397,10 @@ export default function WaHubPage() {
         </TabsContent>
 
         <TabsContent value="ai-sdr" className="mt-4">
-          <AiSdrTab
-            instances={instances as any}
-            teamMembers={teamMembers}
-            onRefetch={refetchInstances}
-          />
+          <AiSdrSummaryCard instances={instances as any} teamMembers={teamMembers} onNavigate={() => {
+            // Navigate to ai-sdr admin view — dispatch custom event
+            window.dispatchEvent(new CustomEvent('navigate-admin', { detail: 'ai-sdr' }));
+          }} />
         </TabsContent>
 
         <TabsContent value="ai-prompts" className="mt-4">
