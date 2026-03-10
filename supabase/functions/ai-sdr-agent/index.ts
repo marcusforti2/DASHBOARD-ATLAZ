@@ -81,6 +81,23 @@ serve(async (req) => {
       });
     }
 
+    // CONCURRENCY GUARD: Skip if AI already responded in this conversation in the last 15 seconds
+    const { data: recentAgentMsg } = await supabase
+      .from("wa_messages")
+      .select("id, created_at")
+      .eq("conversation_id", conversation_id)
+      .eq("sender", "agent")
+      .gte("created_at", new Date(Date.now() - 15 * 1000).toISOString())
+      .limit(1)
+      .maybeSingle();
+
+    if (recentAgentMsg && !isProactive) {
+      console.log("[ai-sdr] Skipping: recent agent message found (concurrency guard)", recentAgentMsg.id);
+      return new Response(JSON.stringify({ skipped: "concurrency_guard" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Get conversation history
     const { data: messages } = await supabase
       .from("wa_messages")

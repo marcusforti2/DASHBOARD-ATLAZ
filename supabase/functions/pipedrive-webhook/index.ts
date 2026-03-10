@@ -199,6 +199,20 @@ async function handleDeal(supabase: any, event: string, current: any, previous: 
 
   // PROACTIVE SDR IA: On new deal with phone, auto-create contact + conversation and trigger AI outreach
   if (event === 'create' && (dealPhone || (personId && current))) {
+    // DEDUP: Check if we already processed a "create" webhook for this same deal (multiple Pipedrive events)
+    const { count: previousCreateCount } = await supabase
+      .from('pipedrive_webhook_logs')
+      .select('id', { count: 'exact', head: true })
+      .eq('pipedrive_id', d.id)
+      .eq('entity', 'deal')
+      .eq('event', 'create')
+      .eq('processed', true);
+
+    if ((previousCreateCount || 0) > 0) {
+      console.log(`[pipedrive-webhook] Skipping proactive: deal ${d.id} already processed a create event`);
+      return;
+    }
+
     const phoneToUse = dealPhone || null;
     
     // If no dealPhone, try to get from the person record
@@ -215,14 +229,6 @@ async function handleDeal(supabase: any, event: string, current: any, previous: 
     if (resolvedPhone) {
       const cleanPhone = resolvedPhone.replace(/\D/g, '');
       const formattedPhone = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
-
-      // DEDUP: Check if we already sent a proactive message to this phone recently (last 5 min)
-      const { data: recentMsg } = await supabase
-        .from('wa_messages')
-        .select('id')
-        .eq('sender', 'agent')
-        .gte('created_at', new Date(Date.now() - 5 * 60 * 1000).toISOString())
-        .limit(1);
 
       // Check if conversation already exists with messages (not a new lead)
       const { data: existingContactCheck } = await supabase
