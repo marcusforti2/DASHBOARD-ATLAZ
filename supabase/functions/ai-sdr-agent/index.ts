@@ -275,6 +275,21 @@ Deno.serve(async (req) => {
       .eq("id", conversation_id)
       .single();
 
+    // Resolve contact_phone if not provided in body
+    let resolvedPhone = contact_phone;
+    let resolvedContactName = contact_name;
+    if ((!resolvedPhone || !resolvedContactName) && conversation?.contact_id) {
+      const { data: contactData } = await supabase
+        .from("wa_contacts")
+        .select("phone, name")
+        .eq("id", conversation.contact_id)
+        .single();
+      if (contactData) {
+        resolvedPhone = resolvedPhone || contactData.phone;
+        resolvedContactName = resolvedContactName || contactData.name;
+      }
+    }
+
     // Check handoff threshold
     if (features.handoff) {
       const agentMsgCount = history.filter(m => m.sender === "agent" && m.agent_name === "SDR IA 🤖").length;
