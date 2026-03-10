@@ -199,20 +199,27 @@ Deno.serve(async (req) => {
             remindAtUtc.setUTCHours(startHour + 1 + 3, 0, 0, 0);
             
             // Create a follow-up reminder so the AI calls back
-            if (conversationId) {
+            if (conversation_id) {
+              // Fetch contact_id for this conversation
+              const { data: convData } = await supabase
+                .from("wa_conversations")
+                .select("contact_id")
+                .eq("id", conversation_id)
+                .single();
+              
               const { data: existingReminder } = await supabase
                 .from("wa_follow_up_reminders")
                 .select("id")
-                .eq("conversation_id", conversationId)
+                .eq("conversation_id", conversation_id)
                 .eq("completed", false)
                 .limit(1);
               
               if (!existingReminder || existingReminder.length === 0) {
                 const creatorId = instance?.sdr_id || instance?.closer_id;
-                if (creatorId && contactId) {
+                if (creatorId && convData?.contact_id) {
                   await supabase.from("wa_follow_up_reminders").insert({
-                    conversation_id: conversationId,
-                    contact_id: contactId,
+                    conversation_id: conversation_id,
+                    contact_id: convData.contact_id,
                     remind_at: remindAtUtc.toISOString(),
                     note: "[AUTO] Mensagem recebida fora do horário comercial - responder pela manhã",
                     created_by: creatorId,
