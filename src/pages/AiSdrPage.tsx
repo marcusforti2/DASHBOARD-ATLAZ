@@ -62,6 +62,7 @@ interface LeadSource {
   active: boolean;
   context: string;
   color: string;
+  pipedrive_label_id?: number | null;
 }
 
 interface Instance {
