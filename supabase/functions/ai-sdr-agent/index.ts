@@ -938,15 +938,36 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
         }
       };
 
+      // ===== SMART DELAY: Initial "reading + thinking" pause before any response =====
+      // Simulates time a human would take to read the incoming message and think
+      const incomingLength = (incoming_message || "").length;
+      const isFirstMessage = isProactive; // proactive = no reading delay needed
+      
+      if (!isFirstMessage) {
+        // Base delay: 3-8 seconds for short messages, 5-15 seconds for longer ones
+        const baseDelay = incomingLength > 100 
+          ? Math.floor(Math.random() * 10000) + 5000   // 5-15s for long messages
+          : incomingLength > 30 
+            ? Math.floor(Math.random() * 7000) + 4000  // 4-11s for medium messages  
+            : Math.floor(Math.random() * 5000) + 3000; // 3-8s for short messages
+        
+        // Add extra random variance (0-5s) to make it unpredictable
+        const extraVariance = Math.floor(Math.random() * 5000);
+        const totalReadingDelay = baseDelay + extraVariance;
+        
+        console.log(`[ai-sdr] Smart delay: waiting ${totalReadingDelay}ms before responding (msg length: ${incomingLength} chars)`);
+        await new Promise(r => setTimeout(r, totalReadingDelay));
+      }
+
       for (let i = 0; i < replyParts.length; i++) {
         const part = replyParts[i];
 
         // Simulate human reading + typing before each message
         await simulatePresence(contact_phone, part.length);
 
-        // Additional random gap between messages (0.5-2s)
+        // Additional random gap between messages (1-3s)
         if (i > 0) {
-          const gap = Math.floor(Math.random() * 1500) + 500;
+          const gap = Math.floor(Math.random() * 2000) + 1000;
           await new Promise(resolve => setTimeout(resolve, gap));
         }
 
