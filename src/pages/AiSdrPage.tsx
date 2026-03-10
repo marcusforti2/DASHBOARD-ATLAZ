@@ -422,10 +422,82 @@ export default function AiSdrPage() {
               </div>
             </div>
 
+            {/* Lead Sources */}
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-3">
+                <Tag className="w-3.5 h-3.5" /> Origens de Lead — Contexto por Canal
+              </label>
+              <p className="text-xs text-muted-foreground mb-3">
+                Cada origem tem um contexto diferente. A IA adapta a abordagem inicial com base em como o lead chegou.
+              </p>
+              <div className="space-y-3">
+                {(localConfig.lead_sources || []).map((src, idx) => (
+                  <div key={src.id} className={`rounded-xl border transition-all ${src.active ? "border-primary/30 bg-primary/5" : "border-border bg-card opacity-70"}`}>
+                    <div className="flex items-center gap-3 p-4">
+                      <div className="w-3 h-8 rounded-full shrink-0" style={{ backgroundColor: src.color }} />
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-xs font-bold ${src.active ? "text-foreground" : "text-muted-foreground"}`}>{src.name}</p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          const sources = [...(localConfig.lead_sources || [])];
+                          sources[idx] = { ...sources[idx], active: !sources[idx].active };
+                          update("lead_sources", sources);
+                        }}
+                        className="p-1 rounded-md hover:bg-accent/50 transition-colors"
+                      >
+                        {src.active
+                          ? <ToggleRight className="w-6 h-6 text-primary" />
+                          : <ToggleLeft className="w-6 h-6 text-muted-foreground" />}
+                      </button>
+                    </div>
+                    {src.active && (
+                      <div className="px-4 pb-4 pt-0">
+                        <Textarea
+                          value={src.context}
+                          onChange={e => {
+                            const sources = [...(localConfig.lead_sources || [])];
+                            sources[idx] = { ...sources[idx], context: e.target.value };
+                            update("lead_sources", sources);
+                          }}
+                          placeholder="Descreva o contexto e como a IA deve abordar leads dessa origem..."
+                          rows={4}
+                          className="text-sm resize-none bg-card"
+                        />
+                        <p className="text-[11px] text-muted-foreground mt-1.5">
+                          A IA usará esse contexto para adaptar a primeira mensagem e o tom da conversa.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {/* Add custom source */}
+                <button
+                  onClick={() => {
+                    const sources = [...(localConfig.lead_sources || [])];
+                    const colors = ["#EC4899", "#14B8A6", "#F97316", "#6366F1", "#84CC16"];
+                    sources.push({
+                      id: `custom_${Date.now()}`,
+                      name: `Nova Origem ${sources.length + 1}`,
+                      active: false,
+                      context: "",
+                      color: colors[sources.length % colors.length],
+                    });
+                    update("lead_sources", sources);
+                  }}
+                  className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border border-dashed border-border hover:border-primary/40 hover:bg-primary/5 transition-all text-muted-foreground hover:text-primary"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span className="text-xs font-semibold">Adicionar origem</span>
+                </button>
+              </div>
+            </div>
+
             {/* Greeting */}
             <div>
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-2">
-                <Send className="w-3.5 h-3.5" /> Primeira mensagem (saudação proativa)
+                <Send className="w-3.5 h-3.5" /> Primeira mensagem (saudação padrão)
               </label>
               <Textarea
                 value={localConfig.greeting}
@@ -435,7 +507,7 @@ export default function AiSdrPage() {
                 className="text-sm resize-none"
               />
               <p className="text-[11px] text-muted-foreground mt-1.5">
-                Enviada quando a IA inicia conversa proativamente (via Pipedrive) ou na primeira mensagem de um lead novo.
+                Usada quando a origem do lead não é identificada ou não tem contexto específico configurado.
               </p>
             </div>
           </div>
