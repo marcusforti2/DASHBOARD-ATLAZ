@@ -476,21 +476,48 @@ export default function AiSdrPage() {
                       </button>
                     </div>
                     {src.active && (
-                      <div className="px-4 pb-4 pt-0">
-                        <Textarea
-                          value={src.context}
-                          onChange={e => {
-                            const sources = [...(localConfig.lead_sources || [])];
-                            sources[idx] = { ...sources[idx], context: e.target.value };
-                            update("lead_sources", sources);
-                          }}
-                          placeholder="Descreva o contexto e como a IA deve abordar leads dessa origem..."
-                          rows={4}
-                          className="text-sm resize-none bg-card"
-                        />
-                        <p className="text-[11px] text-muted-foreground mt-1.5">
-                          A IA usará esse contexto para adaptar a primeira mensagem e o tom da conversa.
-                        </p>
+                      <div className="px-4 pb-4 pt-0 space-y-3">
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1">
+                            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">
+                              Pipedrive Label ID
+                            </label>
+                            <Input
+                              type="number"
+                              value={src.pipedrive_label_id ?? ""}
+                              onChange={e => {
+                                const sources = [...(localConfig.lead_sources || [])];
+                                const val = e.target.value ? parseInt(e.target.value) : null;
+                                sources[idx] = { ...sources[idx], pipedrive_label_id: val };
+                                update("lead_sources", sources);
+                              }}
+                              placeholder="Ex: 43"
+                              className="h-8 w-28 text-xs font-mono"
+                            />
+                          </div>
+                          <p className="text-[10px] text-muted-foreground flex-1">
+                            ID da etiqueta no Pipedrive. A IA só dispara proativamente para deals com essa etiqueta.
+                          </p>
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">
+                            Contexto / Instruções para a IA
+                          </label>
+                          <Textarea
+                            value={src.context}
+                            onChange={e => {
+                              const sources = [...(localConfig.lead_sources || [])];
+                              sources[idx] = { ...sources[idx], context: e.target.value };
+                              update("lead_sources", sources);
+                            }}
+                            placeholder="Descreva o contexto e como a IA deve abordar leads dessa origem..."
+                            rows={4}
+                            className="text-sm resize-none bg-card"
+                          />
+                          <p className="text-[11px] text-muted-foreground mt-1.5">
+                            A IA usará esse contexto para adaptar a primeira mensagem e o tom da conversa.
+                          </p>
+                        </div>
                       </div>
                     )}
                   </div>
