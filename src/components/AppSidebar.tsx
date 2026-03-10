@@ -2,7 +2,7 @@ import { useState } from "react";
 import {
   BarChart3, LayoutDashboard, Users, Target, Sparkles, Eye, Settings, LogOut,
   MessageCircle, BookOpen, Brain, GitBranch, GraduationCap, ChevronRight,
-  Wrench, FlaskConical, Megaphone, Calendar, Smartphone
+  Wrench, FlaskConical, Megaphone, Calendar, Smartphone, Mail
 } from "lucide-react";
 import {
   Sidebar,
