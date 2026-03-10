@@ -95,7 +95,7 @@ export default function EmailMarketingPage() {
 
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [historyFlowId, setHistoryFlowId] = useState<string | null>(null);
-  const [historyRecords, setHistoryRecords] = useState<ExecutionRecord[]>([]);
+  const [sendLogs, setSendLogs] = useState<SendLog[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
 
   const [isSending, setIsSending] = useState<string | null>(null);
