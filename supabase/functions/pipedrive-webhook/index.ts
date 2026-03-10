@@ -284,6 +284,40 @@ async function handleDeal(supabase: any, event: string, current: any, previous: 
       }
     }
 
+    // Fallback: fetch person phone directly from Pipedrive API
+    if (!resolvedPhone && personId) {
+      const PIPEDRIVE_API_TOKEN = Deno.env.get('PIPEDRIVE_API_TOKEN');
+      if (PIPEDRIVE_API_TOKEN) {
+        try {
+          const pipeResp = await fetch(
+            `https://api.pipedrive.com/v1/persons/${personId}?api_token=${PIPEDRIVE_API_TOKEN}`
+          );
+          const pipeData = await pipeResp.json();
+          if (pipeData?.success && pipeData.data?.phone) {
+            const phones = pipeData.data.phone;
+            for (const ph of phones) {
+              if (ph.value) {
+                resolvedPhone = String(ph.value).replace(/\D/g, '');
+                console.log(`[pipedrive-webhook] Got phone from Pipedrive API: ${resolvedPhone}`);
+                // Also update local person record
+                await supabase.from('pipedrive_persons')
+                  .upsert({
+                    pipedrive_id: personId,
+                    name: pipeData.data.name || personName || '',
+                    phone: resolvedPhone,
+                    email: pipeData.data.email?.[0]?.value || null,
+                    raw_data: pipeData.data,
+                  }, { onConflict: 'pipedrive_id' });
+                break;
+              }
+            }
+          }
+        } catch (apiErr) {
+          console.error(`[pipedrive-webhook] Pipedrive API fallback error:`, apiErr);
+        }
+      }
+    }
+
     if (!resolvedPhone) {
       console.log(`[pipedrive-webhook] No phone found for deal ${d.id}, skipping proactive`);
       return;
