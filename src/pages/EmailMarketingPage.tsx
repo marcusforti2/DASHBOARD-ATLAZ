@@ -437,10 +437,10 @@ export default function EmailMarketingPage() {
 
       {/* AI Campaign Dialog */}
       <Dialog open={isAIDialogOpen} onOpenChange={setIsAIDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-primary" />Criar Campanha com IA</DialogTitle>
-            <DialogDescription>Descreva a campanha que deseja e a IA criará o fluxo completo</DialogDescription>
+            <DialogDescription>Descreva a campanha e escolha de onde a IA puxa o contexto</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <Textarea
@@ -449,6 +449,36 @@ export default function EmailMarketingPage() {
               placeholder="Ex: Campanha de boas-vindas para novos SDRs com 3 emails motivacionais espaçados de 2 dias..."
               rows={4}
             />
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Fontes de Conhecimento</Label>
+              <p className="text-xs text-muted-foreground">Selecione de onde a IA deve puxar contexto para gerar os emails</p>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                {[
+                  { id: 'knowledge', label: 'Base de Conhecimento', desc: 'ICP, produtos, objeções', icon: '📚' },
+                  { id: 'metrics', label: 'Métricas & Metas', desc: 'Performance da equipe', icon: '📊' },
+                  { id: 'team', label: 'Dados do Time', desc: 'SDRs, Closers ativos', icon: '👥' },
+                  { id: 'playbooks', label: 'Playbooks', desc: 'Roteiros e processos', icon: '📋' },
+                ].map((source) => {
+                  const isSelected = aiSources.includes(source.id);
+                  return (
+                    <button
+                      key={source.id}
+                      type="button"
+                      onClick={() => setAiSources(prev => isSelected ? prev.filter(s => s !== source.id) : [...prev, source.id])}
+                      className={`flex items-start gap-2 p-3 rounded-lg border text-left transition-all ${
+                        isSelected ? 'border-primary bg-primary/10 ring-1 ring-primary/30' : 'border-border hover:border-muted-foreground/30'
+                      }`}
+                    >
+                      <span className="text-lg">{source.icon}</span>
+                      <div>
+                        <p className="text-xs font-medium">{source.label}</p>
+                        <p className="text-[10px] text-muted-foreground">{source.desc}</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAIDialogOpen(false)}>Cancelar</Button>
