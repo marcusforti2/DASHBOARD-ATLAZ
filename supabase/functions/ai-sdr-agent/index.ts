@@ -194,7 +194,7 @@ Deno.serve(async (req) => {
     }
 
     // RATE LIMIT CHECK
-    if (features.rate_limit && !isProactive) {
+    if (features.rate_limit && !isProactive && !force) {
       const rateLimitPerHour = config.rate_limit_per_hour || 5;
       const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
       const { count: recentCount } = await supabase
