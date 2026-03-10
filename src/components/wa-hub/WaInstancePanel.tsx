@@ -13,6 +13,7 @@ import {
 interface Props {
   instanceName: string;
   closerName: string;
+  instanceId?: string;
 }
 
 export function WaInstancePanel({ instanceName, closerName }: Props) {
