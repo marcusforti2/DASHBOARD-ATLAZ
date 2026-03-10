@@ -34,6 +34,17 @@ interface AiSdrConfig {
   split_messages: boolean;
   urgent_call_alert: boolean;
   meeting_followups: boolean;
+  feature_rate_limit: boolean;
+  feature_reengagement: boolean;
+  feature_blacklist: boolean;
+  feature_daily_summary: boolean;
+  feature_language_detection: boolean;
+  feature_linkedin_lookup: boolean;
+  feature_time_escalation: boolean;
+  reengagement_days: number;
+  escalation_hours: number;
+  rate_limit_per_hour: number;
+  blacklist_numbers: string[];
   qualification_questions: string[];
   score_thresholds: { a_min: number; b_min: number };
 }
@@ -68,6 +79,17 @@ const DEFAULT_CONFIG: AiSdrConfig = {
   split_messages: true,
   urgent_call_alert: true,
   meeting_followups: true,
+  feature_rate_limit: true,
+  feature_reengagement: false,
+  feature_blacklist: false,
+  feature_daily_summary: false,
+  feature_language_detection: false,
+  feature_linkedin_lookup: false,
+  feature_time_escalation: false,
+  reengagement_days: 7,
+  escalation_hours: 48,
+  rate_limit_per_hour: 5,
+  blacklist_numbers: [],
   qualification_questions: [
     "Como posso te chamar?",
     "Qual tipo de negócio você atua?",
@@ -108,6 +130,13 @@ const FEATURES = [
   { key: "feature_sentiment" as const, icon: Brain, title: "Análise de sentimento", desc: "Detecta frustração e risco", color: "text-purple-500" },
   { key: "feature_pipedrive_sync" as const, icon: Zap, title: "Sync Pipedrive", desc: "Atualiza deals e notas no CRM", color: "text-primary" },
   { key: "business_hours_only" as const, icon: Clock, title: "Só Horário Comercial", desc: "IA só responde 8h-18h Seg-Sex", color: "text-slate-500" },
+  { key: "feature_rate_limit" as const, icon: Shield, title: "Anti-Spam / Rate Limit", desc: "Limita msgs por contato/hora", color: "text-rose-500" },
+  { key: "feature_reengagement" as const, icon: MessageSquare, title: "Reengajamento automático", desc: "Reativa leads inativos há X dias", color: "text-teal-500" },
+  { key: "feature_blacklist" as const, icon: Users, title: "Blacklist / DNC", desc: "Números que a IA nunca contata", color: "text-red-600" },
+  { key: "feature_daily_summary" as const, icon: BarChart3, title: "Resumo diário WhatsApp", desc: "Envia resumo de leads quentes ao closer", color: "text-indigo-500" },
+  { key: "feature_language_detection" as const, icon: Sparkles, title: "Detecção de idioma", desc: "Adapta idioma automaticamente (PT/EN/ES)", color: "text-cyan-500" },
+  { key: "feature_linkedin_lookup" as const, icon: TrendingUp, title: "Auto-pesquisa LinkedIn", desc: "Enriquece lead com dados do LinkedIn", color: "text-blue-600" },
+  { key: "feature_time_escalation" as const, icon: AlertTriangle, title: "Escalonamento por tempo", desc: "Escala ao gestor se sem resposta em X horas", color: "text-orange-600" },
 ];
 
 export default function AiSdrPage() {
@@ -407,7 +436,63 @@ export default function AiSdrPage() {
                     </div>
                   </div>
                 )}
+                {localConfig.feature_rate_limit && (
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-2">
+                      <Shield className="w-3.5 h-3.5" /> Limite por contato/hora
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <Input type="number" min={1} max={30} value={localConfig.rate_limit_per_hour}
+                        onChange={e => update("rate_limit_per_hour", parseInt(e.target.value) || 5)}
+                        className="h-9 w-20 text-sm" />
+                      <span className="text-xs text-muted-foreground">msgs/hora</span>
+                    </div>
+                  </div>
+                )}
+                {localConfig.feature_reengagement && (
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-2">
+                      <MessageSquare className="w-3.5 h-3.5" /> Reengajar após inatividade
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <Input type="number" min={1} max={90} value={localConfig.reengagement_days}
+                        onChange={e => update("reengagement_days", parseInt(e.target.value) || 7)}
+                        className="h-9 w-20 text-sm" />
+                      <span className="text-xs text-muted-foreground">dias</span>
+                    </div>
+                  </div>
+                )}
+                {localConfig.feature_time_escalation && (
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-2">
+                      <AlertTriangle className="w-3.5 h-3.5" /> Escalar se sem resposta após
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <Input type="number" min={1} max={168} value={localConfig.escalation_hours}
+                        onChange={e => update("escalation_hours", parseInt(e.target.value) || 48)}
+                        className="h-9 w-20 text-sm" />
+                      <span className="text-xs text-muted-foreground">horas</span>
+                    </div>
+                  </div>
+                )}
               </div>
+
+              {/* Blacklist numbers */}
+              {localConfig.feature_blacklist && (
+                <div className="pt-3 border-t border-border">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-2">
+                    <Users className="w-3.5 h-3.5" /> Números na Blacklist (DNC)
+                  </label>
+                  <Textarea
+                    value={(localConfig.blacklist_numbers || []).join("\n")}
+                    onChange={e => update("blacklist_numbers", e.target.value.split("\n").map(n => n.trim()).filter(Boolean))}
+                    placeholder="Um número por linha, ex:&#10;5511999999999&#10;5521888888888"
+                    rows={4}
+                    className="text-sm resize-none font-mono"
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-1">A IA nunca enviará mensagem para esses números.</p>
+                </div>
+              )}
             </div>
           </div>
         );

@@ -121,12 +121,52 @@ serve(async (req) => {
       handoff: config.feature_handoff !== false,
       sentiment: config.feature_sentiment === true,
       pipedrive_sync: config.feature_pipedrive_sync === true,
+      rate_limit: config.feature_rate_limit !== false,
+      reengagement: config.feature_reengagement === true,
+      blacklist: config.feature_blacklist === true,
+      daily_summary: config.feature_daily_summary === true,
+      language_detection: config.feature_language_detection === true,
+      linkedin_lookup: config.feature_linkedin_lookup === true,
+      time_escalation: config.feature_time_escalation === true,
     };
 
     if (!features.auto_reply && !isProactive) {
       return new Response(JSON.stringify({ skipped: "auto_reply disabled" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // BLACKLIST CHECK
+    if (features.blacklist && contact_phone) {
+      const blacklist: string[] = config.blacklist_numbers || [];
+      const normalizedPhone = contact_phone.replace(/\D/g, "");
+      const isBlocked = blacklist.some(n => normalizedPhone.endsWith(n.replace(/\D/g, "")));
+      if (isBlocked) {
+        console.log("[ai-sdr] Phone is blacklisted:", contact_phone);
+        return new Response(JSON.stringify({ skipped: "blacklisted" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    // RATE LIMIT CHECK
+    if (features.rate_limit && !isProactive) {
+      const rateLimitPerHour = config.rate_limit_per_hour || 5;
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      const { count: recentCount } = await supabase
+        .from("wa_messages")
+        .select("*", { count: "exact", head: true })
+        .eq("conversation_id", conversation_id)
+        .eq("sender", "agent")
+        .eq("agent_name", "SDR IA 🤖")
+        .gte("created_at", oneHourAgo);
+      
+      if ((recentCount || 0) >= rateLimitPerHour) {
+        console.log(`[ai-sdr] Rate limit reached: ${recentCount}/${rateLimitPerHour} msgs/hour for conversation ${conversation_id}`);
+        return new Response(JSON.stringify({ skipped: "rate_limited" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     // CONCURRENCY GUARD
@@ -404,6 +444,10 @@ IMPORTANTE SOBRE MENSAGENS DO LEAD:
 
 ${features.sentiment ? "ANÁLISE DE SENTIMENTO: Analise o sentimento do lead (positivo, neutro, negativo, urgente) e inclua no JSON." : ""}
 
+${features.language_detection ? `DETECÇÃO DE IDIOMA: Identifique automaticamente o idioma do lead (português, inglês, espanhol, etc.) e RESPONDA NO MESMO IDIOMA. Se o lead escrever em inglês, responda em inglês. Se espanhol, responda em espanhol. Inclua "detected_language" no JSON.` : ""}
+
+${features.linkedin_lookup ? `PESQUISA LINKEDIN: Se o lead mencionar empresa, cargo ou nome completo, inclua "linkedin_lookup": true e "linkedin_query": "nome ou empresa" no JSON para enriquecimento automático.` : ""}
+
 MOVIMENTAÇÃO DE PIPELINE (IMPORTANTE):
 - Cada mudança de status do lead DEVE mover o deal no CRM automaticamente
 - O sistema faz isso baseado no "new_lead_status" que você retornar
@@ -441,7 +485,7 @@ Responda EXATAMENTE neste formato JSON:
   "urgent_call": false,
   "schedule_follow_up": false,
   "follow_up_message": "",
-  "activity_note": "Resumo curto da interação"${features.sentiment ? ',\n  "sentiment": "positivo" | "neutro" | "negativo" | "urgente"' : ""}
+  "activity_note": "Resumo curto da interação"${features.sentiment ? ',\n  "sentiment": "positivo" | "neutro" | "negativo" | "urgente"' : ""}${features.language_detection ? ',\n  "detected_language": "pt" | "en" | "es" | "other"' : ""}${features.linkedin_lookup ? ',\n  "linkedin_lookup": false,\n  "linkedin_query": ""' : ""}
 }`;
     let userMessage: string;
     if (isProactive) {
@@ -976,6 +1020,49 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
         created_by: instance.sdr_id || instance.closer_id || conversation.contact_id,
       });
       console.log("[ai-sdr] Follow-up scheduled for", remindAt);
+    }
+
+    // 10. Time escalation: alert manager if lead hasn't responded in X hours
+    if (features.time_escalation && conversation?.contact_id) {
+      const escalationHours = config.escalation_hours || 48;
+      const { data: lastContactMsg } = await supabase
+        .from("wa_messages")
+        .select("created_at")
+        .eq("conversation_id", conversation_id)
+        .eq("sender", "contact")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (lastContactMsg) {
+        const lastContactTime = new Date(lastContactMsg.created_at).getTime();
+        const hoursElapsed = (Date.now() - lastContactTime) / (1000 * 60 * 60);
+        
+        if (hoursElapsed >= escalationHours) {
+          // Check if we already sent this escalation
+          const { count: existingEscalation } = await supabase
+            .from("proactive_alerts")
+            .select("*", { count: "exact", head: true })
+            .eq("alert_type", "time_escalation")
+            .eq("data->>conversation_id", conversation_id)
+            .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+
+          if (!existingEscalation) {
+            const managerId = instance.closer_id || instance.sdr_id;
+            if (managerId) {
+              await supabase.from("proactive_alerts").insert({
+                member_id: managerId,
+                title: "⏰ Lead sem resposta — Escalonamento",
+                message: `O lead ${contact_name || contact_phone} não responde há ${Math.round(hoursElapsed)}h.\n\nÚltima mensagem do lead: ${lastContactMsg.created_at}\nConversa: ${conversation_id}`,
+                severity: "high",
+                alert_type: "time_escalation",
+                data: { conversation_id, contact_phone, hours_elapsed: Math.round(hoursElapsed) },
+              });
+              console.log("[ai-sdr] Time escalation alert sent after", Math.round(hoursElapsed), "hours");
+            }
+          }
+        }
+      }
     }
 
     return new Response(JSON.stringify({
