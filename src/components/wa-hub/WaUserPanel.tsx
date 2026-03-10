@@ -122,12 +122,7 @@ export function WaUserPanel({ teamMemberId, memberName, memberRole }: Props) {
   const unreadCount = myConversations.reduce((sum, c) => sum + c.unread_count, 0);
   const pendingReminders = reminders.filter(r => new Date(r.remind_at) <= new Date()).length;
 
-  // Pipeline stages
   const stages = ['novo', 'qualificado', 'proposta', 'negociacao', 'fechado'];
-  const stageLabels: Record<string, string> = {
-    novo: '🆕 Novo', qualificado: '✅ Qualificado', proposta: '📋 Proposta',
-    negociacao: '🤝 Negociação', fechado: '🏆 Fechado',
-  };
 
   return (
     <div className="space-y-4 animate-fade-in">
