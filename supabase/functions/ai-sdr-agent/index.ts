@@ -918,8 +918,14 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
               const targetOrder = statusToOrder[parsed.new_lead_status];
 
               if (targetOrder !== undefined) {
-                // Get stages for the deal's pipeline (or first pipeline)
+                // ===== BUG FIX #4: Filter stages by the deal's pipeline =====
+                // First, get the deal's current pipeline_id from raw_data or by fetching
+                const dealDetailResp = await fetch(`${PIPE_BASE}/deals/${deal.pipedrive_id}?api_token=${PIPEDRIVE_API_TOKEN}`);
+                const dealDetail = await dealDetailResp.json();
+                const dealPipelineId = dealDetail.data?.pipeline_id;
+
                 const pipelineStages = allStages
+                  .filter((s: any) => !dealPipelineId || s.pipeline_id === dealPipelineId)
                   .sort((a: any, b: any) => a.order_nr - b.order_nr);
 
                 const targetStage = pipelineStages[targetOrder];
