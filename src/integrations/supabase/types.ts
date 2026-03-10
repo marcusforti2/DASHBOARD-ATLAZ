@@ -486,6 +486,41 @@ export type Database = {
           },
         ]
       }
+      email_flow_contacts: {
+        Row: {
+          created_at: string
+          email: string
+          flow_id: string
+          id: string
+          name: string | null
+          source_file: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          flow_id: string
+          id?: string
+          name?: string | null
+          source_file?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          flow_id?: string
+          id?: string
+          name?: string | null
+          source_file?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_flow_contacts_flow_id_fkey"
+            columns: ["flow_id"]
+            isOneToOne: false
+            referencedRelation: "email_flows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_flow_executions: {
         Row: {
           completed_at: string | null
