@@ -24,20 +24,25 @@ serve(async (req) => {
 
   try {
     const payload = await req.json();
-    const { meta, current, previous } = payload;
 
-    const event = meta?.action || 'unknown'; // added, updated, deleted, merged
-    const entity = meta?.object || 'unknown'; // deal, person, activity, note
+    // Support both Pipedrive v1 (meta.object, current) and v2 (meta.entity, data)
+    const meta = payload.meta || {};
+    const current = payload.current || payload.data || null;
+    const previous = payload.previous || null;
+
+    const event = meta.action || 'unknown';
+    const entity = meta.entity || meta.object || 'unknown';
 
     console.log(`[pipedrive-webhook] ${event} ${entity}`, current?.id);
 
     // Log webhook
-    await supabase.from('pipedrive_webhook_logs').insert({
+    const logEntry = {
       event,
       entity,
-      pipedrive_id: current?.id || previous?.id,
+      pipedrive_id: current?.id || previous?.id || null,
       payload,
-    });
+    };
+    const { data: logData } = await supabase.from('pipedrive_webhook_logs').insert(logEntry).select('id').single();
 
     if (entity === 'deal') {
       await handleDeal(supabase, event, current, previous);
@@ -50,13 +55,11 @@ serve(async (req) => {
     }
 
     // Mark log as processed
-    await supabase.from('pipedrive_webhook_logs')
-      .update({ processed: true })
-      .eq('pipedrive_id', current?.id || previous?.id)
-      .eq('event', event)
-      .eq('entity', entity)
-      .order('created_at', { ascending: false })
-      .limit(1);
+    if (logData?.id) {
+      await supabase.from('pipedrive_webhook_logs')
+        .update({ processed: true })
+        .eq('id', logData.id);
+    }
 
     return new Response(JSON.stringify({ ok: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -79,39 +82,55 @@ async function handleDeal(supabase: any, event: string, current: any, previous: 
   const d = current;
   if (!d?.id) return;
 
+  // Handle v2 format: person_id can be object {value: X} or plain number
+  const personId = typeof d.person_id === 'object' ? d.person_id?.value : d.person_id;
+
   // Try to match with wa_conversation by person phone
   let waConversationId = null;
   let teamMemberId = null;
+  let personName = d.person_name || null;
 
-  if (d.person_id) {
+  // V2: person_name might not exist, try to get from pipedrive_persons
+  if (personId) {
     const { data: person } = await supabase
       .from('pipedrive_persons')
-      .select('wa_contact_id')
-      .eq('pipedrive_id', d.person_id)
+      .select('wa_contact_id, name')
+      .eq('pipedrive_id', personId)
       .single();
 
-    if (person?.wa_contact_id) {
-      const { data: conv } = await supabase
-        .from('wa_conversations')
-        .select('id, assigned_to')
-        .eq('contact_id', person.wa_contact_id)
-        .order('last_message_at', { ascending: false })
-        .limit(1)
-        .single();
+    if (person) {
+      if (!personName) personName = person.name;
+      
+      if (person.wa_contact_id) {
+        const { data: conv } = await supabase
+          .from('wa_conversations')
+          .select('id, assigned_to')
+          .eq('contact_id', person.wa_contact_id)
+          .order('last_message_at', { ascending: false })
+          .limit(1)
+          .single();
 
-      if (conv) {
-        waConversationId = conv.id;
-        teamMemberId = conv.assigned_to;
+        if (conv) {
+          waConversationId = conv.id;
+          teamMemberId = conv.assigned_to;
+        }
       }
     }
   }
 
+  // V2: owner_id can be number, try to match to team_member by owner email from meta or custom fields
+  const ownerName = d.owner_name || null;
+
+  // Handle org_id as object or number
+  const orgId = typeof d.org_id === 'object' ? d.org_id?.value : d.org_id;
+  const orgName = d.org_name || (typeof d.org_id === 'object' ? d.org_id?.name : null);
+
   const dealData = {
     pipedrive_id: d.id,
     title: d.title || '',
-    person_name: d.person_name || null,
-    person_id: d.person_id || null,
-    org_name: d.org_name || null,
+    person_name: personName,
+    person_id: personId || null,
+    org_name: orgName,
     stage_name: d.stage_order_nr != null ? `Stage ${d.stage_order_nr}` : (d.stage_name || null),
     pipeline_name: d.pipeline_id ? `Pipeline ${d.pipeline_id}` : null,
     status: d.status || 'open',
@@ -121,7 +140,7 @@ async function handleDeal(supabase: any, event: string, current: any, previous: 
     lost_time: d.lost_time || null,
     close_time: d.close_time || null,
     lost_reason: d.lost_reason || null,
-    owner_name: d.owner_name || null,
+    owner_name: ownerName,
     owner_email: d.cc_email || null,
     wa_conversation_id: waConversationId,
     team_member_id: teamMemberId,
@@ -142,14 +161,28 @@ async function handlePerson(supabase: any, event: string, current: any, previous
   const p = current;
   if (!p?.id) return;
 
-  // Extract primary phone and email
-  const phone = Array.isArray(p.phone) ? p.phone[0]?.value : (p.phone || null);
-  const email = Array.isArray(p.email) ? p.email[0]?.value : (p.email || null);
+  // Support v1 (phone/email arrays with {value}) and v2 (phones/emails arrays with {value})
+  const phoneArr = p.phone || p.phones || [];
+  const emailArr = p.email || p.emails || [];
+  const phone = Array.isArray(phoneArr) ? phoneArr[0]?.value : (phoneArr || null);
+  const email = Array.isArray(emailArr) ? emailArr[0]?.value : (emailArr || null);
+
+  // Also check custom_fields for phone (Pipedrive v2 sometimes puts phone there)
+  let resolvedPhone = phone;
+  if (!resolvedPhone && p.custom_fields) {
+    for (const key of Object.keys(p.custom_fields)) {
+      const cf = p.custom_fields[key];
+      if (cf && typeof cf === 'object' && cf.type === 'phone' && cf.value) {
+        resolvedPhone = cf.value;
+        break;
+      }
+    }
+  }
 
   // Try to match with wa_contact by phone
   let waContactId = null;
-  if (phone) {
-    const cleanPhone = phone.replace(/\D/g, '');
+  if (resolvedPhone) {
+    const cleanPhone = resolvedPhone.replace(/\D/g, '');
     const { data: contact } = await supabase
       .from('wa_contacts')
       .select('id')
@@ -162,9 +195,9 @@ async function handlePerson(supabase: any, event: string, current: any, previous
 
   await supabase.from('pipedrive_persons').upsert({
     pipedrive_id: p.id,
-    name: p.name || '',
+    name: p.name || p.first_name ? `${p.first_name || ''} ${p.last_name || ''}`.trim() : '',
     email,
-    phone,
+    phone: resolvedPhone,
     org_name: p.org_name || null,
     owner_name: p.owner_name || null,
     wa_contact_id: waContactId,
