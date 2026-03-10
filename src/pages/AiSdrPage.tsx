@@ -45,6 +45,9 @@ interface AiSdrConfig {
   escalation_hours: number;
   rate_limit_per_hour: number;
   blacklist_numbers: string[];
+  target_audience: string;
+  pain_points: string;
+  desires: string;
   qualification_questions: string[];
   score_thresholds: { a_min: number; b_min: number };
 }
@@ -90,6 +93,9 @@ const DEFAULT_CONFIG: AiSdrConfig = {
   escalation_hours: 48,
   rate_limit_per_hour: 5,
   blacklist_numbers: [],
+  target_audience: "",
+  pain_points: "",
+  desires: "",
   qualification_questions: [
     "Como posso te chamar?",
     "Qual tipo de negócio você atua?",
@@ -336,6 +342,37 @@ export default function AiSdrPage() {
               <p className="text-[11px] text-muted-foreground mt-2">
                 <strong>Prioridade máxima.</strong> Estas regras nunca podem ser desobedecidas pelo agente.
               </p>
+            </div>
+
+            {/* Target Audience & Pain Points */}
+            <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-5 space-y-4">
+              <label className="text-xs font-semibold text-orange-600 uppercase tracking-wider flex items-center gap-1.5">
+                <Target className="w-4 h-4" /> Público-Alvo & Dores
+              </label>
+              <p className="text-xs text-muted-foreground">
+                Descreva o perfil ideal de cliente, suas dores viscerais e desejos profundos. A IA usará isso para gerar rapport e quebrar objeções.
+              </p>
+              <Textarea
+                value={localConfig.target_audience || ""}
+                onChange={e => update("target_audience", e.target.value)}
+                placeholder={`Quem é seu cliente ideal (ICP):\n• Cargo / perfil: Ex: Executivos C-level em transição de carreira\n• Segmento: Ex: Educação, consultoria, SaaS\n• Faturamento: Ex: Acima de R$50k/mês\n• Gatilhos: Ex: Burnout, ambição reprimida, desejo de autonomia`}
+                rows={5}
+                className="text-sm resize-none bg-card"
+              />
+              <Textarea
+                value={localConfig.pain_points || ""}
+                onChange={e => update("pain_points", e.target.value)}
+                placeholder={`Dores viscerais do público:\n• "Estou preso num emprego que não me representa"\n• "Sei que posso mais mas não sei por onde começar"\n• "Já tentei vender mentoria mas não escalou"\n• "Tenho medo de largar o certo pelo incerto"`}
+                rows={5}
+                className="text-sm resize-none bg-card"
+              />
+              <Textarea
+                value={localConfig.desires || ""}
+                onChange={e => update("desires", e.target.value)}
+                placeholder={`Desejos profundos:\n• Liberdade financeira e de tempo\n• Ser reconhecido como autoridade\n• Faturar 1M/ano com mentoria\n• Impactar vidas e deixar um legado\n• Sair do operacional e viver de intelectual`}
+                rows={5}
+                className="text-sm resize-none bg-card"
+              />
             </div>
 
             {/* Prompt Context */}
