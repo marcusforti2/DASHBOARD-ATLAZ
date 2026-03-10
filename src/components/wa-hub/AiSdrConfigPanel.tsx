@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import {
   Bot, ToggleLeft, ToggleRight, ChevronDown, ChevronUp,
   Loader2, Save, Settings2, MessageSquare, Users, Clock, Sparkles,
+  Phone, CalendarClock,
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
