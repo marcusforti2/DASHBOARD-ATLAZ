@@ -278,6 +278,39 @@ export default function AiSdrPage() {
   const [toggling, setToggling] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
   const [stats, setStats] = useState({ totalMessages: 0, handoffs: 0, activeInstances: 0, avgResponseTime: 0 });
+  const [enrichingSourceId, setEnrichingSourceId] = useState<string | null>(null);
+
+  const handleEnrichContext = async (idx: number, src: LeadSource) => {
+    if (!src.context.trim()) {
+      toast.error("Escreva um rascunho de contexto antes de enriquecer.");
+      return;
+    }
+    setEnrichingSourceId(src.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("rewrite-message", {
+        body: {
+          message: src.context,
+          tone: "profissional",
+          system_override: `Você é um especialista em vendas B2B e prospecção outbound. O usuário vai te dar um contexto/instrução para um Agente de IA SDR que aborda leads via WhatsApp. Sua tarefa é REESCREVER e ENRIQUECER esse prompt, tornando-o mais detalhado, estratégico e eficaz para a IA. Mantenha o mesmo objetivo e tom, mas adicione: diretrizes de personalização, exemplos de abordagem, gatilhos mentais e boas práticas. Responda APENAS com o texto reescrito, sem explicações.`,
+        },
+      });
+      if (error) throw error;
+      const enriched = data?.rewritten || data?.text || data;
+      if (typeof enriched === "string" && enriched.trim()) {
+        const sources = [...(localConfig.lead_sources || [])];
+        sources[idx] = { ...sources[idx], context: enriched.trim() };
+        update("lead_sources", sources);
+        toast.success("Contexto enriquecido com sucesso!");
+      } else {
+        throw new Error("Resposta vazia da IA");
+      }
+    } catch (e: any) {
+      console.error("Enrich error:", e);
+      toast.error("Erro ao enriquecer: " + (e.message || "tente novamente"));
+    } finally {
+      setEnrichingSourceId(null);
+    }
+  };
 
   const selectedInstance = instances.find(i => i.id === selectedInstanceId);
   const closerName = useMemo(() => {
