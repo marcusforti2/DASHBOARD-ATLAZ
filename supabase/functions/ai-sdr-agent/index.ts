@@ -618,6 +618,21 @@ Exemplo de tom (adapte ao contexto):
       }
     }
 
+    // 7. Auto follow-up scheduling
+    if (parsed.schedule_follow_up && conversation?.contact_id) {
+      const remindAt = new Date(Date.now() + (followUpHours) * 60 * 60 * 1000).toISOString();
+      const followUpMsg = parsed.follow_up_message || `Fala ${contact_name || ""}! Sumiu 😄 Conseguiu pensar sobre o que conversamos?`;
+      
+      await supabase.from("wa_follow_up_reminders").insert({
+        contact_id: conversation.contact_id,
+        conversation_id,
+        remind_at: remindAt,
+        note: followUpMsg,
+        created_by: instance.sdr_id || instance.closer_id || conversation.contact_id,
+      });
+      console.log("[ai-sdr] Follow-up scheduled for", remindAt);
+    }
+
     return new Response(JSON.stringify({
       ok: true,
       reply: reply.substring(0, 100),
@@ -629,6 +644,7 @@ Exemplo de tom (adapte ao contexto):
       handoff: parsed.should_handoff || false,
       handoff_type: parsed.handoff_type || null,
       schedule_meeting: parsed.schedule_meeting || false,
+      follow_up_scheduled: parsed.schedule_follow_up || false,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
