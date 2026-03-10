@@ -528,21 +528,31 @@ export default function EmailMarketingPage() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><History className="h-5 w-5" />Histórico de Envios</DialogTitle>
+            <DialogDescription>
+              {sendLogs.length > 0 && `${sendLogs.filter(l => l.status === 'sent').length} enviados · ${sendLogs.filter(l => l.status === 'failed').length} falharam`}
+            </DialogDescription>
           </DialogHeader>
-          <ScrollArea className="h-[300px]">
+          <ScrollArea className="h-[400px]">
             {isHistoryLoading ? (
               <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>
-            ) : historyRecords.length === 0 ? (
+            ) : sendLogs.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">Nenhum envio registrado</p>
             ) : (
               <div className="space-y-2">
-                {historyRecords.map((rec) => (
-                  <div key={rec.id} className="flex items-center gap-3 p-3 rounded-lg border">
-                    {rec.status === 'completed' ? <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" /> : <XCircle className="h-4 w-4 text-destructive shrink-0" />}
+                {sendLogs.map((log) => (
+                  <div key={log.id} className="flex items-start gap-3 p-3 rounded-lg border">
+                    {log.status === 'sent' ? <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0 mt-0.5" /> : <XCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />}
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium">{rec.status === 'completed' ? 'Enviado' : 'Falhou'}</p>
-                      {rec.started_at && <p className="text-[10px] text-muted-foreground">{format(new Date(rec.started_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>}
-                      {rec.error_message && <p className="text-[10px] text-destructive truncate">{rec.error_message}</p>}
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-medium truncate">{log.recipient_name || log.recipient_email}</p>
+                        <Badge variant={log.status === 'sent' ? 'default' : 'destructive'} className="text-[9px] h-4 shrink-0">
+                          {log.status === 'sent' ? 'Enviado' : 'Falhou'}
+                        </Badge>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground truncate">{log.recipient_email}</p>
+                      <p className="text-[10px] text-muted-foreground truncate mt-0.5">Assunto: {log.subject}</p>
+                      <p className="text-[10px] text-muted-foreground">{format(new Date(log.sent_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>
+                      {log.error_message && <p className="text-[10px] text-destructive truncate mt-0.5">{log.error_message}</p>}
                     </div>
                   </div>
                 ))}
