@@ -43,6 +43,7 @@ export function WaCrmView({ conversations, tags, getTagsForContact, onAddTag, on
   const [newTagIsStage, setNewTagIsStage] = useState(true);
   const [draggingConvId, setDraggingConvId] = useState<string | null>(null);
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
+  const [selectedConv, setSelectedConv] = useState<WaConversation | null>(null);
 
   const stageTags = useMemo(() => tags.filter(t => t.is_stage), [tags]);
 
