@@ -45,6 +45,9 @@ interface AiSdrConfig {
   escalation_hours: number;
   rate_limit_per_hour: number;
   blacklist_numbers: string[];
+  target_audience: string;
+  pain_points: string;
+  desires: string;
   qualification_questions: string[];
   score_thresholds: { a_min: number; b_min: number };
 }
