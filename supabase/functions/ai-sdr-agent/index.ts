@@ -75,7 +75,9 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { conversation_id, instance_id, contact_phone, instance_name, contact_name, incoming_message, trigger_type, pipedrive_context, force } = body;
+    const { conversation_id, instance_id, contact_phone: _contact_phone, instance_name, contact_name: _contact_name, incoming_message, trigger_type, pipedrive_context, force } = body;
+    let contact_phone = _contact_phone;
+    let contact_name = _contact_name;
     const instName = instance_name || null; // will be resolved after instance fetch
 
     const isProactive = trigger_type === "proactive";
