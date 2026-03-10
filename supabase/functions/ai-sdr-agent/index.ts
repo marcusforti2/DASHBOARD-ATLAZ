@@ -1399,11 +1399,13 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
 
               // Sort stages by order_nr and filter by deal's pipeline
               // Map lead status to stage order (0-indexed)
+              // Pipeline: 0-Entrada/Oportunidade, 1-Agendar Ligação, 2-Ligação Agendada, 3-Reunião
               const statusToOrder: Record<string, number> = {
-                "novo": 0,
-                "em_contato": 1,
-                "qualificado": 2,
-                "agendado": 3,
+                "novo": 0,        // Entrada/Oportunidade — deal já chega aqui
+                "em_contato": 0,  // Mantém no estágio 0 (primeiro contato feito, aguardando resposta)
+                "qualificado": 1, // Agendar Ligação — lead qualificado, pronto pra propor call
+                "agendado": 2,    // Ligação Agendada — lead confirmou horário
+                "reuniao": 3,     // Reunião — call/reunião em andamento ou realizada
               };
 
               const targetOrder = statusToOrder[parsed.new_lead_status];
