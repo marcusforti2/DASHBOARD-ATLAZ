@@ -53,6 +53,17 @@ serve(async (req) => {
     const config = instance.ai_sdr_config || {};
     const instName = instance_name || instance.instance_name;
 
+    // Get closer name to impersonate
+    let closerName = "";
+    if (instance.closer_id) {
+      const { data: closerMember } = await supabase
+        .from("team_members")
+        .select("name")
+        .eq("id", instance.closer_id)
+        .single();
+      closerName = closerMember?.name || "";
+    }
+
     // Check feature toggles
     const features = {
       auto_reply: config.feature_auto_reply !== false,
@@ -121,8 +132,9 @@ serve(async (req) => {
       .map(k => `[${k.title}]: ${k.content}`).join("\n\n");
 
     // Build conversation history text
+    const agentLabel = closerName || "SDR IA";
     const conversationText = history
-      .map(m => `${m.sender === "contact" ? contact_name || "Lead" : "SDR IA"}: ${m.text}`)
+      .map(m => `${m.sender === "contact" ? contact_name || "Lead" : agentLabel}: ${m.text}`)
       .join("\n");
 
     const currentTagNames = (currentTags || []).map((ct: any) => ct.wa_tags?.name).filter(Boolean);
@@ -242,7 +254,10 @@ serve(async (req) => {
 
     // Build the master system prompt
     const masterPrompt = config.master_prompt || "";
-    const systemPrompt = `${masterPrompt ? `REGRAS ABSOLUTAS DO GESTOR (prioridade máxima):\n${masterPrompt}\n\n` : ""}Você é uma SDR (Sales Development Representative) virtual de IA integrada ao WhatsApp.
+    const identityLine = closerName
+      ? `Você é ${closerName}, especialista comercial. O lead DEVE acreditar que está falando diretamente com ${closerName}. Use primeira pessoa. NUNCA mencione que é IA, assistente virtual ou bot.`
+      : `Você é uma SDR (Sales Development Representative) virtual de IA integrada ao WhatsApp.`;
+    const systemPrompt = `${masterPrompt ? `REGRAS ABSOLUTAS DO GESTOR (prioridade máxima):\n${masterPrompt}\n\n` : ""}${identityLine}
 
 CONHECIMENTO DO NEGÓCIO:
 ${aiPrompts || ""}
