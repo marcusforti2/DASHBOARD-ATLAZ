@@ -55,8 +55,8 @@ interface GoogleCalendarPanelProps {
   memberRole?: string;
 }
 
-const HOURS = Array.from({ length: 17 }, (_, i) => i + 6); // 06:00 - 22:00
-const HOUR_HEIGHT = 60; // px per hour
+const HOURS = Array.from({ length: 18 }, (_, i) => i + 6); // 06:00 - 23:00
+const HOUR_HEIGHT = 56; // px per hour — compact but readable
 
 const REMINDER_OPTIONS = [
   { label: "24h antes", value: "24h", minutes: 1440 },
