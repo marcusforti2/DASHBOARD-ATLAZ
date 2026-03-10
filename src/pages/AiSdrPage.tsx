@@ -48,6 +48,7 @@ interface AiSdrConfig {
   feature_linkedin_lookup: boolean;
   feature_time_escalation: boolean;
   feature_tts_reply: boolean;
+  feature_calendar_auto: boolean;
   tts_voice_id: string;
   reengagement_days: number;
   escalation_hours: number;
