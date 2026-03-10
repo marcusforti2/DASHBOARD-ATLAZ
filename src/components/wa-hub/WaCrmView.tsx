@@ -177,7 +177,7 @@ export function WaCrmView({ conversations, tags, getTagsForContact, onAddTag, on
             </div>
             <div className="space-y-2">
               {untaggedConvs.map(conv => (
-                <KanbanCard key={conv.id} conv={conv} tags={tags} assignedTagIds={getTagsForContact(conv.contact.id).map(t => t.tag_id)} onAddTag={onAddTag} onRemoveTag={onRemoveTag} onDragStart={handleDragStart} />
+                <KanbanCard key={conv.id} conv={conv} tags={tags} assignedTagIds={getTagsForContact(conv.contact.id).map(t => t.tag_id)} onAddTag={onAddTag} onRemoveTag={onRemoveTag} onDragStart={handleDragStart} onClick={() => setSelectedConv(conv)} />
               ))}
             </div>
           </div>
