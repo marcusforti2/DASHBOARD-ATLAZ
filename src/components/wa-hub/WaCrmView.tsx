@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { WaContactTagBadges } from './WaContactTagBadges';
+import { LeadDetailModal } from './LeadDetailModal';
 import type { WaTag } from '@/hooks/use-wa-tags';
 import type { WaConversation } from '@/hooks/use-wa-hub';
 
@@ -42,6 +43,7 @@ export function WaCrmView({ conversations, tags, getTagsForContact, onAddTag, on
   const [newTagIsStage, setNewTagIsStage] = useState(true);
   const [draggingConvId, setDraggingConvId] = useState<string | null>(null);
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
+  const [selectedConv, setSelectedConv] = useState<WaConversation | null>(null);
 
   const stageTags = useMemo(() => tags.filter(t => t.is_stage), [tags]);
 
@@ -175,7 +177,7 @@ export function WaCrmView({ conversations, tags, getTagsForContact, onAddTag, on
             </div>
             <div className="space-y-2">
               {untaggedConvs.map(conv => (
-                <KanbanCard key={conv.id} conv={conv} tags={tags} assignedTagIds={getTagsForContact(conv.contact.id).map(t => t.tag_id)} onAddTag={onAddTag} onRemoveTag={onRemoveTag} onDragStart={handleDragStart} />
+                <KanbanCard key={conv.id} conv={conv} tags={tags} assignedTagIds={getTagsForContact(conv.contact.id).map(t => t.tag_id)} onAddTag={onAddTag} onRemoveTag={onRemoveTag} onDragStart={handleDragStart} onClick={() => setSelectedConv(conv)} />
               ))}
             </div>
           </div>
@@ -200,7 +202,7 @@ export function WaCrmView({ conversations, tags, getTagsForContact, onAddTag, on
                 </div>
                 <div className="space-y-2">
                   {stageConvs.map(conv => (
-                    <KanbanCard key={conv.id} conv={conv} tags={tags} assignedTagIds={getTagsForContact(conv.contact.id).map(t => t.tag_id)} onAddTag={onAddTag} onRemoveTag={onRemoveTag} onDragStart={handleDragStart} />
+                    <KanbanCard key={conv.id} conv={conv} tags={tags} assignedTagIds={getTagsForContact(conv.contact.id).map(t => t.tag_id)} onAddTag={onAddTag} onRemoveTag={onRemoveTag} onDragStart={handleDragStart} onClick={() => setSelectedConv(conv)} />
                   ))}
                 </div>
               </div>
@@ -224,7 +226,7 @@ export function WaCrmView({ conversations, tags, getTagsForContact, onAddTag, on
             </thead>
             <tbody>
               {filteredConversations.map(conv => (
-                <tr key={conv.id} className="border-t border-border hover:bg-muted/30">
+                <tr key={conv.id} className="border-t border-border hover:bg-muted/30 cursor-pointer" onClick={() => setSelectedConv(conv)}>
                   <td className="px-4 py-2.5 font-medium text-foreground">{conv.contact.name}</td>
                   <td className="px-4 py-2.5 text-muted-foreground text-xs">{conv.contact.phone}</td>
                   <td className="px-4 py-2.5">
@@ -285,12 +287,24 @@ export function WaCrmView({ conversations, tags, getTagsForContact, onAddTag, on
           </div>
         </DialogContent>
       </Dialog>
+      {/* Lead Detail Modal */}
+      {selectedConv && (
+        <LeadDetailModal
+          open={!!selectedConv}
+          onOpenChange={(open) => { if (!open) setSelectedConv(null); }}
+          conversation={selectedConv}
+          tags={tags}
+          assignedTagIds={getTagsForContact(selectedConv.contact.id).map(t => t.tag_id)}
+          onAddTag={onAddTag}
+          onRemoveTag={onRemoveTag}
+        />
+      )}
     </div>
   );
 }
 
 function KanbanCard({
-  conv, tags, assignedTagIds, onAddTag, onRemoveTag, onDragStart,
+  conv, tags, assignedTagIds, onAddTag, onRemoveTag, onDragStart, onClick,
 }: {
   conv: WaConversation;
   tags: WaTag[];
@@ -298,6 +312,7 @@ function KanbanCard({
   onAddTag: (contactId: string, tagId: string) => Promise<void>;
   onRemoveTag: (contactId: string, tagId: string) => Promise<void>;
   onDragStart: (convId: string) => void;
+  onClick?: () => void;
 }) {
   const avatarColor = getAvatarColor(conv.contact.name);
 
@@ -305,7 +320,12 @@ function KanbanCard({
     <div
       draggable
       onDragStart={() => onDragStart(conv.id)}
-      className="rounded-lg border border-border bg-card p-3 space-y-2 hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing"
+      onClick={(e) => {
+        // Don't open modal if clicking tags or during drag
+        if ((e.target as HTMLElement).closest('[data-tag-badge]')) return;
+        onClick?.();
+      }}
+      className="rounded-lg border border-border bg-card p-3 space-y-2 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer active:cursor-grabbing"
     >
       <div className="flex items-center gap-2">
         <GripVertical className="w-3 h-3 text-muted-foreground/40 shrink-0" />
