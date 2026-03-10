@@ -27,7 +27,7 @@ const TABLES_TO_BACKUP = [
   "ai_tool_usage",
 ];
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
