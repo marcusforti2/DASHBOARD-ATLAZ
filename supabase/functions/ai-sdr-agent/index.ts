@@ -354,6 +354,17 @@ IMPORTANTE SOBRE MENSAGENS DO LEAD:
 
 ${features.sentiment ? "ANÁLISE DE SENTIMENTO: Analise o sentimento do lead (positivo, neutro, negativo, urgente) e inclua no JSON." : ""}
 
+MOVIMENTAÇÃO DE PIPELINE (IMPORTANTE):
+- Cada mudança de status do lead DEVE mover o deal no CRM automaticamente
+- O sistema faz isso baseado no "new_lead_status" que você retornar
+- Na primeira interação proativa, mude para "em_contato"
+- SEMPRE retorne "new_lead_status" quando o status mudar
+
+ATIVIDADES NO CRM:
+- Após CADA interação, o sistema cria automaticamente uma atividade "feita" com resumo
+- Também cria um follow-up de 24h (horário comercial) como "não feita"
+- Inclua "activity_note" com um resumo curto da interação (1-2 frases)
+
 Responda EXATAMENTE neste formato JSON:
 {
   "reply": "Primeira parte|||Segunda parte|||Terceira parte",
@@ -379,7 +390,8 @@ Responda EXATAMENTE neste formato JSON:
   "meeting_datetime": "",
   "urgent_call": false,
   "schedule_follow_up": false,
-  "follow_up_message": ""${features.sentiment ? ',\n  "sentiment": "positivo" | "neutro" | "negativo" | "urgente"' : ""}${features.pipedrive_sync ? ',\n  "pipedrive_update": { "stage": "", "value": 0, "custom_fields": {} }' : ""}
+  "follow_up_message": "",
+  "activity_note": "Resumo curto da interação"${features.sentiment ? ',\n  "sentiment": "positivo" | "neutro" | "negativo" | "urgente"' : ""}
 }`;
     let userMessage: string;
     if (isProactive) {
