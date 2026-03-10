@@ -530,8 +530,8 @@ export default function AiSdrPage() {
                 const isOn = localConfig[enrichedDef.key as keyof AiSdrConfig] as boolean;
                 return (
                   <AutomationCard
-                    key={def.key}
-                    def={def}
+                    key={enrichedDef.key}
+                    def={enrichedDef}
                     isOn={isOn}
                     config={{
                       ...localConfig,
