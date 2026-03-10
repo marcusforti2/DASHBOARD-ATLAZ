@@ -39,8 +39,18 @@ export async function connectInstance(instanceName: string): Promise<QrCodeRespo
 }
 
 export async function getInstanceStatus(instanceName: string): Promise<{ state: string }> {
-  const data = await callEvolutionApi('status', instanceName);
-  return data?.instance ?? data;
+  try {
+    const data = await callEvolutionApi('status', instanceName);
+    return data?.instance ?? data;
+  } catch (err: unknown) {
+    // Instance doesn't exist on Evolution API server — treat as disconnected
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('does not exist') || msg.includes('404')) {
+      console.warn(`[evolutionApi] Instance "${instanceName}" not found on server`);
+      return { state: 'close' };
+    }
+    throw err;
+  }
 }
 
 export async function disconnectInstance(instanceName: string): Promise<void> {
