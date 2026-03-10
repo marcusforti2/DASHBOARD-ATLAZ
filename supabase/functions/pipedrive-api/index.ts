@@ -106,6 +106,9 @@ serve(async (req) => {
       case 'delete_webhook':
         result = await pipedriveDelete(`/webhooks/${params.id}`, PIPEDRIVE_API_TOKEN);
         break;
+      case 'get_deal_fields':
+        result = await pipedriveGet('/dealFields', params || {}, PIPEDRIVE_API_TOKEN);
+        break;
       default:
         return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
