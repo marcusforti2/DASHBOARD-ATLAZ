@@ -122,7 +122,7 @@ export function WaUserPanel({ teamMemberId, memberName, memberRole }: Props) {
   const unreadCount = myConversations.reduce((sum, c) => sum + c.unread_count, 0);
   const pendingReminders = reminders.filter(r => new Date(r.remind_at) <= new Date()).length;
 
-  const stages = ['novo', 'qualificado', 'proposta', 'negociacao', 'fechado'];
+  
 
   return (
     <div className="space-y-4 animate-fade-in">
