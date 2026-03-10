@@ -188,6 +188,16 @@ export default function Index() {
     );
   }
 
+  // Listen for navigation events from child components (e.g. WaHub summary card)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail) setAdminView(detail as AdminView);
+    };
+    window.addEventListener('navigate-admin', handler);
+    return () => window.removeEventListener('navigate-admin', handler);
+  }, []);
+
   // ── Admin: sidebar layout ──
   const activeView = adminView;
 
