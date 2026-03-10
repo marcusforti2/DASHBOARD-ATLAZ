@@ -54,7 +54,7 @@ export function RoutingPanel() {
         if (!inst.is_connected) issues.push("Instância desconectada");
         if (!inst.ai_sdr_enabled) issues.push("SDR IA desabilitada");
         if (!closer) issues.push("Sem closer vinculado");
-        if (closer && !closer.email) issues.push("Closer sem email (não será roteado pelo Pipedrive)");
+        if (closer && !closer.email && !(closer as any).pipedrive_user_id) issues.push("Closer sem email e sem ID Pipedrive");
         if (inst.ai_sdr_enabled && leadSources.filter((s: any) => s.active).length === 0)
           issues.push("Sem lead sources configuradas");
 
@@ -65,6 +65,7 @@ export function RoutingPanel() {
           ai_sdr_enabled: inst.ai_sdr_enabled,
           closer_name: closer?.name || null,
           closer_email: closer?.email || null,
+          closer_pipedrive_id: (closer as any)?.pipedrive_user_id || null,
           sdr_name: sdr?.name || null,
           phone: inst.phone,
           lead_sources: leadSources,
