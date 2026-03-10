@@ -423,13 +423,29 @@ async function handlePerson(supabase: any, event: string, current: any, previous
   const p = current;
   if (!p?.id) return;
 
-  // Support v1 (phone/email arrays with {value}) and v2 (phones/emails arrays with {value})
+  // Support ALL Pipedrive formats for phone and email extraction
+  // v1: phone/email as array of {value, label, primary}
+  // v2: phones/emails as array of {value, label, primary}
+  // v2 alt: custom_fields with {type:"phone", value:"..."}
+  // v2 alt2: direct string fields
   const phoneArr = p.phone || p.phones || [];
   const emailArr = p.email || p.emails || [];
-  const phone = Array.isArray(phoneArr) ? phoneArr[0]?.value : (phoneArr || null);
-  const email = Array.isArray(emailArr) ? emailArr[0]?.value : (emailArr || null);
+  
+  let phone: string | null = null;
+  if (Array.isArray(phoneArr) && phoneArr.length > 0) {
+    phone = phoneArr[0]?.value || null;
+  } else if (typeof phoneArr === 'string') {
+    phone = phoneArr;
+  }
 
-  // Also check custom_fields for phone (Pipedrive v2 sometimes puts phone there)
+  let email: string | null = null;
+  if (Array.isArray(emailArr) && emailArr.length > 0) {
+    email = emailArr[0]?.value || null;
+  } else if (typeof emailArr === 'string') {
+    email = emailArr;
+  }
+
+  // Also check custom_fields for phone (v2 sometimes puts phone there)
   let resolvedPhone = phone;
   if (!resolvedPhone && p.custom_fields) {
     for (const key of Object.keys(p.custom_fields)) {
@@ -438,7 +454,15 @@ async function handlePerson(supabase: any, event: string, current: any, previous
         resolvedPhone = cf.value;
         break;
       }
+      if (cf && typeof cf === 'string' && cf.replace(/\D/g, '').length >= 10) {
+        resolvedPhone = cf;
+        break;
+      }
     }
+  }
+  // Direct person_phone field
+  if (!resolvedPhone && p.person_phone) {
+    resolvedPhone = p.person_phone;
   }
 
   // Try to match with wa_contact by phone
