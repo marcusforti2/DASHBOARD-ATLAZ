@@ -136,7 +136,7 @@ Deno.serve(async (req) => {
         .eq("id", conversation_id)
         .single();
 
-      if (convCheck?.lead_status === "agendado" && !isProactive) {
+      if (convCheck?.lead_status === "agendado" && !isProactive && !force) {
         console.log("[ai-sdr] Skipping: lead status is 'agendado' — human takeover active");
         return new Response(JSON.stringify({ skipped: "human_takeover_agendado" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
