@@ -1,0 +1,1 @@
+DELETE FROM wa_messages WHERE conversation_id = '9d7c9124-e8e5-488d-9277-965f27b34578' AND text = '__ai_processing__';
