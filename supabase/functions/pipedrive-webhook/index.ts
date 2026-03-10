@@ -90,18 +90,64 @@ async function handleDeal(supabase: any, event: string, current: any, previous: 
   let teamMemberId = null;
   let personName = d.person_name || null;
 
+  // Extract phone from deal custom_fields (Pipedrive v2 stores phone there)
+  let dealPhone: string | null = null;
+  if (d.custom_fields) {
+    for (const key of Object.keys(d.custom_fields)) {
+      const cf = d.custom_fields[key];
+      if (cf && typeof cf === 'object' && cf.type === 'phone' && cf.value) {
+        dealPhone = String(cf.value).replace(/\D/g, '');
+        break;
+      }
+    }
+  }
+
   // V2: person_name might not exist, try to get from pipedrive_persons
   if (personId) {
     const { data: person } = await supabase
       .from('pipedrive_persons')
-      .select('wa_contact_id, name')
+      .select('wa_contact_id, name, phone')
       .eq('pipedrive_id', personId)
       .single();
 
     if (person) {
       if (!personName) personName = person.name;
-      
-      if (person.wa_contact_id) {
+
+      // If person has no phone but deal has phone in custom_fields, update person
+      if (!person.phone && dealPhone) {
+        await supabase.from('pipedrive_persons')
+          .update({ phone: dealPhone })
+          .eq('pipedrive_id', personId);
+        console.log(`[pipedrive-webhook] Updated person ${personId} phone from deal custom_fields: ${dealPhone}`);
+
+        // Also try to match wa_contact now
+        const cleanPhone = dealPhone;
+        const { data: contact } = await supabase
+          .from('wa_contacts')
+          .select('id')
+          .or(`phone.eq.${cleanPhone},phone.like.%${cleanPhone.slice(-9)}`)
+          .limit(1)
+          .single();
+
+        if (contact) {
+          await supabase.from('pipedrive_persons')
+            .update({ wa_contact_id: contact.id })
+            .eq('pipedrive_id', personId);
+          
+          const { data: conv } = await supabase
+            .from('wa_conversations')
+            .select('id, assigned_to')
+            .eq('contact_id', contact.id)
+            .order('last_message_at', { ascending: false })
+            .limit(1)
+            .single();
+
+          if (conv) {
+            waConversationId = conv.id;
+            teamMemberId = conv.assigned_to;
+          }
+        }
+      } else if (person.wa_contact_id) {
         const { data: conv } = await supabase
           .from('wa_conversations')
           .select('id, assigned_to')
