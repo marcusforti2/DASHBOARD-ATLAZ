@@ -452,21 +452,41 @@ export default function WaChatView({ conversation, messages, messagesLoading, on
 
           {/* Sticker */}
           {onSendSticker && (
-            <button
-              onClick={() => stickerInputRef.current?.click()}
-              disabled={uploadingMedia || sending || recording}
-              className="p-2.5 rounded-xl text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
-              title="Figurinha"
-            >
-              <Sticker className="w-4 h-4" />
-            </button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  disabled={uploadingMedia || sending || recording}
+                  className="p-2.5 rounded-xl text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
+                  title="Figurinhas"
+                >
+                  <Sticker className="w-4 h-4" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-48 p-2" side="top">
+                <div className="space-y-1">
+                  <button
+                    onClick={() => openStickerPicker('normal')}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs rounded-lg hover:bg-muted transition-colors"
+                  >
+                    <Sticker className="w-3.5 h-3.5" /> Enviar figurinha
+                  </button>
+                  <button
+                    onClick={() => openStickerPicker('process')}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs rounded-lg hover:bg-muted transition-colors"
+                  >
+                    <Workflow className="w-3.5 h-3.5 text-primary" /> Processo → Figurinha
+                  </button>
+                </div>
+              </PopoverContent>
+            </Popover>
           )}
 
           <StickerPreviewDialog
             open={stickerDialogOpen}
-            onClose={() => { setStickerDialogOpen(false); setStickerFile(null); }}
+            onClose={() => { setStickerDialogOpen(false); setStickerFile(null); setStickerAutoMode(undefined); }}
             imageFile={stickerFile}
             onSend={handleStickerSend}
+            autoMode={stickerAutoMode}
           />
 
           {/* Audio record */}
