@@ -427,6 +427,19 @@ Faça login e comece a registrar suas métricas. Bora pra cima! 🚀`;
                   className="w-full rounded-xl border border-border bg-secondary px-3 py-2.5 text-sm text-secondary-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all"
                 />
               </div>
+              {/* Pipedrive User ID */}
+              <div>
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
+                  <Zap size={10} /> ID Pipedrive <span className="text-[8px] font-normal opacity-60">(Configurações → Usuários no Pipedrive)</span>
+                </label>
+                <input
+                  type="number"
+                  value={pipedriveUserId}
+                  onChange={e => setPipedriveUserId(e.target.value)}
+                  placeholder="Ex: 12345678"
+                  className="w-full rounded-xl border border-border bg-secondary px-3 py-2.5 text-sm text-secondary-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all font-mono"
+                />
+              </div>
             </>
           )}
         </div>
