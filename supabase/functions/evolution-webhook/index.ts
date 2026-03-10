@@ -412,3 +412,77 @@ function extractMessageContent(message: Record<string, unknown>, msgData?: Recor
 
   return { text: '', mediaType: null, mediaUrl: null, mediaMime: null };
 }
+
+async function transcribeAudio(audioUrl: string, mimeType: string | null): Promise<string> {
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  if (!LOVABLE_API_KEY) {
+    console.error('[transcribe] LOVABLE_API_KEY not configured');
+    return '';
+  }
+
+  try {
+    // Fetch the audio file and convert to base64
+    const audioResp = await fetch(audioUrl);
+    if (!audioResp.ok) {
+      console.error('[transcribe] Failed to fetch audio:', audioResp.status);
+      return '';
+    }
+
+    const audioBuffer = await audioResp.arrayBuffer();
+    const audioBytes = new Uint8Array(audioBuffer);
+    let base64Audio = '';
+    // Convert to base64 in chunks to avoid stack overflow
+    const chunkSize = 8192;
+    for (let i = 0; i < audioBytes.length; i += chunkSize) {
+      const chunk = audioBytes.slice(i, i + chunkSize);
+      base64Audio += String.fromCharCode(...chunk);
+    }
+    base64Audio = btoa(base64Audio);
+
+    const mime = mimeType || 'audio/ogg';
+
+    // Use Gemini Flash (supports audio natively) via Lovable AI Gateway
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: 'Transcreva este áudio em português brasileiro. Retorne APENAS o texto transcrito, sem aspas, sem prefixos, sem explicações. Se o áudio estiver inaudível, retorne "áudio inaudível".',
+              },
+              {
+                type: 'input_audio',
+                input_audio: {
+                  data: base64Audio,
+                  format: mime.includes('ogg') ? 'ogg' : mime.includes('mp4') || mime.includes('m4a') ? 'mp4' : mime.includes('wav') ? 'wav' : 'ogg',
+                },
+              },
+            ],
+          },
+        ],
+        max_tokens: 500,
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error('[transcribe] AI gateway error:', response.status, errText);
+      return '';
+    }
+
+    const data = await response.json();
+    const transcription = data.choices?.[0]?.message?.content?.trim() || '';
+    return transcription;
+  } catch (err) {
+    console.error('[transcribe] Error:', err);
+    return '';
+  }
+}
