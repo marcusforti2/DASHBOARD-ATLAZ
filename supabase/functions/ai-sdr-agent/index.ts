@@ -709,12 +709,18 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
         fullReply.push(part);
       }
 
-      // Save all parts as individual messages in DB
-      for (const part of fullReply) {
-        await supabase.from("wa_messages").insert({
-          conversation_id, instance_id, sender: "agent",
-          agent_name: "SDR IA 🤖", text: part,
-        });
+      // Update the lock message to the first part, insert remaining parts
+      if (fullReply.length > 0) {
+        await supabase.from("wa_messages").update({ text: fullReply[0] }).eq("id", lockId);
+        for (let j = 1; j < fullReply.length; j++) {
+          await supabase.from("wa_messages").insert({
+            conversation_id, instance_id, sender: "agent",
+            agent_name: "SDR IA 🤖", text: fullReply[j],
+          });
+        }
+      } else {
+        // No reply sent, remove lock
+        await supabase.from("wa_messages").delete().eq("id", lockId);
       }
 
       // Update conversation with last message
