@@ -709,20 +709,60 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
     const replyParts = reply.split("|||").map(p => p.trim()).filter(p => p.length > 0);
     console.log(`[ai-sdr] Reply split into ${replyParts.length} parts`);
 
-    // Send each part with human-like random delays
+    // Send each part with human-like random delays + presence simulation
     if (EVOLUTION_API_URL && EVOLUTION_API_KEY && features.auto_reply) {
       const baseUrl = EVOLUTION_API_URL.replace(/\/$/, "");
       const fullReply: string[] = [];
+      const resolvedInstName = instName || instance.instance_name;
+
+      // Helper: simulate human presence (read + typing)
+      const simulatePresence = async (phone: string, textLength: number) => {
+        try {
+          // Mark as "read" first
+          await fetch(`${baseUrl}/chat/markChatUnread/${resolvedInstName}`, {
+            method: "PUT",
+            headers: { apikey: EVOLUTION_API_KEY!, "Content-Type": "application/json" },
+            body: JSON.stringify({ remoteJid: `${phone}@s.whatsapp.net`, lastMessage: { key: { fromMe: false } }, chat: "read" }),
+          }).catch(() => {});
+
+          // Small pause after reading (0.5-1.5s)
+          await new Promise(r => setTimeout(r, Math.floor(Math.random() * 1000) + 500));
+
+          // Send "composing" (typing indicator)
+          await fetch(`${baseUrl}/chat/updatePresence/${resolvedInstName}`, {
+            method: "POST",
+            headers: { apikey: EVOLUTION_API_KEY!, "Content-Type": "application/json" },
+            body: JSON.stringify({ remoteJid: `${phone}@s.whatsapp.net`, presence: "composing" }),
+          }).catch(() => {});
+
+          // Typing duration proportional to message length (30-80ms per char, min 2s, max 8s)
+          const typingMs = Math.min(8000, Math.max(2000, textLength * (Math.floor(Math.random() * 50) + 30)));
+          console.log(`[ai-sdr] Simulating typing for ${typingMs}ms (${textLength} chars)`);
+          await new Promise(r => setTimeout(r, typingMs));
+
+          // Stop typing
+          await fetch(`${baseUrl}/chat/updatePresence/${resolvedInstName}`, {
+            method: "POST",
+            headers: { apikey: EVOLUTION_API_KEY!, "Content-Type": "application/json" },
+            body: JSON.stringify({ remoteJid: `${phone}@s.whatsapp.net`, presence: "paused" }),
+          }).catch(() => {});
+        } catch (e) {
+          console.warn("[ai-sdr] Presence simulation error:", e);
+        }
+      };
 
       for (let i = 0; i < replyParts.length; i++) {
         const part = replyParts[i];
 
-        // Human-like random delay: 1-5 seconds between messages
-        const delay = Math.floor(Math.random() * 4000) + 1000;
-        console.log(`[ai-sdr] Part ${i + 1}/${replyParts.length}: waiting ${delay}ms`);
-        await new Promise(resolve => setTimeout(resolve, delay));
+        // Simulate human reading + typing before each message
+        await simulatePresence(contact_phone, part.length);
 
-        const resolvedInstName = instName || instance.instance_name;
+        // Additional random gap between messages (0.5-2s)
+        if (i > 0) {
+          const gap = Math.floor(Math.random() * 1500) + 500;
+          await new Promise(resolve => setTimeout(resolve, gap));
+        }
+
         const sendResp = await fetch(`${baseUrl}/message/sendText/${resolvedInstName}`, {
           method: "POST",
           headers: { apikey: EVOLUTION_API_KEY, "Content-Type": "application/json" },
