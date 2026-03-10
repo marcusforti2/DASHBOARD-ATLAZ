@@ -275,7 +275,7 @@ Deno.serve(async (req) => {
 
     // Check handoff threshold
     if (features.handoff) {
-      const agentMsgCount = history.filter(m => m.sender === "agent").length;
+      const agentMsgCount = history.filter(m => m.sender === "agent" && m.agent_name === "SDR IA 🤖").length;
       const maxBeforeHandoff = config.max_messages_before_handoff || 10;
       if (agentMsgCount >= maxBeforeHandoff) {
         console.log("[ai-sdr] Handoff threshold reached");
