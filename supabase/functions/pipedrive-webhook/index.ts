@@ -196,6 +196,146 @@ async function handleDeal(supabase: any, event: string, current: any, previous: 
 
   await supabase.from('pipedrive_deals').upsert(dealData, { onConflict: 'pipedrive_id' });
   console.log(`[pipedrive-webhook] Deal upserted: ${d.title} (${d.id}) status=${d.status}`);
+
+  // PROACTIVE SDR IA: On new deal with phone, auto-create contact + conversation and trigger AI outreach
+  if (event === 'create' && (dealPhone || (personId && current))) {
+    const phoneToUse = dealPhone || null;
+    
+    // If no dealPhone, try to get from the person record
+    let resolvedPhone = phoneToUse;
+    if (!resolvedPhone && personId) {
+      const { data: personRec } = await supabase
+        .from('pipedrive_persons')
+        .select('phone')
+        .eq('pipedrive_id', personId)
+        .single();
+      resolvedPhone = personRec?.phone || null;
+    }
+
+    if (resolvedPhone) {
+      const cleanPhone = resolvedPhone.replace(/\D/g, '');
+      const formattedPhone = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
+
+      console.log(`[pipedrive-webhook] Proactive outreach for ${personName} (${formattedPhone})`);
+
+      // Find a connected instance with AI SDR enabled
+      const { data: sdrInstance } = await supabase
+        .from('wa_instances')
+        .select('id, instance_name, is_connected, ai_sdr_enabled, ai_sdr_config, sdr_id, closer_id')
+        .eq('ai_sdr_enabled', true)
+        .eq('is_connected', true)
+        .limit(1)
+        .single();
+
+      if (sdrInstance) {
+        // Find or create wa_contact
+        let contactId: string | null = null;
+        const { data: existingContact } = await supabase
+          .from('wa_contacts')
+          .select('id')
+          .eq('instance_id', sdrInstance.id)
+          .or(`phone.eq.${formattedPhone},phone.like.%${cleanPhone.slice(-9)}`)
+          .limit(1)
+          .single();
+
+        if (existingContact) {
+          contactId = existingContact.id;
+        } else {
+          const { data: newContact } = await supabase
+            .from('wa_contacts')
+            .insert({
+              phone: formattedPhone,
+              name: personName || d.title || 'Lead Pipedrive',
+              instance_id: sdrInstance.id,
+            })
+            .select('id')
+            .single();
+          contactId = newContact?.id || null;
+          console.log(`[pipedrive-webhook] Created wa_contact: ${contactId}`);
+        }
+
+        if (contactId) {
+          // Link pipedrive_persons to wa_contact
+          if (personId) {
+            await supabase.from('pipedrive_persons')
+              .update({ wa_contact_id: contactId })
+              .eq('pipedrive_id', personId);
+          }
+
+          // Find or create wa_conversation
+          let conversationId: string | null = null;
+          const { data: existingConv } = await supabase
+            .from('wa_conversations')
+            .select('id')
+            .eq('contact_id', contactId)
+            .eq('instance_id', sdrInstance.id)
+            .limit(1)
+            .single();
+
+          if (existingConv) {
+            conversationId = existingConv.id;
+          } else {
+            const { data: newConv } = await supabase
+              .from('wa_conversations')
+              .insert({
+                contact_id: contactId,
+                instance_id: sdrInstance.id,
+                status: 'active',
+                lead_status: 'novo',
+                assigned_to: sdrInstance.closer_id || sdrInstance.sdr_id || null,
+                assigned_role: sdrInstance.closer_id ? 'closer' : 'sdr',
+              })
+              .select('id')
+              .single();
+            conversationId = newConv?.id || null;
+            console.log(`[pipedrive-webhook] Created wa_conversation: ${conversationId}`);
+          }
+
+          // Update deal with wa_conversation link
+          if (conversationId) {
+            await supabase.from('pipedrive_deals')
+              .update({ wa_conversation_id: conversationId, team_member_id: sdrInstance.closer_id || sdrInstance.sdr_id })
+              .eq('pipedrive_id', d.id);
+
+            // Trigger AI SDR proactive outreach
+            const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+            const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+            
+            try {
+              const sdrResp = await fetch(`${SUPABASE_URL}/functions/v1/ai-sdr-agent`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                },
+                body: JSON.stringify({
+                  conversation_id: conversationId,
+                  instance_id: sdrInstance.id,
+                  instance_name: sdrInstance.instance_name,
+                  contact_phone: formattedPhone,
+                  contact_name: personName || d.title,
+                  trigger_type: 'proactive',
+                  pipedrive_context: {
+                    deal_title: d.title,
+                    deal_value: d.value,
+                    org_name: orgName,
+                    origin: d.origin || 'ManuallyCreated',
+                  },
+                }),
+              });
+
+              const sdrResult = await sdrResp.json();
+              console.log(`[pipedrive-webhook] AI SDR proactive result:`, JSON.stringify(sdrResult));
+            } catch (sdrErr) {
+              console.error('[pipedrive-webhook] AI SDR trigger error:', sdrErr);
+            }
+          }
+        }
+      } else {
+        console.log('[pipedrive-webhook] No connected AI SDR instance found for proactive outreach');
+      }
+    }
+  }
 }
 
 async function handlePerson(supabase: any, event: string, current: any, previous: any) {
