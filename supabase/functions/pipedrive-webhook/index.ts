@@ -436,6 +436,9 @@ async function handleDeal(supabase: any, event: string, current: any, previous: 
             deal_value: d.value,
             org_name: orgName,
             origin: d.origin || 'ManuallyCreated',
+            label_id: matchedLabelId,
+            lead_source_name: matchedSourceName,
+            lead_source_context: matchedSourceContext,
           },
         }),
       });
