@@ -34,7 +34,7 @@ serve(async (req) => {
 
     const { data: instance } = await supabase
       .from('wa_instances')
-      .select('id, closer_id, sdr_id, ai_sdr_enabled, ai_sdr_config, instance_name')
+      .select('id, closer_id, sdr_id, ai_sdr_enabled, ai_sdr_config, instance_name, phone')
       .eq('instance_name', instanceName)
       .single();
 
@@ -51,8 +51,12 @@ serve(async (req) => {
     if (event === 'connection.update') {
       const state = payload.data?.state || payload.data?.status;
       const isConn = state === 'open' || state === 'connected';
-      await supabase.from('wa_instances').update({ is_connected: isConn }).eq('id', instance.id);
-      console.log(`[webhook] Connection update: ${instanceName} -> ${state} (is_connected=${isConn})`);
+      // Try to extract the instance's own phone number from connection data
+      const instancePhone = payload.data?.ownerJid?.replace('@s.whatsapp.net', '') || null;
+      const updateData: any = { is_connected: isConn };
+      if (instancePhone && isConn) updateData.phone = instancePhone;
+      await supabase.from('wa_instances').update(updateData).eq('id', instance.id);
+      console.log(`[webhook] Connection update: ${instanceName} -> ${state} (is_connected=${isConn}, phone=${instancePhone})`);
       return new Response(JSON.stringify({ ok: true, connection: state }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -75,6 +79,16 @@ serve(async (req) => {
 
       const phone = remoteJid.replace('@s.whatsapp.net', '');
       const isFromMe = msgData.key.fromMe === true;
+
+      // Auto-populate instance phone from participant JID when sending messages
+      if (isFromMe && msgData.key.participant) {
+        const ownPhone = msgData.key.participant.replace('@s.whatsapp.net', '');
+        if (ownPhone && !instance.phone) {
+          await supabase.from('wa_instances').update({ phone: ownPhone }).eq('id', instance.id);
+          console.log(`[webhook] Auto-set instance phone: ${instanceName} -> ${ownPhone}`);
+        }
+      }
+
       const pushName = msgData.pushName || '';
       const { text: messageText, mediaType, mediaUrl, mediaMime } = extractMessageContent(msgData.message, msgData);
 
@@ -173,28 +187,40 @@ serve(async (req) => {
       console.log('[webhook] Message saved:', isFromMe ? 'sent' : 'received', phone, mediaType || 'text', displayText.substring(0, 50));
 
       // Trigger AI SDR agent for incoming messages from contacts
+      // IMPORTANT: Skip if sender phone belongs to another managed instance (prevents AI-to-AI loops)
       if (!isFromMe && instance.ai_sdr_enabled && messageText) {
-        try {
-          const aiSdrUrl = `${SUPABASE_URL}/functions/v1/ai-sdr-agent`;
-          const aiSdrResp = await fetch(aiSdrUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-            },
-            body: JSON.stringify({
-              conversation_id: conversation.id,
-              instance_id: instance.id,
-              contact_phone: phone,
-              instance_name: instanceName,
-              contact_name: pushName || phone,
-              incoming_message: messageText,
-            }),
-          });
-          const aiResult = await aiSdrResp.json();
-          console.log('[webhook] AI SDR result:', JSON.stringify(aiResult).substring(0, 200));
-        } catch (aiErr) {
-          console.error('[webhook] AI SDR trigger failed:', aiErr);
+        // Check if the sender is another managed WhatsApp instance
+        const { data: senderInstance } = await supabase
+          .from('wa_instances')
+          .select('id')
+          .eq('phone', phone)
+          .maybeSingle();
+
+        if (senderInstance) {
+          console.log('[webhook] Skipping AI SDR: sender is managed instance', phone);
+        } else {
+          try {
+            const aiSdrUrl = `${SUPABASE_URL}/functions/v1/ai-sdr-agent`;
+            const aiSdrResp = await fetch(aiSdrUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+              },
+              body: JSON.stringify({
+                conversation_id: conversation.id,
+                instance_id: instance.id,
+                contact_phone: phone,
+                instance_name: instanceName,
+                contact_name: pushName || phone,
+                incoming_message: messageText,
+              }),
+            });
+            const aiResult = await aiSdrResp.json();
+            console.log('[webhook] AI SDR result:', JSON.stringify(aiResult).substring(0, 200));
+          } catch (aiErr) {
+            console.error('[webhook] AI SDR trigger failed:', aiErr);
+          }
         }
       }
     } // <-- close messages.upsert block
