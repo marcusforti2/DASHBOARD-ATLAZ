@@ -82,39 +82,55 @@ async function handleDeal(supabase: any, event: string, current: any, previous: 
   const d = current;
   if (!d?.id) return;
 
+  // Handle v2 format: person_id can be object {value: X} or plain number
+  const personId = typeof d.person_id === 'object' ? d.person_id?.value : d.person_id;
+
   // Try to match with wa_conversation by person phone
   let waConversationId = null;
   let teamMemberId = null;
+  let personName = d.person_name || null;
 
-  if (d.person_id) {
+  // V2: person_name might not exist, try to get from pipedrive_persons
+  if (personId) {
     const { data: person } = await supabase
       .from('pipedrive_persons')
-      .select('wa_contact_id')
-      .eq('pipedrive_id', d.person_id)
+      .select('wa_contact_id, name')
+      .eq('pipedrive_id', personId)
       .single();
 
-    if (person?.wa_contact_id) {
-      const { data: conv } = await supabase
-        .from('wa_conversations')
-        .select('id, assigned_to')
-        .eq('contact_id', person.wa_contact_id)
-        .order('last_message_at', { ascending: false })
-        .limit(1)
-        .single();
+    if (person) {
+      if (!personName) personName = person.name;
+      
+      if (person.wa_contact_id) {
+        const { data: conv } = await supabase
+          .from('wa_conversations')
+          .select('id, assigned_to')
+          .eq('contact_id', person.wa_contact_id)
+          .order('last_message_at', { ascending: false })
+          .limit(1)
+          .single();
 
-      if (conv) {
-        waConversationId = conv.id;
-        teamMemberId = conv.assigned_to;
+        if (conv) {
+          waConversationId = conv.id;
+          teamMemberId = conv.assigned_to;
+        }
       }
     }
   }
 
+  // V2: owner_id can be number, try to match to team_member by owner email from meta or custom fields
+  const ownerName = d.owner_name || null;
+
+  // Handle org_id as object or number
+  const orgId = typeof d.org_id === 'object' ? d.org_id?.value : d.org_id;
+  const orgName = d.org_name || (typeof d.org_id === 'object' ? d.org_id?.name : null);
+
   const dealData = {
     pipedrive_id: d.id,
     title: d.title || '',
-    person_name: d.person_name || null,
-    person_id: d.person_id || null,
-    org_name: d.org_name || null,
+    person_name: personName,
+    person_id: personId || null,
+    org_name: orgName,
     stage_name: d.stage_order_nr != null ? `Stage ${d.stage_order_nr}` : (d.stage_name || null),
     pipeline_name: d.pipeline_id ? `Pipeline ${d.pipeline_id}` : null,
     status: d.status || 'open',
@@ -124,7 +140,7 @@ async function handleDeal(supabase: any, event: string, current: any, previous: 
     lost_time: d.lost_time || null,
     close_time: d.close_time || null,
     lost_reason: d.lost_reason || null,
-    owner_name: d.owner_name || null,
+    owner_name: ownerName,
     owner_email: d.cc_email || null,
     wa_conversation_id: waConversationId,
     team_member_id: teamMemberId,
