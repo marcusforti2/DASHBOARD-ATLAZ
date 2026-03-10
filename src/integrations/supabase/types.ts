@@ -486,6 +486,120 @@ export type Database = {
           },
         ]
       }
+      email_flow_executions: {
+        Row: {
+          completed_at: string | null
+          error_message: string | null
+          flow_id: string
+          id: string
+          member_id: string | null
+          started_at: string | null
+          status: string
+        }
+        Insert: {
+          completed_at?: string | null
+          error_message?: string | null
+          flow_id: string
+          id?: string
+          member_id?: string | null
+          started_at?: string | null
+          status?: string
+        }
+        Update: {
+          completed_at?: string | null
+          error_message?: string | null
+          flow_id?: string
+          id?: string
+          member_id?: string | null
+          started_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_flow_executions_flow_id_fkey"
+            columns: ["flow_id"]
+            isOneToOne: false
+            referencedRelation: "email_flows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_flow_executions_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_flows: {
+        Row: {
+          audience_member_ids: string[] | null
+          audience_type: string
+          created_at: string
+          description: string | null
+          edges: Json
+          id: string
+          is_active: boolean
+          name: string
+          nodes: Json
+          updated_at: string
+        }
+        Insert: {
+          audience_member_ids?: string[] | null
+          audience_type?: string
+          created_at?: string
+          description?: string | null
+          edges?: Json
+          id?: string
+          is_active?: boolean
+          name: string
+          nodes?: Json
+          updated_at?: string
+        }
+        Update: {
+          audience_member_ids?: string[] | null
+          audience_type?: string
+          created_at?: string
+          description?: string | null
+          edges?: Json
+          id?: string
+          is_active?: boolean
+          name?: string
+          nodes?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      email_templates: {
+        Row: {
+          body_html: string
+          created_at: string
+          id: string
+          name: string
+          subject: string
+          tenant_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          body_html?: string
+          created_at?: string
+          id?: string
+          name: string
+          subject?: string
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          body_html?: string
+          created_at?: string
+          id?: string
+          name?: string
+          subject?: string
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       event_reminders: {
         Row: {
           created_at: string
