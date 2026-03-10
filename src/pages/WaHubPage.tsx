@@ -263,6 +263,19 @@ export default function WaHubPage() {
     }
   };
 
+  const handleSendSticker = async (imageUrl: string) => {
+    if (!selectedConv) return;
+    const inst = getSelectedInstance();
+    if (!inst) { toast.error('Instância não encontrada'); return; }
+    try {
+      await sendSticker(inst.instance_name, selectedConv.contact.phone, imageUrl);
+      toast.success('Figurinha enviada!');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao enviar figurinha');
+      throw err;
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Header */}
