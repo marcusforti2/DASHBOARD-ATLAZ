@@ -11,6 +11,16 @@ import {
   Save, Users, User, AlertTriangle, Copy, Pencil
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const MONTH_NAMES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -479,14 +489,16 @@ export default function GoalsManagement() {
     setExpandedMonthId(expandedMonthId === monthId ? null : monthId);
   };
 
+  const [monthToDelete, setMonthToDelete] = useState<DbMonth | null>(null);
+
   const handleDeleteMonth = async (month: DbMonth) => {
-    if (!confirm(`Excluir "${month.label}" e todos os dados?`)) return;
     await supabase.from("daily_metrics").delete().eq("month_id", month.id);
     await supabase.from("weekly_goals").delete().eq("month_id", month.id);
     await supabase.from("monthly_goals").delete().eq("month_id", month.id);
     await supabase.from("months").delete().eq("id", month.id);
     toast.success("Mês excluído");
     queryClient.invalidateQueries({ queryKey: ["months"] });
+    setMonthToDelete(null);
   };
 
   const handleEditMonth = async () => {
@@ -635,7 +647,7 @@ export default function GoalsManagement() {
                     title="Editar mês">
                     <Pencil size={14} />
                   </button>
-                  <button onClick={e => { e.stopPropagation(); handleDeleteMonth(month); }}
+                  <button onClick={e => { e.stopPropagation(); setMonthToDelete(month); }}
                     className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                     title="Excluir mês">
                     <Trash2 size={14} />
@@ -689,6 +701,24 @@ export default function GoalsManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Confirmation: Delete Month */}
+      <AlertDialog open={!!monthToDelete} onOpenChange={(open) => !open && setMonthToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir "{monthToDelete?.label}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Todos os dados deste mês (métricas diárias, metas semanais e mensais) serão excluídos permanentemente. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => monthToDelete && handleDeleteMonth(monthToDelete)}>
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

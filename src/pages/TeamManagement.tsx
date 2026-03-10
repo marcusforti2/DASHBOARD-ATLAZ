@@ -12,6 +12,16 @@ import {
 } from "lucide-react";
 import { AdminMetricsEditor } from "@/components/admin/AdminMetricsEditor";
 import { ClipboardEdit } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // ─── Registration Form Dialog ────────────────────────────────────────────
 function MemberFormDialog({
@@ -663,6 +673,8 @@ function MemberCard({
   const isSdr = memberHasRole(member, "sdr");
   const hasDualRole = isCloser && isSdr;
   const [selectedMonthId, setSelectedMonthId] = useState<string | undefined>(months?.[0]?.id);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showToggleConfirm, setShowToggleConfirm] = useState(false);
   const activeMonthId = selectedMonthId || months?.[0]?.id;
   const activeMonth = months?.find(m => m.id === activeMonthId);
 
@@ -733,11 +745,11 @@ function MemberCard({
             className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors" title="Editar">
             <Edit2 size={14} />
           </button>
-          <button onClick={e => { e.stopPropagation(); onToggleActive(); }}
+          <button onClick={e => { e.stopPropagation(); setShowToggleConfirm(true); }}
             className={`p-2 rounded-lg transition-colors ${member.active ? "text-accent hover:bg-accent/10" : "text-muted-foreground hover:bg-secondary"}`} title={member.active ? "Desativar" : "Ativar"}>
             {member.active ? <UserCheck size={14} /> : <UserX size={14} />}
           </button>
-          <button onClick={e => { e.stopPropagation(); onDelete(); }}
+          <button onClick={e => { e.stopPropagation(); setShowDeleteConfirm(true); }}
             className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors" title="Excluir">
             <Trash2 size={14} />
           </button>
@@ -768,6 +780,44 @@ function MemberCard({
           <TeamMemberMetricsButton memberId={member.id} memberName={member.name} memberRole={member.member_role || "sdr"} />
         </div>
       )}
+
+      {/* Confirmation: Toggle Active */}
+      <AlertDialog open={showToggleConfirm} onOpenChange={setShowToggleConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{member.active ? "Desativar" : "Ativar"} {member.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {member.active
+                ? `${member.name} será desativado(a) e não aparecerá mais nas listagens e rankings.`
+                : `${member.name} será reativado(a) e voltará a aparecer nas listagens.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setShowToggleConfirm(false); onToggleActive(); }}>
+              {member.active ? "Desativar" : "Ativar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmation: Delete */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir {member.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. Todos os dados deste membro serão removidos permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => { setShowDeleteConfirm(false); onDelete(); }}>
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -945,7 +995,6 @@ export default function TeamManagement() {
   };
 
   const handleDelete = async (member: DbTeamMember) => {
-    if (!confirm(`Excluir ${member.name}? Esta ação não pode ser desfeita.`)) return;
     // Also try to delete the auth user via edge function
     try {
       const { data: profile } = await supabase.from("profiles").select("id").eq("team_member_id", member.id).single();
