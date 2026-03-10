@@ -16,7 +16,7 @@ interface Props {
   instanceId?: string;
 }
 
-export function WaInstancePanel({ instanceName, closerName }: Props) {
+export function WaInstancePanel({ instanceName, closerName, instanceId }: Props) {
   const [state, setState] = useState<string>('unknown');
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -26,13 +26,23 @@ export function WaInstancePanel({ instanceName, closerName }: Props) {
     try {
       setLoading(true);
       const data = await getInstanceStatus(instanceName);
-      setState(data?.state ?? 'unknown');
+      const newState = data?.state ?? 'unknown';
+      setState(newState);
+      
+      // Sync is_connected to database so dashboard/AI tabs stay accurate
+      if (instanceId) {
+        const isConn = newState === 'open';
+        await supabase.from('wa_instances').update({ is_connected: isConn } as any).eq('id', instanceId);
+      }
     } catch {
       setState('unknown');
+      if (instanceId) {
+        await supabase.from('wa_instances').update({ is_connected: false } as any).eq('id', instanceId);
+      }
     } finally {
       setLoading(false);
     }
-  }, [instanceName]);
+  }, [instanceName, instanceId]);
 
   useEffect(() => { fetchStatus(); }, [fetchStatus]);
 
