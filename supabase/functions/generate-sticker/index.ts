@@ -14,18 +14,34 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
 
-    const { imageUrl, removeBackground } = await req.json();
+    const { imageUrl, removeBackground, mode } = await req.json();
     if (!imageUrl) {
       return new Response(JSON.stringify({ error: 'imageUrl is required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const prompt = removeBackground
-      ? 'Remove the background from this image completely, making it transparent. Keep only the main subject/person/object. Output as a clean sticker-style cutout on a solid white background. Make sure it looks like a WhatsApp sticker.'
-      : 'Convert this image into a fun WhatsApp-style sticker. Keep the original content but make it look like a sticker with slightly enhanced colors and contrast. Output on a solid white background.';
+    let prompt: string;
 
-    console.log(`[generate-sticker] Processing image, removeBackground=${removeBackground}`);
+    if (mode === 'process') {
+      prompt = `You are a sticker designer agent. Take this photo of a business process/flowchart/diagram and transform it into a clean, visually appealing WhatsApp sticker.
+
+Rules:
+- Simplify the process into a clean, minimal infographic style
+- Use bold icons and arrows to represent the flow
+- Keep text very short (1-3 words per step max)
+- Use vibrant colors with high contrast
+- Make it square format, suitable as a WhatsApp sticker
+- Add a slight white border/outline for sticker effect
+- Output on a solid white background
+- Make it look professional but fun — like a premium sticker`;
+    } else if (removeBackground) {
+      prompt = 'Remove the background from this image completely, making it transparent. Keep only the main subject/person/object. Output as a clean sticker-style cutout on a solid white background. Make sure it looks like a WhatsApp sticker.';
+    } else {
+      prompt = 'Convert this image into a fun WhatsApp-style sticker. Keep the original content but make it look like a sticker with slightly enhanced colors and contrast. Output on a solid white background.';
+    }
+
+    console.log(`[generate-sticker] Processing image, mode=${mode || 'default'}, removeBackground=${removeBackground}`);
 
     const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -49,6 +65,18 @@ serve(async (req) => {
     if (!aiResponse.ok) {
       const errText = await aiResponse.text();
       console.error('[generate-sticker] AI error:', errText);
+
+      if (aiResponse.status === 429) {
+        return new Response(JSON.stringify({ error: 'Rate limit exceeded. Tente novamente em alguns segundos.' }), {
+          status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      if (aiResponse.status === 402) {
+        return new Response(JSON.stringify({ error: 'Créditos insuficientes para IA.' }), {
+          status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       throw new Error(`AI API error: ${aiResponse.status}`);
     }
 

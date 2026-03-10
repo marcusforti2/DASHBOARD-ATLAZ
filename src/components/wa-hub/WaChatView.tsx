@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Send, Loader2, Image, Mic, Square, Paperclip, Zap, Sparkles, ChevronDown, User, Sticker } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, Image, Mic, Square, Paperclip, Zap, Sparkles, ChevronDown, User, Sticker, Workflow } from 'lucide-react';
 import { WaConversation, WaMessage, useQuickReplies } from '@/hooks/use-wa-hub';
 import { WaAiTools } from './WaAiTools';
 import { WaContactTagBadges } from './WaContactTagBadges';
 import type { WaTag } from '@/hooks/use-wa-tags';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import StickerPreviewDialog from './StickerPreviewDialog';
 
 const AVATAR_COLORS = ['152 60% 36%', '210 90% 50%', '280 65% 50%', '30 90% 50%', '0 72% 51%', '180 60% 40%'];
@@ -157,6 +158,7 @@ export default function WaChatView({ conversation, messages, messagesLoading, on
   const [stickerCreateMode, setStickerCreateMode] = useState(false);
   const [stickerFile, setStickerFile] = useState<File | null>(null);
   const [stickerDialogOpen, setStickerDialogOpen] = useState(false);
+  const [stickerAutoMode, setStickerAutoMode] = useState<'normal' | 'process' | undefined>(undefined);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -242,6 +244,11 @@ export default function WaChatView({ conversation, messages, messagesLoading, on
     setStickerFile(file);
     setStickerDialogOpen(true);
     if (stickerInputRef.current) stickerInputRef.current.value = '';
+  };
+
+  const openStickerPicker = (mode: 'normal' | 'process') => {
+    setStickerAutoMode(mode === 'process' ? 'process' : undefined);
+    stickerInputRef.current?.click();
   };
 
   const handleStickerSend = async (imageUrl: string) => {
@@ -445,21 +452,41 @@ export default function WaChatView({ conversation, messages, messagesLoading, on
 
           {/* Sticker */}
           {onSendSticker && (
-            <button
-              onClick={() => stickerInputRef.current?.click()}
-              disabled={uploadingMedia || sending || recording}
-              className="p-2.5 rounded-xl text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
-              title="Figurinha"
-            >
-              <Sticker className="w-4 h-4" />
-            </button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  disabled={uploadingMedia || sending || recording}
+                  className="p-2.5 rounded-xl text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
+                  title="Figurinhas"
+                >
+                  <Sticker className="w-4 h-4" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-48 p-2" side="top">
+                <div className="space-y-1">
+                  <button
+                    onClick={() => openStickerPicker('normal')}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs rounded-lg hover:bg-muted transition-colors"
+                  >
+                    <Sticker className="w-3.5 h-3.5" /> Enviar figurinha
+                  </button>
+                  <button
+                    onClick={() => openStickerPicker('process')}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs rounded-lg hover:bg-muted transition-colors"
+                  >
+                    <Workflow className="w-3.5 h-3.5 text-primary" /> Processo → Figurinha
+                  </button>
+                </div>
+              </PopoverContent>
+            </Popover>
           )}
 
           <StickerPreviewDialog
             open={stickerDialogOpen}
-            onClose={() => { setStickerDialogOpen(false); setStickerFile(null); }}
+            onClose={() => { setStickerDialogOpen(false); setStickerFile(null); setStickerAutoMode(undefined); }}
             imageFile={stickerFile}
             onSend={handleStickerSend}
+            autoMode={stickerAutoMode}
           />
 
           {/* Audio record */}
