@@ -1022,6 +1022,49 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
       console.log("[ai-sdr] Follow-up scheduled for", remindAt);
     }
 
+    // 10. Time escalation: alert manager if lead hasn't responded in X hours
+    if (features.time_escalation && conversation?.contact_id) {
+      const escalationHours = config.escalation_hours || 48;
+      const { data: lastContactMsg } = await supabase
+        .from("wa_messages")
+        .select("created_at")
+        .eq("conversation_id", conversation_id)
+        .eq("sender", "contact")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (lastContactMsg) {
+        const lastContactTime = new Date(lastContactMsg.created_at).getTime();
+        const hoursElapsed = (Date.now() - lastContactTime) / (1000 * 60 * 60);
+        
+        if (hoursElapsed >= escalationHours) {
+          // Check if we already sent this escalation
+          const { count: existingEscalation } = await supabase
+            .from("proactive_alerts")
+            .select("*", { count: "exact", head: true })
+            .eq("alert_type", "time_escalation")
+            .eq("data->>conversation_id", conversation_id)
+            .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+
+          if (!existingEscalation) {
+            const managerId = instance.closer_id || instance.sdr_id;
+            if (managerId) {
+              await supabase.from("proactive_alerts").insert({
+                member_id: managerId,
+                title: "⏰ Lead sem resposta — Escalonamento",
+                message: `O lead ${contact_name || contact_phone} não responde há ${Math.round(hoursElapsed)}h.\n\nÚltima mensagem do lead: ${lastContactMsg.created_at}\nConversa: ${conversation_id}`,
+                severity: "high",
+                alert_type: "time_escalation",
+                data: { conversation_id, contact_phone, hours_elapsed: Math.round(hoursElapsed) },
+              });
+              console.log("[ai-sdr] Time escalation alert sent after", Math.round(hoursElapsed), "hours");
+            }
+          }
+        }
+      }
+    }
+
     return new Response(JSON.stringify({
       ok: true,
       reply: reply.substring(0, 100),
