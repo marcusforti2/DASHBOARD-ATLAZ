@@ -21,7 +21,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
-export type AdminView = "dashboard" | "team" | "goals" | "reports" | "inspect-team" | "settings" | "whatsapp" | "popups" | "knowledge" | "dna-mapping" | "processos" | "training" | "calendars" | "wa-hub" | "ai-sdr";
+export type AdminView = "dashboard" | "team" | "goals" | "reports" | "inspect-team" | "settings" | "whatsapp" | "popups" | "knowledge" | "dna-mapping" | "processos" | "training" | "calendars" | "wa-hub" | "ai-sdr" | "email-marketing";
 export type CloserView = "hub";
 
 interface AppSidebarProps {
