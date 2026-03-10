@@ -128,14 +128,21 @@ export function GoogleCalendarPanel({ teamMemberId, memberRole }: GoogleCalendar
     return { start: startOfDay(currentDate), end: endOfDay(addDays(currentDate, 13)) };
   }, [viewMode, currentDate]);
 
-  // Scroll to current hour on mount
+  // Scroll to first event or current hour on load
   useEffect(() => {
-    if (scrollRef.current) {
-      const now = new Date();
-      const scrollTo = (now.getHours() - 7) * HOUR_HEIGHT;
+    if (scrollRef.current && !loading && events.length > 0) {
+      // Find earliest event hour
+      const earliest = events.reduce((min, ev) => {
+        const s = ev.start.dateTime || ev.start.date;
+        if (!s) return min;
+        const h = parseISO(s).getHours();
+        return h < min ? h : min;
+      }, 24);
+      const targetHour = earliest < 24 ? Math.max(earliest - 1, HOURS[0]) : new Date().getHours() - 1;
+      const scrollTo = (targetHour - HOURS[0]) * HOUR_HEIGHT;
       scrollRef.current.scrollTop = Math.max(0, scrollTo);
     }
-  }, [viewMode, loading]);
+  }, [viewMode, loading, events]);
 
   // Fetch connected closers
   useEffect(() => {
