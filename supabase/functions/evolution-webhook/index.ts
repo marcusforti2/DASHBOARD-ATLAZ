@@ -34,7 +34,7 @@ serve(async (req) => {
 
     const { data: instance } = await supabase
       .from('wa_instances')
-      .select('id, closer_id, sdr_id, ai_sdr_enabled, ai_sdr_config, instance_name')
+      .select('id, closer_id, sdr_id, ai_sdr_enabled, ai_sdr_config, instance_name, phone')
       .eq('instance_name', instanceName)
       .single();
 
