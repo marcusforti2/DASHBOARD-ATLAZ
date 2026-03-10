@@ -6,6 +6,56 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+/**
+ * Calculate the next business date/time adding N hours, respecting business hours (08-19h BRT, Mon-Fri).
+ */
+function getNextBusinessDateTime(from: Date, hoursToAdd: number): Date {
+  // Work in BRT (UTC-3)
+  const BRT_OFFSET = -3;
+  const result = new Date(from.getTime() + hoursToAdd * 60 * 60 * 1000);
+  
+  // Get BRT hour
+  const getBrtHour = (d: Date) => {
+    const utcHour = d.getUTCHours();
+    return (utcHour + BRT_OFFSET + 24) % 24;
+  };
+  
+  const getBrtDay = (d: Date) => {
+    const shifted = new Date(d.getTime() + BRT_OFFSET * 60 * 60 * 1000);
+    return shifted.getUTCDay();
+  };
+  
+  // If weekend, move to Monday 9am BRT
+  let day = getBrtDay(result);
+  while (day === 0 || day === 6) {
+    result.setTime(result.getTime() + 24 * 60 * 60 * 1000);
+    day = getBrtDay(result);
+  }
+  
+  // If before 8am BRT, set to 9am
+  let brtHour = getBrtHour(result);
+  if (brtHour < 8) {
+    const diff = 9 - brtHour;
+    result.setTime(result.getTime() + diff * 60 * 60 * 1000);
+  }
+  
+  // If after 19h BRT, move to next business day 9am
+  brtHour = getBrtHour(result);
+  if (brtHour >= 19) {
+    // Move to next day 9am BRT
+    result.setTime(result.getTime() + (24 - brtHour + 9) * 60 * 60 * 1000);
+    // Check if weekend again
+    day = getBrtDay(result);
+    while (day === 0 || day === 6) {
+      result.setTime(result.getTime() + 24 * 60 * 60 * 1000);
+      day = getBrtDay(result);
+    }
+  }
+  
+  return result;
+}
+
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -354,6 +404,17 @@ IMPORTANTE SOBRE MENSAGENS DO LEAD:
 
 ${features.sentiment ? "ANÁLISE DE SENTIMENTO: Analise o sentimento do lead (positivo, neutro, negativo, urgente) e inclua no JSON." : ""}
 
+MOVIMENTAÇÃO DE PIPELINE (IMPORTANTE):
+- Cada mudança de status do lead DEVE mover o deal no CRM automaticamente
+- O sistema faz isso baseado no "new_lead_status" que você retornar
+- Na primeira interação proativa, mude para "em_contato"
+- SEMPRE retorne "new_lead_status" quando o status mudar
+
+ATIVIDADES NO CRM:
+- Após CADA interação, o sistema cria automaticamente uma atividade "feita" com resumo
+- Também cria um follow-up de 24h (horário comercial) como "não feita"
+- Inclua "activity_note" com um resumo curto da interação (1-2 frases)
+
 Responda EXATAMENTE neste formato JSON:
 {
   "reply": "Primeira parte|||Segunda parte|||Terceira parte",
@@ -379,7 +440,8 @@ Responda EXATAMENTE neste formato JSON:
   "meeting_datetime": "",
   "urgent_call": false,
   "schedule_follow_up": false,
-  "follow_up_message": ""${features.sentiment ? ',\n  "sentiment": "positivo" | "neutro" | "negativo" | "urgente"' : ""}${features.pipedrive_sync ? ',\n  "pipedrive_update": { "stage": "", "value": 0, "custom_fields": {} }' : ""}
+  "follow_up_message": "",
+  "activity_note": "Resumo curto da interação"${features.sentiment ? ',\n  "sentiment": "positivo" | "neutro" | "negativo" | "urgente"' : ""}
 }`;
     let userMessage: string;
     if (isProactive) {
@@ -715,42 +777,183 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
       }).eq("id", conversation_id);
     }
 
-    // 8. Pipedrive sync
-    if (features.pipedrive_sync && PIPEDRIVE_API_TOKEN && parsed.qualification_data) {
+    // 8. Pipedrive sync: move deal, create activities
+    if (features.pipedrive_sync && PIPEDRIVE_API_TOKEN && conversation?.contact_id) {
       try {
-        const qualData = parsed.qualification_data;
+        const PIPE_BASE = "https://api.pipedrive.com/v1";
 
+        // Find linked Pipedrive person
         const { data: existingPerson } = await supabase
           .from("pipedrive_persons")
-          .select("pipedrive_id")
-          .eq("wa_contact_id", conversation?.contact_id || "")
+          .select("pipedrive_id, name")
+          .eq("wa_contact_id", conversation.contact_id)
           .single();
 
         if (existingPerson?.pipedrive_id) {
-          if (qualData.name) {
-            await fetch(`https://api.pipedrive.com/v1/persons/${existingPerson.pipedrive_id}?api_token=${PIPEDRIVE_API_TOKEN}`, {
-              method: "PUT",
+          // Find open deal for this person
+          const { data: deals } = await supabase
+            .from("pipedrive_deals")
+            .select("pipedrive_id, title, stage_name, pipeline_name")
+            .eq("person_id", existingPerson.pipedrive_id)
+            .eq("status", "open")
+            .limit(1);
+
+          const deal = deals?.[0];
+
+          if (deal) {
+            // --- A) MOVE DEAL TO CORRECT STAGE ---
+            if (parsed.new_lead_status) {
+              // Fetch pipeline stages from Pipedrive to get real stage IDs
+              const stagesResp = await fetch(`${PIPE_BASE}/stages?api_token=${PIPEDRIVE_API_TOKEN}`);
+              const stagesData = await stagesResp.json();
+              const allStages = stagesData.data || [];
+
+              // Sort stages by order_nr and filter by deal's pipeline
+              // Map lead status to stage order (0-indexed)
+              const statusToOrder: Record<string, number> = {
+                "novo": 0,
+                "em_contato": 1,
+                "qualificado": 2,
+                "agendado": 3,
+              };
+
+              const targetOrder = statusToOrder[parsed.new_lead_status];
+
+              if (targetOrder !== undefined) {
+                // Get stages for the deal's pipeline (or first pipeline)
+                const pipelineStages = allStages
+                  .sort((a: any, b: any) => a.order_nr - b.order_nr);
+
+                const targetStage = pipelineStages[targetOrder];
+
+                if (targetStage) {
+                  const moveResp = await fetch(`${PIPE_BASE}/deals/${deal.pipedrive_id}?api_token=${PIPEDRIVE_API_TOKEN}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ stage_id: targetStage.id }),
+                  });
+                  const moveResult = await moveResp.json();
+                  console.log(`[ai-sdr] Pipedrive deal ${deal.pipedrive_id} moved to stage ${targetStage.name} (order ${targetOrder}):`, moveResult.success);
+
+                  // Update local deal record
+                  await supabase.from("pipedrive_deals").update({
+                    stage_name: targetStage.name,
+                  }).eq("pipedrive_id", deal.pipedrive_id);
+                }
+              } else if (parsed.new_lead_status === "perdido") {
+                // Mark deal as lost
+                await fetch(`${PIPE_BASE}/deals/${deal.pipedrive_id}?api_token=${PIPEDRIVE_API_TOKEN}`, {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ status: "lost", lost_reason: parsed.lead_score_reason || "Lead não qualificado" }),
+                });
+                console.log(`[ai-sdr] Pipedrive deal ${deal.pipedrive_id} marked as LOST`);
+
+                await supabase.from("pipedrive_deals").update({
+                  status: "lost",
+                  lost_reason: parsed.lead_score_reason || "Lead não qualificado",
+                  lost_time: new Date().toISOString(),
+                }).eq("pipedrive_id", deal.pipedrive_id);
+              }
+            }
+
+            // --- B) CREATE ACTIVITY "DONE" (current interaction) ---
+            const activityNote = parsed.activity_note || `Interação via WhatsApp com ${contact_name || contact_phone}`;
+            const today = new Date();
+            const dueDate = today.toISOString().split("T")[0];
+            const dueTime = today.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
+
+            const createActivityResp = await fetch(`${PIPE_BASE}/activities?api_token=${PIPEDRIVE_API_TOKEN}`, {
+              method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ name: qualData.name }),
+              body: JSON.stringify({
+                subject: `✅ Contato WhatsApp — ${contact_name || contact_phone}`,
+                type: "call",
+                deal_id: deal.pipedrive_id,
+                person_id: existingPerson.pipedrive_id,
+                due_date: dueDate,
+                due_time: dueTime,
+                done: 1,
+                note: `🤖 SDR IA\n\n${activityNote}\n\nScore: ${parsed.lead_score || "—"} (${parsed.lead_score_value || 0}/100)\nStatus: ${parsed.new_lead_status || conversation.lead_status}`,
+              }),
             });
-          }
+            const actResult = await createActivityResp.json();
+            console.log(`[ai-sdr] Pipedrive activity DONE created:`, actResult.success);
 
-          if (parsed.pipedrive_update?.stage) {
-            const { data: deals } = await supabase
-              .from("pipedrive_deals")
-              .select("pipedrive_id")
-              .eq("person_id", existingPerson.pipedrive_id)
-              .eq("status", "open")
-              .limit(1);
+            // Save to local DB
+            if (actResult.data?.id) {
+              await supabase.from("pipedrive_activities").upsert({
+                pipedrive_id: actResult.data.id,
+                type: "call",
+                subject: `✅ Contato WhatsApp — ${contact_name || contact_phone}`,
+                deal_pipedrive_id: deal.pipedrive_id,
+                person_pipedrive_id: existingPerson.pipedrive_id,
+                done: true,
+                due_date: dueDate,
+                due_time: dueTime,
+                note: activityNote,
+                raw_data: actResult.data,
+              }, { onConflict: "pipedrive_id" });
+            }
 
-            if (deals?.[0]) {
-              await fetch(`https://api.pipedrive.com/v1/notes?api_token=${PIPEDRIVE_API_TOKEN}`, {
+            // --- C) CREATE FOLLOW-UP ACTIVITY 24h (business hours, NOT done) ---
+            const nextBusinessDay = getNextBusinessDateTime(new Date(), 24);
+            const followUpDate = nextBusinessDay.toISOString().split("T")[0];
+            const followUpTime = nextBusinessDay.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
+
+            const followUpResp = await fetch(`${PIPE_BASE}/activities?api_token=${PIPEDRIVE_API_TOKEN}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                subject: `⏰ Follow-up — ${contact_name || contact_phone}`,
+                type: "call",
+                deal_id: deal.pipedrive_id,
+                person_id: existingPerson.pipedrive_id,
+                due_date: followUpDate,
+                due_time: followUpTime,
+                done: 0,
+                note: `🤖 Follow-up automático criado pela SDR IA.\n\nÚltima interação: ${activityNote}\nScore: ${parsed.lead_score || "—"}`,
+              }),
+            });
+            const followResult = await followUpResp.json();
+            console.log(`[ai-sdr] Pipedrive follow-up activity created for ${followUpDate} ${followUpTime}:`, followResult.success);
+
+            // Save follow-up to local DB
+            if (followResult.data?.id) {
+              await supabase.from("pipedrive_activities").upsert({
+                pipedrive_id: followResult.data.id,
+                type: "call",
+                subject: `⏰ Follow-up — ${contact_name || contact_phone}`,
+                deal_pipedrive_id: deal.pipedrive_id,
+                person_pipedrive_id: existingPerson.pipedrive_id,
+                done: false,
+                due_date: followUpDate,
+                due_time: followUpTime,
+                note: `Follow-up automático`,
+                raw_data: followResult.data,
+              }, { onConflict: "pipedrive_id" });
+            }
+
+            // --- D) ADD QUALIFICATION NOTE ---
+            if (parsed.qualification_data?.name || parsed.qualification_data?.business_type) {
+              const qualData = parsed.qualification_data;
+              await fetch(`${PIPE_BASE}/notes?api_token=${PIPEDRIVE_API_TOKEN}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                  deal_id: deals[0].pipedrive_id,
+                  deal_id: deal.pipedrive_id,
                   content: `🤖 SDR IA — Qualificação automática\n\nNome: ${qualData.name || "—"}\nNegócio: ${qualData.business_type || "—"}\nFaturamento: ${qualData.revenue || "—"}\nDor: ${qualData.pain || "—"}\nDecisão: ${qualData.decision_maker ? "Sim" : "Não"}\n\nScore: ${parsed.lead_score} (${parsed.lead_score_value}/100)\nMotivo: ${parsed.lead_score_reason || "—"}`,
                 }),
+              });
+              console.log("[ai-sdr] Pipedrive qualification note added");
+            }
+
+            // --- E) UPDATE PERSON NAME ---
+            if (parsed.qualification_data?.name) {
+              await fetch(`${PIPE_BASE}/persons/${existingPerson.pipedrive_id}?api_token=${PIPEDRIVE_API_TOKEN}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: parsed.qualification_data.name }),
               });
             }
           }
