@@ -184,10 +184,39 @@ serve(async (req) => {
 
       console.log('[webhook] Message saved:', isFromMe ? 'sent' : 'received', phone, mediaType || 'text', displayText.substring(0, 50));
 
+      // Transcribe audio messages from contacts using Gemini
+      let transcribedText = '';
+      if (!isFromMe && mediaType === 'audio' && finalMediaUrl) {
+        try {
+          transcribedText = await transcribeAudio(finalMediaUrl, mediaMime);
+          if (transcribedText) {
+            console.log('[webhook] Audio transcribed:', transcribedText.substring(0, 100));
+            // Update the saved message with transcription
+            await supabase.from('wa_messages')
+              .update({ text: `🎵 Áudio: "${transcribedText}"` })
+              .eq('conversation_id', conversation.id)
+              .eq('created_at', msgData.messageTimestamp
+                ? new Date(msgData.messageTimestamp * 1000).toISOString()
+                : now)
+              .eq('sender', 'contact');
+            // Also update conversation last_message
+            await supabase.from('wa_conversations')
+              .update({ last_message: `🎵 "${transcribedText.substring(0, 80)}"` })
+              .eq('id', conversation.id);
+          }
+        } catch (transcErr) {
+          console.error('[webhook] Audio transcription failed:', transcErr);
+        }
+      }
+
+      // Determine effective message text (original text or transcription)
+      const effectiveMessage = messageText !== '🎵 Áudio' && messageText !== '📷 Imagem' ? messageText : '';
+      const aiTriggerMessage = transcribedText || effectiveMessage;
+
       // Trigger AI SDR agent for incoming messages from contacts
       // DEBOUNCE: Wait 3 seconds to allow batching of rapid sequential messages from the lead
       // The AI SDR agent will fetch recent messages from DB and combine them
-      if (!isFromMe && instance.ai_sdr_enabled && messageText) {
+      if (!isFromMe && instance.ai_sdr_enabled && aiTriggerMessage) {
         // Check if the sender is another managed WhatsApp instance
         const { data: senderInstance } = await supabase
           .from('wa_instances')
