@@ -497,7 +497,20 @@ Responda EXATAMENTE neste formato JSON:
     if (isProactive) {
       const pCtx = pipedrive_context || {};
       const linkedinUrl = pCtx.linkedin_url || "";
+      const sourceContext = pCtx.lead_source_context || "";
+      const sourceName = pCtx.lead_source_name || "PROSPECÇÃO";
+
+      // If no specific context from lead_source config, try matching from instance config
+      let finalSourceContext = sourceContext;
+      if (!finalSourceContext && pCtx.label_id) {
+        const leadSources = config.lead_sources || [];
+        const matched = leadSources.find((s: any) => s.active && Number(s.pipedrive_label_id) === Number(pCtx.label_id));
+        if (matched) finalSourceContext = matched.context || "";
+      }
+
       userMessage = `Este é um NOVO LEAD que acabou de ser cadastrado no CRM (Pipedrive). Você deve iniciar a conversa proativamente pelo WhatsApp.
+
+ORIGEM DO LEAD: ${sourceName}
 
 CONTEXTO DO LEAD:
 - Nome: ${contact_name || "Não informado"}
@@ -507,22 +520,14 @@ CONTEXTO DO LEAD:
 - Origem: ${pCtx.origin || "Manual"}
 ${linkedinUrl ? `- LinkedIn: ${linkedinUrl}` : ""}
 
-INSTRUÇÕES PARA PRIMEIRA MENSAGEM:
-1. Aja como se vocês já tivessem tido contato pelo LinkedIn (prospecção ativa)
-2. Mencione que viu o PERFIL da pessoa no LinkedIn — NÃO mencione o nome da empresa dela
-3. Adapte a abordagem ao perfil da pessoa (cargo, área de atuação) — NÃO cite a empresa
-4. Seja natural e pessoal — use o primeiro nome do lead
-5. Faça uma transição suave para o WhatsApp: "resolvi te chamar aqui pra facilitar"
-6. NÃO faça pitch direto — gere curiosidade e abra a conversa
-7. Termine com uma pergunta aberta para engajar o lead
-8. Mantenha a mensagem curta (máximo 4 linhas)
-9. Varie o estilo: às vezes mais direto, às vezes mais descontraído — não use sempre o mesmo template
-
-EXEMPLOS DE ABERTURAS (varie entre eles, adapte ao contexto):
-- "Fala [Nome]! Vi seu perfil no LinkedIn e curti demais sua trajetória na área de [área]. Resolvi te chamar aqui pra facilitar. Posso te fazer uma pergunta rápida?"
-- "E aí [Nome], tudo certo? Tava olhando seu LinkedIn e vi que você é de [área]. Me chamou atenção! Te mandei mensagem aqui pra gente trocar uma ideia rápida, pode ser?"
-- "[Nome], beleza? Achei seu perfil no LinkedIn e queria trocar uma ideia contigo sobre [tema relacionado à área]. Bora?"
-- "Oi [Nome]! Cheguei até você pelo LinkedIn. Tô entrando em contato porque acho que posso te ajudar com algo que faz sentido pro seu momento. Posso te contar?"
+${finalSourceContext ? `INSTRUÇÕES ESPECÍFICAS PARA ESTA ORIGEM (siga à risca):\n${finalSourceContext}\n` : ""}
+INSTRUÇÕES GERAIS PARA PRIMEIRA MENSAGEM:
+1. Adapte a abordagem ao contexto da origem (${sourceName}) — cada origem tem um tom diferente
+2. Seja natural e pessoal — use o primeiro nome do lead
+3. NÃO faça pitch direto — gere curiosidade e abra a conversa
+4. Termine com uma pergunta aberta para engajar o lead
+5. Mantenha a mensagem curta (máximo 4 linhas)
+6. Varie o estilo: às vezes mais direto, às vezes mais descontraído — não use sempre o mesmo template
 
 LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
     } else {
