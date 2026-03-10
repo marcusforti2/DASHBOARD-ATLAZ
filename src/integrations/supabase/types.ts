@@ -1167,6 +1167,7 @@ export type Database = {
           member_role: string
           name: string
           phone: string | null
+          pipedrive_user_id: number | null
         }
         Insert: {
           active?: boolean
@@ -1177,6 +1178,7 @@ export type Database = {
           member_role?: string
           name: string
           phone?: string | null
+          pipedrive_user_id?: number | null
         }
         Update: {
           active?: boolean
@@ -1187,6 +1189,7 @@ export type Database = {
           member_role?: string
           name?: string
           phone?: string | null
+          pipedrive_user_id?: number | null
         }
         Relationships: []
       }
