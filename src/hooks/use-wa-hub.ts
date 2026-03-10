@@ -134,6 +134,7 @@ export function useWaMessages(conversationId: string | null) {
       .from('wa_messages')
       .select('*')
       .eq('conversation_id', conversationId)
+      .neq('text', '__ai_processing__')
       .order('created_at', { ascending: true });
     setMessages((data ?? []) as WaMessage[]);
     setLoading(false);
