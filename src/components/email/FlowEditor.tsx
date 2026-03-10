@@ -17,7 +17,10 @@ import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet";
 import {
-  ArrowLeft, Save, Plus, Mail, Clock, GitBranch, Zap, Users, Send, Trash2,
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  ArrowLeft, Save, Plus, Mail, Clock, GitBranch, Zap, Users, Send, Trash2, Eye,
 } from "lucide-react";
 
 import TriggerNode from './nodes/TriggerNode';
