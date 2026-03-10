@@ -29,7 +29,7 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const { message, tone, target_audience } = await req.json();
+    const { message, tone, target_audience, system_override } = await req.json();
     if (!message || typeof message !== "string" || message.trim().length < 3) {
       return new Response(JSON.stringify({ error: "Mensagem muito curta" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -75,8 +75,8 @@ Regras:
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",
         messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: `Reescreva esta mensagem:\n\n${message}` },
+          { role: "system", content: system_override || systemPrompt },
+          { role: "user", content: system_override ? message : `Reescreva esta mensagem:\n\n${message}` },
         ],
       }),
     });

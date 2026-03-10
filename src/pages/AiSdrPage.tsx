@@ -278,6 +278,39 @@ export default function AiSdrPage() {
   const [toggling, setToggling] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
   const [stats, setStats] = useState({ totalMessages: 0, handoffs: 0, activeInstances: 0, avgResponseTime: 0 });
+  const [enrichingSourceId, setEnrichingSourceId] = useState<string | null>(null);
+
+  const handleEnrichContext = async (idx: number, src: LeadSource) => {
+    if (!src.context.trim()) {
+      toast.error("Escreva um rascunho de contexto antes de enriquecer.");
+      return;
+    }
+    setEnrichingSourceId(src.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("rewrite-message", {
+        body: {
+          message: src.context,
+          tone: "profissional",
+          system_override: `Você é um especialista em vendas B2B e prospecção outbound. O usuário vai te dar um contexto/instrução para um Agente de IA SDR que aborda leads via WhatsApp. Sua tarefa é REESCREVER e ENRIQUECER esse prompt, tornando-o mais detalhado, estratégico e eficaz para a IA. Mantenha o mesmo objetivo e tom, mas adicione: diretrizes de personalização, exemplos de abordagem, gatilhos mentais e boas práticas. Responda APENAS com o texto reescrito, sem explicações.`,
+        },
+      });
+      if (error) throw error;
+      const enriched = data?.rewritten || data?.text || data;
+      if (typeof enriched === "string" && enriched.trim()) {
+        const sources = [...(localConfig.lead_sources || [])];
+        sources[idx] = { ...sources[idx], context: enriched.trim() };
+        update("lead_sources", sources);
+        toast.success("Contexto enriquecido com sucesso!");
+      } else {
+        throw new Error("Resposta vazia da IA");
+      }
+    } catch (e: any) {
+      console.error("Enrich error:", e);
+      toast.error("Erro ao enriquecer: " + (e.message || "tente novamente"));
+    } finally {
+      setEnrichingSourceId(null);
+    }
+  };
 
   const selectedInstance = instances.find(i => i.id === selectedInstanceId);
   const closerName = useMemo(() => {
@@ -482,27 +515,34 @@ export default function AiSdrPage() {
                             <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">
                               Pipedrive Label ID
                             </label>
-                            <Input
-                              type="number"
-                              value={src.pipedrive_label_id ?? ""}
-                              onChange={e => {
-                                const sources = [...(localConfig.lead_sources || [])];
-                                const val = e.target.value ? parseInt(e.target.value) : null;
-                                sources[idx] = { ...sources[idx], pipedrive_label_id: val };
-                                update("lead_sources", sources);
-                              }}
-                              placeholder="Ex: 43"
-                              className="h-8 w-28 text-xs font-mono"
-                            />
+                            <div className="h-8 w-28 flex items-center px-2 rounded-md bg-muted/50 border border-border text-xs font-mono text-muted-foreground">
+                              {src.pipedrive_label_id ?? "—"}
+                            </div>
                           </div>
                           <p className="text-[10px] text-muted-foreground flex-1">
                             ID da etiqueta no Pipedrive. A IA só dispara proativamente para deals com essa etiqueta.
                           </p>
                         </div>
                         <div>
-                          <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">
-                            Contexto / Instruções para a IA
-                          </label>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                              Contexto / Instruções para a IA
+                            </label>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 text-[11px] gap-1.5 text-primary hover:text-primary hover:bg-primary/10"
+                              disabled={enrichingSourceId === src.id}
+                              onClick={() => handleEnrichContext(idx, src)}
+                            >
+                              {enrichingSourceId === src.id ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Sparkles className="w-3 h-3" />
+                              )}
+                              Enriquecer com IA
+                            </Button>
+                          </div>
                           <Textarea
                             value={src.context}
                             onChange={e => {
