@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, RefreshCw, Link2, Copy, Trash2, Check, AlertCircle, ArrowDownUp, ExternalLink } from 'lucide-react';
+import { Loader2, RefreshCw, Link2, Copy, Trash2, Check, AlertCircle, ArrowDownUp, ExternalLink, Download } from 'lucide-react';
 
 export function PipedriveTab() {
   const [loading, setLoading] = useState(false);
