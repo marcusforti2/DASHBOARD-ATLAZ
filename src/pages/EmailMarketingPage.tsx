@@ -318,7 +318,93 @@ export default function EmailMarketingPage() {
     }
   };
 
-  if (isLoading) {
+  // === Import Contacts Handlers ===
+  const handleOpenImport = (flowId: string) => {
+    setImportFlowId(flowId);
+    setImportText("");
+    setIsImportOpen(true);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !importFlowId) return;
+    const fileName = file.name;
+    try {
+      const content = await file.text();
+      setIsImporting(true);
+      const { data, error } = await supabase.functions.invoke('parse-email-list', {
+        body: { flowId: importFlowId, content: content.substring(0, 100000), fileName },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast({ title: `${data.count} emails importados!`, description: `Arquivo: ${fileName}` });
+      setIsImportOpen(false);
+      fetchData();
+    } catch (err: any) {
+      toast({ title: "Erro ao importar", description: err.message, variant: "destructive" });
+    } finally {
+      setIsImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleImportFromText = async () => {
+    if (!importText.trim() || !importFlowId) return;
+    setIsImporting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('parse-email-list', {
+        body: { flowId: importFlowId, content: importText, fileName: 'texto-colado.txt' },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast({ title: `${data.count} emails importados!` });
+      setIsImportOpen(false);
+      setImportText("");
+      fetchData();
+    } catch (err: any) {
+      toast({ title: "Erro ao importar", description: err.message, variant: "destructive" });
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const handleViewContacts = async (flowId: string) => {
+    setContactsFlowId(flowId);
+    setIsContactsOpen(true);
+    setIsContactsLoading(true);
+    try {
+      const { data } = await supabase
+        .from('email_flow_contacts' as any)
+        .select('id, email, name, source_file')
+        .eq('flow_id', flowId)
+        .order('created_at', { ascending: false });
+      setFlowContacts((data as any[]) || []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsContactsLoading(false);
+    }
+  };
+
+  const handleDeleteContact = async (contactId: string) => {
+    try {
+      await supabase.from('email_flow_contacts' as any).delete().eq('id', contactId);
+      setFlowContacts(prev => prev.filter(c => c.id !== contactId));
+      fetchData();
+    } catch (e) { console.error(e); }
+  };
+
+  const handleClearContacts = async (flowId: string) => {
+    try {
+      await supabase.from('email_flow_contacts' as any).delete().eq('flow_id', flowId);
+      setFlowContacts([]);
+      setIsContactsOpen(false);
+      fetchData();
+      toast({ title: "Contatos removidos" });
+    } catch (e) { console.error(e); }
+  };
+
+
     return <div className="flex items-center justify-center h-[calc(100vh-8rem)]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
