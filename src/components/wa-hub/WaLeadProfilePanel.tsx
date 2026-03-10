@@ -340,7 +340,7 @@ export function WaLeadProfilePanel({ conversation, messages, tags, assignedTagId
                   <div className="w-1 rounded-full bg-border shrink-0" />
                   <div className="space-y-0.5">
                     <p className="text-xs text-foreground">{evt.content}</p>
-                    <p className="text-[9px] text-muted-foreground">{formatDate(evt.date)}</p>
+                    <p className="text-[9px] text-muted-foreground">{formatDateWithTime(evt.date)}</p>
                   </div>
                 </div>
               ))
