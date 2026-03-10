@@ -287,6 +287,18 @@ export function WaCrmView({ conversations, tags, getTagsForContact, onAddTag, on
           </div>
         </DialogContent>
       </Dialog>
+      {/* Lead Detail Modal */}
+      {selectedConv && (
+        <LeadDetailModal
+          open={!!selectedConv}
+          onOpenChange={(open) => { if (!open) setSelectedConv(null); }}
+          conversation={selectedConv}
+          tags={tags}
+          assignedTagIds={getTagsForContact(selectedConv.contact.id).map(t => t.tag_id)}
+          onAddTag={onAddTag}
+          onRemoveTag={onRemoveTag}
+        />
+      )}
     </div>
   );
 }
