@@ -118,6 +118,7 @@ Deno.serve(async (req) => {
       language_detection: config.feature_language_detection === true,
       linkedin_lookup: config.feature_linkedin_lookup === true,
       time_escalation: config.feature_time_escalation === true,
+      tts_reply: config.feature_tts_reply === true,
     };
 
     if (!features.auto_reply && !isProactive) {
