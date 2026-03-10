@@ -6,6 +6,7 @@ import { WaConversationList } from './WaConversationList';
 import WaChatView from './WaChatView';
 import { WaLeadProfilePanel } from './WaLeadProfilePanel';
 import { WaAiTools } from './WaAiTools';
+import { WaCrmView } from './WaCrmView';
 import { toast } from 'sonner';
 import { sendMedia, sendAudio } from '@/lib/evolutionApi';
 import {
