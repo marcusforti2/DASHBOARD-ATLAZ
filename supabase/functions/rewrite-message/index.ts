@@ -75,8 +75,8 @@ Regras:
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",
         messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: `Reescreva esta mensagem:\n\n${message}` },
+          { role: "system", content: system_override || systemPrompt },
+          { role: "user", content: system_override ? message : `Reescreva esta mensagem:\n\n${message}` },
         ],
       }),
     });
