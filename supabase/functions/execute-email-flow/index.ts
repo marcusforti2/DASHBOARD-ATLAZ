@@ -375,17 +375,19 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Legacy execution record per member
-      try {
-        await supabase.from('email_flow_executions').insert({
-          flow_id: flowId,
-          member_id: recipient.id,
-          status: 'completed',
-          started_at: new Date().toISOString(),
-          completed_at: new Date().toISOString(),
-        });
-      } catch (e) {
-        console.error('Failed to record execution:', e);
+      // Legacy execution record per member (only for team members)
+      if (recipient.id) {
+        try {
+          await supabase.from('email_flow_executions').insert({
+            flow_id: flowId,
+            member_id: recipient.id,
+            status: 'completed',
+            started_at: new Date().toISOString(),
+            completed_at: new Date().toISOString(),
+          });
+        } catch (e) {
+          console.error('Failed to record execution:', e);
+        }
       }
     }
 
