@@ -465,6 +465,11 @@ Exemplo de tom (adapte ao contexto):
       });
     }
 
+    // Human-like random delay (1-5 seconds)
+    const delay = Math.floor(Math.random() * 4000) + 1000;
+    console.log(`[ai-sdr] Waiting ${delay}ms before sending (human-like delay)`);
+    await new Promise(resolve => setTimeout(resolve, delay));
+
     // 1. Send message via Evolution API
     if (EVOLUTION_API_URL && EVOLUTION_API_KEY && features.auto_reply) {
       const baseUrl = EVOLUTION_API_URL.replace(/\/$/, "");
