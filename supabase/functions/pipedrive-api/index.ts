@@ -109,6 +109,9 @@ Deno.serve(async (req) => {
       case 'get_deal_fields':
         result = await pipedriveGet('/dealFields', params || {}, PIPEDRIVE_API_TOKEN);
         break;
+      case 'backfill_owners':
+        result = await backfillOwners(supabase, PIPEDRIVE_API_TOKEN);
+        break;
       default:
         return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
