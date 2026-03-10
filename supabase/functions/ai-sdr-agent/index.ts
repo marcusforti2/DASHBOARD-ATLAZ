@@ -99,19 +99,6 @@ serve(async (req) => {
       });
     }
 
-    const config = instance.ai_sdr_config || {};
-    const instName = instance_name || instance.instance_name;
-
-    // Get closer name to impersonate
-    let closerName = "";
-    if (instance.closer_id) {
-      const { data: closerMember } = await supabase
-        .from("team_members")
-        .select("name")
-        .eq("id", instance.closer_id)
-        .single();
-      closerName = closerMember?.name || "";
-    }
 
     // Check feature toggles
     const features = {
@@ -134,6 +121,62 @@ serve(async (req) => {
       return new Response(JSON.stringify({ skipped: "auto_reply disabled" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // ===== BUG FIX #1: STOP AI AFTER HANDOFF =====
+    // If lead_status is "agendado", the closer took over — AI must NOT respond
+    {
+      const { data: convCheck } = await supabase
+        .from("wa_conversations")
+        .select("lead_status")
+        .eq("id", conversation_id)
+        .single();
+
+      if (convCheck?.lead_status === "agendado" && !isProactive) {
+        console.log("[ai-sdr] Skipping: lead status is 'agendado' — human takeover active");
+        return new Response(JSON.stringify({ skipped: "human_takeover_agendado" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    // ===== BUG FIX #5: HUMAN MODE — stop AI if a human closer responded recently =====
+    {
+      const humanWindow = config.human_takeover_minutes || 60; // default 60 min
+      const { data: recentHumanMsg } = await supabase
+        .from("wa_messages")
+        .select("id, agent_name")
+        .eq("conversation_id", conversation_id)
+        .eq("sender", "agent")
+        .neq("agent_name", "SDR IA 🤖")
+        .gte("created_at", new Date(Date.now() - humanWindow * 60 * 1000).toISOString())
+        .limit(1)
+        .maybeSingle();
+
+      if (recentHumanMsg && !isProactive) {
+        console.log("[ai-sdr] Skipping: human agent responded recently (human takeover mode)", recentHumanMsg.agent_name);
+        return new Response(JSON.stringify({ skipped: "human_takeover_active" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    // ===== BUG FIX #6: BUSINESS HOURS CHECK =====
+    if (config.business_hours_only && !isProactive) {
+      const BRT_OFFSET = -3;
+      const now = new Date();
+      const brtHour = (now.getUTCHours() + BRT_OFFSET + 24) % 24;
+      const shifted = new Date(now.getTime() + BRT_OFFSET * 60 * 60 * 1000);
+      const brtDay = shifted.getUTCDay();
+      const startHour = config.business_hours_start ?? 8;
+      const endHour = config.business_hours_end ?? 19;
+
+      if (brtDay === 0 || brtDay === 6 || brtHour < startHour || brtHour >= endHour) {
+        console.log(`[ai-sdr] Skipping: outside business hours (BRT ${brtHour}h, day ${brtDay})`);
+        return new Response(JSON.stringify({ skipped: "outside_business_hours" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     // BLACKLIST CHECK
@@ -807,7 +850,7 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
             conversation_id,
             remind_at: sixHBefore.toISOString(),
             note: `Fala ${contact_name || ""}! 😊 Passando pra confirmar nosso papo de hoje. Tudo certo pro horário combinado?`,
-            created_by: instance.sdr_id || instance.closer_id || conversation.contact_id,
+            created_by: instance.sdr_id || instance.closer_id!,
           });
           console.log("[ai-sdr] 6h follow-up scheduled for", sixHBefore.toISOString());
         }
@@ -820,7 +863,7 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
             conversation_id,
             remind_at: oneHBefore.toISOString(),
             note: `Opa ${contact_name || ""}! Daqui a 1 hora temos nosso bate-papo 🔥 Te ligo no horário combinado, beleza?`,
-            created_by: instance.sdr_id || instance.closer_id || conversation.contact_id,
+            created_by: instance.sdr_id || instance.closer_id!,
           });
           console.log("[ai-sdr] 1h follow-up scheduled for", oneHBefore.toISOString());
         }
@@ -875,8 +918,14 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
               const targetOrder = statusToOrder[parsed.new_lead_status];
 
               if (targetOrder !== undefined) {
-                // Get stages for the deal's pipeline (or first pipeline)
+                // ===== BUG FIX #4: Filter stages by the deal's pipeline =====
+                // First, get the deal's current pipeline_id from raw_data or by fetching
+                const dealDetailResp = await fetch(`${PIPE_BASE}/deals/${deal.pipedrive_id}?api_token=${PIPEDRIVE_API_TOKEN}`);
+                const dealDetail = await dealDetailResp.json();
+                const dealPipelineId = dealDetail.data?.pipeline_id;
+
                 const pipelineStages = allStages
+                  .filter((s: any) => !dealPipelineId || s.pipeline_id === dealPipelineId)
                   .sort((a: any, b: any) => a.order_nr - b.order_nr);
 
                 const targetStage = pipelineStages[targetOrder];
@@ -1019,18 +1068,26 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
     }
 
     // 9. Auto follow-up scheduling (for no-response cases)
+    // ===== BUG FIX #2 & #7: Use valid team_member_id and respect business hours =====
     if (parsed.schedule_follow_up && conversation?.contact_id) {
-      const remindAt = new Date(Date.now() + (followUpHours) * 60 * 60 * 1000).toISOString();
-      const followUpMsg = parsed.follow_up_message || `Fala ${contact_name || ""}! Sumiu 😄 Conseguiu pensar sobre o que conversamos?`;
-      
-      await supabase.from("wa_follow_up_reminders").insert({
-        contact_id: conversation.contact_id,
-        conversation_id,
-        remind_at: remindAt,
-        note: followUpMsg,
-        created_by: instance.sdr_id || instance.closer_id || conversation.contact_id,
-      });
-      console.log("[ai-sdr] Follow-up scheduled for", remindAt);
+      const validCreator = instance.sdr_id || instance.closer_id;
+      if (!validCreator) {
+        console.warn("[ai-sdr] Cannot schedule follow-up: no sdr_id or closer_id on instance");
+      } else {
+        // BUG FIX #7: Use business datetime instead of raw hours addition
+        const nextBizTime = getNextBusinessDateTime(new Date(), followUpHours);
+        const remindAt = nextBizTime.toISOString();
+        const followUpMsg = parsed.follow_up_message || `Fala ${contact_name || ""}! Sumiu 😄 Conseguiu pensar sobre o que conversamos?`;
+        
+        await supabase.from("wa_follow_up_reminders").insert({
+          contact_id: conversation.contact_id,
+          conversation_id,
+          remind_at: remindAt,
+          note: followUpMsg,
+          created_by: validCreator,
+        });
+        console.log("[ai-sdr] Follow-up scheduled for", remindAt, "(business hours)");
+      }
     }
 
     // 10. Time escalation: alert manager if lead hasn't responded in X hours
