@@ -15,7 +15,7 @@ const corsHeaders = {
  * 2. Manually from the UI
  * 3. Via pipedrive-webhook edge function forwarding
  */
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;

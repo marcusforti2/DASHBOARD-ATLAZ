@@ -8,7 +8,7 @@ const corsHeaders = {
 
 const PIPEDRIVE_BASE = 'https://api.pipedrive.com/v1';
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }

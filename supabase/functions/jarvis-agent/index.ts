@@ -1181,7 +1181,7 @@ MÉTRICAS: SDR (Conexões, Aceitas, Abordagens, InMail, Follow-up, Número, Lig.
 
 IMPORTANTE: Quando um tool retornar um campo "marker", SEMPRE inclua esse marker exatamente como está na sua resposta. Ex: se retornar marker: "[ACTION:navigate:team]", inclua [ACTION:navigate:team] na resposta.`;
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
