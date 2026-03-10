@@ -231,7 +231,24 @@ export default function WaChatView({ conversation, messages, messagesLoading, on
     }
   };
 
-  const startRecording = async () => {
+  const handleStickerSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !onSendSticker) return;
+    if (file.size > 1024 * 1024) { toast.error('Figurinha muito grande. Máximo 1MB.'); if (stickerInputRef.current) stickerInputRef.current.value = ''; return; }
+    try {
+      setUploadingMedia(true);
+      const ext = file.name.split('.').pop() || 'webp';
+      const filePath = `sticker_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
+      const { error: uploadError } = await supabase.storage.from('wa-media').upload(filePath, file, { contentType: file.type, upsert: false });
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage.from('wa-media').getPublicUrl(filePath);
+      await onSendSticker(publicUrl);
+    } catch (err) { console.error('Error sending sticker:', err); toast.error('Erro ao enviar figurinha.'); } finally {
+      setUploadingMedia(false);
+      if (stickerInputRef.current) stickerInputRef.current.value = '';
+    }
+  };
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mimeType = getSupportedAudioMime();
