@@ -271,39 +271,15 @@ export function WaUserPanel({ teamMemberId, memberName, memberRole }: Props) {
         </TabsContent>
 
         <TabsContent value="pipeline" className="mt-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3">
-            {stages.map(stage => {
-              const convs = myConversations.filter(c => c.lead_status === stage);
-              return (
-                <div key={stage} className={`rounded-xl bg-card border border-border p-3 min-h-[200px] animate-card-enter stagger-${stages.indexOf(stage) + 1}`}>
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-xs font-semibold text-foreground">{stageLabels[stage] || stage}</h3>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">{convs.length}</span>
-                  </div>
-                  <div className="space-y-2">
-                    {convs.map(c => (
-                      <button
-                        key={c.id}
-                        onClick={() => { setSelectedId(c.id); setTab('chat'); }}
-                        className="w-full text-left p-2.5 rounded-lg bg-secondary/50 hover:bg-accent hover:scale-[1.02] transition-all duration-200 border border-border/50"
-                      >
-                        <p className="text-xs font-medium text-foreground truncate">{c.contact.name}</p>
-                        <p className="text-[10px] text-muted-foreground truncate">{c.last_message || c.contact.phone}</p>
-                        {c.unread_count > 0 && (
-                          <span className="inline-flex mt-1 w-4 h-4 rounded-full bg-primary text-primary-foreground text-[9px] font-bold items-center justify-center">
-                            {c.unread_count}
-                          </span>
-                        )}
-                      </button>
-                    ))}
-                    {convs.length === 0 && (
-                      <p className="text-[10px] text-muted-foreground text-center py-4">Vazio</p>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <WaCrmView
+            conversations={myConversations}
+            tags={tags}
+            getTagsForContact={(contactId) => getTagsForContact(contactId)}
+            onAddTag={addTag}
+            onRemoveTag={removeTag}
+            onCreateTag={createTag}
+            onDeleteTag={deleteTag}
+          />
         </TabsContent>
 
         <TabsContent value="reminders" className="mt-4">
