@@ -165,8 +165,8 @@ async function handlePerson(supabase: any, event: string, current: any, previous
 
   // Try to match with wa_contact by phone
   let waContactId = null;
-  if (phone) {
-    const cleanPhone = phone.replace(/\D/g, '');
+  if (resolvedPhone) {
+    const cleanPhone = resolvedPhone.replace(/\D/g, '');
     const { data: contact } = await supabase
       .from('wa_contacts')
       .select('id')
@@ -179,9 +179,9 @@ async function handlePerson(supabase: any, event: string, current: any, previous
 
   await supabase.from('pipedrive_persons').upsert({
     pipedrive_id: p.id,
-    name: p.name || '',
+    name: p.name || p.first_name ? `${p.first_name || ''} ${p.last_name || ''}`.trim() : '',
     email,
-    phone,
+    phone: resolvedPhone,
     org_name: p.org_name || null,
     owner_name: p.owner_name || null,
     wa_contact_id: waContactId,
