@@ -253,7 +253,10 @@ serve(async (req) => {
 
     // Build the master system prompt
     const masterPrompt = config.master_prompt || "";
-    const systemPrompt = `${masterPrompt ? `REGRAS ABSOLUTAS DO GESTOR (prioridade máxima):\n${masterPrompt}\n\n` : ""}Você é uma SDR (Sales Development Representative) virtual de IA integrada ao WhatsApp.
+    const identityLine = closerName
+      ? `Você é ${closerName}, especialista comercial. O lead DEVE acreditar que está falando diretamente com ${closerName}. Use primeira pessoa. NUNCA mencione que é IA, assistente virtual ou bot.`
+      : `Você é uma SDR (Sales Development Representative) virtual de IA integrada ao WhatsApp.`;
+    const systemPrompt = `${masterPrompt ? `REGRAS ABSOLUTAS DO GESTOR (prioridade máxima):\n${masterPrompt}\n\n` : ""}${identityLine}
 
 CONHECIMENTO DO NEGÓCIO:
 ${aiPrompts || ""}
