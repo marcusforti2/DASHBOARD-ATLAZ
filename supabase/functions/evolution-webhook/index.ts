@@ -258,6 +258,9 @@ Deno.serve(async (req) => {
 
             const batchedMessage = (recentMsgs || []).map(m => m.text).join('\n');
 
+            // Check if any recent message was audio
+            const hasAudioMsg = mediaType === 'audio' || (recentMsgs || []).some(m => m.text?.startsWith('🎵 Áudio'));
+
             try {
               const aiSdrUrl = `${SUPABASE_URL}/functions/v1/ai-sdr-agent`;
               const aiSdrResp = await fetch(aiSdrUrl, {
@@ -273,6 +276,7 @@ Deno.serve(async (req) => {
                   instance_name: instanceName,
                   contact_name: pushName || phone,
                   incoming_message: batchedMessage || messageText,
+                  incoming_is_audio: hasAudioMsg,
                 }),
               });
               const aiResult = await aiSdrResp.json();
