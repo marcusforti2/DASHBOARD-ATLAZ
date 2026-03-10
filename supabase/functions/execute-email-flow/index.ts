@@ -109,23 +109,107 @@ Deno.serve(async (req) => {
         const personalizedSubject = replaceVars(subject, recipient);
         const personalizedBody = replaceVars(body, recipient);
 
-        const htmlContent = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<style>
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9fafb; }
-  .email-container { background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-  .header { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: white; padding: 30px 20px; text-align: center; }
-  .header h1 { margin: 0; font-size: 22px; font-weight: 700; }
-  .content { padding: 30px; }
-  .footer { text-align: center; padding: 20px; background: #f3f4f6; font-size: 12px; color: #6b7280; }
-  a { color: #6366f1; }
-  .btn { display: inline-block; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: white !important; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; margin: 15px 0; }
-</style></head><body>
-  <div class="email-container">
-    <div class="header"><h1>${personalizedSubject}</h1></div>
-    <div class="content">${personalizedBody}</div>
-    <div class="footer"><p>© ${new Date().getFullYear()} Learning Brand Sales Tracker</p></div>
-  </div>
-</body></html>`;
+        const year = new Date().getFullYear();
+        const firstName = (recipient.name || '').split(' ')[0] || 'Olá';
+
+        const htmlContent = `<!DOCTYPE html>
+<html lang="pt-BR" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>${personalizedSubject}</title>
+  <!--[if mso]><style>table,td{font-family:Arial,sans-serif!important}</style><![endif]-->
+</head>
+<body style="margin:0;padding:0;background-color:#f0f0f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;">
+  <!-- Outer wrapper -->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f0f0f5;">
+    <tr><td align="center" style="padding:24px 16px;">
+
+      <!-- Main container 600px -->
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;border-radius:16px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.08);">
+
+        <!-- HERO HEADER with gradient -->
+        <tr>
+          <td style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 40%,#0f3460 100%);padding:48px 40px 40px;text-align:center;">
+            <!-- Logo -->
+            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 24px;">
+              <tr>
+                <td style="background:linear-gradient(135deg,#c9a84c,#f0d78c);width:48px;height:48px;border-radius:12px;text-align:center;vertical-align:middle;">
+                  <span style="color:#1a1a2e;font-size:20px;font-weight:800;letter-spacing:-1px;">LB</span>
+                </td>
+              </tr>
+            </table>
+            <!-- Subject as headline -->
+            <h1 style="margin:0 0 12px;color:#ffffff;font-size:26px;font-weight:700;line-height:1.3;letter-spacing:-0.3px;">${personalizedSubject}</h1>
+            <p style="margin:0;color:rgba(255,255,255,0.65);font-size:14px;font-weight:400;">Learning Brand · Sales Tracker</p>
+          </td>
+        </tr>
+
+        <!-- GREETING -->
+        <tr>
+          <td style="background-color:#ffffff;padding:36px 40px 0;">
+            <p style="margin:0;color:#1a1a2e;font-size:16px;font-weight:600;">Olá, ${firstName} 👋</p>
+          </td>
+        </tr>
+
+        <!-- BODY CONTENT -->
+        <tr>
+          <td style="background-color:#ffffff;padding:20px 40px 32px;">
+            <div style="color:#4a4a68;font-size:15px;line-height:1.7;">
+              ${personalizedBody}
+            </div>
+          </td>
+        </tr>
+
+        <!-- ACCENT DIVIDER -->
+        <tr>
+          <td style="background-color:#ffffff;padding:0 40px;">
+            <div style="height:3px;border-radius:2px;background:linear-gradient(90deg,#c9a84c 0%,#f0d78c 50%,#c9a84c 100%);"></div>
+          </td>
+        </tr>
+
+        <!-- CTA SECTION -->
+        <tr>
+          <td style="background-color:#ffffff;padding:32px 40px;text-align:center;">
+            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
+              <tr>
+                <td style="background:linear-gradient(135deg,#1a1a2e,#0f3460);border-radius:12px;padding:14px 36px;">
+                  <a href="#" style="color:#f0d78c;font-size:14px;font-weight:700;text-decoration:none;letter-spacing:0.5px;text-transform:uppercase;">Acessar Dashboard →</a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- FOOTER -->
+        <tr>
+          <td style="background-color:#1a1a2e;padding:32px 40px;text-align:center;">
+            <!-- Social icons row -->
+            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 20px;">
+              <tr>
+                <td style="padding:0 8px;"><a href="#" style="display:inline-block;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.08);text-align:center;line-height:36px;color:#c9a84c;font-size:14px;text-decoration:none;">in</a></td>
+                <td style="padding:0 8px;"><a href="#" style="display:inline-block;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.08);text-align:center;line-height:36px;color:#c9a84c;font-size:14px;text-decoration:none;">ig</a></td>
+                <td style="padding:0 8px;"><a href="#" style="display:inline-block;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.08);text-align:center;line-height:36px;color:#c9a84c;font-size:14px;text-decoration:none;">yt</a></td>
+              </tr>
+            </table>
+            <p style="margin:0 0 8px;color:rgba(255,255,255,0.5);font-size:12px;line-height:1.5;">
+              Abraços,<br><strong style="color:#f0d78c;">Equipe Learning Brand</strong>
+            </p>
+            <p style="margin:0;color:rgba(255,255,255,0.3);font-size:11px;line-height:1.5;">
+              © ${year} Learning Brand · Todos os direitos reservados<br>
+              Este email foi enviado automaticamente pelo Sales Tracker
+            </p>
+          </td>
+        </tr>
+
+      </table>
+      <!-- /Main container -->
+
+    </td></tr>
+  </table>
+</body>
+</html>`;
 
         if (successCount > 0 || errorCount > 0) await delay(600);
 
