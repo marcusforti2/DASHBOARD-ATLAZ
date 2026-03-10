@@ -16,7 +16,6 @@ Deno.serve(async (req) => {
     if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
 
     // Fetch company knowledge to enrich AI context
-    const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const sb = createClient(supabaseUrl, supabaseKey);
