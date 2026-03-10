@@ -700,7 +700,13 @@ ${features.linkedin_lookup ? `PESQUISA LINKEDIN: Se o lead mencionar empresa, ca
 MOVIMENTAÇÃO DE PIPELINE (IMPORTANTE):
 - Cada mudança de status do lead DEVE mover o deal no CRM automaticamente
 - O sistema faz isso baseado no "new_lead_status" que você retornar
-- Na primeira interação proativa, mude para "em_contato"
+- PIPELINE: 0-Entrada → 1-Agendar Ligação → 2-Ligação Agendada → 3-Reunião
+- "novo" e "em_contato" = Estágio 0 (Entrada) — NÃO move o deal, ele já está aqui
+- "qualificado" = Estágio 1 (Agendar Ligação) — lead mostrou interesse, hora de propor call
+- "agendado" = Estágio 2 (Ligação Agendada) — lead CONFIRMOU horário da ligação
+- "reuniao" = Estágio 3 (Reunião) — ligação/reunião acontecendo ou realizada
+- "perdido" = Deal marcado como LOST
+- Na primeira interação proativa, use "em_contato" (mantém no estágio 0)
 - SEMPRE retorne "new_lead_status" quando o status mudar
 
 ATIVIDADES NO CRM:
@@ -711,7 +717,7 @@ ATIVIDADES NO CRM:
 Responda EXATAMENTE neste formato JSON:
 {
   "reply": "Primeira parte|||Segunda parte|||Terceira parte",
-  "new_lead_status": "novo" | "em_contato" | "qualificado" | "agendado" | "perdido" | null,
+  "new_lead_status": "novo" | "em_contato" | "qualificado" | "agendado" | "reuniao" | "perdido" | null,
   "lead_score": "A" | "B" | "C" | null,
   "lead_score_value": 0-100,
   "lead_score_reason": "Motivo do score",
@@ -1399,11 +1405,13 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
 
               // Sort stages by order_nr and filter by deal's pipeline
               // Map lead status to stage order (0-indexed)
+              // Pipeline: 0-Entrada/Oportunidade, 1-Agendar Ligação, 2-Ligação Agendada, 3-Reunião
               const statusToOrder: Record<string, number> = {
-                "novo": 0,
-                "em_contato": 1,
-                "qualificado": 2,
-                "agendado": 3,
+                "novo": 0,        // Entrada/Oportunidade — deal já chega aqui
+                "em_contato": 0,  // Mantém no estágio 0 (primeiro contato feito, aguardando resposta)
+                "qualificado": 1, // Agendar Ligação — lead qualificado, pronto pra propor call
+                "agendado": 2,    // Ligação Agendada — lead confirmou horário
+                "reuniao": 3,     // Reunião — call/reunião em andamento ou realizada
               };
 
               const targetOrder = statusToOrder[parsed.new_lead_status];
