@@ -659,7 +659,7 @@ export default function AiSdrPage() {
                 if (enrichedDef.fields) {
                   enrichedDef.fields = enrichedDef.fields.map(f => {
                     if (f.key === "daily_summary_admin_ids" && f.type === "multi-select") {
-                      return { ...f, options: teamMembers.filter(m => m.member_role === "admin" || m.member_role === "closer").map(m => ({ value: m.id, label: m.name })) };
+                      return { ...f, options: teamMembers.filter(m => m.member_role.includes("admin")).map(m => ({ value: m.id, label: `${m.name} (${m.member_role})` })) };
                     }
                     return f;
                   });
