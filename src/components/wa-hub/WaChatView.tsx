@@ -153,6 +153,8 @@ export default function WaChatView({ conversation, messages, messagesLoading, on
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [aiSuggesting, setAiSuggesting] = useState(false);
   const [showQuickReplies, setShowQuickReplies] = useState(false);
+  const [stickerMode, setStickerMode] = useState<string | null>(null);
+  const [stickerCreateMode, setStickerCreateMode] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
