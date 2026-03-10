@@ -166,7 +166,7 @@ export default function WaChatView({
               placeholder="Digite uma mensagem"
               className="w-full pl-3 pr-12 py-2 text-sm rounded-lg bg-secondary text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             />
-            {quickReplies.length > 0 && (
+            {quickReplies && quickReplies.length > 0 && (
               <Popover>
                 <PopoverTrigger className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:bg-muted rounded">
                   <ChevronDown className="w-4 h-4" />
