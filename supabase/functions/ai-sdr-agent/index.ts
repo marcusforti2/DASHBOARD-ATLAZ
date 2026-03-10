@@ -850,7 +850,7 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
             conversation_id,
             remind_at: sixHBefore.toISOString(),
             note: `Fala ${contact_name || ""}! 😊 Passando pra confirmar nosso papo de hoje. Tudo certo pro horário combinado?`,
-            created_by: instance.sdr_id || instance.closer_id || conversation.contact_id,
+            created_by: instance.sdr_id || instance.closer_id!,
           });
           console.log("[ai-sdr] 6h follow-up scheduled for", sixHBefore.toISOString());
         }
