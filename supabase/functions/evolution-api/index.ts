@@ -84,9 +84,10 @@ serve(async (req) => {
         method = 'POST';
         // Evolution API requires sticker as base64, not URL
         const stickerPayload: Record<string, unknown> = { number: data?.number };
-        if (data?.image && typeof data.image === 'string' && data.image.startsWith('http')) {
+        const imgSrc = data?.image as string | undefined;
+        if (imgSrc && imgSrc.startsWith('http')) {
           try {
-            const imgResp = await fetch(data.image);
+            const imgResp = await fetch(imgSrc);
             const imgBuf = await imgResp.arrayBuffer();
             const bytes = new Uint8Array(imgBuf);
             let binary = '';
@@ -96,14 +97,13 @@ serve(async (req) => {
               for (let j = 0; j < chunk.length; j++) binary += String.fromCharCode(chunk[j]);
             }
             const b64 = btoa(binary);
-            const mime = imgResp.headers.get('content-type') || 'image/png';
-            stickerPayload.image = `data:${mime};base64,${b64}`;
+            stickerPayload.sticker = `data:image/png;base64,${b64}`;
           } catch (e) {
             console.error('[evolution-api] Failed to fetch sticker image for base64 conversion:', e);
-            stickerPayload.image = data.image;
+            stickerPayload.sticker = imgSrc;
           }
-        } else {
-          stickerPayload.image = data?.image;
+        } else if (imgSrc) {
+          stickerPayload.sticker = imgSrc;
         }
         body = JSON.stringify(stickerPayload);
         break;
