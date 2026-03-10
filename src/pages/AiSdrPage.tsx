@@ -8,6 +8,7 @@ import {
   Target, Plus, Trash2, GripVertical, Sparkles, ArrowRight,
   BarChart3, User, BookOpen, GitBranch, MessageCircle, CalendarClock,
 } from "lucide-react";
+import { AutomationCard, type AutomationDef } from "@/components/ai-sdr/AutomationCard";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
