@@ -454,6 +454,15 @@ async function handleDeal(supabase: any, event: string, current: any, previous: 
 
       const sdrResult = await sdrResp.json();
       console.log(`[pipedrive-webhook] AI SDR proactive result on ${targetInstance.instance_name}:`, JSON.stringify(sdrResult));
+
+      // Mark as triggered for dedup
+      await supabase.from('pipedrive_webhook_logs').insert({
+        event: 'proactive_sdr',
+        entity: 'deal',
+        pipedrive_id: d.id,
+        processed: true,
+        error: 'proactive_triggered', // used as dedup flag
+      });
     } catch (sdrErr) {
       console.error(`[pipedrive-webhook] AI SDR trigger error:`, sdrErr);
     }
