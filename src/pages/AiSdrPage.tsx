@@ -225,9 +225,12 @@ const AUTOMATIONS: AutomationDef[] = [
     ],
   },
   {
-    key: "feature_daily_summary", icon: BarChart3, title: "Resumo diário WhatsApp", desc: "Envia resumo de leads quentes ao closer",
+    key: "feature_daily_summary", icon: BarChart3, title: "Resumo diário WhatsApp", desc: "Envia resumo de leads quentes aos gestores",
     color: "text-indigo-500",
-    explanation: "Todo dia útil às 8h, a IA envia um resumo via WhatsApp para o closer vinculado contendo: quantidade de novos leads, leads quentes (Score A), reuniões agendadas para o dia e leads que precisam de atenção. Mantém o closer informado sem precisar acessar o painel.",
+    explanation: "Todo dia útil às 8h, a IA envia um resumo via WhatsApp para os administradores selecionados contendo: quantidade de novos leads, leads quentes (Score A), reuniões agendadas para o dia e leads que precisam de atenção. Selecione abaixo quais gestores devem receber o resumo.",
+    fields: [
+      { key: "daily_summary_admin_ids", label: "Administradores que receberão o resumo", type: "multi-select" as const, options: [] },
+    ],
   },
   {
     key: "feature_language_detection", icon: Sparkles, title: "Detecção de idioma", desc: "Adapta idioma automaticamente (PT/EN/ES)",
