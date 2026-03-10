@@ -47,6 +47,8 @@ interface AiSdrConfig {
   feature_language_detection: boolean;
   feature_linkedin_lookup: boolean;
   feature_time_escalation: boolean;
+  feature_tts_reply: boolean;
+  tts_voice_id: string;
   reengagement_days: number;
   escalation_hours: number;
   rate_limit_per_hour: number;
@@ -137,6 +139,8 @@ const DEFAULT_CONFIG: AiSdrConfig = {
   feature_language_detection: false,
   feature_linkedin_lookup: false,
   feature_time_escalation: false,
+  feature_tts_reply: false,
+  tts_voice_id: "onwK4e9ZLuTAKqWW03F9",
   reengagement_days: 7,
   escalation_hours: 48,
   rate_limit_per_hour: 5,
@@ -312,6 +316,14 @@ const AUTOMATIONS: AutomationDef[] = [
     warnings: ["O tempo de escalonamento deve ser MAIOR que o tempo de follow-up. Caso contrário, o lead será escalado antes de receber follow-up."],
     fields: [
       { key: "escalation_hours", label: "Escalar se sem resposta após", type: "number" as const, suffix: "horas", min: 1, max: 168 },
+    ],
+  },
+  {
+    key: "feature_tts_reply", icon: MessageCircle, title: "Resposta em áudio (TTS)", desc: "Responde com áudio quando lead envia áudio",
+    color: "text-pink-500",
+    explanation: "Quando o lead envia uma mensagem de áudio, a IA transcreve (usando ElevenLabs STT), gera a resposta em texto E TAMBÉM envia um áudio de voz via ElevenLabs TTS. Isso cria uma experiência mais natural e pessoal. O texto é enviado primeiro, seguido do áudio. Requer ElevenLabs configurado.",
+    fields: [
+      { key: "tts_voice_id", label: "Voice ID do ElevenLabs", type: "text" as const, placeholder: "onwK4e9ZLuTAKqWW03F9 (Daniel)" },
     ],
   },
 ];
