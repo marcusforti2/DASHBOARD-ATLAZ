@@ -558,7 +558,7 @@ export default function WaHubPage() {
                     />
 
                     {/* Connection panel */}
-                    <WaInstancePanel instanceName={inst.instance_name} closerName={displayName} />
+                    <WaInstancePanel instanceName={inst.instance_name} closerName={displayName} instanceId={inst.id} />
                   </div>
                 );
               })
