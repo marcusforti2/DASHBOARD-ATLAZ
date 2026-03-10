@@ -145,7 +145,7 @@ function getSupportedAudioMime(): string {
   return '';
 }
 
-export default function WaChatView({ conversation, messages, messagesLoading, onBack, onSend, onSendMedia, onSendAudio, tags, assignedTagIds, onAddTag, onRemoveTag, onToggleProfile, showProfileButton }: Props) {
+export default function WaChatView({ conversation, messages, messagesLoading, onBack, onSend, onSendMedia, onSendAudio, onSendSticker, tags, assignedTagIds, onAddTag, onRemoveTag, onToggleProfile, showProfileButton }: Props) {
   const [msgText, setMsgText] = useState('');
   const [sending, setSending] = useState(false);
   const [recording, setRecording] = useState(false);
