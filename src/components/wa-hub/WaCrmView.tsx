@@ -320,7 +320,12 @@ function KanbanCard({
     <div
       draggable
       onDragStart={() => onDragStart(conv.id)}
-      className="rounded-lg border border-border bg-card p-3 space-y-2 hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing"
+      onClick={(e) => {
+        // Don't open modal if clicking tags or during drag
+        if ((e.target as HTMLElement).closest('[data-tag-badge]')) return;
+        onClick?.();
+      }}
+      className="rounded-lg border border-border bg-card p-3 space-y-2 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer active:cursor-grabbing"
     >
       <div className="flex items-center gap-2">
         <GripVertical className="w-3 h-3 text-muted-foreground/40 shrink-0" />
