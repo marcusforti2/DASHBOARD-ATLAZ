@@ -708,7 +708,8 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
         console.log(`[ai-sdr] Part ${i + 1}/${replyParts.length}: waiting ${delay}ms`);
         await new Promise(resolve => setTimeout(resolve, delay));
 
-        const sendResp = await fetch(`${baseUrl}/message/sendText/${instName}`, {
+        const resolvedInstName = instName || instance.instance_name;
+        const sendResp = await fetch(`${baseUrl}/message/sendText/${resolvedInstName}`, {
           method: "POST",
           headers: { apikey: EVOLUTION_API_KEY, "Content-Type": "application/json" },
           body: JSON.stringify({ number: contact_phone, text: part }),
