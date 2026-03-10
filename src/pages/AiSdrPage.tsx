@@ -107,9 +107,9 @@ const DEFAULT_CONFIG: AiSdrConfig = {
   blacklist_numbers: [],
   daily_summary_admin_ids: [],
   lead_sources: [
-    { id: "linkedin", name: "Prospecção LinkedIn", active: true, context: "Lead veio de prospecção ativa no LinkedIn. Você já se conectou com ele e agora está dando continuidade à conversa. Seja pessoal, mencione algo do perfil dele. NÃO diga o nome da empresa logo de cara.", color: "#0A66C2" },
-    { id: "dripify", name: "Dripify / Automação", active: false, context: "Lead recebeu uma sequência automatizada (Dripify ou similar) e respondeu. O contexto é diferente da prospecção manual — ele pode não lembrar quem você é. Apresente-se brevemente e retome o interesse.", color: "#8B5CF6" },
-    { id: "indicacao", name: "Indicação", active: false, context: "Lead veio por indicação de alguém. Mencione quem indicou (se disponível) e use isso como ponte de confiança. Tom mais próximo e caloroso.", color: "#F59E0B" },
+    { id: "linkedin", name: "PROSPECÇÃO/LINKEDIN", active: true, context: "Lead veio de prospecção ativa no LinkedIn. Você já se conectou com ele e agora está dando continuidade à conversa. Seja pessoal, mencione algo do perfil dele. NÃO diga o nome da empresa logo de cara.", color: "#4DA6FF" },
+    { id: "dripify", name: "DRIPIFY/AUTOMAÇÃO", active: false, context: "Lead recebeu uma sequência automatizada (Dripify ou similar) e respondeu. O contexto é diferente da prospecção manual — ele pode não lembrar quem você é. Apresente-se brevemente e retome o interesse.", color: "#E8A441" },
+    { id: "indicacao", name: "INDICAÇÃO", active: false, context: "Lead veio por indicação de alguém. Mencione quem indicou (se disponível) e use isso como ponte de confiança. Tom mais próximo e caloroso.", color: "#E8A441" },
   ],
   target_audience: "",
   pain_points: "",
