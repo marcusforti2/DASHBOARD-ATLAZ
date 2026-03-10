@@ -152,7 +152,9 @@ export function useWaMessages(conversationId: string | null) {
         table: 'wa_messages',
         filter: `conversation_id=eq.${conversationId}`,
       }, (payload) => {
-        setMessages(prev => [...prev, payload.new as WaMessage]);
+        const msg = payload.new as WaMessage;
+        if (msg.text === '__ai_processing__') return; // skip lock messages
+        setMessages(prev => [...prev, msg]);
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
