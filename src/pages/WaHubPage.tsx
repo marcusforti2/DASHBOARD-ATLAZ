@@ -397,11 +397,10 @@ export default function WaHubPage() {
         </TabsContent>
 
         <TabsContent value="ai-sdr" className="mt-4">
-          <AiSdrTab
-            instances={instances as any}
-            teamMembers={teamMembers}
-            onRefetch={refetchInstances}
-          />
+          <AiSdrSummaryCard instances={instances as any} teamMembers={teamMembers} onNavigate={() => {
+            // Navigate to ai-sdr admin view — dispatch custom event
+            window.dispatchEvent(new CustomEvent('navigate-admin', { detail: 'ai-sdr' }));
+          }} />
         </TabsContent>
 
         <TabsContent value="ai-prompts" className="mt-4">
