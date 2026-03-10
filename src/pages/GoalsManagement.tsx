@@ -647,7 +647,7 @@ export default function GoalsManagement() {
                     title="Editar mês">
                     <Pencil size={14} />
                   </button>
-                  <button onClick={e => { e.stopPropagation(); handleDeleteMonth(month); }}
+                  <button onClick={e => { e.stopPropagation(); setMonthToDelete(month); }}
                     className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                     title="Excluir mês">
                     <Trash2 size={14} />
