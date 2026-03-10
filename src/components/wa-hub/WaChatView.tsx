@@ -36,7 +36,7 @@ export default function WaChatView({
   const [mediaPopoverOpen, setMediaPopoverOpen] = useState(false);
   const [stickerPreviewUrl, setStickerPreviewUrl] = useState<string | null>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
-  const { quickReplies } = useQuickReplies(conversation.instance_id);
+  const { replies: quickReplies } = useQuickReplies();
 
   // Scroll to bottom on new messages
   useEffect(() => {
