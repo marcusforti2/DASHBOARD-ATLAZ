@@ -323,7 +323,7 @@ export function WaLeadProfilePanel({ conversation, messages, tags, assignedTagId
               notes.map(note => (
                 <div key={note.id} className="rounded-lg bg-muted/50 p-2.5 space-y-1">
                   <p className="text-xs text-foreground whitespace-pre-wrap">{note.content}</p>
-                  <p className="text-[9px] text-muted-foreground">{note.author_name} · {formatDate(note.created_at)}</p>
+                  <p className="text-[9px] text-muted-foreground">{note.author_name} · {formatDateWithTime(note.created_at)}</p>
                 </div>
               ))
             )}
