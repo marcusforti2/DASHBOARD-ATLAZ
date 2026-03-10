@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AiSdrFlowView } from "@/components/wa-hub/AiSdrFlowView";
+import { AiPromptsTab } from "@/components/wa-hub/AiPromptsTab";
 
 interface AiSdrConfig {
   greeting: string;
@@ -389,17 +390,9 @@ export default function AiSdrPage() {
               />
             </div>
 
-            {/* Knowledge base link */}
-            <div className="rounded-xl border border-border bg-card p-4 flex items-center gap-4">
-              <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
-                <BookOpen className="w-5 h-5 text-amber-600" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-foreground">Base de Conhecimento Global</p>
-                <p className="text-xs text-muted-foreground">
-                  A IA também puxa automaticamente os <strong>Prompts IA</strong> e a <strong>Base de Conhecimento</strong> cadastrada no sistema.
-                </p>
-              </div>
+            {/* Embedded Business Prompts */}
+            <div className="rounded-xl border border-border bg-card/50 p-1">
+              <AiPromptsTab />
             </div>
           </div>
         );
