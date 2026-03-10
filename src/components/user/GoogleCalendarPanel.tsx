@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Calendar as CalendarIcon, Plus, RefreshCw, Link2, Loader2, Clock, MapPin,
@@ -16,11 +16,12 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import {
   format, parseISO, addHours, addDays, startOfWeek, endOfWeek, startOfDay,
-  endOfDay, isSameDay, eachDayOfInterval,
-  getHours, differenceInMinutes, subWeeks, addWeeks
+  endOfDay, isSameDay, eachDayOfInterval, isToday,
+  getHours, getMinutes, differenceInMinutes, subWeeks, addWeeks
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -54,7 +55,8 @@ interface GoogleCalendarPanelProps {
   memberRole?: string;
 }
 
-const HOURS = Array.from({ length: 15 }, (_, i) => i + 7);
+const HOURS = Array.from({ length: 17 }, (_, i) => i + 6); // 06:00 - 22:00
+const HOUR_HEIGHT = 60; // px per hour
 
 const REMINDER_OPTIONS = [
   { label: "24h antes", value: "24h", minutes: 1440 },
@@ -64,6 +66,25 @@ const REMINDER_OPTIONS = [
   { label: "5min antes", value: "5min", minutes: 5 },
   { label: "Na hora", value: "0min", minutes: 0 },
 ];
+
+// Google Calendar-like event colors
+const EVENT_COLORS = [
+  "hsl(217, 91%, 60%)",  // blue (primary)
+  "hsl(160, 84%, 39%)",  // green
+  "hsl(280, 65%, 60%)",  // purple
+  "hsl(38, 92%, 50%)",   // amber
+  "hsl(340, 82%, 52%)",  // pink
+  "hsl(190, 90%, 40%)",  // teal
+];
+
+function getEventColor(eventId: string): string {
+  let hash = 0;
+  for (let i = 0; i < eventId.length; i++) {
+    hash = ((hash << 5) - hash) + eventId.charCodeAt(i);
+    hash |= 0;
+  }
+  return EVENT_COLORS[Math.abs(hash) % EVENT_COLORS.length];
+}
 
 export function GoogleCalendarPanel({ teamMemberId, memberRole }: GoogleCalendarPanelProps) {
   const [connectedClosers, setConnectedClosers] = useState<ConnectedCloser[]>([]);
@@ -80,6 +101,8 @@ export function GoogleCalendarPanel({ teamMemberId, memberRole }: GoogleCalendar
   const [viewMode, setViewMode] = useState<ViewMode>("week");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [searchQuery, setSearchQuery] = useState("");
+  const [hoveredEvent, setHoveredEvent] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   // New event form
   const [newTitle, setNewTitle] = useState("");
@@ -105,6 +128,15 @@ export function GoogleCalendarPanel({ teamMemberId, memberRole }: GoogleCalendar
     return { start: startOfDay(currentDate), end: endOfDay(addDays(currentDate, 13)) };
   }, [viewMode, currentDate]);
 
+  // Scroll to current hour on mount
+  useEffect(() => {
+    if (scrollRef.current) {
+      const now = new Date();
+      const scrollTo = (now.getHours() - 7) * HOUR_HEIGHT;
+      scrollRef.current.scrollTop = Math.max(0, scrollTo);
+    }
+  }, [viewMode, loading]);
+
   // Fetch connected closers
   useEffect(() => {
     const fetchClosers = async () => {
@@ -116,8 +148,6 @@ export function GoogleCalendarPanel({ teamMemberId, memberRole }: GoogleCalendar
         if (error) throw error;
         const closers: ConnectedCloser[] = data?.closers || [];
         setConnectedClosers(closers);
-
-        // Auto-select: closer sees own calendar, SDR picks first connected
         const connectedOnes = closers.filter(c => c.connected);
         if (isCloser) {
           const own = connectedOnes.find(c => c.memberId === teamMemberId);
@@ -186,7 +216,6 @@ export function GoogleCalendarPanel({ teamMemberId, memberRole }: GoogleCalendar
             clearInterval(interval);
             setConnecting(false);
             toast.success("Google Calendar conectado!");
-            // Refetch closers
             const { data: refreshed } = await supabase.functions.invoke("google-calendar-events", {
               body: { action: "list_connected_closers" },
             });
@@ -227,7 +256,6 @@ export function GoogleCalendarPanel({ teamMemberId, memberRole }: GoogleCalendar
       const eventId = data?.event?.id || "";
       const eventStartAt = new Date(`${newStartDate}T${newStartTime}:00`);
 
-      // Create WhatsApp reminders
       if (enableReminders && (leadPhone || selectedMembers.length > 0)) {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
@@ -308,15 +336,6 @@ export function GoogleCalendarPanel({ teamMemberId, memberRole }: GoogleCalendar
     return e ? parseISO(e) : addHours(getEventStart(event), 1);
   };
 
-  const getStatusColor = (status?: string) => {
-    switch (status) {
-      case "accepted": return "bg-accent/20 text-accent";
-      case "declined": return "bg-destructive/20 text-destructive";
-      case "tentative": return "bg-[hsl(38,92%,50%)]/20 text-[hsl(38,92%,50%)]";
-      default: return "bg-muted text-muted-foreground";
-    }
-  };
-
   const connectedClosersList = connectedClosers.filter(c => c.connected);
 
   // ── Loading closers ──
@@ -328,7 +347,7 @@ export function GoogleCalendarPanel({ teamMemberId, memberRole }: GoogleCalendar
     );
   }
 
-  // ── Closer without connection: show connect button ──
+  // ── Closer without connection ──
   if (isCloser && !connectedClosers.find(c => c.memberId === teamMemberId)?.connected) {
     return (
       <div className="flex flex-col items-center justify-center py-16 space-y-6">
@@ -338,7 +357,7 @@ export function GoogleCalendarPanel({ teamMemberId, memberRole }: GoogleCalendar
         <div className="text-center space-y-2">
           <h3 className="text-lg font-bold text-foreground">Conectar sua Agenda</h3>
           <p className="text-sm text-muted-foreground max-w-xs">
-            Conecte seu Google Calendar para que o time possa agendar reuniões na sua agenda
+            Conecte seu Google Calendar para visualizar e gerenciar seus compromissos
           </p>
         </div>
         <Button onClick={handleConnect} disabled={connecting} className="gap-2">
@@ -349,7 +368,7 @@ export function GoogleCalendarPanel({ teamMemberId, memberRole }: GoogleCalendar
     );
   }
 
-  // ── SDR/anyone: no connected closers ──
+  // ── No connected closers ──
   if (connectedClosersList.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 space-y-4">
@@ -359,7 +378,7 @@ export function GoogleCalendarPanel({ teamMemberId, memberRole }: GoogleCalendar
         <div className="text-center space-y-2">
           <h3 className="text-lg font-bold text-foreground">Nenhuma agenda disponível</h3>
           <p className="text-sm text-muted-foreground max-w-xs">
-            Nenhum closer conectou sua agenda ainda. Peça aos closers para conectar o Google Calendar.
+            Nenhum closer conectou sua agenda ainda.
           </p>
         </div>
       </div>
@@ -367,142 +386,340 @@ export function GoogleCalendarPanel({ teamMemberId, memberRole }: GoogleCalendar
   }
 
   const dateLabel = () => {
-    if (viewMode === "day") return format(currentDate, "EEEE, dd 'de' MMMM", { locale: ptBR });
+    if (viewMode === "day") return format(currentDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
     if (viewMode === "week") {
       const ws = startOfWeek(currentDate, { weekStartsOn: 0 });
       const we = endOfWeek(currentDate, { weekStartsOn: 0 });
-      return `${format(ws, "dd MMM", { locale: ptBR })} — ${format(we, "dd MMM yyyy", { locale: ptBR })}`;
+      if (ws.getMonth() === we.getMonth()) {
+        return `${format(ws, "dd", { locale: ptBR })} – ${format(we, "dd 'de' MMM yyyy", { locale: ptBR })}`;
+      }
+      return `${format(ws, "dd MMM", { locale: ptBR })} – ${format(we, "dd MMM yyyy", { locale: ptBR })}`;
     }
     return `${format(currentDate, "dd MMM", { locale: ptBR })} — ${format(addDays(currentDate, 13), "dd MMM yyyy", { locale: ptBR })}`;
   };
 
-  // ── VIEWS ──
-
-  const EventChip = ({ event }: { event: CalendarEvent }) => {
+  // ── Positioned event block for grid views ──
+  const EventBlock = ({ event, columnCount = 1, columnIndex = 0 }: { event: CalendarEvent; columnCount?: number; columnIndex?: number }) => {
     const start = getEventStart(event);
     const end = getEventEnd(event);
-    const duration = differenceInMinutes(end, start);
+    const startMinutes = getHours(start) * 60 + getMinutes(start);
+    const endMinutes = getHours(end) * 60 + getMinutes(end);
+    const durationMinutes = Math.max(endMinutes - startMinutes, 15);
+    const firstHour = HOURS[0];
+    const topPx = ((startMinutes - firstHour * 60) / 60) * HOUR_HEIGHT;
+    const heightPx = Math.max((durationMinutes / 60) * HOUR_HEIGHT, 20);
+    const color = getEventColor(event.id);
     const meetLink = event.hangoutLink || event.conferenceData?.entryPoints?.find(e => e.entryPointType === "video")?.uri;
+    const isShort = durationMinutes <= 30;
+
+    const widthPercent = 100 / columnCount;
+    const leftPercent = widthPercent * columnIndex;
 
     return (
-      <div className="group flex items-start gap-3 p-2.5 rounded-lg bg-primary/5 border border-primary/10 hover:bg-primary/10 transition-colors cursor-default">
-        <div className="w-1 self-stretch rounded-full bg-primary shrink-0" />
-        <div className="flex-1 min-w-0 space-y-0.5">
-          <h4 className="text-sm font-semibold text-foreground truncate">{event.summary}</h4>
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-              <Clock size={10} />
-              {format(start, "HH:mm")} — {format(end, "HH:mm")}
-              <span className="text-muted-foreground/60">({duration}min)</span>
-            </span>
-            {event.location && (
-              <span className="flex items-center gap-1 text-[11px] text-muted-foreground truncate max-w-[180px]">
-                <MapPin size={10} />
-                {event.location}
-              </span>
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            className={cn(
+              "absolute rounded-md px-1.5 py-0.5 text-left overflow-hidden cursor-pointer transition-all",
+              "hover:brightness-110 hover:shadow-lg hover:z-30",
+              hoveredEvent === event.id && "brightness-110 shadow-lg z-30"
             )}
+            style={{
+              top: `${topPx}px`,
+              height: `${heightPx - 2}px`,
+              backgroundColor: color,
+              left: `${leftPercent}%`,
+              width: `${widthPercent - 1}%`,
+              zIndex: hoveredEvent === event.id ? 30 : 10,
+            }}
+            onMouseEnter={() => setHoveredEvent(event.id)}
+            onMouseLeave={() => setHoveredEvent(null)}
+          >
+            {isShort ? (
+              <span className="text-[10px] font-medium text-white truncate block leading-tight">
+                {format(start, "HH:mm")} {event.summary}
+              </span>
+            ) : (
+              <>
+                <span className="text-[11px] font-semibold text-white truncate block leading-tight">
+                  {event.summary}
+                </span>
+                <span className="text-[10px] text-white/80 block leading-tight">
+                  {format(start, "HH:mm")} – {format(end, "HH:mm")}
+                </span>
+                {!isShort && event.location && (
+                  <span className="text-[9px] text-white/70 block truncate leading-tight mt-0.5">
+                    📍 {event.location}
+                  </span>
+                )}
+              </>
+            )}
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-80 p-0" align="start" side="right">
+          <div className="p-4 space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="w-3 h-3 rounded-sm shrink-0 mt-1" style={{ backgroundColor: color }} />
+              <div className="flex-1 min-w-0">
+                <h4 className="font-semibold text-foreground text-sm">{event.summary}</h4>
+                <p className="text-xs text-muted-foreground">
+                  {format(start, "EEEE, dd 'de' MMMM", { locale: ptBR })}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {format(start, "HH:mm")} – {format(end, "HH:mm")} ({differenceInMinutes(end, start)}min)
+                </p>
+              </div>
+            </div>
+
+            {event.location && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <MapPin size={12} className="shrink-0" />
+                <span className="truncate">{event.location}</span>
+              </div>
+            )}
+
             {meetLink && (
-              <a href={meetLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[11px] text-primary hover:underline">
-                <Video size={10} /> Google Meet
+              <a href={meetLink} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-2 text-xs text-primary hover:underline">
+                <Video size={12} /> Entrar no Google Meet
+              </a>
+            )}
+
+            {event.description && (
+              <p className="text-xs text-muted-foreground border-t border-border pt-2 line-clamp-3">
+                {event.description}
+              </p>
+            )}
+
+            {event.attendees && event.attendees.length > 0 && (
+              <div className="border-t border-border pt-2 space-y-1">
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Users size={11} /> {event.attendees.length} participante(s)
+                </div>
+                <div className="space-y-0.5">
+                  {event.attendees.slice(0, 5).map(a => (
+                    <div key={a.email} className="flex items-center gap-2 text-[11px]">
+                      <div className={cn(
+                        "w-1.5 h-1.5 rounded-full",
+                        a.responseStatus === "accepted" ? "bg-accent" :
+                        a.responseStatus === "declined" ? "bg-destructive" :
+                        a.responseStatus === "tentative" ? "bg-[hsl(38,92%,50%)]" : "bg-muted-foreground"
+                      )} />
+                      <span className="text-foreground truncate">{a.email}</span>
+                    </div>
+                  ))}
+                  {event.attendees.length > 5 && (
+                    <span className="text-[10px] text-muted-foreground">+{event.attendees.length - 5} mais</span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {event.htmlLink && (
+              <a href={event.htmlLink} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1 text-xs text-primary hover:underline pt-1">
+                <ExternalLink size={11} /> Abrir no Google Calendar
               </a>
             )}
           </div>
-          {event.attendees && event.attendees.length > 0 && (
-            <div className="flex items-center gap-1.5 flex-wrap mt-1">
-              <Users size={10} className="text-muted-foreground" />
-              {event.attendees.slice(0, 4).map(a => (
-                <Badge key={a.email} variant="outline" className={cn("text-[9px] h-4 px-1.5", getStatusColor(a.responseStatus))}>
-                  {a.email.split("@")[0]}
-                </Badge>
-              ))}
-              {event.attendees.length > 4 && <span className="text-[9px] text-muted-foreground">+{event.attendees.length - 4}</span>}
-            </div>
-          )}
+        </PopoverContent>
+      </Popover>
+    );
+  };
+
+  // Calculate overlapping events for a day
+  const getEventLayout = (dayEvents: CalendarEvent[]) => {
+    const sorted = [...dayEvents].sort((a, b) => {
+      const aStart = getEventStart(a).getTime();
+      const bStart = getEventStart(b).getTime();
+      if (aStart !== bStart) return aStart - bStart;
+      return getEventEnd(b).getTime() - getEventEnd(a).getTime();
+    });
+
+    const layout: { event: CalendarEvent; columnIndex: number; columnCount: number }[] = [];
+    const columns: CalendarEvent[][] = [];
+
+    for (const ev of sorted) {
+      const evStart = getEventStart(ev).getTime();
+      let placed = false;
+      for (let col = 0; col < columns.length; col++) {
+        const lastInCol = columns[col][columns[col].length - 1];
+        if (getEventEnd(lastInCol).getTime() <= evStart) {
+          columns[col].push(ev);
+          placed = true;
+          layout.push({ event: ev, columnIndex: col, columnCount: 0 });
+          break;
+        }
+      }
+      if (!placed) {
+        columns.push([ev]);
+        layout.push({ event: ev, columnIndex: columns.length - 1, columnCount: 0 });
+      }
+    }
+
+    // Set column count for each event
+    for (const item of layout) {
+      const evStart = getEventStart(item.event).getTime();
+      const evEnd = getEventEnd(item.event).getTime();
+      let maxCols = columns.length;
+      // Find overlapping group size
+      const overlapping = layout.filter(other => {
+        const oStart = getEventStart(other.event).getTime();
+        const oEnd = getEventEnd(other.event).getTime();
+        return oStart < evEnd && oEnd > evStart;
+      });
+      maxCols = Math.max(...overlapping.map(o => o.columnIndex + 1));
+      for (const o of overlapping) {
+        o.columnCount = Math.max(o.columnCount, maxCols);
+      }
+    }
+
+    return layout;
+  };
+
+  // ── Current time line ──
+  const CurrentTimeLine = () => {
+    const now = new Date();
+    const minutes = now.getHours() * 60 + now.getMinutes();
+    const firstHour = HOURS[0];
+    const top = ((minutes - firstHour * 60) / 60) * HOUR_HEIGHT;
+    if (top < 0 || top > HOURS.length * HOUR_HEIGHT) return null;
+
+    return (
+      <div className="absolute left-0 right-0 z-20 pointer-events-none" style={{ top: `${top}px` }}>
+        <div className="flex items-center">
+          <div className="w-2 h-2 rounded-full bg-destructive -ml-1" />
+          <div className="flex-1 h-[2px] bg-destructive" />
         </div>
-        {event.htmlLink && (
-          <a href={event.htmlLink} target="_blank" rel="noopener noreferrer" className="p-1 rounded text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-            <ExternalLink size={12} />
-          </a>
-        )}
       </div>
     );
   };
 
-  const EventChipSmall = ({ event }: { event: CalendarEvent }) => {
-    const start = getEventStart(event);
-    return (
-      <a href={event.htmlLink} target="_blank" rel="noopener noreferrer"
-        className="block text-[9px] leading-tight font-medium text-primary-foreground bg-primary/80 hover:bg-primary rounded px-1 py-0.5 truncate"
-        title={`${event.summary} · ${format(start, "HH:mm")}`}
-      >
-        {format(start, "HH:mm")} {event.summary}
-      </a>
-    );
-  };
-
-  const renderDayView = () => {
-    const dayEvents = filteredEvents.filter(e => isSameDay(getEventStart(e), currentDate));
-    return (
-      <div className="relative border border-border rounded-xl overflow-hidden bg-card">
-        <div className="overflow-y-auto max-h-[600px] scrollbar-none">
-          {HOURS.map(hour => {
-            const hourEvents = dayEvents.filter(e => getHours(getEventStart(e)) === hour);
-            return (
-              <div key={hour} className="flex border-b border-border/50 min-h-[60px]">
-                <div className="w-14 shrink-0 py-2 pr-2 text-right text-[10px] font-medium text-muted-foreground border-r border-border/50">
-                  {`${hour.toString().padStart(2, "0")}:00`}
-                </div>
-                <div className="flex-1 relative py-1 px-2 space-y-1">
-                  {hourEvents.map(ev => <EventChip key={ev.id} event={ev} />)}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  };
-
+  // ── WEEK VIEW (Google Calendar style) ──
   const renderWeekView = () => {
     const ws = startOfWeek(currentDate, { weekStartsOn: 0 });
     const days = eachDayOfInterval({ start: ws, end: addDays(ws, 6) });
     const today = new Date();
 
     return (
-      <div className="border border-border rounded-xl overflow-hidden bg-card">
-        <div className="grid grid-cols-[56px_repeat(7,1fr)] border-b border-border">
-          <div className="border-r border-border/50" />
+      <div className="border border-border rounded-lg overflow-hidden bg-card flex flex-col" style={{ height: "calc(100vh - 220px)", minHeight: "500px" }}>
+        {/* Header row */}
+        <div className="grid grid-cols-[48px_repeat(7,1fr)] border-b border-border shrink-0">
+          <div className="border-r border-border" />
           {days.map(day => (
-            <div key={day.toISOString()} className={cn("text-center py-2 border-r border-border/50 last:border-r-0", isSameDay(day, today) && "bg-primary/10")}>
-              <div className="text-[10px] uppercase text-muted-foreground font-medium">{format(day, "EEE", { locale: ptBR })}</div>
-              <div className={cn("text-sm font-bold", isSameDay(day, today) ? "text-primary" : "text-foreground")}>{format(day, "dd")}</div>
+            <div key={day.toISOString()} className={cn(
+              "text-center py-2 border-r border-border last:border-r-0",
+            )}>
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+                {format(day, "EEEEEE", { locale: ptBR })}
+              </div>
+              <div className={cn(
+                "text-xl font-light mt-0.5 inline-flex items-center justify-center",
+                isToday(day)
+                  ? "bg-primary text-primary-foreground w-9 h-9 rounded-full"
+                  : "text-foreground"
+              )}>
+                {format(day, "dd")}
+              </div>
             </div>
           ))}
         </div>
-        <div className="overflow-y-auto max-h-[520px] scrollbar-none">
-          {HOURS.map(hour => (
-            <div key={hour} className="grid grid-cols-[56px_repeat(7,1fr)] border-b border-border/50 min-h-[52px]">
-              <div className="py-1 pr-2 text-right text-[10px] font-medium text-muted-foreground border-r border-border/50">
-                {`${hour.toString().padStart(2, "0")}:00`}
-              </div>
-              {days.map(day => {
-                const cellEvents = filteredEvents.filter(e => {
-                  const s = getEventStart(e);
-                  return isSameDay(s, day) && getHours(s) === hour;
-                });
-                return (
-                  <div key={day.toISOString()} className="border-r border-border/50 last:border-r-0 px-0.5 py-0.5">
-                    {cellEvents.map(ev => <EventChipSmall key={ev.id} event={ev} />)}
-                  </div>
-                );
-              })}
+
+        {/* Scrollable time grid */}
+        <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-none">
+          <div className="grid grid-cols-[48px_repeat(7,1fr)] relative" style={{ height: `${HOURS.length * HOUR_HEIGHT}px` }}>
+            {/* Hour labels */}
+            <div className="relative border-r border-border">
+              {HOURS.map(hour => (
+                <div key={hour} className="absolute right-2 -translate-y-1/2 text-[10px] text-muted-foreground font-medium"
+                  style={{ top: `${(hour - HOURS[0]) * HOUR_HEIGHT}px` }}>
+                  {`${hour.toString().padStart(2, "0")}:00`}
+                </div>
+              ))}
             </div>
-          ))}
+
+            {/* Day columns */}
+            {days.map((day, dayIdx) => {
+              const dayEvents = filteredEvents.filter(e => {
+                const s = getEventStart(e);
+                return isSameDay(s, day);
+              });
+              const layout = getEventLayout(dayEvents);
+
+              return (
+                <div key={day.toISOString()} className="relative border-r border-border last:border-r-0">
+                  {/* Hour grid lines */}
+                  {HOURS.map(hour => (
+                    <div key={hour} className="absolute left-0 right-0 border-t border-border/40"
+                      style={{ top: `${(hour - HOURS[0]) * HOUR_HEIGHT}px` }}>
+                      {/* Half-hour line */}
+                      <div className="absolute left-0 right-0 border-t border-border/20"
+                        style={{ top: `${HOUR_HEIGHT / 2}px` }} />
+                    </div>
+                  ))}
+
+                  {/* Events */}
+                  <div className="absolute inset-0 mx-0.5">
+                    {layout.map(({ event, columnIndex, columnCount }) => (
+                      <EventBlock key={event.id} event={event} columnCount={columnCount} columnIndex={columnIndex} />
+                    ))}
+                  </div>
+
+                  {/* Current time indicator */}
+                  {isToday(day) && <CurrentTimeLine />}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     );
   };
 
+  // ── DAY VIEW ──
+  const renderDayView = () => {
+    const dayEvents = filteredEvents.filter(e => isSameDay(getEventStart(e), currentDate));
+    const layout = getEventLayout(dayEvents);
+
+    return (
+      <div className="border border-border rounded-lg overflow-hidden bg-card flex flex-col" style={{ height: "calc(100vh - 220px)", minHeight: "500px" }}>
+        <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-none">
+          <div className="grid grid-cols-[48px_1fr] relative" style={{ height: `${HOURS.length * HOUR_HEIGHT}px` }}>
+            {/* Hour labels */}
+            <div className="relative border-r border-border">
+              {HOURS.map(hour => (
+                <div key={hour} className="absolute right-2 -translate-y-1/2 text-[10px] text-muted-foreground font-medium"
+                  style={{ top: `${(hour - HOURS[0]) * HOUR_HEIGHT}px` }}>
+                  {`${hour.toString().padStart(2, "0")}:00`}
+                </div>
+              ))}
+            </div>
+
+            {/* Day column */}
+            <div className="relative">
+              {HOURS.map(hour => (
+                <div key={hour} className="absolute left-0 right-0 border-t border-border/40"
+                  style={{ top: `${(hour - HOURS[0]) * HOUR_HEIGHT}px` }}>
+                  <div className="absolute left-0 right-0 border-t border-border/20"
+                    style={{ top: `${HOUR_HEIGHT / 2}px` }} />
+                </div>
+              ))}
+
+              <div className="absolute inset-0 mx-1">
+                {layout.map(({ event, columnIndex, columnCount }) => (
+                  <EventBlock key={event.id} event={event} columnCount={columnCount} columnIndex={columnIndex} />
+                ))}
+              </div>
+
+              {isToday(currentDate) && <CurrentTimeLine />}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ── LIST VIEW ──
   const renderListView = () => {
     const grouped = new Map<string, CalendarEvent[]>();
     filteredEvents
@@ -515,33 +732,69 @@ export function GoogleCalendarPanel({ teamMemberId, memberRole }: GoogleCalendar
 
     if (grouped.size === 0) {
       return (
-        <Card className="border-dashed">
-          <CardContent className="py-12 text-center">
-            <CalendarIcon className="mx-auto text-muted-foreground mb-3" size={28} />
-            <p className="text-sm text-muted-foreground">Nenhum evento encontrado</p>
-          </CardContent>
-        </Card>
+        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+          <CalendarIcon size={32} className="mb-3 opacity-40" />
+          <p className="text-sm">Nenhum evento encontrado</p>
+        </div>
       );
     }
 
     return (
-      <div className="space-y-4">
+      <div className="space-y-1" style={{ height: "calc(100vh - 220px)", minHeight: "500px", overflowY: "auto" }}>
         {Array.from(grouped.entries()).map(([dateKey, dayEvents]) => (
-          <div key={dateKey}>
-            <div className="flex items-center gap-2 mb-2">
-              <div className={cn(
-                "flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold",
-                isSameDay(parseISO(dateKey), new Date()) ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
-              )}>
-                {format(parseISO(dateKey), "dd")}
+          <div key={dateKey} className="border-b border-border last:border-b-0">
+            <div className="grid grid-cols-[80px_1fr] gap-0">
+              <div className="py-3 px-2 text-center">
+                <div className="text-[10px] uppercase text-muted-foreground font-medium">
+                  {format(parseISO(dateKey), "EEE", { locale: ptBR })}
+                </div>
+                <div className={cn(
+                  "text-2xl font-light inline-flex items-center justify-center",
+                  isToday(parseISO(dateKey))
+                    ? "bg-primary text-primary-foreground w-10 h-10 rounded-full"
+                    : "text-foreground"
+                )}>
+                  {format(parseISO(dateKey), "dd")}
+                </div>
               </div>
-              <div>
-                <p className="text-xs font-semibold text-foreground capitalize">{format(parseISO(dateKey), "EEEE", { locale: ptBR })}</p>
-                <p className="text-[10px] text-muted-foreground">{format(parseISO(dateKey), "MMMM yyyy", { locale: ptBR })}</p>
+              <div className="py-2 space-y-0.5">
+                {dayEvents.map(ev => {
+                  const start = getEventStart(ev);
+                  const end = getEventEnd(ev);
+                  const color = getEventColor(ev.id);
+                  const meetLink = ev.hangoutLink || ev.conferenceData?.entryPoints?.find(e => e.entryPointType === "video")?.uri;
+
+                  return (
+                    <div key={ev.id} className="flex items-start gap-3 py-2 px-3 rounded-md hover:bg-secondary/50 transition-colors group cursor-default">
+                      <div className="w-2.5 h-2.5 rounded-sm shrink-0 mt-1" style={{ backgroundColor: color }} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-foreground truncate">{ev.summary}</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                          <span>{format(start, "HH:mm")} – {format(end, "HH:mm")}</span>
+                          {ev.location && (
+                            <span className="flex items-center gap-1 truncate">
+                              <MapPin size={10} /> {ev.location}
+                            </span>
+                          )}
+                          {meetLink && (
+                            <a href={meetLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-primary hover:underline">
+                              <Video size={10} /> Meet
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                      {ev.htmlLink && (
+                        <a href={ev.htmlLink} target="_blank" rel="noopener noreferrer"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary p-1">
+                          <ExternalLink size={12} />
+                        </a>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            </div>
-            <div className="space-y-1.5 ml-11">
-              {dayEvents.map(ev => <EventChip key={ev.id} event={ev} />)}
             </div>
           </div>
         ))}
@@ -550,28 +803,22 @@ export function GoogleCalendarPanel({ teamMemberId, memberRole }: GoogleCalendar
   };
 
   return (
-    <div className="space-y-3">
-      {/* ── Closer Selector ── */}
-      <div className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card">
-        <UserIcon size={16} className="text-primary shrink-0" />
-        <div className="flex-1 min-w-0">
-          <p className="text-[10px] text-muted-foreground font-medium mb-1">
-            {isSdr ? "Selecione a agenda do closer" : "Sua agenda"}
-          </p>
+    <div className="flex flex-col h-full">
+      {/* ── Top Header ── */}
+      <div className="flex items-center justify-between gap-3 px-1 pb-3">
+        <div className="flex items-center gap-3">
+          {/* Calendar selector */}
           <Select value={selectedCloserId || ""} onValueChange={setSelectedCloserId}>
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue placeholder="Selecione um closer..." />
+            <SelectTrigger className="h-9 w-[220px] text-sm border-border bg-card">
+              <SelectValue placeholder="Selecione..." />
             </SelectTrigger>
             <SelectContent>
               {connectedClosersList.map(c => (
                 <SelectItem key={c.memberId} value={c.memberId}>
                   <div className="flex items-center gap-2">
                     <span>{c.memberName}</span>
-                    {c.calendarEmail && (
-                      <span className="text-[10px] text-muted-foreground">({c.calendarEmail})</span>
-                    )}
                     {c.memberId === teamMemberId && (
-                      <Badge variant="outline" className="text-[8px] h-3.5 px-1">Você</Badge>
+                      <Badge variant="outline" className="text-[9px] h-4 px-1">Você</Badge>
                     )}
                   </div>
                 </SelectItem>
@@ -579,27 +826,13 @@ export function GoogleCalendarPanel({ teamMemberId, memberRole }: GoogleCalendar
             </SelectContent>
           </Select>
         </div>
-      </div>
 
-      {/* ── Top bar ── */}
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-2">
-          <CalendarIcon size={18} className="text-primary" />
-          <div>
-            <h3 className="text-sm font-bold text-foreground leading-none">
-              Agenda de {selectedCloser?.memberName || "..."}
-            </h3>
-            {calendarEmail && <p className="text-[10px] text-muted-foreground">{calendarEmail}</p>}
-          </div>
-        </div>
         <div className="flex items-center gap-1.5">
-          {/* Disconnect button — only for own calendar */}
           {isCloser && selectedCloser?.memberId === teamMemberId && (
             <DisconnectCalendarButton onDisconnected={() => {
               setConnected(false);
               setCalendarEmail(null);
               setEvents([]);
-              // Refresh closers list
               supabase.functions.invoke("google-calendar-events", {
                 body: { action: "list_connected_closers" },
               }).then(({ data }) => {
@@ -607,18 +840,18 @@ export function GoogleCalendarPanel({ teamMemberId, memberRole }: GoogleCalendar
               });
             }} />
           )}
-          <Button variant="ghost" size="sm" onClick={fetchEvents} className="h-7 w-7 p-0" title="Atualizar">
-            <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={fetchEvents} title="Atualizar">
+            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
           </Button>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button size="sm" className="h-7 gap-1 text-xs px-2">
-                <Plus size={12} /> Novo
+              <Button size="sm" className="h-8 gap-1.5 rounded-full px-4">
+                <Plus size={14} /> Novo
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-md max-h-[90vh]">
               <DialogHeader>
-                <DialogTitle>Criar Evento — {selectedCloser?.memberName}</DialogTitle>
+                <DialogTitle>Novo evento — {selectedCloser?.memberName}</DialogTitle>
               </DialogHeader>
               <ScrollArea className="max-h-[70vh] pr-3">
                 <div className="space-y-3">
@@ -636,16 +869,15 @@ export function GoogleCalendarPanel({ teamMemberId, memberRole }: GoogleCalendar
                   </div>
                   <div>
                     <Label className="text-xs">Descrição</Label>
-                    <Textarea value={newDescription} onChange={e => setNewDescription(e.target.value)} placeholder="Detalhes da reunião, contexto do lead..." rows={2} />
+                    <Textarea value={newDescription} onChange={e => setNewDescription(e.target.value)} placeholder="Detalhes..." rows={2} />
                   </div>
 
-                  {/* Team member selector - only closers */}
                   <div className="rounded-lg border border-border p-3 space-y-2">
                     <div className="flex items-center gap-2">
                       <UserPlus size={14} className="text-primary" />
-                      <Label className="text-xs font-semibold">Notificar closers do agendamento</Label>
+                      <Label className="text-xs font-semibold">Notificar closers</Label>
                     </div>
-                    <div className="grid grid-cols-2 gap-1.5 max-h-[120px] overflow-y-auto scrollbar-none">
+                    <div className="grid grid-cols-2 gap-1.5 max-h-[100px] overflow-y-auto scrollbar-none">
                       {connectedClosersList.map(m => (
                         <label key={m.memberId} className={cn(
                           "flex items-center gap-2 p-1.5 rounded-md cursor-pointer transition-colors text-xs",
@@ -666,11 +898,10 @@ export function GoogleCalendarPanel({ teamMemberId, memberRole }: GoogleCalendar
                     </div>
                   </div>
 
-                  {/* Lead info */}
                   <div className="rounded-lg border border-border p-3 space-y-2">
                     <div className="flex items-center gap-2">
                       <Phone size={14} className="text-accent" />
-                      <Label className="text-xs font-semibold">Dados do Lead (WhatsApp)</Label>
+                      <Label className="text-xs font-semibold">Lead (WhatsApp)</Label>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
@@ -685,30 +916,28 @@ export function GoogleCalendarPanel({ teamMemberId, memberRole }: GoogleCalendar
                   </div>
 
                   <div>
-                    <Label className="text-xs">Convidados (e-mails separados por vírgula)</Label>
+                    <Label className="text-xs">Convidados (e-mails)</Label>
                     <Input value={newAttendees} onChange={e => setNewAttendees(e.target.value)} placeholder="joao@email.com, maria@email.com" />
                   </div>
 
-                  {/* Google Meet toggle */}
                   <div className="flex items-center justify-between rounded-lg border border-border p-3">
                     <div className="flex items-center gap-2">
                       <Video size={16} className="text-primary" />
                       <div>
                         <p className="text-xs font-medium text-foreground">Google Meet</p>
-                        <p className="text-[10px] text-muted-foreground">Gerar link de videoconferência</p>
+                        <p className="text-[10px] text-muted-foreground">Gerar link</p>
                       </div>
                     </div>
                     <Switch checked={addMeet} onCheckedChange={setAddMeet} />
                   </div>
 
-                  {/* WhatsApp Reminders */}
                   <div className="rounded-lg border border-border p-3 space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Bell size={14} className="text-[hsl(38,92%,50%)]" />
                         <div>
                           <p className="text-xs font-medium text-foreground">Lembretes WhatsApp</p>
-                          <p className="text-[10px] text-muted-foreground">Anti-noshow com IA · horário comercial</p>
+                          <p className="text-[10px] text-muted-foreground">Anti-noshow com IA</p>
                         </div>
                       </div>
                       <Switch checked={enableReminders} onCheckedChange={setEnableReminders} />
@@ -749,63 +978,74 @@ export function GoogleCalendarPanel({ teamMemberId, memberRole }: GoogleCalendar
         </div>
       </div>
 
-      {/* Navigation + View toggle */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1">
-          <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={goToday}>Hoje</Button>
-          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => navigate(-1)}>
-            <ChevronLeft size={14} />
+      {/* ── Navigation bar ── */}
+      <div className="flex items-center justify-between gap-2 px-1 pb-3">
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="h-8 px-3 text-xs rounded-full" onClick={goToday}>
+            Hoje
           </Button>
-          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => navigate(1)}>
-            <ChevronRight size={14} />
-          </Button>
-          <span className="text-xs font-semibold text-foreground ml-1 capitalize">{dateLabel()}</span>
-        </div>
-        <div className="flex items-center gap-0.5 bg-secondary rounded-lg p-0.5">
-          {([
-            { mode: "day" as ViewMode, icon: LayoutGrid, label: "Dia" },
-            { mode: "week" as ViewMode, icon: Columns, label: "Semana" },
-            { mode: "list" as ViewMode, icon: List, label: "Lista" },
-          ]).map(v => (
-            <Button key={v.mode} variant="ghost" size="sm"
-              className={cn(
-                "h-6 px-2 text-[10px] gap-1 rounded-md",
-                viewMode === v.mode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-              )}
-              onClick={() => setViewMode(v.mode)}
-            >
-              <v.icon size={11} />
-              <span className="hidden sm:inline">{v.label}</span>
+          <div className="flex items-center">
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(-1)}>
+              <ChevronLeft size={16} />
             </Button>
-          ))}
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(1)}>
+              <ChevronRight size={16} />
+            </Button>
+          </div>
+          <h2 className="text-lg font-normal text-foreground capitalize">
+            {dateLabel()}
+          </h2>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {/* Search */}
+          <div className="relative">
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Buscar..."
+              className="h-8 w-40 pl-8 text-xs bg-card border-border rounded-full focus:w-56 transition-all" />
+          </div>
+
+          {/* View toggle */}
+          <div className="flex items-center bg-secondary rounded-lg p-0.5">
+            {([
+              { mode: "day" as ViewMode, icon: LayoutGrid, label: "Dia" },
+              { mode: "week" as ViewMode, icon: Columns, label: "Semana" },
+              { mode: "list" as ViewMode, icon: List, label: "Lista" },
+            ]).map(v => (
+              <Button key={v.mode} variant="ghost" size="sm"
+                className={cn(
+                  "h-7 px-2.5 text-xs gap-1.5 rounded-md",
+                  viewMode === v.mode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                )}
+                onClick={() => setViewMode(v.mode)}
+              >
+                <v.icon size={12} />
+                {v.label}
+              </Button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-        <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-          placeholder="Buscar evento, local ou convidado..." className="h-8 pl-8 text-xs bg-secondary border-border" />
-      </div>
-
-      {/* Content */}
+      {/* ── Content ── */}
       {loading ? (
-        <div className="flex items-center justify-center py-16">
+        <div className="flex items-center justify-center py-16 flex-1">
           <Loader2 className="animate-spin text-primary" size={24} />
         </div>
       ) : (
-        <>
+        <div className="flex-1">
           {viewMode === "day" && renderDayView()}
           {viewMode === "week" && renderWeekView()}
           {viewMode === "list" && renderListView()}
-        </>
+        </div>
       )}
 
-      {/* Summary */}
+      {/* ── Footer ── */}
       {!loading && (
-        <div className="flex items-center justify-between text-[10px] text-muted-foreground px-1">
+        <div className="flex items-center justify-between text-[10px] text-muted-foreground px-1 pt-2">
           <span>{filteredEvents.length} evento(s)</span>
-          <span>{dateLabel()}</span>
+          <span className="capitalize">{dateLabel()}</span>
         </div>
       )}
     </div>
@@ -822,12 +1062,10 @@ function DisconnectCalendarButton({ onDisconnected }: { onDisconnected: () => vo
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
-
       const { error } = await supabase
         .from("google_calendar_tokens")
         .delete()
         .eq("user_id", user.id);
-
       if (error) throw error;
       toast.success("Google Calendar desconectado!");
       onDisconnected();
@@ -844,9 +1082,8 @@ function DisconnectCalendarButton({ onDisconnected }: { onDisconnected: () => vo
       <Button
         variant="ghost"
         size="sm"
-        className="h-7 gap-1 text-xs px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+        className="h-8 gap-1 text-xs px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
         onClick={() => setConfirm(true)}
-        title="Desconectar Google Calendar"
       >
         <X size={12} /> Desconectar
       </Button>
@@ -856,21 +1093,10 @@ function DisconnectCalendarButton({ onDisconnected }: { onDisconnected: () => vo
   return (
     <div className="flex items-center gap-1">
       <span className="text-[10px] text-destructive">Tem certeza?</span>
-      <Button
-        variant="destructive"
-        size="sm"
-        className="h-6 text-[10px] px-2"
-        onClick={handleDisconnect}
-        disabled={loading}
-      >
+      <Button variant="destructive" size="sm" className="h-6 text-[10px] px-2" onClick={handleDisconnect} disabled={loading}>
         {loading ? <Loader2 size={10} className="animate-spin" /> : "Sim"}
       </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        className="h-6 text-[10px] px-2"
-        onClick={() => setConfirm(false)}
-      >
+      <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2" onClick={() => setConfirm(false)}>
         Não
       </Button>
     </div>
