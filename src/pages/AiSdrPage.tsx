@@ -49,6 +49,9 @@ interface AiSdrConfig {
   feature_time_escalation: boolean;
   feature_tts_reply: boolean;
   feature_calendar_auto: boolean;
+  feature_smart_delay: boolean;
+  smart_delay_min_seconds: number;
+  smart_delay_max_seconds: number;
   tts_voice_id: string;
   reengagement_days: number;
   escalation_hours: number;
