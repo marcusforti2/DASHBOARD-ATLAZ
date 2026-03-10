@@ -119,7 +119,7 @@ const DEFAULT_CONFIG: AiSdrConfig = {
   max_messages_before_handoff: 10,
   business_hours_only: false,
   business_hours_start: 8,
-  business_hours_end: 19,
+  business_hours_end: 21,
   human_takeover_mode: true,
   human_takeover_minutes: 60,
   prompt_context: "",
