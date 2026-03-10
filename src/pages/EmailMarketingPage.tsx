@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Plus, Loader2, Mail, Workflow, Sparkles, Play, Pause, Trash2, Edit3,
   LayoutTemplate, Zap, Clock, Users, TrendingUp, Copy, History, CheckCircle2,
-  XCircle, Send,
+  XCircle, Send, Upload, FileText, UserPlus, X,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
