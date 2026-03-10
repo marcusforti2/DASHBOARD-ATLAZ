@@ -212,7 +212,7 @@ serve(async (req) => {
       }
     }
 
-    // CONCURRENCY GUARD
+    // CONCURRENCY GUARD — also acts as distributed lock
     const guardWindow = isProactive ? 5 * 60 * 1000 : 15 * 1000;
     const { data: recentAgentMsg } = await supabase
       .from("wa_messages")
@@ -229,6 +229,31 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // INSERT PROCESSING LOCK — prevents duplicate AI calls from parallel webhooks
+    // Insert a placeholder message immediately so any concurrent call will see it in the guard above
+    const lockText = "__ai_processing__";
+    const { data: lockMsg, error: lockErr } = await supabase
+      .from("wa_messages")
+      .insert({
+        conversation_id,
+        instance_id,
+        sender: "agent",
+        agent_name: "SDR IA 🤖",
+        text: lockText,
+      })
+      .select("id")
+      .single();
+
+    if (lockErr) {
+      console.error("[ai-sdr] Failed to insert processing lock:", lockErr);
+      return new Response(JSON.stringify({ error: "lock_failed" }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const lockId = lockMsg.id;
+    console.log("[ai-sdr] Processing lock acquired:", lockId);
 
     // Get conversation history
     const { data: messages } = await supabase
