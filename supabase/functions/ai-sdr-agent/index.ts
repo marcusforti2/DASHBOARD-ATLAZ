@@ -329,7 +329,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const lockId = lockMsg.id;
+    lockId = lockMsg.id;
     console.log("[ai-sdr] Processing lock acquired:", lockId);
 
     // Get conversation history
