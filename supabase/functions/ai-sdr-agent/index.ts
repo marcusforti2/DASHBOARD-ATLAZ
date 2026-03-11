@@ -269,12 +269,14 @@ Deno.serve(async (req) => {
     if (features.rate_limit && !isProactive && !force && !isExempt) {
       const rateLimitPerHour = config.rate_limit_per_hour || 5;
       const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      // BUG FIX #6: Exclude lock messages (__ai_processing__) from rate limit count
       const { count: recentCount } = await supabase
         .from("wa_messages")
         .select("*", { count: "exact", head: true })
         .eq("conversation_id", conversation_id)
         .eq("sender", "agent")
         .eq("agent_name", "SDR IA 🤖")
+        .neq("text", "__ai_processing__")
         .gte("created_at", oneHourAgo);
       
       if ((recentCount || 0) >= rateLimitPerHour) {
