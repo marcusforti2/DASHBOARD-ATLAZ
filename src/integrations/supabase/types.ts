@@ -1546,6 +1546,7 @@ export type Database = {
           respondent_email: string | null
           respondent_name: string | null
           respondent_phone: string | null
+          session_token: string | null
           status: string
           test_link_id: string | null
           test_type: string
@@ -1559,6 +1560,7 @@ export type Database = {
           respondent_email?: string | null
           respondent_name?: string | null
           respondent_phone?: string | null
+          session_token?: string | null
           status?: string
           test_link_id?: string | null
           test_type?: string
@@ -1572,6 +1574,7 @@ export type Database = {
           respondent_email?: string | null
           respondent_name?: string | null
           respondent_phone?: string | null
+          session_token?: string | null
           status?: string
           test_link_id?: string | null
           test_type?: string
@@ -2495,6 +2498,7 @@ export type Database = {
           respondent_email: string | null
           respondent_name: string | null
           respondent_phone: string | null
+          session_token: string | null
           status: string
           test_link_id: string | null
           test_type: string
