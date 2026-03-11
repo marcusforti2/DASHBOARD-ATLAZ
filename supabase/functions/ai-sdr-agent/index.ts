@@ -560,7 +560,10 @@ Deno.serve(async (req) => {
 4. Exemplo: "Consigo te ligar hoje às 14:30, topa? Se preferir, amanhã às 10:00 também tenho disponível."
 5. NÃO ofereça horários que NÃO estão na lista acima
 6. Se não houver horário hoje, ofereça o mais cedo de amanhã
-7. Quando o lead confirmar, retorne "meeting_confirmed": true e "meeting_datetime" no formato ISO (YYYY-MM-DDTHH:mm:00-03:00)`;
+7. ANTES de confirmar a reunião, PEÇA O E-MAIL do lead: "Me passa teu e-mail pra eu te mandar o convite com o link da call?"
+8. Só retorne "meeting_confirmed": true DEPOIS que o lead confirmar o horário E fornecer o e-mail
+9. Retorne "meeting_datetime" no formato ISO (YYYY-MM-DDTHH:mm:00-03:00) e "lead_email" com o e-mail informado
+10. Se o lead não quiser dar e-mail, tudo bem — confirme sem e-mail mesmo`;
 
               calendarContext = agendaText;
             }
