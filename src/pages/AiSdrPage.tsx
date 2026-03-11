@@ -64,6 +64,10 @@ interface AiSdrConfig {
   daily_summary_admin_ids: string[];
   lead_sources: LeadSource[];
   score_thresholds: { a_min: number; b_min: number };
+  organic_mode_enabled: boolean;
+  organic_prompt: string;
+  organic_tone: string;
+  organic_name: string;
 }
 
 interface LeadSourceAutomation {
@@ -169,6 +173,10 @@ const DEFAULT_CONFIG: AiSdrConfig = {
     "Já tem processo comercial estruturado?",
   ],
   score_thresholds: { a_min: 80, b_min: 50 },
+  organic_mode_enabled: true,
+  organic_prompt: "O gestor está em imersão hoje, 100% indisponível. Quando alguém mandar msg:\n1. Responda de forma curta e casual (tipo 1 frase só no começo)\n2. Pergunte do que se trata\n3. Anote o assunto e quem é\n4. Fale que vai ver quem cuida disso e retorna depois\n5. Use abreviações: hj, vc, blz, tb, msg\n6. NÃO prometa nada, só anote\n7. Se insistir, diga que ele tá em evento o dia todo e volta amanhã",
+  organic_tone: "casual e amigável",
+  organic_name: "Bia",
 };
 
 const TONES = [
