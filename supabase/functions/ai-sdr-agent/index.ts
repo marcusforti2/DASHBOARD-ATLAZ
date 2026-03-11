@@ -763,10 +763,66 @@ REGRA ANTI-ECO (CRÍTICA — PRIORIDADE MÁXIMA):
 REGRA DE RITMO: Se a conversa JÁ começou (tem msgs anteriores), NUNCA mande mais de 1-2 msgs. Espere resposta.
 `;
 
-    // ===== BUILD SYSTEM PROMPT — branch between SDR mode and Organic/Receptive mode =====
+    // ===== CAMPAIGN MODE DETECTION =====
+    // Check if incoming message matches an active campaign
+    let activeCampaign: any = null;
+    const campaigns: any[] = config.campaigns || [];
+    if (!isProactive && incoming_message && campaigns.length > 0) {
+      const msgLower = (incoming_message || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const now = new Date();
+      for (const campaign of campaigns) {
+        if (!campaign.active) continue;
+        if (campaign.expires_at && new Date(campaign.expires_at) < now) continue;
+        const keywords: string[] = campaign.keywords || [];
+        const matches = keywords.some(kw => {
+          const kwNorm = kw.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          return msgLower.includes(kwNorm);
+        });
+        if (matches) {
+          activeCampaign = campaign;
+          console.log(`[ai-sdr] 🎯 Campaign matched: ${campaign.id} (keywords: ${keywords.join(", ")})`);
+          break;
+        }
+      }
+    }
+
+    // ===== BUILD SYSTEM PROMPT — branch between Campaign, SDR and Organic/Receptive mode =====
     let systemPrompt: string;
 
-    if (isOrganicContact && organicModeEnabled) {
+    if (activeCampaign) {
+      // ===== CAMPAIGN MODE =====
+      console.log(`[ai-sdr] 🎯 Entering campaign mode: ${activeCampaign.id}`);
+      const campaignPrompt = activeCampaign.prompt || "";
+      systemPrompt = `${identityLine}
+${randomSeed}
+
+MODO CAMPANHA ATIVO: ${activeCampaign.id}
+${campaignPrompt}
+
+HISTÓRICO DA CONVERSA (use para saber em qual etapa do engajamento está):
+${conversationText}
+
+ETIQUETAS ATUAIS: ${currentTagNames.length > 0 ? currentTagNames.join(", ") : "Nenhuma"}
+
+REGRAS DE FORMATO:
+1. QUEBRE respostas em mensagens curtas separadas por "|||" — MÁXIMO 2 partes
+2. Cada parte: NO MÁXIMO 2 linhas
+3. Pareça humano — msgs curtas como no WhatsApp
+4. NUNCA revele que é IA
+5. Use formatação WhatsApp: *negrito*, _itálico_
+
+Responda EXATAMENTE neste formato JSON:
+{
+  "reply": "Resposta|||Segunda parte (opcional)",
+  "new_lead_status": "em_contato",
+  "add_tags": ["${activeCampaign.tag_name || ""}"],
+  "remove_tags": [],
+  "should_handoff": false,
+  "handoff_reason": "",
+  "schedule_follow_up": false,
+  "activity_note": "Campanha ${activeCampaign.id}: engajamento com lead"
+}`;
+    } else if (isOrganicContact && organicModeEnabled) {
       // ===== ORGANIC / RECEPTIVE ASSISTANT MODE =====
       const organicPrompt = config.organic_prompt || "";
       // IMPORTANT: In organic mode, the AI is ALWAYS an assistant (e.g. "Bia"), NEVER the closer themselves
