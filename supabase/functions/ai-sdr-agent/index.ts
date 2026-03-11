@@ -189,10 +189,13 @@ Deno.serve(async (req) => {
             const tomorrow = new Date(nextMorning.getTime() + 24 * 60 * 60 * 1000);
             const tBrtDay = new Date(tomorrow.getTime() - 3 * 60 * 60 * 1000).getUTCDay();
             let target = tomorrow;
-            while (true) {
+            // BUG FIX #4: Add max iterations to prevent infinite loop
+            let loopGuard = 0;
+            while (loopGuard < 10) {
               const d = new Date(target.getTime() - 3 * 60 * 60 * 1000).getUTCDay();
               if (d >= 1 && d <= 5) break;
               target = new Date(target.getTime() + 24 * 60 * 60 * 1000);
+              loopGuard++;
             }
             // Set to startHour+1 BRT (e.g. 9am) = startHour+1+3 UTC
             const remindAtUtc = new Date(target);
