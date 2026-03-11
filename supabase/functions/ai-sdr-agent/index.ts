@@ -1009,6 +1009,13 @@ Responda EXATAMENTE neste formato JSON:
         if (matched) finalSourceContext = matched.context || "";
       }
 
+      // FIX P5: Replace [NOME_DO_CLOSER] placeholder with actual closer name
+      if (finalSourceContext && closerName) {
+        finalSourceContext = finalSourceContext
+          .replace(/\[NOME_DO_CLOSER\]/g, closerName)
+          .replace(/\[nome_do_closer\]/gi, closerName);
+      }
+
       // Enrich with LinkedIn data via Piloterr for proactive triggers
       let proactiveLinkedinContext = linkedinContext; // may already be set from pipedrive_persons
       if (!proactiveLinkedinContext && linkedinUrl) {
