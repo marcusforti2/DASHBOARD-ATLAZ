@@ -560,7 +560,10 @@ Deno.serve(async (req) => {
 4. Exemplo: "Consigo te ligar hoje às 14:30, topa? Se preferir, amanhã às 10:00 também tenho disponível."
 5. NÃO ofereça horários que NÃO estão na lista acima
 6. Se não houver horário hoje, ofereça o mais cedo de amanhã
-7. Quando o lead confirmar, retorne "meeting_confirmed": true e "meeting_datetime" no formato ISO (YYYY-MM-DDTHH:mm:00-03:00)`;
+7. ANTES de confirmar a reunião, PEÇA O E-MAIL do lead: "Me passa teu e-mail pra eu te mandar o convite com o link da call?"
+8. Só retorne "meeting_confirmed": true DEPOIS que o lead confirmar o horário E fornecer o e-mail
+9. Retorne "meeting_datetime" no formato ISO (YYYY-MM-DDTHH:mm:00-03:00) e "lead_email" com o e-mail informado
+10. Se o lead não quiser dar e-mail, tudo bem — confirme sem e-mail mesmo`;
 
               calendarContext = agendaText;
             }
@@ -751,7 +754,12 @@ VARIAÇÃO PARA ESTA MENSAGEM:
 - Fechamento: ${pickRandom(closingStyles)}
 - Seed: ${Math.random().toString(36).substring(2, 8)}
 
-REGRA ANTI-ECO: NÃO repita saudação se já mandou uma nesta conversa. NÃO mande "Bom dia" duas vezes. Analise as mensagens anteriores e evite repetir estrutura, palavras de abertura e emojis.
+REGRA ANTI-ECO (CRÍTICA — PRIORIDADE MÁXIMA):
+- ANTES de gerar qualquer resposta, RELEIA o histórico e identifique TODAS as saudações que você já usou (Bom dia, Boa tarde, Fala, Opa, etc.)
+- NUNCA repita uma saudação que já apareceu no histórico — nem no INÍCIO nem no FINAL da mensagem
+- Se a conversa já tem 3+ mensagens, NÃO use saudação nenhuma — vá direto ao ponto
+- ESPECIALMENTE ao confirmar reunião/ligação: NÃO comece com "Bom dia" ou "Boa tarde" — use "Show!", "Perfeito!", "Fechado!" etc.
+- Se a última mensagem JÁ teve saudação, a próxima OBRIGATORIAMENTE começa sem saudação
 REGRA DE RITMO: Se a conversa JÁ começou (tem msgs anteriores), NUNCA mande mais de 1-2 msgs. Espere resposta.
 `;
 
@@ -928,7 +936,7 @@ REGRAS DE FORMATO (MUITO IMPORTANTE — RESPEITE O MASTER PROMPT):
 2. Cada parte deve ter NO MÁXIMO 2 frases curtas
 3. Pareça humano: uma pessoa real no WhatsApp manda 1-2 msgs curtas, não textão
 4. Exemplo: "Fala João! Tudo certo?|||Posso te fazer uma pergunta rápida?"
-5. Use NO MÁXIMO 2 mensagens separadas por "|||" — NUNCA mais que 2
+5. Use NO MÁXIMO 2 mensagens separadas por "|||" — NUNCA mais que 2. NUNCA 3 ou mais partes.
 6. NUNCA invente informações sobre produtos/serviços que não estão no contexto
 7. Use formatação WhatsApp: *negrito*, _itálico_
 8. Use emojis com moderação
@@ -967,7 +975,7 @@ ATIVIDADES NO CRM:
 
 Responda EXATAMENTE neste formato JSON:
 {
-  "reply": "Primeira parte|||Segunda parte|||Terceira parte",
+  "reply": "Primeira parte|||Segunda parte (MÁXIMO 2 partes separadas por |||)",
   "new_lead_status": "novo" | "em_contato" | "qualificado" | "agendado" | "reuniao" | "perdido" | null,
   "lead_score": "A" | "B" | "C" | null,
   "lead_score_value": 0-100,
@@ -991,7 +999,8 @@ Responda EXATAMENTE neste formato JSON:
   "urgent_call": false,
   "schedule_follow_up": false,
   "follow_up_message": "",
-  "activity_note": "Resumo curto da interação"${features.sentiment ? ',\n  "sentiment": "positivo" | "neutro" | "negativo" | "urgente"' : ""}${features.language_detection ? ',\n  "detected_language": "pt" | "en" | "es" | "other"' : ""}${features.linkedin_lookup ? ',\n  "linkedin_lookup": false,\n  "linkedin_query": ""' : ""}
+  "activity_note": "Resumo curto da interação",
+  "lead_email": ""${features.sentiment ? ',\n  "sentiment": "positivo" | "neutro" | "negativo" | "urgente"' : ""}${features.language_detection ? ',\n  "detected_language": "pt" | "en" | "es" | "other"' : ""}${features.linkedin_lookup ? ',\n  "linkedin_lookup": false,\n  "linkedin_query": ""' : ""}
 }`;
     }
     let userMessage: string;
@@ -1565,14 +1574,19 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
                 }
 
                 const meetingEnd = new Date(meetingTime.getTime() + 30 * 60 * 1000); // 30 min duration
-                const event = {
+                const leadEmail = parsed.lead_email || "";
+                const event: Record<string, unknown> = {
                   summary: `📞 Ligação — ${contact_name || "Lead"}`,
-                  description: `Lead agendado pela SDR IA.\n\nNome: ${contact_name || "N/A"}\nTelefone: ${contact_phone || "N/A"}\n\nConversa: ${conversation_id}`,
+                  description: `Lead agendado pela SDR IA.\n\nNome: ${contact_name || "N/A"}\nTelefone: ${contact_phone || "N/A"}${leadEmail ? `\nE-mail: ${leadEmail}` : ""}\n\nConversa: ${conversation_id}`,
                   start: { dateTime: meetingTime.toISOString(), timeZone: "America/Sao_Paulo" },
                   end: { dateTime: meetingEnd.toISOString(), timeZone: "America/Sao_Paulo" },
                   reminders: { useDefault: false, overrides: [{ method: "popup", minutes: 15 }, { method: "popup", minutes: 5 }] },
                   conferenceData: { createRequest: { requestId: `sdr-${conversation_id.slice(0, 8)}`, conferenceSolutionKey: { type: "hangoutsMeet" } } },
                 };
+                // Add lead as attendee if email was provided
+                if (leadEmail && leadEmail.includes("@")) {
+                  event.attendees = [{ email: leadEmail }];
+                }
 
                 const calCreateResp = await fetch(
                   "https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1",
