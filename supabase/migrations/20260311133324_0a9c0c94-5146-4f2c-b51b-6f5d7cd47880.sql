@@ -1,0 +1,1 @@
+UPDATE wa_instances SET ai_sdr_enabled = false WHERE ai_sdr_enabled = true
