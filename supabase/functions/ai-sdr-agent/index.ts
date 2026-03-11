@@ -763,7 +763,30 @@ REGRA ANTI-ECO (CRÍTICA — PRIORIDADE MÁXIMA):
 REGRA DE RITMO: Se a conversa JÁ começou (tem msgs anteriores), NUNCA mande mais de 1-2 msgs. Espere resposta.
 `;
 
-    // ===== BUILD SYSTEM PROMPT — branch between SDR mode and Organic/Receptive mode =====
+    // ===== CAMPAIGN MODE DETECTION =====
+    // Check if incoming message matches an active campaign
+    let activeCampaign: any = null;
+    const campaigns: any[] = config.campaigns || [];
+    if (!isProactive && incoming_message && campaigns.length > 0) {
+      const msgLower = (incoming_message || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const now = new Date();
+      for (const campaign of campaigns) {
+        if (!campaign.active) continue;
+        if (campaign.expires_at && new Date(campaign.expires_at) < now) continue;
+        const keywords: string[] = campaign.keywords || [];
+        const matches = keywords.some(kw => {
+          const kwNorm = kw.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          return msgLower.includes(kwNorm);
+        });
+        if (matches) {
+          activeCampaign = campaign;
+          console.log(`[ai-sdr] 🎯 Campaign matched: ${campaign.id} (keywords: ${keywords.join(", ")})`);
+          break;
+        }
+      }
+    }
+
+    // ===== BUILD SYSTEM PROMPT — branch between Campaign, SDR and Organic/Receptive mode =====
     let systemPrompt: string;
 
     if (isOrganicContact && organicModeEnabled) {
