@@ -999,7 +999,8 @@ Responda EXATAMENTE neste formato JSON:
   "urgent_call": false,
   "schedule_follow_up": false,
   "follow_up_message": "",
-  "activity_note": "Resumo curto da interação"${features.sentiment ? ',\n  "sentiment": "positivo" | "neutro" | "negativo" | "urgente"' : ""}${features.language_detection ? ',\n  "detected_language": "pt" | "en" | "es" | "other"' : ""}${features.linkedin_lookup ? ',\n  "linkedin_lookup": false,\n  "linkedin_query": ""' : ""}
+  "activity_note": "Resumo curto da interação",
+  "lead_email": ""${features.sentiment ? ',\n  "sentiment": "positivo" | "neutro" | "negativo" | "urgente"' : ""}${features.language_detection ? ',\n  "detected_language": "pt" | "en" | "es" | "other"' : ""}${features.linkedin_lookup ? ',\n  "linkedin_lookup": false,\n  "linkedin_query": ""' : ""}
 }`;
     }
     let userMessage: string;
