@@ -275,10 +275,11 @@ Deno.serve(async (req) => {
     }
 
     // CONCURRENCY GUARD — also acts as distributed lock
-    const guardWindow = isProactive ? 5 * 60 * 1000 : 15 * 1000;
+    // BUG FIX #3: Concurrency guard — use 2s minimum window to avoid same-millisecond races
+    const guardWindow = isProactive ? 5 * 60 * 1000 : Math.max(15 * 1000, 2000);
     const { data: recentAgentMsg } = await supabase
       .from("wa_messages")
-      .select("id, created_at")
+      .select("id, created_at, text")
       .eq("conversation_id", conversation_id)
       .eq("sender", "agent")
       .gte("created_at", new Date(Date.now() - guardWindow).toISOString())
