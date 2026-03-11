@@ -751,7 +751,12 @@ VARIAÇÃO PARA ESTA MENSAGEM:
 - Fechamento: ${pickRandom(closingStyles)}
 - Seed: ${Math.random().toString(36).substring(2, 8)}
 
-REGRA ANTI-ECO: NÃO repita saudação se já mandou uma nesta conversa. NÃO mande "Bom dia" duas vezes. Analise as mensagens anteriores e evite repetir estrutura, palavras de abertura e emojis.
+REGRA ANTI-ECO (CRÍTICA — PRIORIDADE MÁXIMA):
+- ANTES de gerar qualquer resposta, RELEIA o histórico e identifique TODAS as saudações que você já usou (Bom dia, Boa tarde, Fala, Opa, etc.)
+- NUNCA repita uma saudação que já apareceu no histórico — nem no INÍCIO nem no FINAL da mensagem
+- Se a conversa já tem 3+ mensagens, NÃO use saudação nenhuma — vá direto ao ponto
+- ESPECIALMENTE ao confirmar reunião/ligação: NÃO comece com "Bom dia" ou "Boa tarde" — use "Show!", "Perfeito!", "Fechado!" etc.
+- Se a última mensagem JÁ teve saudação, a próxima OBRIGATORIAMENTE começa sem saudação
 REGRA DE RITMO: Se a conversa JÁ começou (tem msgs anteriores), NUNCA mande mais de 1-2 msgs. Espere resposta.
 `;
 
