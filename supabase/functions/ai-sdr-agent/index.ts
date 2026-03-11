@@ -38,16 +38,24 @@ function getNextBusinessDateTime(from: Date, hoursToAdd: number): Date {
     result.setTime(result.getTime() + diff * 60 * 60 * 1000);
   }
   
-  // If after 21h BRT, move to next business day 9am
+  // BUG FIX #5: If after 21h BRT, move to next business day 9am BRT correctly
   brtHour = getBrtHour(result);
   if (brtHour >= 21) {
-    // Move to next day 9am BRT
-    result.setTime(result.getTime() + (24 - brtHour + 9) * 60 * 60 * 1000);
-    // Check if weekend again
+    // Calculate hours to add to reach 9am BRT next day
+    // From e.g. 22h BRT → need to add (24 - 22 + 9) = 11 hours
+    const hoursToNextMorning = (24 - brtHour) + 9;
+    result.setTime(result.getTime() + hoursToNextMorning * 60 * 60 * 1000);
+    // Zero out minutes/seconds for clean 9:00
+    const shifted = new Date(result.getTime() + BRT_OFFSET * 60 * 60 * 1000);
+    shifted.setUTCMinutes(0, 0, 0);
+    result.setTime(shifted.getTime() - BRT_OFFSET * 60 * 60 * 1000);
+    // Check if weekend again (with loop guard)
     day = getBrtDay(result);
-    while (day === 0 || day === 6) {
+    let guard = 0;
+    while ((day === 0 || day === 6) && guard < 7) {
       result.setTime(result.getTime() + 24 * 60 * 60 * 1000);
       day = getBrtDay(result);
+      guard++;
     }
   }
   
@@ -72,6 +80,7 @@ Deno.serve(async (req) => {
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  let lockId: string | null = null; // Track lock for cleanup on error
 
   try {
     const body = await req.json();
@@ -189,10 +198,13 @@ Deno.serve(async (req) => {
             const tomorrow = new Date(nextMorning.getTime() + 24 * 60 * 60 * 1000);
             const tBrtDay = new Date(tomorrow.getTime() - 3 * 60 * 60 * 1000).getUTCDay();
             let target = tomorrow;
-            while (true) {
+            // BUG FIX #4: Add max iterations to prevent infinite loop
+            let loopGuard = 0;
+            while (loopGuard < 10) {
               const d = new Date(target.getTime() - 3 * 60 * 60 * 1000).getUTCDay();
               if (d >= 1 && d <= 5) break;
               target = new Date(target.getTime() + 24 * 60 * 60 * 1000);
+              loopGuard++;
             }
             // Set to startHour+1 BRT (e.g. 9am) = startHour+1+3 UTC
             const remindAtUtc = new Date(target);
@@ -258,12 +270,14 @@ Deno.serve(async (req) => {
     if (features.rate_limit && !isProactive && !force && !isExempt) {
       const rateLimitPerHour = config.rate_limit_per_hour || 5;
       const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      // BUG FIX #6: Exclude lock messages (__ai_processing__) from rate limit count
       const { count: recentCount } = await supabase
         .from("wa_messages")
         .select("*", { count: "exact", head: true })
         .eq("conversation_id", conversation_id)
         .eq("sender", "agent")
         .eq("agent_name", "SDR IA 🤖")
+        .neq("text", "__ai_processing__")
         .gte("created_at", oneHourAgo);
       
       if ((recentCount || 0) >= rateLimitPerHour) {
@@ -275,10 +289,11 @@ Deno.serve(async (req) => {
     }
 
     // CONCURRENCY GUARD — also acts as distributed lock
-    const guardWindow = isProactive ? 5 * 60 * 1000 : 15 * 1000;
+    // BUG FIX #3: Concurrency guard — use 2s minimum window to avoid same-millisecond races
+    const guardWindow = isProactive ? 5 * 60 * 1000 : Math.max(15 * 1000, 2000);
     const { data: recentAgentMsg } = await supabase
       .from("wa_messages")
-      .select("id, created_at")
+      .select("id, created_at, text")
       .eq("conversation_id", conversation_id)
       .eq("sender", "agent")
       .gte("created_at", new Date(Date.now() - guardWindow).toISOString())
@@ -314,7 +329,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const lockId = lockMsg.id;
+    lockId = lockMsg.id;
     console.log("[ai-sdr] Processing lock acquired:", lockId);
 
     // Get conversation history
@@ -351,7 +366,9 @@ Deno.serve(async (req) => {
       const agentMsgCount = history.filter(m => m.sender === "agent" && m.agent_name === "SDR IA 🤖").length;
       const maxBeforeHandoff = config.max_messages_before_handoff || 10;
       if (agentMsgCount >= maxBeforeHandoff) {
-        console.log("[ai-sdr] Handoff threshold reached");
+        console.log("[ai-sdr] Handoff threshold reached — deleting lock message");
+        // BUG FIX #1: Delete the lock message before returning to avoid ghost messages
+        await supabase.from("wa_messages").delete().eq("id", lockId);
         await supabase.from("wa_conversations").update({ lead_status: "qualificado" }).eq("id", conversation_id);
         return new Response(JSON.stringify({ skipped: "handoff_threshold", handoff: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -681,7 +698,8 @@ Use essas informações para personalizar a abordagem, mas NÃO mencione diretam
     );
     const hasPipedriveDeal = pipedriveContext.length > 0;
     const isOrganicContact = !isProactive && !hasSourceTag && !hasPipedriveDeal;
-    const organicModeEnabled = config.organic_mode_enabled !== false; // default ON
+    // BUG FIX #2: Organic mode must be OPT-IN (=== true), not opt-out (!== false)
+    const organicModeEnabled = config.organic_mode_enabled === true;
 
     if (isOrganicContact && organicModeEnabled) {
       console.log("[ai-sdr] Organic contact detected — switching to receptive assistant mode");
@@ -1912,6 +1930,15 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
     });
   } catch (e) {
     console.error("[ai-sdr] Error:", e);
+    // BUG FIX #1 (global): Clean up lock message on any unhandled error
+    if (lockId) {
+      try {
+        await supabase.from("wa_messages").delete().eq("id", lockId);
+        console.log("[ai-sdr] Lock cleaned up after error:", lockId);
+      } catch (cleanupErr) {
+        console.error("[ai-sdr] Failed to clean up lock:", cleanupErr);
+      }
+    }
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
