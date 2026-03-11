@@ -64,6 +64,10 @@ interface AiSdrConfig {
   daily_summary_admin_ids: string[];
   lead_sources: LeadSource[];
   score_thresholds: { a_min: number; b_min: number };
+  organic_mode_enabled: boolean;
+  organic_prompt: string;
+  organic_tone: string;
+  organic_name: string;
 }
 
 interface LeadSourceAutomation {
