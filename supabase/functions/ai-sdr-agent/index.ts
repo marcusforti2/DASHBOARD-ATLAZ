@@ -268,7 +268,7 @@ Deno.serve(async (req) => {
     const exemptConversations: string[] = config.rate_limit_exempt_conversations || [];
     const isExempt = exemptConversations.includes(conversation_id);
     if (features.rate_limit && !isProactive && !force && !isExempt) {
-      const rateLimitPerHour = config.rate_limit_per_hour || 5;
+      const rateLimitPerHour = config.rate_limit_per_hour || 50;
       const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
       // BUG FIX #6: Exclude lock messages (__ai_processing__) from rate limit count
       const { count: recentCount } = await supabase
