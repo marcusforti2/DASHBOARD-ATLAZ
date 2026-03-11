@@ -33,6 +33,7 @@ interface AiSdrConfig {
   organic_mode_enabled: boolean;
   organic_prompt: string;
   organic_tone: string;
+  organic_name: string;
 }
 
 interface Props {
@@ -65,7 +66,8 @@ const DEFAULT_CONFIG: AiSdrConfig = {
   master_prompt: "",
   organic_mode_enabled: true,
   organic_prompt: "",
-  organic_tone: "cordial e prestativo",
+  organic_tone: "casual e amigável",
+  organic_name: "",
 };
 
 const TONES = [
@@ -416,15 +418,32 @@ export function AiSdrConfigPanel({ instanceId, instanceName, aiSdrEnabled, aiSdr
 
               {localConfig.organic_mode_enabled && (
                 <>
+                  {/* Nome da assistente */}
                   <div>
                     <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                      <Sparkles size={10} /> Tom do assistente orgânico
+                      <Users size={10} /> Nome da assistente
+                    </label>
+                    <Input
+                      value={localConfig.organic_name}
+                      onChange={e => update("organic_name", e.target.value)}
+                      placeholder="Ex: Amanda, Jéssica, Fernanda..."
+                      className="mt-1 h-8 text-xs"
+                    />
+                    <p className="text-[9px] text-muted-foreground mt-0.5">
+                      A IA vai se passar por essa pessoa. Deixe vazio para usar o nome do Closer.
+                    </p>
+                  </div>
+
+                  {/* Tom */}
+                  <div>
+                    <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                      <Sparkles size={10} /> Tom do assistente
                     </label>
                     <div className="mt-1.5 flex flex-wrap gap-2">
                       {[
+                        { value: "casual e amigável", label: "Casual", emoji: "✌️" },
                         { value: "cordial e prestativo", label: "Cordial", emoji: "😊" },
                         { value: "profissional", label: "Profissional", emoji: "💼" },
-                        { value: "casual e amigável", label: "Casual", emoji: "✌️" },
                         { value: "consultivo", label: "Consultivo", emoji: "🎯" },
                       ].map(t => (
                         <button key={t.value} onClick={() => update("organic_tone", t.value)}
