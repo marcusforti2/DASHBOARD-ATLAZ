@@ -1574,14 +1574,19 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
                 }
 
                 const meetingEnd = new Date(meetingTime.getTime() + 30 * 60 * 1000); // 30 min duration
-                const event = {
+                const leadEmail = parsed.lead_email || "";
+                const event: Record<string, unknown> = {
                   summary: `📞 Ligação — ${contact_name || "Lead"}`,
-                  description: `Lead agendado pela SDR IA.\n\nNome: ${contact_name || "N/A"}\nTelefone: ${contact_phone || "N/A"}\n\nConversa: ${conversation_id}`,
+                  description: `Lead agendado pela SDR IA.\n\nNome: ${contact_name || "N/A"}\nTelefone: ${contact_phone || "N/A"}${leadEmail ? `\nE-mail: ${leadEmail}` : ""}\n\nConversa: ${conversation_id}`,
                   start: { dateTime: meetingTime.toISOString(), timeZone: "America/Sao_Paulo" },
                   end: { dateTime: meetingEnd.toISOString(), timeZone: "America/Sao_Paulo" },
                   reminders: { useDefault: false, overrides: [{ method: "popup", minutes: 15 }, { method: "popup", minutes: 5 }] },
                   conferenceData: { createRequest: { requestId: `sdr-${conversation_id.slice(0, 8)}`, conferenceSolutionKey: { type: "hangoutsMeet" } } },
                 };
+                // Add lead as attendee if email was provided
+                if (leadEmail && leadEmail.includes("@")) {
+                  event.attendees = [{ email: leadEmail }];
+                }
 
                 const calCreateResp = await fetch(
                   "https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1",
