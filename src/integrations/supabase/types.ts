@@ -1546,6 +1546,7 @@ export type Database = {
           respondent_email: string | null
           respondent_name: string | null
           respondent_phone: string | null
+          session_token: string | null
           status: string
           test_link_id: string | null
           test_type: string
@@ -1559,6 +1560,7 @@ export type Database = {
           respondent_email?: string | null
           respondent_name?: string | null
           respondent_phone?: string | null
+          session_token?: string | null
           status?: string
           test_link_id?: string | null
           test_type?: string
@@ -1572,6 +1574,7 @@ export type Database = {
           respondent_email?: string | null
           respondent_name?: string | null
           respondent_phone?: string | null
+          session_token?: string | null
           status?: string
           test_link_id?: string | null
           test_type?: string
@@ -2484,6 +2487,41 @@ export type Database = {
     }
     Functions: {
       get_my_team_member_id: { Args: never; Returns: string }
+      get_submission_by_id: {
+        Args: { _submission_id: string }
+        Returns: {
+          ai_analysis: Json | null
+          completed_at: string | null
+          created_at: string
+          id: string
+          member_id: string | null
+          respondent_email: string | null
+          respondent_name: string | null
+          respondent_phone: string | null
+          session_token: string | null
+          status: string
+          test_link_id: string | null
+          test_type: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "test_submissions"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      get_team_members_safe: {
+        Args: never
+        Returns: {
+          active: boolean
+          avatar_url: string
+          created_at: string
+          id: string
+          member_role: string
+          name: string
+          pipedrive_user_id: number
+        }[]
+      }
       get_test_link_by_token: {
         Args: { _token: string }
         Returns: {
