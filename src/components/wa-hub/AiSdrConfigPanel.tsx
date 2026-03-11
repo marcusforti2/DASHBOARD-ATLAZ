@@ -30,6 +30,9 @@ interface AiSdrConfig {
   urgent_call_alert: boolean;
   meeting_followups: boolean;
   master_prompt: string;
+  organic_mode_enabled: boolean;
+  organic_prompt: string;
+  organic_tone: string;
 }
 
 interface Props {
