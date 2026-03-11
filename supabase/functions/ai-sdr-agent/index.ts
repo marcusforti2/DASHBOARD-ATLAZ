@@ -673,6 +673,20 @@ Use essas informações para personalizar a abordagem, mas NÃO mencione diretam
     const scoreThresholds = config.score_thresholds || { a_min: 80, b_min: 50 };
     const followUpHours = config.follow_up_hours || 24;
 
+    // ===== ORGANIC CONTACT DETECTION =====
+    // A contact is "organic" when: not a proactive trigger + no Pipedrive deal + no source tags
+    const sourceTagNames = ["linkedin", "dripify", "indicação", "indicacao", "prospecção", "prospeccao"];
+    const hasSourceTag = currentTagNames.some((t: string) =>
+      sourceTagNames.some(s => t.toLowerCase().includes(s))
+    );
+    const hasPipedriveDeal = pipedriveContext.length > 0;
+    const isOrganicContact = !isProactive && !hasSourceTag && !hasPipedriveDeal;
+    const organicModeEnabled = config.organic_mode_enabled !== false; // default ON
+
+    if (isOrganicContact && organicModeEnabled) {
+      console.log("[ai-sdr] Organic contact detected — switching to receptive assistant mode");
+    }
+
     // Build the master system prompt
     const masterPrompt = config.master_prompt || "";
     const identityLine = closerName
