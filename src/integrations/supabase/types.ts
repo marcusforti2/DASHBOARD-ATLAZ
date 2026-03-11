@@ -2484,6 +2484,18 @@ export type Database = {
     }
     Functions: {
       get_my_team_member_id: { Args: never; Returns: string }
+      get_team_members_safe: {
+        Args: never
+        Returns: {
+          active: boolean
+          avatar_url: string
+          created_at: string
+          id: string
+          member_role: string
+          name: string
+          pipedrive_user_id: number
+        }[]
+      }
       get_test_link_by_token: {
         Args: { _token: string }
         Returns: {
