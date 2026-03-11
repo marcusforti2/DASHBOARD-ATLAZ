@@ -63,6 +63,9 @@ const DEFAULT_CONFIG: AiSdrConfig = {
   urgent_call_alert: true,
   meeting_followups: true,
   master_prompt: "",
+  organic_mode_enabled: true,
+  organic_prompt: "",
+  organic_tone: "cordial e prestativo",
 };
 
 const TONES = [
