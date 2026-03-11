@@ -33,6 +33,7 @@ interface AiSdrConfig {
   organic_mode_enabled: boolean;
   organic_prompt: string;
   organic_tone: string;
+  organic_name: string;
 }
 
 interface Props {

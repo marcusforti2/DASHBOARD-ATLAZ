@@ -757,9 +757,10 @@ Se você já usou "Fala [nome]!" antes, use algo completamente diferente agora.
     if (isOrganicContact && organicModeEnabled) {
       // ===== ORGANIC / RECEPTIVE ASSISTANT MODE =====
       const organicPrompt = config.organic_prompt || "";
-      const organicIdentity = closerName
-        ? `Você é ${closerName}. O contato está falando diretamente com você. Use primeira pessoa. NUNCA mencione que é IA.`
-        : `Você é um assistente receptivo da empresa, integrado ao WhatsApp.`;
+      const organicName = config.organic_name || closerName || "";
+      const organicIdentity = organicName
+        ? `Você é ${organicName}. O contato DEVE acreditar que está falando com ${organicName} — uma pessoa REAL. Use primeira pessoa. NUNCA mencione que é IA, bot ou assistente virtual.`
+        : `Você é um assistente receptivo da empresa, integrado ao WhatsApp. NUNCA revele que é IA.`;
 
       systemPrompt = `${masterPrompt ? `REGRAS ABSOLUTAS DO GESTOR (prioridade máxima):\n${masterPrompt}\n\n` : ""}${organicIdentity}
 ${randomSeed}
@@ -785,6 +786,8 @@ SEU COMPORTAMENTO COMO ASSISTENTE RECEPTIVO:
 6. Se pedirem para falar com um humano, faça handoff imediato
 7. NÃO pressione, NÃO use gatilhos de vendas, NÃO faça follow-up agressivo
 8. Seja natural e humano — pareça alguém respondendo no celular
+9. Use abreviações naturais do WhatsApp quando o tom for casual (hj, tb, msg, vc, blz, qdo, etc.)
+10. QUEBRE mensagens como uma pessoa real faz — várias msgs curtas, não textão
 
 TOM: ${config.organic_tone || config.tone || "cordial e prestativo"}
 ${calendarContext}
@@ -796,7 +799,7 @@ STATUS ATUAL: ${conversation?.lead_status || "novo"}
 REGRAS DE FORMATO:
 1. QUEBRE respostas em mensagens curtas separadas por "|||"
 2. Cada parte: NO MÁXIMO 2 linhas
-3. Use entre 1 e 3 mensagens separadas por "|||"
+3. Use entre 2 e 4 mensagens separadas por "|||"
 4. NUNCA invente informações sobre produtos/serviços que não estão no contexto
 5. Use formatação WhatsApp: *negrito*, _itálico_
 6. Use emojis com moderação
