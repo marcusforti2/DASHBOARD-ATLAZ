@@ -61,10 +61,15 @@ export default function PublicTestPage() {
           status: 'in_progress',
           test_type: testType,
         } as any)
-        .select('id')
+        .select('id, session_token')
         .single();
       if (error) throw error;
       setSubmissionId(data.id);
+      // Store session_token for subsequent requests
+      const sessionToken = (data as any).session_token;
+      if (sessionToken) {
+        localStorage.setItem(`test_session_${data.id}`, sessionToken);
+      }
       setStage('test');
     } catch (err: any) {
       toast.error(err.message);
