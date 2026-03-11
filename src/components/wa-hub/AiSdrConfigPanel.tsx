@@ -66,7 +66,8 @@ const DEFAULT_CONFIG: AiSdrConfig = {
   master_prompt: "",
   organic_mode_enabled: true,
   organic_prompt: "",
-  organic_tone: "cordial e prestativo",
+  organic_tone: "casual e amigável",
+  organic_name: "",
 };
 
 const TONES = [
