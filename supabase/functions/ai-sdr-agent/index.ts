@@ -157,13 +157,15 @@ Deno.serve(async (req) => {
     // ===== BUG FIX #5: HUMAN MODE — stop AI if a human closer responded recently =====
     {
       const humanWindow = config.human_takeover_minutes || 60; // default 60 min
+      const cutoff = new Date(Date.now() - humanWindow * 60 * 1000).toISOString();
       const { data: recentHumanMsg } = await supabase
         .from("wa_messages")
         .select("id, agent_name")
         .eq("conversation_id", conversation_id)
         .eq("sender", "agent")
         .neq("agent_name", "SDR IA 🤖")
-        .gte("created_at", new Date(Date.now() - humanWindow * 60 * 1000).toISOString())
+        .not("agent_name", "like", "[AI-OVERRIDE]%")
+        .gte("created_at", cutoff)
         .limit(1)
         .maybeSingle();
 
@@ -172,6 +174,19 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ skipped: "human_takeover_active" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
+      }
+
+      // When force=true, neutralize human takeover by marking human messages so future webhook calls don't block
+      if (force && recentHumanMsg) {
+        console.log("[ai-sdr] Force mode: neutralizing human takeover messages for this conversation");
+        await supabase
+          .from("wa_messages")
+          .update({ agent_name: `[AI-OVERRIDE] ${recentHumanMsg.agent_name}` })
+          .eq("conversation_id", conversation_id)
+          .eq("sender", "agent")
+          .neq("agent_name", "SDR IA 🤖")
+          .not("agent_name", "like", "[AI-OVERRIDE]%")
+          .gte("created_at", cutoff);
       }
     }
 
