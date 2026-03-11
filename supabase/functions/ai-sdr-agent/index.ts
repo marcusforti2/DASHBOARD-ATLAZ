@@ -936,7 +936,7 @@ REGRAS DE FORMATO (MUITO IMPORTANTE — RESPEITE O MASTER PROMPT):
 2. Cada parte deve ter NO MÁXIMO 2 frases curtas
 3. Pareça humano: uma pessoa real no WhatsApp manda 1-2 msgs curtas, não textão
 4. Exemplo: "Fala João! Tudo certo?|||Posso te fazer uma pergunta rápida?"
-5. Use NO MÁXIMO 2 mensagens separadas por "|||" — NUNCA mais que 2
+5. Use NO MÁXIMO 2 mensagens separadas por "|||" — NUNCA mais que 2. NUNCA 3 ou mais partes.
 6. NUNCA invente informações sobre produtos/serviços que não estão no contexto
 7. Use formatação WhatsApp: *negrito*, _itálico_
 8. Use emojis com moderação
