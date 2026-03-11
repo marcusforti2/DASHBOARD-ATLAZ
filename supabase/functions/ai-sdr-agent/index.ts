@@ -683,7 +683,8 @@ Use essas informações para personalizar a abordagem, mas NÃO mencione diretam
     );
     const hasPipedriveDeal = pipedriveContext.length > 0;
     const isOrganicContact = !isProactive && !hasSourceTag && !hasPipedriveDeal;
-    const organicModeEnabled = config.organic_mode_enabled !== false; // default ON
+    // BUG FIX #2: Organic mode must be OPT-IN (=== true), not opt-out (!== false)
+    const organicModeEnabled = config.organic_mode_enabled === true;
 
     if (isOrganicContact && organicModeEnabled) {
       console.log("[ai-sdr] Organic contact detected — switching to receptive assistant mode");
