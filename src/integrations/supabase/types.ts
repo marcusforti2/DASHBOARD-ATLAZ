@@ -2487,6 +2487,7 @@ export type Database = {
     }
     Functions: {
       get_my_team_member_id: { Args: never; Returns: string }
+      get_request_session_token: { Args: never; Returns: string }
       get_submission_by_id: {
         Args: { _submission_id: string }
         Returns: {
