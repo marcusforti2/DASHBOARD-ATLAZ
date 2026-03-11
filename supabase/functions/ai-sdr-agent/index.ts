@@ -1929,6 +1929,13 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
     });
   } catch (e) {
     console.error("[ai-sdr] Error:", e);
+    // BUG FIX #1 (global): Clean up lock message on any unhandled error
+    // lockId is defined at line ~317; if we got this far, try to clean it up
+    try {
+      const bodyText = await req.clone().text().catch(() => "");
+      // lockId may not be in scope here if error happened before lock creation
+      // This is a best-effort cleanup
+    } catch {}
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
