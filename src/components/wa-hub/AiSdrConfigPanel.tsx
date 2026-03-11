@@ -402,6 +402,68 @@ export function AiSdrConfigPanel({ instanceId, instanceName, aiSdrEnabled, aiSdr
             </div>
           )}
 
+          {/* === MODO ORGÂNICO === */}
+          <SectionHeader id="organic" label="Contatos Orgânicos" icon={<MessageSquare size={12} />} />
+          {activeSection === "organic" && (
+            <div className="space-y-4 pl-2">
+              <ToggleItem
+                label="Modo Assistente Receptivo"
+                icon={<MessageSquare size={11} />}
+                value={localConfig.organic_mode_enabled}
+                configKey="organic_mode_enabled"
+                description="Contatos sem origem (sem CRM/LinkedIn/Dripify) recebem atendimento receptivo em vez de prospecção ativa"
+              />
+
+              {localConfig.organic_mode_enabled && (
+                <>
+                  <div>
+                    <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                      <Sparkles size={10} /> Tom do assistente orgânico
+                    </label>
+                    <div className="mt-1.5 flex flex-wrap gap-2">
+                      {[
+                        { value: "cordial e prestativo", label: "Cordial", emoji: "😊" },
+                        { value: "profissional", label: "Profissional", emoji: "💼" },
+                        { value: "casual e amigável", label: "Casual", emoji: "✌️" },
+                        { value: "consultivo", label: "Consultivo", emoji: "🎯" },
+                      ].map(t => (
+                        <button key={t.value} onClick={() => update("organic_tone", t.value)}
+                          className={`px-3 py-1.5 text-[11px] rounded-lg border transition-all flex items-center gap-1 ${
+                            localConfig.organic_tone === t.value
+                              ? "border-primary bg-primary/15 text-primary font-bold"
+                              : "border-border bg-secondary text-secondary-foreground hover:border-primary/40"
+                          }`}>
+                          {t.emoji} {t.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                      <Sparkles size={10} /> Instruções para contatos orgânicos
+                    </label>
+                    <Textarea
+                      value={localConfig.organic_prompt}
+                      onChange={e => update("organic_prompt", e.target.value)}
+                      placeholder="Ex: Responda dúvidas sobre nossos serviços. Se perguntar preço, diga que depende do escopo e ofereça uma conversa rápida. Não pressione."
+                      rows={4}
+                      className="mt-1 text-xs resize-none"
+                    />
+                    <p className="text-[9px] text-muted-foreground mt-1">
+                      Instruções específicas para quem manda mensagem sem ser de prospecção. A IA atua como assistente, não como SDR.
+                    </p>
+                  </div>
+                </>
+              )}
+
+              <div className="p-2.5 rounded-lg bg-secondary/50 text-[9px] text-muted-foreground">
+                <p className="font-semibold text-card-foreground mb-1">📱 Como funciona?</p>
+                <p>Contatos que chegam organicamente (sem tag de LinkedIn/Dripify/Indicação e sem deal no CRM) são tratados como contatos orgânicos. A IA responde dúvidas e dá informações, sem pressionar para ligação.</p>
+              </div>
+            </div>
+          )}
+
           {/* Save */}
           <button onClick={handleSave} disabled={saving}
             className="w-full px-4 py-2.5 text-[11px] rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 flex items-center justify-center gap-2 transition-colors">
