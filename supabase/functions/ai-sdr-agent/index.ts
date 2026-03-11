@@ -38,16 +38,24 @@ function getNextBusinessDateTime(from: Date, hoursToAdd: number): Date {
     result.setTime(result.getTime() + diff * 60 * 60 * 1000);
   }
   
-  // If after 21h BRT, move to next business day 9am
+  // BUG FIX #5: If after 21h BRT, move to next business day 9am BRT correctly
   brtHour = getBrtHour(result);
   if (brtHour >= 21) {
-    // Move to next day 9am BRT
-    result.setTime(result.getTime() + (24 - brtHour + 9) * 60 * 60 * 1000);
-    // Check if weekend again
+    // Calculate hours to add to reach 9am BRT next day
+    // From e.g. 22h BRT → need to add (24 - 22 + 9) = 11 hours
+    const hoursToNextMorning = (24 - brtHour) + 9;
+    result.setTime(result.getTime() + hoursToNextMorning * 60 * 60 * 1000);
+    // Zero out minutes/seconds for clean 9:00
+    const shifted = new Date(result.getTime() + BRT_OFFSET * 60 * 60 * 1000);
+    shifted.setUTCMinutes(0, 0, 0);
+    result.setTime(shifted.getTime() - BRT_OFFSET * 60 * 60 * 1000);
+    // Check if weekend again (with loop guard)
     day = getBrtDay(result);
-    while (day === 0 || day === 6) {
+    let guard = 0;
+    while ((day === 0 || day === 6) && guard < 7) {
       result.setTime(result.getTime() + 24 * 60 * 60 * 1000);
       day = getBrtDay(result);
+      guard++;
     }
   }
   
