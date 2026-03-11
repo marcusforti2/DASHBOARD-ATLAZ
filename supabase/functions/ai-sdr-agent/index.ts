@@ -80,6 +80,7 @@ Deno.serve(async (req) => {
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  let lockId: string | null = null; // Track lock for cleanup on error
 
   try {
     const body = await req.json();
