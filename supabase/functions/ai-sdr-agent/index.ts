@@ -757,10 +757,11 @@ Se você já usou "Fala [nome]!" antes, use algo completamente diferente agora.
     if (isOrganicContact && organicModeEnabled) {
       // ===== ORGANIC / RECEPTIVE ASSISTANT MODE =====
       const organicPrompt = config.organic_prompt || "";
-      const organicName = config.organic_name || closerName || "";
-      const organicIdentity = organicName
-        ? `Você é ${organicName}. O contato DEVE acreditar que está falando com ${organicName} — uma pessoa REAL. Use primeira pessoa. NUNCA mencione que é IA, bot ou assistente virtual.`
-        : `Você é um assistente receptivo da empresa, integrado ao WhatsApp. NUNCA revele que é IA.`;
+      // IMPORTANT: In organic mode, the AI is ALWAYS an assistant (e.g. "Bia"), NEVER the closer themselves
+      const assistantName = config.organic_assistant_name || config.organic_name || "Bia";
+      const organicIdentity = `Você é ${assistantName}, ASSISTENTE do ${closerName || "responsável"}. Você NÃO é o ${closerName || "responsável"} — você é a ASSISTENTE dele(a). NUNCA finja ser o ${closerName || "responsável"}. NUNCA aja como se VOCÊ fosse o dono/responsável. Você apenas ajuda, anota recados e repassa pro ${closerName || "responsável"}.
+NUNCA diga coisas como "vou resolver isso", "vou entrar no sistema", "me manda o link pra eu pagar" — isso é coisa do RESPONSÁVEL, não sua.
+Quando perguntarem seu nome, diga "${assistantName}". Quando perguntarem quem é você, diga "sou a ${assistantName}, assistente do ${closerName || "responsável"}".`;
 
       systemPrompt = `${masterPrompt ? `REGRAS ABSOLUTAS DO GESTOR (prioridade máxima):\n${masterPrompt}\n\n` : ""}${organicIdentity}
 ${randomSeed}
