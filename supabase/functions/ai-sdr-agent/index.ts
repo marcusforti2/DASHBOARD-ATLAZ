@@ -711,62 +711,48 @@ Use essas informações para personalizar a abordagem, mas NÃO mencione diretam
       ? `Você é ${closerName}, especialista comercial. O lead DEVE acreditar que está falando diretamente com ${closerName}. Use primeira pessoa. NUNCA mencione que é IA, assistente virtual ou bot.`
       : `Você é uma SDR (Sales Development Representative) virtual de IA integrada ao WhatsApp.`;
 
-    // ===== SMART RANDOMIZER — Forces unique message variations =====
+    // ===== SMART RANDOMIZER — Reduced to respect Master Prompt rules =====
     const pickRandom = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 
     const greetingStyles = [
-      "Comece com 'E aí' ou 'Fala'",
-      "Comece com 'Opa' ou 'Olá'",
-      "Comece direto com o nome da pessoa sem saudação",
-      "Comece com uma observação ou elogio específico",
-      "Comece com uma pergunta direta e curiosa",
-      "Comece com 'Bom dia/tarde' de forma profissional",
-      "Comece mencionando algo em comum ou referência",
+      "Comece com 'Fala' + nome",
+      "Comece com 'Opa' + nome",
+      "Comece direto com o nome da pessoa",
+      "Comece com 'Bom dia/tarde' + nome",
     ];
     const toneVariations = [
-      "Tom: levemente descontraído com humor sutil",
-      "Tom: profissional e direto ao ponto",
-      "Tom: curioso e investigativo, fazendo perguntas",
-      "Tom: empático e consultivo, focando na dor do lead",
-      "Tom: confiante e provocativo, desafiando o status quo",
-      "Tom: amigável e caloroso, como um colega de confiança",
+      "Tom: levemente descontraído",
+      "Tom: profissional e direto",
+      "Tom: curioso e investigativo",
+      "Tom: empático e consultivo",
     ];
+    // FIX C1+C2: Removed 3-4 msg structures — Master Prompt says max 3 frases, wait for response
     const structureVariations = [
-      "Use 2 mensagens curtas separadas por |||",
-      "Use 3 mensagens bem curtas separadas por |||",
-      "Use 1 mensagem um pouco maior (3-4 linhas) + 1 pergunta curta separada por |||",
-      "Use 4 mensagens ultra-curtas (1 linha cada) separadas por |||",
+      "Use 1 mensagem curta (1-2 frases) — NÃO quebre em várias",
+      "Use 2 mensagens curtas separadas por ||| (máximo 1 frase cada)",
     ];
     const emojiStyles = [
       "Use 1 emoji no máximo",
-      "Use 2-3 emojis estratégicos",
-      "Não use emoji nenhum — seja seco e profissional",
-      "Use emojis apenas na última mensagem",
+      "Não use emoji nenhum",
+      "Use 1 emoji apenas no final",
     ];
     const closingStyles = [
       "Termine com uma pergunta aberta curta",
+      "Termine com 'faz sentido?' ou 'topa?'",
       "Termine com uma provocação/curiosidade",
-      "Termine com uma proposta direta de ação",
-      "Termine com um CTA suave tipo 'faz sentido?'",
-      "Termine com 'O que acha?' ou 'Topa?'",
     ];
 
     const randomSeed = `
-VARIAÇÃO OBRIGATÓRIA PARA ESTA MENSAGEM (siga à risca para não repetir padrões):
+VARIAÇÃO PARA ESTA MENSAGEM:
 - Saudação: ${pickRandom(greetingStyles)}
 - ${pickRandom(toneVariations)}
 - Estrutura: ${pickRandom(structureVariations)}
 - Emoji: ${pickRandom(emojiStyles)}
 - Fechamento: ${pickRandom(closingStyles)}
-- Seed de criatividade: ${Math.random().toString(36).substring(2, 8)}
+- Seed: ${Math.random().toString(36).substring(2, 8)}
 
-REGRA ANTI-REPETIÇÃO: Analise as mensagens anteriores que VOCÊ já enviou nesta conversa. NÃO repita:
-- A mesma estrutura de frase
-- As mesmas palavras de abertura
-- O mesmo tipo de pergunta
-- Os mesmos emojis
-- A mesma forma de se referir ao lead
-Se você já usou "Fala [nome]!" antes, use algo completamente diferente agora.
+REGRA ANTI-ECO: NÃO repita saudação se já mandou uma nesta conversa. NÃO mande "Bom dia" duas vezes. Analise as mensagens anteriores e evite repetir estrutura, palavras de abertura e emojis.
+REGRA DE RITMO: Se a conversa JÁ começou (tem msgs anteriores), NUNCA mande mais de 1-2 msgs. Espere resposta.
 `;
 
     // ===== BUILD SYSTEM PROMPT — branch between SDR mode and Organic/Receptive mode =====
