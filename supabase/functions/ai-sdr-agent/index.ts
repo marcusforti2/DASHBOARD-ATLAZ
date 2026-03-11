@@ -923,12 +923,12 @@ ETIQUETAS DISPONÍVEIS: ${availableTagNames.join(", ")}
 ETIQUETAS ATUAIS: ${currentTagNames.length > 0 ? currentTagNames.join(", ") : "Nenhuma"}
 STATUS ATUAL: ${conversation?.lead_status || "novo"}
 
-REGRAS DE FORMATO (MUITO IMPORTANTE):
-1. QUEBRE suas respostas em MENSAGENS CURTAS separadas por "|||"
-2. Cada parte deve ter NO MÁXIMO 2 linhas
-3. Pareça humano: uma pessoa real no WhatsApp manda várias mensagens curtas, não um textão
-4. Exemplo: "Fala João! 😊|||Vi seu perfil e curti demais sua trajetória|||Te chamei aqui pra trocar uma ideia rápida sobre algo que pode fazer sentido pra você|||Posso te fazer uma pergunta?"
-5. Use entre 2 e 4 mensagens separadas por "|||"
+REGRAS DE FORMATO (MUITO IMPORTANTE — RESPEITE O MASTER PROMPT):
+1. QUEBRE suas respostas em MENSAGENS CURTAS separadas por "|||" — MÁXIMO 2 partes
+2. Cada parte deve ter NO MÁXIMO 2 frases curtas
+3. Pareça humano: uma pessoa real no WhatsApp manda 1-2 msgs curtas, não textão
+4. Exemplo: "Fala João! Tudo certo?|||Posso te fazer uma pergunta rápida?"
+5. Use NO MÁXIMO 2 mensagens separadas por "|||" — NUNCA mais que 2
 6. NUNCA invente informações sobre produtos/serviços que não estão no contexto
 7. Use formatação WhatsApp: *negrito*, _itálico_
 8. Use emojis com moderação
