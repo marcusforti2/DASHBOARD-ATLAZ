@@ -975,7 +975,7 @@ ATIVIDADES NO CRM:
 
 Responda EXATAMENTE neste formato JSON:
 {
-  "reply": "Primeira parte|||Segunda parte|||Terceira parte",
+  "reply": "Primeira parte|||Segunda parte (MÁXIMO 2 partes separadas por |||)",
   "new_lead_status": "novo" | "em_contato" | "qualificado" | "agendado" | "reuniao" | "perdido" | null,
   "lead_score": "A" | "B" | "C" | null,
   "lead_score_value": 0-100,
