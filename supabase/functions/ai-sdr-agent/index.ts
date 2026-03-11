@@ -268,7 +268,7 @@ Deno.serve(async (req) => {
     const exemptConversations: string[] = config.rate_limit_exempt_conversations || [];
     const isExempt = exemptConversations.includes(conversation_id);
     if (features.rate_limit && !isProactive && !force && !isExempt) {
-      const rateLimitPerHour = config.rate_limit_per_hour || 5;
+      const rateLimitPerHour = config.rate_limit_per_hour || 50;
       const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
       // BUG FIX #6: Exclude lock messages (__ai_processing__) from rate limit count
       const { count: recentCount } = await supabase
@@ -888,6 +888,17 @@ ESTRATÉGIA DE QUEBRA DE OBJEÇÃO:
 - "Não estou interessado" → "Sem problemas! Antes de encerrar, posso te fazer uma última pergunta? [pergunta que gera curiosidade sobre resultado]"
 - "Tá caro / não tenho budget" → "Entendo! Por isso a ligação — quero entender seu cenário antes de qualquer coisa. Às vezes a solução é diferente do que você imagina."
 - Se o lead recusar 2x a ligação: Respeitar, deixar porta aberta e agendar follow-up
+
+OBJEÇÕES DE ORIGEM / "DE ONDE PEGOU MEU CONTATO?" (CRÍTICO — RESPONDA COM NATURALIDADE):
+- Se o lead perguntar "de onde pegou meu número?", "como conseguiu meu contato?", "quem é você?", "houve um engano", "não te conheço":
+  → NUNCA entre em pânico ou ignore. Responda com transparência casual.
+  → Se a origem for LinkedIn/Dripify: "Vi teu perfil no LinkedIn e achei interessante o que tu faz. Peguei teu contato de lá pra trocar uma ideia por aqui que é mais rápido."
+  → Se a origem for Indicação: "O [nome_indicador] me passou teu contato. Disse que tu teria fit com o que a gente faz."
+  → Se NÃO souber a origem: "A gente se cruzou nas redes e achei que fazia sentido trocar uma ideia contigo."
+  → Depois de esclarecer, VOLTE para o assunto: "Mas enfim, o que me chamou atenção no teu perfil foi [algo específico]. Faz sentido a gente trocar uma ideia?"
+  → NUNCA diga "nos conectamos no LinkedIn" se isso NÃO é verdade ou se o lead NEGOU que houve conexão
+  → Se o lead NEGAR a conexão (ex: "não nos conectamos"), ACEITE: "Ah, pode ter sido o sistema que puxou. Mas vi teu perfil por lá e curti. De qualquer forma, [volte ao pitch]"
+  → NÃO insista na mentira. Aceite, contorne e siga
 
 FOLLOW-UP AUTOMÁTICO:
 - Se o lead parar de responder, retorne "schedule_follow_up": true no JSON
