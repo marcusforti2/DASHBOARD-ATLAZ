@@ -351,7 +351,9 @@ Deno.serve(async (req) => {
       const agentMsgCount = history.filter(m => m.sender === "agent" && m.agent_name === "SDR IA 🤖").length;
       const maxBeforeHandoff = config.max_messages_before_handoff || 10;
       if (agentMsgCount >= maxBeforeHandoff) {
-        console.log("[ai-sdr] Handoff threshold reached");
+        console.log("[ai-sdr] Handoff threshold reached — deleting lock message");
+        // BUG FIX #1: Delete the lock message before returning to avoid ghost messages
+        await supabase.from("wa_messages").delete().eq("id", lockId);
         await supabase.from("wa_conversations").update({ lead_status: "qualificado" }).eq("id", conversation_id);
         return new Response(JSON.stringify({ skipped: "handoff_threshold", handoff: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
