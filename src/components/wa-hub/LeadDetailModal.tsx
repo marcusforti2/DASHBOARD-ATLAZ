@@ -199,34 +199,42 @@ export function LeadDetailModal({ open, onOpenChange, conversation, tags, assign
     setTogglingAi(true);
     try {
       const now = new Date().toISOString();
-      const newMode = aiEnabled ? 'humano_assumiu' : 'ia_ativa';
-      const previousMode = aiEnabled ? 'ia_ativa' : 'humano_assumiu';
-      // Dual-write: conversation_mode (new) + lead_status (legacy)
-      const newLegacyStatus = aiEnabled ? 'agendado' : 'em_contato';
+      const newMode: ConversationMode = aiEnabled ? 'humano_assumiu' : 'ia_ativa';
 
       const updatePayload: Record<string, unknown> = {
         conversation_mode: newMode,
         last_mode_changed_at: now,
-        lead_status: newLegacyStatus, // legacy dual-write
       };
+
       if (newMode === 'humano_assumiu') {
         updatePayload.human_takeover_at = now;
         updatePayload.handoff_reason = 'Manual toggle via LeadDetailModal';
+      } else {
+        // Reactivating AI — clear takeover fields
+        updatePayload.human_takeover_at = null;
+        updatePayload.handoff_reason = null;
       }
 
       await supabase.from('wa_conversations').update(updatePayload).eq('id', conversation.id);
 
-      // Insert audit event
+      // Full audit event with real snapshot values
       await supabase.from('wa_conversation_state_events').insert({
         conversation_id: conversation.id,
-        previous_conversation_mode: previousMode,
+        previous_conversation_mode: convSnapshot.conversation_mode,
         new_conversation_mode: newMode,
-        actor_type: 'human',
-        source: 'ui',
+        previous_lead_stage: convSnapshot.lead_stage,
+        new_lead_stage: convSnapshot.lead_stage, // unchanged
+        previous_priority_level: convSnapshot.priority_level,
+        new_priority_level: convSnapshot.priority_level, // unchanged
+        actor_type: 'human' as const,
+        actor_team_member_id: profile?.team_member_id ?? null,
+        source: 'ui' as const,
         reason: aiEnabled ? 'Humano assumiu via LeadDetailModal' : 'IA reativada via LeadDetailModal',
-        metadata: { legacy_lead_status: newLegacyStatus },
+        metadata: {},
       });
 
+      // Update local snapshot
+      setConvSnapshot(prev => ({ ...prev, conversation_mode: newMode }));
       setAiEnabled(!aiEnabled);
       toast.success(aiEnabled ? 'IA desligada para este lead' : 'IA religada para este lead');
     } catch {
