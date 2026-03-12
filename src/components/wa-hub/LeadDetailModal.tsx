@@ -182,8 +182,35 @@ export function LeadDetailModal({ open, onOpenChange, conversation, tags, assign
   const handleToggleAi = async () => {
     setTogglingAi(true);
     try {
-      const newStatus = aiEnabled ? 'agendado' : 'em_contato';
-      await supabase.from('wa_conversations').update({ lead_status: newStatus }).eq('id', conversation.id);
+      const now = new Date().toISOString();
+      const newMode = aiEnabled ? 'humano_assumiu' : 'ia_ativa';
+      const previousMode = aiEnabled ? 'ia_ativa' : 'humano_assumiu';
+      // Dual-write: conversation_mode (new) + lead_status (legacy)
+      const newLegacyStatus = aiEnabled ? 'agendado' : 'em_contato';
+
+      const updatePayload: Record<string, unknown> = {
+        conversation_mode: newMode,
+        last_mode_changed_at: now,
+        lead_status: newLegacyStatus, // legacy dual-write
+      };
+      if (newMode === 'humano_assumiu') {
+        updatePayload.human_takeover_at = now;
+        updatePayload.handoff_reason = 'Manual toggle via LeadDetailModal';
+      }
+
+      await supabase.from('wa_conversations').update(updatePayload).eq('id', conversation.id);
+
+      // Insert audit event
+      await supabase.from('wa_conversation_state_events').insert({
+        conversation_id: conversation.id,
+        previous_conversation_mode: previousMode,
+        new_conversation_mode: newMode,
+        actor_type: 'human',
+        source: 'ui',
+        reason: aiEnabled ? 'Humano assumiu via LeadDetailModal' : 'IA reativada via LeadDetailModal',
+        metadata: { legacy_lead_status: newLegacyStatus },
+      });
+
       setAiEnabled(!aiEnabled);
       toast.success(aiEnabled ? 'IA desligada para este lead' : 'IA religada para este lead');
     } catch {
