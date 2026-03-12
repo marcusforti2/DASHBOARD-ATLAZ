@@ -7,8 +7,10 @@ import {
   LEAD_STAGE_LABELS,
   CONVERSATION_MODE_LABELS,
   PRIORITY_LEVEL_LABELS,
+  LEAD_STAGES,
+  PRIORITY_LEVELS,
 } from '@/domains/conversations/types';
-import type { ConversationMode } from '@/domains/conversations/types';
+import type { ConversationMode, LeadStage, PriorityLevel } from '@/domains/conversations/types';
 import type { WaTag } from '@/hooks/use-wa-tags';
 
 interface Props {
@@ -34,6 +36,17 @@ const MODE_FILTERS: { value: ConversationMode | null; label: string }[] = [
   { value: 'pausado', label: '⏸ Pausado' },
 ];
 
+const STAGE_FILTERS: { value: LeadStage | null; label: string }[] = [
+  { value: null, label: 'Todos' },
+  ...LEAD_STAGES.map(s => ({ value: s, label: LEAD_STAGE_LABELS[s] })),
+];
+
+const PRIORITY_FILTERS: { value: PriorityLevel | null; label: string }[] = [
+  { value: null, label: 'Todos' },
+  { value: 'atento', label: '⚠ Atento' },
+  { value: 'urgente', label: '🔴 Urgente' },
+];
+
 export function WaConversationList({
   conversations, instances, loading, selectedId,
   onSelect, instanceFilter, onInstanceFilter, title = 'Conversas',
@@ -41,6 +54,8 @@ export function WaConversationList({
 }: Props) {
   const [search, setSearch] = useState('');
   const [modeFilter, setModeFilter] = useState<ConversationMode | null>(null);
+  const [stageFilter, setStageFilter] = useState<LeadStage | null>(null);
+  const [priorityFilter, setPriorityFilter] = useState<PriorityLevel | null>(null);
 
   const filtered = useMemo(() => {
     let list = conversations;
@@ -55,8 +70,14 @@ export function WaConversationList({
     if (modeFilter) {
       list = list.filter(c => c.conversation_mode === modeFilter);
     }
+    if (stageFilter) {
+      list = list.filter(c => c.lead_stage === stageFilter);
+    }
+    if (priorityFilter) {
+      list = list.filter(c => c.priority_level === priorityFilter);
+    }
     return list;
-  }, [conversations, search, modeFilter]);
+  }, [conversations, search, modeFilter, stageFilter, priorityFilter]);
 
   return (
     <div className="w-80 border-r border-border flex flex-col bg-card shrink-0">
