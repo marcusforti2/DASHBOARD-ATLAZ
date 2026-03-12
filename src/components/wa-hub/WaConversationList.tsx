@@ -112,7 +112,24 @@ export function WaConversationList({
               }`}>{mf.label}</button>
           ))}
         </div>
-      </div>
+        {/* Lead stage filter */}
+        <div className="flex gap-1 flex-wrap">
+          {STAGE_FILTERS.slice(0, 6).map(sf => (
+            <button key={sf.value ?? 'all-stage'} onClick={() => setStageFilter(sf.value)}
+              className={`text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors ${
+                stageFilter === sf.value ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-accent'
+              }`}>{sf.label}</button>
+          ))}
+        </div>
+        {/* Priority filter */}
+        <div className="flex gap-1 flex-wrap">
+          {PRIORITY_FILTERS.map(pf => (
+            <button key={pf.value ?? 'all-prio'} onClick={() => setPriorityFilter(pf.value)}
+              className={`text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors ${
+                priorityFilter === pf.value ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-accent'
+              }`}>{pf.label}</button>
+          ))}
+        </div>
 
       {loading ? (
         <div className="flex items-center justify-center py-12">
