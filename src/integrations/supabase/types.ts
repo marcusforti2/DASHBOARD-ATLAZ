@@ -235,6 +235,251 @@ export type Database = {
           },
         ]
       }
+      automation_actions: {
+        Row: {
+          action_payload: Json
+          action_type: string
+          campaign_id: string
+          contact_id: string
+          created_at: string
+          enrollment_id: string
+          executed_at: string | null
+          id: string
+          last_error: string | null
+          locked_at: string | null
+          locked_by: string | null
+          retry_count: number
+          scheduled_for: string
+          status: string
+          step_index: number
+        }
+        Insert: {
+          action_payload?: Json
+          action_type?: string
+          campaign_id: string
+          contact_id: string
+          created_at?: string
+          enrollment_id: string
+          executed_at?: string | null
+          id?: string
+          last_error?: string | null
+          locked_at?: string | null
+          locked_by?: string | null
+          retry_count?: number
+          scheduled_for?: string
+          status?: string
+          step_index?: number
+        }
+        Update: {
+          action_payload?: Json
+          action_type?: string
+          campaign_id?: string
+          contact_id?: string
+          created_at?: string
+          enrollment_id?: string
+          executed_at?: string | null
+          id?: string
+          last_error?: string | null
+          locked_at?: string | null
+          locked_by?: string | null
+          retry_count?: number
+          scheduled_for?: string
+          status?: string
+          step_index?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_actions_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_actions_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "wa_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_actions_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_enrollments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_enrollments: {
+        Row: {
+          campaign_id: string
+          cancel_reason: string | null
+          cancelled_at: string | null
+          completed_at: string | null
+          contact_id: string
+          conversation_id: string | null
+          current_step: number
+          enrolled_at: string
+          id: string
+          metadata: Json
+          status: string
+        }
+        Insert: {
+          campaign_id: string
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          completed_at?: string | null
+          contact_id: string
+          conversation_id?: string | null
+          current_step?: number
+          enrolled_at?: string
+          id?: string
+          metadata?: Json
+          status?: string
+        }
+        Update: {
+          campaign_id?: string
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          completed_at?: string | null
+          contact_id?: string
+          conversation_id?: string | null
+          current_step?: number
+          enrolled_at?: string
+          id?: string
+          metadata?: Json
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_enrollments_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_enrollments_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "wa_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_enrollments_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "wa_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_events: {
+        Row: {
+          campaign_id: string | null
+          contact_id: string
+          created_at: string
+          enrollment_id: string | null
+          event_type: string
+          id: string
+          payload: Json
+          provider_event_id: string | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          contact_id: string
+          created_at?: string
+          enrollment_id?: string | null
+          event_type: string
+          id?: string
+          payload?: Json
+          provider_event_id?: string | null
+        }
+        Update: {
+          campaign_id?: string | null
+          contact_id?: string
+          created_at?: string
+          enrollment_id?: string | null
+          event_type?: string
+          id?: string
+          payload?: Json
+          provider_event_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_events_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_events_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "wa_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_events_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_enrollments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaigns: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          instance_id: string
+          name: string
+          status: string
+          steps: Json
+          trigger_config: Json
+          trigger_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          instance_id: string
+          name: string
+          status?: string
+          steps?: Json
+          trigger_config?: Json
+          trigger_type?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          instance_id?: string
+          name?: string
+          status?: string
+          steps?: Json
+          trigger_config?: Json
+          trigger_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaigns_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "wa_instances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       closer_analyses: {
         Row: {
           ai_analysis: string | null
@@ -378,6 +623,41 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      contact_suppressions: {
+        Row: {
+          campaign_id: string | null
+          created_at: string
+          id: string
+          phone: string
+          reason: string
+          source: string
+        }
+        Insert: {
+          campaign_id?: string | null
+          created_at?: string
+          id?: string
+          phone: string
+          reason?: string
+          source?: string
+        }
+        Update: {
+          campaign_id?: string | null
+          created_at?: string
+          id?: string
+          phone?: string
+          reason?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_suppressions_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       daily_metrics: {
         Row: {
@@ -2614,6 +2894,32 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_automation_actions: {
+        Args: { batch_size?: number; worker_id?: string }
+        Returns: {
+          action_payload: Json
+          action_type: string
+          campaign_id: string
+          contact_id: string
+          created_at: string
+          enrollment_id: string
+          executed_at: string | null
+          id: string
+          last_error: string | null
+          locked_at: string | null
+          locked_by: string | null
+          retry_count: number
+          scheduled_for: string
+          status: string
+          step_index: number
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "automation_actions"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       get_my_team_member_id: { Args: never; Returns: string }
       get_request_session_token: { Args: never; Returns: string }
       get_submission_by_id: {
@@ -2676,6 +2982,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      normalize_phone: { Args: { input: string }; Returns: string }
     }
     Enums: {
       app_role: "admin" | "closer" | "sdr"
