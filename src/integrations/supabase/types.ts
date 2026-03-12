@@ -1907,12 +1907,24 @@ export type Database = {
           assigned_role: string | null
           assigned_to: string | null
           contact_id: string
+          conversation_mode: Database["public"]["Enums"]["conversation_mode_enum"]
           created_at: string
+          handoff_reason: string | null
+          human_takeover_at: string | null
+          human_takeover_by: string | null
           id: string
           instance_id: string
+          last_ai_message_at: string | null
+          last_human_message_at: string | null
           last_message: string | null
           last_message_at: string | null
+          last_mode_changed_at: string | null
+          last_mode_changed_by: string | null
+          last_stage_changed_at: string | null
+          last_stage_changed_by: string | null
+          lead_stage: Database["public"]["Enums"]["lead_stage_enum"]
           lead_status: string
+          priority_level: Database["public"]["Enums"]["priority_level_enum"]
           status: string
           unread_count: number
           updated_at: string
@@ -1921,12 +1933,24 @@ export type Database = {
           assigned_role?: string | null
           assigned_to?: string | null
           contact_id: string
+          conversation_mode?: Database["public"]["Enums"]["conversation_mode_enum"]
           created_at?: string
+          handoff_reason?: string | null
+          human_takeover_at?: string | null
+          human_takeover_by?: string | null
           id?: string
           instance_id: string
+          last_ai_message_at?: string | null
+          last_human_message_at?: string | null
           last_message?: string | null
           last_message_at?: string | null
+          last_mode_changed_at?: string | null
+          last_mode_changed_by?: string | null
+          last_stage_changed_at?: string | null
+          last_stage_changed_by?: string | null
+          lead_stage?: Database["public"]["Enums"]["lead_stage_enum"]
           lead_status?: string
+          priority_level?: Database["public"]["Enums"]["priority_level_enum"]
           status?: string
           unread_count?: number
           updated_at?: string
@@ -1935,12 +1959,24 @@ export type Database = {
           assigned_role?: string | null
           assigned_to?: string | null
           contact_id?: string
+          conversation_mode?: Database["public"]["Enums"]["conversation_mode_enum"]
           created_at?: string
+          handoff_reason?: string | null
+          human_takeover_at?: string | null
+          human_takeover_by?: string | null
           id?: string
           instance_id?: string
+          last_ai_message_at?: string | null
+          last_human_message_at?: string | null
           last_message?: string | null
           last_message_at?: string | null
+          last_mode_changed_at?: string | null
+          last_mode_changed_by?: string | null
+          last_stage_changed_at?: string | null
+          last_stage_changed_by?: string | null
+          lead_stage?: Database["public"]["Enums"]["lead_stage_enum"]
           lead_status?: string
+          priority_level?: Database["public"]["Enums"]["priority_level_enum"]
           status?: string
           unread_count?: number
           updated_at?: string
@@ -2551,6 +2587,22 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "closer" | "sdr"
+      conversation_mode_enum:
+        | "ia_ativa"
+        | "humano_assumiu"
+        | "compartilhado"
+        | "pausado"
+      lead_stage_enum:
+        | "novo"
+        | "em_contato"
+        | "qualificado"
+        | "agendado"
+        | "reuniao"
+        | "proposta"
+        | "ganho"
+        | "perdido"
+        | "pausado"
+      priority_level_enum: "normal" | "atento" | "urgente"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2679,6 +2731,24 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "closer", "sdr"],
+      conversation_mode_enum: [
+        "ia_ativa",
+        "humano_assumiu",
+        "compartilhado",
+        "pausado",
+      ],
+      lead_stage_enum: [
+        "novo",
+        "em_contato",
+        "qualificado",
+        "agendado",
+        "reuniao",
+        "proposta",
+        "ganho",
+        "perdido",
+        "pausado",
+      ],
+      priority_level_enum: ["normal", "atento", "urgente"],
     },
   },
 } as const
