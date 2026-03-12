@@ -75,6 +75,7 @@ function getRiskBadge(risk: string) {
 }
 
 export function LeadDetailModal({ open, onOpenChange, conversation, tags, assignedTagIds, onAddTag, onRemoveTag }: Props) {
+  const { profile } = useAuth();
   const [pipedriveData, setPipedriveData] = useState<PipedriveData | null>(null);
   const [leadScore, setLeadScore] = useState<LeadScore | null>(null);
   const [loading, setLoading] = useState(true);
@@ -82,6 +83,12 @@ export function LeadDetailModal({ open, onOpenChange, conversation, tags, assign
   const [togglingAi, setTogglingAi] = useState(false);
   const [doubleChecking, setDoubleChecking] = useState(false);
   const [msgStats, setMsgStats] = useState({ contact: 0, agent: 0, first: '', last: '' });
+  // Snapshot of semantic fields for accurate audit events
+  const [convSnapshot, setConvSnapshot] = useState<{
+    conversation_mode: ConversationMode | null;
+    lead_stage: LeadStage | null;
+    priority_level: PriorityLevel | null;
+  }>({ conversation_mode: null, lead_stage: null, priority_level: null });
 
   const contactId = conversation.contact.id;
   const contactPhone = conversation.contact.phone;
