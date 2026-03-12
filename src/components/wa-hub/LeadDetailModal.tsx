@@ -101,17 +101,24 @@ export function LeadDetailModal({ open, onOpenChange, conversation, tags, assign
         supabase.from('pipedrive_persons').select('*').eq('wa_contact_id', contactId).maybeSingle(),
         supabase.from('wa_lead_scores').select('*').eq('contact_id', contactId).maybeSingle(),
         supabase.from('wa_messages').select('sender, created_at').eq('conversation_id', conversation.id).order('created_at', { ascending: true }),
-        supabase.from('wa_conversations').select('lead_status, conversation_mode').eq('id', conversation.id).single(),
+        supabase.from('wa_conversations').select('lead_status, conversation_mode, lead_stage, priority_level').eq('id', conversation.id).single(),
       ]);
 
+      // Store snapshot for accurate audit events
+      const convData = convResult.data;
+      setConvSnapshot({
+        conversation_mode: (convData?.conversation_mode as ConversationMode) ?? null,
+        lead_stage: (convData?.lead_stage as LeadStage) ?? null,
+        priority_level: (convData?.priority_level as PriorityLevel) ?? null,
+      });
+
       // Determine AI status from conversation_mode (primary) with lead_status fallback
-      const mode = convResult.data?.conversation_mode;
+      const mode = convData?.conversation_mode;
       if (mode) {
         setAiEnabled(mode === 'ia_ativa' || mode === 'compartilhado');
       } else {
-        // Fallback legado
         const blockedStatuses = ['agendado', 'urgente'];
-        setAiEnabled(!blockedStatuses.includes(convResult.data?.lead_status || ''));
+        setAiEnabled(!blockedStatuses.includes(convData?.lead_status || ''));
       }
 
       // Message stats
