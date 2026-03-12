@@ -345,9 +345,69 @@ function KanbanCard({ conv, stageColor, tags, assignedTagIds, onAddTag, onRemove
       {conv.last_message && (
         <p className="text-[10px] text-muted-foreground truncate pl-5">{conv.last_message}</p>
       )}
+      {/* Semantic badges */}
+      <div className="flex items-center gap-1 pl-5 flex-wrap">
+        <SemanticModeBadge mode={conv.conversation_mode} />
+        <SemanticStageBadge stage={conv.lead_stage} />
+        <SemanticPriorityBadge priority={conv.priority_level} />
+      </div>
       <div className="pl-5">
         <WaContactTagBadges contactId={conv.contact.id} assignedTagIds={assignedTagIds} allTags={tags} onAdd={onAddTag} onRemove={onRemoveTag} />
       </div>
     </div>
+  );
+}
+
+/* ── Semantic Badges (CRM) ── */
+
+function SemanticModeBadge({ mode }: { mode?: string | null }) {
+  if (!mode) return null;
+  const label = CONVERSATION_MODE_LABELS[mode as keyof typeof CONVERSATION_MODE_LABELS];
+  if (!label) return null;
+  const styles: Record<string, string> = {
+    ia_ativa: 'bg-primary/15 text-primary',
+    humano_assumiu: 'bg-amber-500/15 text-amber-600',
+    compartilhado: 'bg-violet-500/15 text-violet-600',
+    pausado: 'bg-muted text-muted-foreground',
+  };
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-[8px] px-1.5 py-0.5 rounded-full font-medium ${styles[mode] || 'bg-muted text-muted-foreground'}`}>
+      {mode === 'ia_ativa' || mode === 'compartilhado' ? <Bot className="w-2 h-2" /> : <User className="w-2 h-2" />}
+      {label}
+    </span>
+  );
+}
+
+function SemanticStageBadge({ stage }: { stage?: string | null }) {
+  if (!stage || stage === 'novo') return null;
+  const label = LEAD_STAGE_LABELS[stage as keyof typeof LEAD_STAGE_LABELS];
+  if (!label) return null;
+  const styles: Record<string, string> = {
+    em_contato: 'bg-sky-500/15 text-sky-600',
+    qualificado: 'bg-emerald-500/15 text-emerald-600',
+    agendado: 'bg-violet-500/15 text-violet-600',
+    reuniao: 'bg-indigo-500/15 text-indigo-600',
+    proposta: 'bg-amber-500/15 text-amber-600',
+    ganho: 'bg-emerald-600/15 text-emerald-700',
+    perdido: 'bg-destructive/15 text-destructive',
+    pausado: 'bg-muted text-muted-foreground',
+  };
+  return (
+    <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-medium ${styles[stage] || 'bg-muted text-muted-foreground'}`}>
+      {label}
+    </span>
+  );
+}
+
+function SemanticPriorityBadge({ priority }: { priority?: string | null }) {
+  if (!priority || priority === 'normal') return null;
+  const isUrgent = priority === 'urgente';
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-[8px] px-1.5 py-0.5 rounded-full font-medium ${
+      isUrgent ? 'bg-destructive/15 text-destructive' : 'bg-amber-500/15 text-amber-600'
+    }`}>
+      {isUrgent && <AlertTriangle className="w-2 h-2" />}
+      {PRIORITY_LEVEL_LABELS[priority as keyof typeof PRIORITY_LEVEL_LABELS] || priority}
+    </span>
   );
 }
