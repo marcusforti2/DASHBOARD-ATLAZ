@@ -1637,8 +1637,15 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
       }
 
       // Mark conversation for human takeover (urgent_call uses its own status)
+      const urgentNow = new Date().toISOString();
       await supabase.from("wa_conversations").update({
         lead_status: "urgente",
+        lead_stage: "em_contato",
+        conversation_mode: "humano_assumiu",
+        priority_level: "urgente",
+        human_takeover_at: urgentNow,
+        last_mode_changed_at: urgentNow,
+        handoff_reason: "Lead solicitou ligação urgente",
         assigned_to: instance.closer_id,
         assigned_role: "closer",
       }).eq("id", conversation_id);
