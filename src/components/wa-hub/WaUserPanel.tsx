@@ -22,7 +22,7 @@ interface Props {
 
 export function WaUserPanel({ teamMemberId, memberName, memberRole }: Props) {
   const [tab, setTab] = useState<'chat' | 'pipeline' | 'reminders'>('chat');
-  const { conversations, loading } = useWaConversations(null);
+  const { conversations, loading, refetch: refetchConversations } = useWaConversations(null);
   const { instances } = useWaInstances();
   const { tags, createTag, deleteTag } = useWaTags();
   const { getTagsForContact, addTag, removeTag } = useWaContactTags();
@@ -280,6 +280,7 @@ export function WaUserPanel({ teamMemberId, memberName, memberRole }: Props) {
             onRemoveTag={removeTag}
             onCreateTag={createTag}
             onDeleteTag={deleteTag}
+            onRefresh={refetchConversations}
           />
         </TabsContent>
 
