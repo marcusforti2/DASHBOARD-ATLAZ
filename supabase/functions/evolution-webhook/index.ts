@@ -210,6 +210,7 @@ Deno.serve(async (req) => {
         media_type: mediaType || null,
         media_url: finalMediaUrl || null,
         media_mime_type: mediaMime || null,
+        provider_message_id: providerEventId || null,
         created_at: msgData.messageTimestamp
           ? new Date(msgData.messageTimestamp * 1000).toISOString()
           : now,
