@@ -1,5 +1,14 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type {
+  LeadStage,
+  ConversationMode,
+  PriorityLevel,
+  ConversationStatus,
+  AssignmentRole,
+} from '@/domains/conversations/types';
+
+export type { LeadStage, ConversationMode, PriorityLevel, ConversationStatus, AssignmentRole };
 
 export interface WaInstance {
   id: string;
