@@ -263,25 +263,40 @@ Deno.serve(async (req) => {
             { phone, reason: 'opt_out', source: 'campaign' },
             { onConflict: 'phone', ignoreDuplicates: true }
           );
-          // Cancel all pending actions for this contact
+          // Cancel all pending/retry actions for this contact
           await supabase
             .from('automation_actions')
             .update({ status: 'cancelled', last_error: 'contact_opted_out', executed_at: new Date().toISOString() })
             .eq('contact_id', contact.id)
-            .in('status', ['pending', 'failed']);
+            .in('status', ['pending', 'retry']);
           // Mark enrollments as opted_out
+          const { data: optOutEnrollments } = await supabase
+            .from('campaign_enrollments')
+            .select('id, campaign_id')
+            .eq('contact_id', contact.id)
+            .eq('status', 'active');
           await supabase
             .from('campaign_enrollments')
             .update({ status: 'opted_out', cancelled_at: new Date().toISOString(), cancel_reason: 'opt_out' })
             .eq('contact_id', contact.id)
             .eq('status', 'active');
-          // Record event (with dedup)
+          // Record events with full observability
           await supabase.from('campaign_events').insert({
             contact_id: contact.id,
             event_type: 'opt_out',
             provider_event_id: providerEventId,
-            payload: { message: lowerMsg.substring(0, 200) },
+            payload: { message: lowerMsg.substring(0, 200), suppressed_phone: phone },
           });
+          // Record suppression event per enrollment
+          for (const enr of (optOutEnrollments || [])) {
+            await supabase.from('campaign_events').insert({
+              contact_id: contact.id,
+              campaign_id: enr.campaign_id,
+              enrollment_id: enr.id,
+              event_type: 'enrollment_opted_out',
+              payload: { reason: 'opt_out_keyword' },
+            });
+          }
           // Set suppressed flag to skip AI
           var contactSuppressedByOptOut = true;
         } else if (isInterest) {
@@ -298,12 +313,21 @@ Deno.serve(async (req) => {
               .from('automation_actions')
               .update({ status: 'cancelled', last_error: 'positive_interest_handoff', executed_at: new Date().toISOString() })
               .eq('enrollment_id', enr.id)
-              .in('status', ['pending', 'failed']);
+              .in('status', ['pending', 'retry']);
 
             await supabase
               .from('campaign_enrollments')
               .update({ status: 'completed', completed_at: new Date().toISOString() })
               .eq('id', enr.id);
+
+            // Observability: enrollment completed by interest
+            await supabase.from('campaign_events').insert({
+              contact_id: contact.id,
+              campaign_id: enr.campaign_id,
+              enrollment_id: enr.id,
+              event_type: 'enrollment_completed_interest',
+              payload: { reason: 'positive_interest_handoff' },
+            });
           }
           // Handoff conversation to human
           if (conversation) {
@@ -312,8 +336,16 @@ Deno.serve(async (req) => {
               human_takeover_at: new Date().toISOString(),
               handoff_reason: 'positive_interest_campaign',
             }).eq('id', conversation.id);
+
+            // Observability: conversation mode changed
+            await supabase.from('campaign_events').insert({
+              contact_id: contact.id,
+              event_type: 'conversation_mode_changed',
+              provider_event_id: providerEventId,
+              payload: { new_mode: 'humano_assumiu', reason: 'positive_interest_campaign', conversation_id: conversation.id },
+            });
           }
-          // Record event
+          // Record main event
           await supabase.from('campaign_events').insert({
             contact_id: contact.id,
             event_type: 'positive_interest',
