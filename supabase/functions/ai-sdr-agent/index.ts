@@ -388,7 +388,44 @@ Deno.serve(async (req) => {
       .eq("id", conversation_id)
       .single();
 
-    // Resolve contact_phone and contact_name if not provided in body
+    // Snapshot previous state for audit events
+    const prevState = {
+      lead_stage: conversation?.lead_stage || null,
+      conversation_mode: conversation?.conversation_mode || null,
+      priority_level: conversation?.priority_level || null,
+    };
+
+    // Helper: insert audit event (fire-and-forget, non-blocking)
+    const logStateEvent = async (params: {
+      newStage?: string | null;
+      newMode?: string | null;
+      newPriority?: string | null;
+      prevStage?: string | null;
+      prevMode?: string | null;
+      prevPriority?: string | null;
+      actorType?: string;
+      reason: string;
+      metadata?: Record<string, unknown>;
+    }) => {
+      try {
+        await supabase.from("wa_conversation_state_events").insert({
+          conversation_id,
+          previous_lead_stage: params.prevStage ?? prevState.lead_stage,
+          new_lead_stage: params.newStage ?? prevState.lead_stage,
+          previous_conversation_mode: params.prevMode ?? prevState.conversation_mode,
+          new_conversation_mode: params.newMode ?? prevState.conversation_mode,
+          previous_priority_level: params.prevPriority ?? prevState.priority_level,
+          new_priority_level: params.newPriority ?? prevState.priority_level,
+          actor_type: params.actorType || "ai",
+          source: "ai_sdr_agent",
+          reason: params.reason,
+          metadata: params.metadata || {},
+        });
+      } catch (e) {
+        console.error("[ai-sdr] Failed to log state event:", e);
+      }
+    };
+
     if ((!contact_phone || !contact_name) && conversation?.contact_id) {
       const { data: contactData } = await supabase
         .from("wa_contacts")
