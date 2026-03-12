@@ -315,7 +315,7 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    if (recentAgentMsg) {
+    if (recentAgentMsg && !body.dry_run) {
       console.log(`[ai-sdr] Skipping: recent agent message found (${isProactive ? 'proactive' : 'concurrency'} guard)`, recentAgentMsg.id);
       return new Response(JSON.stringify({ skipped: isProactive ? "proactive_guard" : "concurrency_guard" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
