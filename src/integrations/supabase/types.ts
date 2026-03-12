@@ -1902,6 +1902,98 @@ export type Database = {
           },
         ]
       }
+      wa_conversation_state_events: {
+        Row: {
+          actor_team_member_id: string | null
+          actor_type: Database["public"]["Enums"]["conversation_event_actor_type_enum"]
+          actor_user_id: string | null
+          conversation_id: string
+          created_at: string
+          id: string
+          metadata: Json
+          new_conversation_mode:
+            | Database["public"]["Enums"]["conversation_mode_enum"]
+            | null
+          new_lead_stage: Database["public"]["Enums"]["lead_stage_enum"] | null
+          new_priority_level:
+            | Database["public"]["Enums"]["priority_level_enum"]
+            | null
+          previous_conversation_mode:
+            | Database["public"]["Enums"]["conversation_mode_enum"]
+            | null
+          previous_lead_stage:
+            | Database["public"]["Enums"]["lead_stage_enum"]
+            | null
+          previous_priority_level:
+            | Database["public"]["Enums"]["priority_level_enum"]
+            | null
+          reason: string | null
+          source: Database["public"]["Enums"]["conversation_event_source_enum"]
+        }
+        Insert: {
+          actor_team_member_id?: string | null
+          actor_type: Database["public"]["Enums"]["conversation_event_actor_type_enum"]
+          actor_user_id?: string | null
+          conversation_id: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          new_conversation_mode?:
+            | Database["public"]["Enums"]["conversation_mode_enum"]
+            | null
+          new_lead_stage?: Database["public"]["Enums"]["lead_stage_enum"] | null
+          new_priority_level?:
+            | Database["public"]["Enums"]["priority_level_enum"]
+            | null
+          previous_conversation_mode?:
+            | Database["public"]["Enums"]["conversation_mode_enum"]
+            | null
+          previous_lead_stage?:
+            | Database["public"]["Enums"]["lead_stage_enum"]
+            | null
+          previous_priority_level?:
+            | Database["public"]["Enums"]["priority_level_enum"]
+            | null
+          reason?: string | null
+          source: Database["public"]["Enums"]["conversation_event_source_enum"]
+        }
+        Update: {
+          actor_team_member_id?: string | null
+          actor_type?: Database["public"]["Enums"]["conversation_event_actor_type_enum"]
+          actor_user_id?: string | null
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          new_conversation_mode?:
+            | Database["public"]["Enums"]["conversation_mode_enum"]
+            | null
+          new_lead_stage?: Database["public"]["Enums"]["lead_stage_enum"] | null
+          new_priority_level?:
+            | Database["public"]["Enums"]["priority_level_enum"]
+            | null
+          previous_conversation_mode?:
+            | Database["public"]["Enums"]["conversation_mode_enum"]
+            | null
+          previous_lead_stage?:
+            | Database["public"]["Enums"]["lead_stage_enum"]
+            | null
+          previous_priority_level?:
+            | Database["public"]["Enums"]["priority_level_enum"]
+            | null
+          reason?: string | null
+          source?: Database["public"]["Enums"]["conversation_event_source_enum"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wa_conversation_state_events_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "wa_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wa_conversations: {
         Row: {
           assigned_role: string | null
@@ -2587,6 +2679,14 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "closer" | "sdr"
+      conversation_event_actor_type_enum: "human" | "ai" | "system" | "admin"
+      conversation_event_source_enum:
+        | "ui"
+        | "ai_sdr_agent"
+        | "webhook"
+        | "automation"
+        | "migration"
+        | "admin_action"
       conversation_mode_enum:
         | "ia_ativa"
         | "humano_assumiu"
@@ -2731,6 +2831,15 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "closer", "sdr"],
+      conversation_event_actor_type_enum: ["human", "ai", "system", "admin"],
+      conversation_event_source_enum: [
+        "ui",
+        "ai_sdr_agent",
+        "webhook",
+        "automation",
+        "migration",
+        "admin_action",
+      ],
       conversation_mode_enum: [
         "ia_ativa",
         "humano_assumiu",
