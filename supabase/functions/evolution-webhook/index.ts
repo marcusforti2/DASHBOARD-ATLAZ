@@ -80,16 +80,16 @@ Deno.serve(async (req) => {
       const isFromMe = msgData.key.fromMe === true;
       const providerEventId = msgData.key.id || null;
 
-      // ── Deduplicação de evento inbound ──
-      if (providerEventId && !isFromMe) {
-        const { data: existing } = await supabase
-          .from('campaign_events')
+      // ── Deduplicação real de evento inbound via wa_messages ──
+      if (providerEventId) {
+        const { data: existingMsg } = await supabase
+          .from('wa_messages')
           .select('id')
-          .eq('provider_event_id', providerEventId)
+          .eq('provider_message_id', providerEventId)
           .maybeSingle();
-        if (existing) {
-          console.log('[webhook] Duplicate event skipped:', providerEventId);
-          return new Response(JSON.stringify({ ok: true, skipped: 'duplicate_event' }), {
+        if (existingMsg) {
+          console.log('[webhook] Duplicate message skipped (wa_messages):', providerEventId);
+          return new Response(JSON.stringify({ ok: true, skipped: 'duplicate_message' }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
