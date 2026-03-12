@@ -152,279 +152,50 @@ export function AiSdrTab({ instances, teamMembers, onRefetch }: Props) {
       {/* Routing Map */}
       <RoutingPanel />
 
-
-      <div>
-        <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
-          <Settings2 className="w-4 h-4 text-primary" />
-          Funcionalidades do Agente
-        </h3>
-        <p className="text-xs text-muted-foreground mb-3">Escolha exatamente o que a SDR IA deve fazer.</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {FEATURES.map((feat) => {
-            const isOn = selectedInstance ? (localConfig[feat.key] ?? true) : false;
-            return (
-              <button
-                key={feat.key}
-                onClick={() => selectedInstance && update(feat.key, !isOn)}
-                disabled={!selectedInstance}
-                className={`relative flex items-start gap-3 p-4 rounded-xl border text-left transition-all ${
-                  isOn ? "border-primary/40 bg-primary/5 shadow-sm" : "border-border bg-card opacity-70 hover:opacity-100"
-                } ${!selectedInstance ? "cursor-not-allowed" : "cursor-pointer hover:border-primary/30"}`}
-              >
-                <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${isOn ? "bg-primary/15" : "bg-muted"}`}>
-                  <feat.icon className={`w-4.5 h-4.5 ${isOn ? feat.color : "text-muted-foreground"}`} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className={`text-xs font-bold ${isOn ? "text-foreground" : "text-muted-foreground"}`}>{feat.title}</p>
-                    {isOn ? <ToggleRight className="w-5 h-5 text-primary shrink-0" /> : <ToggleLeft className="w-5 h-5 text-muted-foreground shrink-0" />}
-                  </div>
-                  <p className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed">{feat.desc}</p>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-        {!selectedInstance && (
-          <p className="text-[10px] text-muted-foreground mt-2 text-center">Selecione uma instância abaixo para configurar.</p>
-        )}
-      </div>
-
-      {/* Interactive Flow diagram */}
-      <div className="rounded-xl border border-border bg-card p-4">
-        <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
-          🔄 Fluxo Completo do Agente
-          {closerName && <Badge variant="secondary" className="text-[10px]">Responde como {closerName}</Badge>}
-        </h3>
-        <AiSdrFlowView config={localConfig} closerName={closerName} />
-      </div>
-
-      {/* Instance selector + config */}
-      <div className="rounded-xl border border-border bg-card p-5 space-y-5">
+      {/* Instance overview (read-only) */}
+      <div className="rounded-xl border border-border bg-card p-5 space-y-4">
         <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
           <Settings2 className="w-4 h-4 text-primary" />
-          Configurar por Instância
+          Instâncias
         </h3>
-
-        <div className="flex gap-2 overflow-x-auto pb-1">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
           {instances.map(inst => {
             const name = inst.instance_name.replace(/^wpp_/i, "").replace(/^\w/, (c: string) => c.toUpperCase());
-            const isSelected = inst.id === selectedInstanceId;
+            const config = { ...DEFAULT_CONFIG, ...(inst.ai_sdr_config || {}) };
+            const featureCount = [
+              config.feature_auto_reply, config.feature_auto_tag, config.feature_qualification,
+              config.feature_handoff, config.feature_sentiment, config.feature_pipedrive_sync,
+            ].filter(Boolean).length;
             return (
-              <button
-                key={inst.id}
-                onClick={() => setSelectedInstanceId(inst.id)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium border transition-all shrink-0 ${
-                  isSelected ? "border-primary bg-primary/10 text-primary" : "border-border bg-secondary text-muted-foreground hover:border-primary/30"
-                }`}
-              >
-                <span className={`w-2 h-2 rounded-full ${inst.is_connected ? "bg-green-500" : "bg-red-400"}`} />
-                {name}
-                {inst.ai_sdr_enabled && <span className="text-[9px] px-1 py-0.5 rounded bg-primary/20 text-primary font-bold">IA</span>}
-              </button>
+              <div key={inst.id} className={`rounded-xl border p-4 transition-all ${
+                inst.ai_sdr_enabled ? "border-primary/30 bg-primary/5" : "border-border bg-card"
+              }`}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full ${inst.is_connected ? "bg-green-500" : "bg-red-400"}`} />
+                    <span className="text-sm font-bold text-foreground">{name}</span>
+                  </div>
+                  {inst.ai_sdr_enabled ? (
+                    <Badge className="text-[9px] bg-primary/15 text-primary border-primary/30">IA Ativa</Badge>
+                  ) : (
+                    <Badge variant="secondary" className="text-[9px]">Off</Badge>
+                  )}
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  SDR: {teamMembers.find(m => m.id === inst.sdr_id)?.name || "—"} · Closer: {teamMembers.find(m => m.id === inst.closer_id)?.name || "—"}
+                </p>
+                {inst.ai_sdr_enabled && (
+                  <p className="text-[10px] text-primary mt-1 font-medium">
+                    {featureCount} features · Tom: {config.tone || "profissional"}
+                  </p>
+                )}
+              </div>
             );
           })}
         </div>
-
-        {selectedInstance && (
-          <div className="space-y-5">
-            {/* Toggle */}
-            <div className="flex items-center justify-between p-4 rounded-xl bg-secondary/50 border border-border">
-              <div>
-                <p className="text-sm font-bold text-foreground flex items-center gap-2">
-                  {selectedInstance.instance_name.replace(/^wpp_/i, "").replace(/^\w/, (c: string) => c.toUpperCase())}
-                  {!selectedInstance.is_connected && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-destructive/10 text-destructive flex items-center gap-1">
-                      <AlertTriangle className="w-3 h-3" /> Desconectada
-                    </span>
-                  )}
-                </p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">
-                  SDR: {getSdrName(selectedInstance.sdr_id)} · Closer: {getCloserName(selectedInstance.closer_id)}
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className={`text-xs font-bold ${selectedInstance.ai_sdr_enabled ? "text-primary" : "text-muted-foreground"}`}>
-                  {selectedInstance.ai_sdr_enabled ? "IA Ativa" : "IA Desligada"}
-                </span>
-                <button onClick={handleToggle} disabled={toggling} className="transition-transform hover:scale-110">
-                  {toggling ? <Loader2 className="w-6 h-6 animate-spin text-primary" /> : selectedInstance.ai_sdr_enabled ? <ToggleRight className="w-8 h-8 text-primary" /> : <ToggleLeft className="w-8 h-8 text-muted-foreground" />}
-                </button>
-              </div>
-            </div>
-
-            {selectedInstance.ai_sdr_enabled && (
-              <div className="space-y-5 animate-in slide-in-from-top-2 duration-300">
-                {/* Greeting */}
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-2">
-                    <Send className="w-3.5 h-3.5" /> Primeira mensagem (saudação)
-                  </label>
-                  <Textarea value={localConfig.greeting} onChange={e => update("greeting", e.target.value)} placeholder="Olá! 👋 Como posso ajudar?" rows={2} className="text-sm resize-none" />
-                  <p className="text-[10px] text-muted-foreground mt-1">Enviada quando a IA inicia conversa proativamente (via Pipedrive) ou quando um novo lead envia a primeira mensagem.</p>
-                </div>
-
-                {/* Tone */}
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">Tom da conversa</label>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                    {TONES.map(t => (
-                      <button key={t.value} onClick={() => update("tone", t.value)}
-                        className={`p-3 rounded-xl border text-left transition-all ${localConfig.tone === t.value ? "border-primary bg-primary/10" : "border-border bg-secondary hover:border-primary/30"}`}>
-                        <span className="text-lg">{t.emoji}</span>
-                        <p className={`text-xs font-bold mt-1 ${localConfig.tone === t.value ? "text-primary" : "text-foreground"}`}>{t.label}</p>
-                        <p className="text-[10px] text-muted-foreground">{t.desc}</p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Master Prompt */}
-                <div className="rounded-xl border-2 border-primary/20 bg-primary/5 p-4">
-                  <label className="text-xs font-semibold text-primary uppercase tracking-wider flex items-center gap-1.5 mb-2">
-                    <Shield className="w-3.5 h-3.5" /> Prompt Master — Personalidade da SDR IA
-                  </label>
-                  <Textarea value={localConfig.master_prompt} onChange={e => update("master_prompt", e.target.value)}
-                    placeholder={`Defina a personalidade e regras absolutas da IA:\n\nExemplo:\nVocê é a Clara, assistente do time da Atlas.\nNUNCA revele que é IA. Seu objetivo é qualificar o lead.\nSe o lead mencionar preço, responda: "Para garantir a melhor proposta, vou conectar você com nosso especialista."`}
-                    rows={8} className="text-sm resize-none bg-card" />
-                  <p className="text-[10px] text-muted-foreground mt-1.5">
-                    <strong>Prioridade máxima.</strong> Define personalidade, regras e limites do agente.
-                  </p>
-                </div>
-
-                {/* Qualification Questions */}
-                {localConfig.feature_qualification && (
-                  <div className="rounded-xl border border-green-500/20 bg-green-500/5 p-4 space-y-3">
-                    <label className="text-xs font-semibold text-green-600 uppercase tracking-wider flex items-center gap-1.5">
-                      <Target className="w-3.5 h-3.5" /> Perguntas de Qualificação
-                    </label>
-                    <p className="text-[10px] text-muted-foreground">
-                      A IA fará essas perguntas de forma natural durante a conversa (não como formulário). Arraste para reordenar.
-                    </p>
-
-                    <div className="space-y-2">
-                      {(localConfig.qualification_questions || []).map((q: string, i: number) => (
-                        <div key={i} className="flex items-center gap-2">
-                          <GripVertical className="w-4 h-4 text-muted-foreground/50 shrink-0" />
-                          <span className="text-xs font-bold text-muted-foreground w-5 shrink-0">{i + 1}.</span>
-                          <Input value={q} onChange={e => updateQuestion(i, e.target.value)}
-                            placeholder="Ex: Qual seu faturamento mensal?"
-                            className="text-sm h-9 flex-1" />
-                          <button onClick={() => removeQuestion(i)} className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-
-                    <Button variant="outline" size="sm" onClick={addQuestion} className="gap-1.5 text-xs">
-                      <Plus className="w-3.5 h-3.5" /> Adicionar pergunta
-                    </Button>
-
-                    {/* Score thresholds */}
-                    <div className="pt-3 border-t border-green-500/10">
-                      <label className="text-xs font-semibold text-green-600 uppercase tracking-wider flex items-center gap-1.5 mb-3">
-                        <TrendingUp className="w-3.5 h-3.5" /> Thresholds de Score
-                      </label>
-                      <div className="grid grid-cols-3 gap-3">
-                        <div className="rounded-lg bg-card border border-border p-3 text-center">
-                          <div className="w-8 h-8 rounded-full bg-green-500/15 flex items-center justify-center mx-auto mb-1">
-                            <span className="text-sm font-bold text-green-600">A</span>
-                          </div>
-                          <p className="text-[10px] text-muted-foreground mb-1">Agenda com Closer</p>
-                          <div className="flex items-center justify-center gap-1">
-                            <span className="text-[10px] text-muted-foreground">≥</span>
-                            <Input type="number" min={0} max={100}
-                              value={localConfig.score_thresholds?.a_min || 80}
-                              onChange={e => updateThreshold("a_min", parseInt(e.target.value) || 80)}
-                              className="h-7 w-14 text-xs text-center" />
-                          </div>
-                        </div>
-                        <div className="rounded-lg bg-card border border-border p-3 text-center">
-                          <div className="w-8 h-8 rounded-full bg-yellow-500/15 flex items-center justify-center mx-auto mb-1">
-                            <span className="text-sm font-bold text-yellow-600">B</span>
-                          </div>
-                          <p className="text-[10px] text-muted-foreground mb-1">Passa para SDR</p>
-                          <div className="flex items-center justify-center gap-1">
-                            <span className="text-[10px] text-muted-foreground">≥</span>
-                            <Input type="number" min={0} max={100}
-                              value={localConfig.score_thresholds?.b_min || 50}
-                              onChange={e => updateThreshold("b_min", parseInt(e.target.value) || 50)}
-                              className="h-7 w-14 text-xs text-center" />
-                          </div>
-                        </div>
-                        <div className="rounded-lg bg-card border border-border p-3 text-center">
-                          <div className="w-8 h-8 rounded-full bg-red-500/15 flex items-center justify-center mx-auto mb-1">
-                            <span className="text-sm font-bold text-red-600">C</span>
-                          </div>
-                          <p className="text-[10px] text-muted-foreground mb-1">Encerra educado</p>
-                          <div className="flex items-center justify-center gap-1">
-                            <span className="text-[10px] text-muted-foreground">&lt;</span>
-                            <span className="text-xs font-bold text-muted-foreground">{localConfig.score_thresholds?.b_min || 50}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Prompt Context */}
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-2">
-                    <Brain className="w-3.5 h-3.5" /> Contexto do negócio (complementar)
-                  </label>
-                  <Textarea value={localConfig.prompt_context} onChange={e => update("prompt_context", e.target.value)}
-                    placeholder={`Informações adicionais:\n\n• Qual seu produto/serviço?\n• Qual o ticket médio?\n• Como qualificar um lead? (critérios)`}
-                    rows={5} className="text-sm resize-none" />
-                  <p className="text-[10px] text-muted-foreground mt-1">
-                    A IA também puxa automaticamente os <strong>Prompts do Negócio</strong> (aba Prompts IA) e sua <strong>Base de Conhecimento</strong>.
-                  </p>
-                </div>
-
-                {/* Handoff + business hours */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {localConfig.feature_handoff && (
-                    <div>
-                      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-2">
-                        <Users className="w-3.5 h-3.5" /> Transferir após
-                      </label>
-                      <div className="flex items-center gap-2">
-                        <Input type="number" min={3} max={50} value={localConfig.max_messages_before_handoff}
-                          onChange={e => update("max_messages_before_handoff", parseInt(e.target.value) || 10)}
-                          className="h-9 w-20 text-sm" />
-                        <span className="text-xs text-muted-foreground">mensagens da IA</span>
-                      </div>
-                    </div>
-                  )}
-                  <div className="flex items-end">
-                    <button onClick={() => update("business_hours_only", !localConfig.business_hours_only)}
-                      className="flex items-center gap-2 text-sm text-foreground hover:text-primary transition-colors p-2 rounded-lg">
-                      {localConfig.business_hours_only ? <ToggleRight className="w-6 h-6 text-primary" /> : <ToggleLeft className="w-6 h-6 text-muted-foreground" />}
-                      <div className="text-left">
-                        <p className="text-xs font-bold">🕐 Só horário comercial</p>
-                        <p className="text-[10px] text-muted-foreground">8h às 18h, Seg-Sex</p>
-                      </div>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Save */}
-                <Button onClick={handleSave} disabled={saving} className="w-full gap-2">
-                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                  Salvar Configuração da IA
-                </Button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {instances.length === 0 && (
-          <div className="text-center py-8">
-            <Bot className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">Crie uma instância de WhatsApp primeiro</p>
-            <p className="text-[10px] text-muted-foreground">Vá na aba Instâncias para começar</p>
-          </div>
-        )}
+        <p className="text-[10px] text-muted-foreground text-center">
+          Para configurar funcionalidades, prompts e qualificação, acesse o <strong>Painel completo da SDR IA</strong>.
+        </p>
       </div>
     </div>
   );
