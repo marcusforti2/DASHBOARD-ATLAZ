@@ -384,7 +384,7 @@ Deno.serve(async (req) => {
     // Get conversation details
     const { data: conversation } = await supabase
       .from("wa_conversations")
-      .select("lead_status, contact_id")
+      .select("lead_status, contact_id, conversation_mode, lead_stage, priority_level")
       .eq("id", conversation_id)
       .single();
 
