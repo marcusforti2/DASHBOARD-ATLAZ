@@ -75,12 +75,29 @@ Deno.serve(async (req) => {
         });
       }
 
-      const phone = remoteJid.replace('@s.whatsapp.net', '');
+      const rawPhone = remoteJid.replace('@s.whatsapp.net', '');
+      const phone = rawPhone.replace(/\D/g, ''); // normalize_phone equivalent
       const isFromMe = msgData.key.fromMe === true;
+      const providerEventId = msgData.key.id || null;
+
+      // ── Deduplicação de evento inbound ──
+      if (providerEventId && !isFromMe) {
+        const { data: existing } = await supabase
+          .from('campaign_events')
+          .select('id')
+          .eq('provider_event_id', providerEventId)
+          .maybeSingle();
+        if (existing) {
+          console.log('[webhook] Duplicate event skipped:', providerEventId);
+          return new Response(JSON.stringify({ ok: true, skipped: 'duplicate_event' }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      }
 
       // Auto-populate instance phone from participant JID when sending messages
       if (isFromMe && msgData.key.participant) {
-        const ownPhone = msgData.key.participant.replace('@s.whatsapp.net', '');
+        const ownPhone = msgData.key.participant.replace('@s.whatsapp.net', '').replace(/\D/g, '');
         if (ownPhone && !instance.phone) {
           await supabase.from('wa_instances').update({ phone: ownPhone }).eq('id', instance.id);
           console.log(`[webhook] Auto-set instance phone: ${instanceName} -> ${ownPhone}`);
@@ -95,6 +112,21 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ ok: true, skipped: 'no content' }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
+      }
+
+      // ── Suppression check (opt-out global) ──
+      if (!isFromMe) {
+        const { data: suppressed } = await supabase
+          .from('contact_suppressions')
+          .select('id')
+          .eq('phone', phone)
+          .maybeSingle();
+        if (suppressed) {
+          console.log('[webhook] Contact suppressed, skipping AI/campaign:', phone);
+          // Still save message (for audit) but skip AI triggers below
+          // We'll set a flag
+          var contactSuppressed = true;
+        }
       }
 
       // Upsert contact
