@@ -1705,8 +1705,15 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
         assigned_to: instance.closer_id,
         assigned_role: "closer",
       }).eq("id", conversation_id);
+      await logStateEvent({
+        newStage: "em_contato",
+        newMode: "humano_assumiu",
+        newPriority: "urgente",
+        reason: "Lead solicitou ligação urgente — human takeover",
+        metadata: { urgent_call: true, contact_phone, contact_name: contact_name || "" },
+      });
 
-      // AI won't respond because lead_status changed from normal flow
+      // AI won't respond because conversation_mode changed
     }
 
     // 7. Meeting confirmed: schedule 6h and 1h follow-ups
