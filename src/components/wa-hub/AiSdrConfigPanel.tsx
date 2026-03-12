@@ -16,6 +16,14 @@ import { DEFAULT_AI_SDR_CONFIG, AI_SDR_TONES } from '@/domains/ai-sdr/types';
 const DEFAULT_CONFIG = DEFAULT_AI_SDR_CONFIG;
 const TONES = AI_SDR_TONES;
 
+interface Props {
+  instanceId: string;
+  instanceName: string;
+  aiSdrEnabled: boolean;
+  aiSdrConfig: AiSdrConfig;
+  onUpdate: () => void;
+}
+
 export function AiSdrConfigPanel({ instanceId, instanceName, aiSdrEnabled, aiSdrConfig, onUpdate }: Props) {
   const config = { ...DEFAULT_CONFIG, ...aiSdrConfig };
   const [expanded, setExpanded] = useState(false);
