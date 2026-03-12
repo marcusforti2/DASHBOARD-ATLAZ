@@ -388,7 +388,44 @@ Deno.serve(async (req) => {
       .eq("id", conversation_id)
       .single();
 
-    // Resolve contact_phone and contact_name if not provided in body
+    // Snapshot previous state for audit events
+    const prevState = {
+      lead_stage: conversation?.lead_stage || null,
+      conversation_mode: conversation?.conversation_mode || null,
+      priority_level: conversation?.priority_level || null,
+    };
+
+    // Helper: insert audit event (fire-and-forget, non-blocking)
+    const logStateEvent = async (params: {
+      newStage?: string | null;
+      newMode?: string | null;
+      newPriority?: string | null;
+      prevStage?: string | null;
+      prevMode?: string | null;
+      prevPriority?: string | null;
+      actorType?: string;
+      reason: string;
+      metadata?: Record<string, unknown>;
+    }) => {
+      try {
+        await supabase.from("wa_conversation_state_events").insert({
+          conversation_id,
+          previous_lead_stage: params.prevStage ?? prevState.lead_stage,
+          new_lead_stage: params.newStage ?? prevState.lead_stage,
+          previous_conversation_mode: params.prevMode ?? prevState.conversation_mode,
+          new_conversation_mode: params.newMode ?? prevState.conversation_mode,
+          previous_priority_level: params.prevPriority ?? prevState.priority_level,
+          new_priority_level: params.newPriority ?? prevState.priority_level,
+          actor_type: params.actorType || "ai",
+          source: "ai_sdr_agent",
+          reason: params.reason,
+          metadata: params.metadata || {},
+        });
+      } catch (e) {
+        console.error("[ai-sdr] Failed to log state event:", e);
+      }
+    };
+
     if ((!contact_phone || !contact_name) && conversation?.contact_id) {
       const { data: contactData } = await supabase
         .from("wa_contacts")
@@ -414,6 +451,12 @@ Deno.serve(async (req) => {
           conversation_mode: "humano_assumiu",
           last_mode_changed_at: new Date().toISOString(),
         }).eq("id", conversation_id);
+        await logStateEvent({
+          newStage: "qualificado",
+          newMode: "humano_assumiu",
+          reason: "Handoff threshold reached — max AI messages exceeded",
+          metadata: { trigger: "handoff_threshold", max_messages: maxBeforeHandoff },
+        });
         return new Response(JSON.stringify({ skipped: "handoff_threshold", handoff: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -1516,6 +1559,13 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
         updateFields.lead_stage = mappedStage;
       }
       await supabase.from("wa_conversations").update(updateFields).eq("id", conversation_id);
+      if (mappedStage) {
+        await logStateEvent({
+          newStage: mappedStage,
+          reason: `AI updated lead stage to ${mappedStage}`,
+          metadata: { legacy_lead_status: parsed.new_lead_status, ai_decision: true },
+        });
+      }
       console.log("[ai-sdr] Lead status →", parsed.new_lead_status, mappedStage ? `(lead_stage → ${mappedStage})` : "(no stage mapping)");
     }
 
@@ -1571,6 +1621,12 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
         human_takeover_at: new Date().toISOString(),
         handoff_reason: `AI handoff: ${parsed.handoff_reason || "Lead qualificado"}`,
       }).eq("id", conversation_id);
+      await logStateEvent({
+        newStage: newStatus === "qualificado" ? "qualificado" : "em_contato",
+        newMode: "humano_assumiu",
+        reason: `AI handoff to ${handoffType}: ${parsed.handoff_reason || "Lead qualificado"}`,
+        metadata: { handoff_type: handoffType, lead_score: parsed.lead_score, contact_phone },
+      });
 
       const responsibleId = handoffType === "closer" ? instance.closer_id : instance.sdr_id;
       if (responsibleId) {
@@ -1649,8 +1705,15 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
         assigned_to: instance.closer_id,
         assigned_role: "closer",
       }).eq("id", conversation_id);
+      await logStateEvent({
+        newStage: "em_contato",
+        newMode: "humano_assumiu",
+        newPriority: "urgente",
+        reason: "Lead solicitou ligação urgente — human takeover",
+        metadata: { urgent_call: true, contact_phone, contact_name: contact_name || "" },
+      });
 
-      // AI won't respond because lead_status changed from normal flow
+      // AI won't respond because conversation_mode changed
     }
 
     // 7. Meeting confirmed: schedule 6h and 1h follow-ups
@@ -1815,6 +1878,13 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
         human_takeover_at: agendadoNow,
         handoff_reason: "Reunião confirmada pela IA",
       }).eq("id", conversation_id);
+      await logStateEvent({
+        newStage: "agendado",
+        newMode: "humano_assumiu",
+        newPriority: "atento",
+        reason: "Reunião confirmada pela IA — handoff automático",
+        metadata: { meeting_datetime: parsed.meeting_datetime, meeting_confirmed: true },
+      });
     }
 
     // 8. Pipedrive sync: move deal, create activities
