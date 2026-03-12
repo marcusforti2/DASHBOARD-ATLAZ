@@ -1621,6 +1621,12 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
         human_takeover_at: new Date().toISOString(),
         handoff_reason: `AI handoff: ${parsed.handoff_reason || "Lead qualificado"}`,
       }).eq("id", conversation_id);
+      await logStateEvent({
+        newStage: newStatus === "qualificado" ? "qualificado" : "em_contato",
+        newMode: "humano_assumiu",
+        reason: `AI handoff to ${handoffType}: ${parsed.handoff_reason || "Lead qualificado"}`,
+        metadata: { handoff_type: handoffType, lead_score: parsed.lead_score, contact_phone },
+      });
 
       const responsibleId = handoffType === "closer" ? instance.closer_id : instance.sdr_id;
       if (responsibleId) {
