@@ -9,7 +9,6 @@ const corsHeaders = {
 const MAX_RETRIES = 5;
 
 function backoffMs(retryCount: number): number {
-  // Exponential: 30s, 60s, 120s, 240s, 480s
   return Math.min(30000 * Math.pow(2, retryCount), 600000);
 }
 
@@ -19,8 +18,21 @@ Deno.serve(async (req) => {
 
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
+  // ── Auth guard: internal only (cron/pg_net with service key) ──
+  const authHeader = req.headers.get("Authorization") || "";
+  const internalSecret = req.headers.get("X-Internal-Secret") || "";
+  const bearerToken = authHeader.replace("Bearer ", "");
+
+  if (bearerToken !== SERVICE_KEY && internalSecret !== SERVICE_KEY) {
+    console.error("[queue] Unauthorized call attempt");
+    return new Response(JSON.stringify({ error: "Forbidden: internal only" }), {
+      status: 403,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
   const workerId = `worker_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
   try {
@@ -67,6 +79,8 @@ Deno.serve(async (req) => {
               status: "cancelled",
               last_error: `enrollment_status: ${enrollment?.status || "not_found"}`,
               executed_at: new Date().toISOString(),
+              locked_at: null,
+              locked_by: null,
             })
             .eq("id", action.id);
           cancelled++;
@@ -89,28 +103,38 @@ Deno.serve(async (req) => {
             .maybeSingle();
 
           if (suppressed) {
-            // Cancel all pending actions for this enrollment
             await supabase
               .from("automation_actions")
               .update({
                 status: "cancelled",
                 last_error: "contact_suppressed",
                 executed_at: new Date().toISOString(),
+                locked_at: null,
+                locked_by: null,
               })
               .eq("enrollment_id", action.enrollment_id)
-              .in("status", ["pending", "locked"]);
+              .in("status", ["pending", "retry", "locked"]);
 
             await supabase
               .from("campaign_enrollments")
               .update({ status: "opted_out", cancelled_at: new Date().toISOString(), cancel_reason: "suppressed" })
               .eq("id", action.enrollment_id);
 
+            // Observability: record suppression event
+            await supabase.from("campaign_events").insert({
+              contact_id: action.contact_id,
+              campaign_id: action.campaign_id,
+              enrollment_id: action.enrollment_id,
+              event_type: "suppression_enforced",
+              payload: { step_index: action.step_index, action_type: action.action_type },
+            });
+
             cancelled++;
             continue;
           }
         }
 
-        // Execute action based on type
+        // Execute action — instance comes from campaign (sovereign source)
         await executeAction(supabase, action, enrollment, SUPABASE_URL, SERVICE_KEY);
 
         // Mark as executed
@@ -130,6 +154,15 @@ Deno.serve(async (req) => {
           .update({ current_step: action.step_index + 1 })
           .eq("id", action.enrollment_id);
 
+        // Observability: record execution event
+        await supabase.from("campaign_events").insert({
+          contact_id: action.contact_id,
+          campaign_id: action.campaign_id,
+          enrollment_id: action.enrollment_id,
+          event_type: "action_executed",
+          payload: { step_index: action.step_index, action_type: action.action_type },
+        });
+
         executed++;
       } catch (actionErr: unknown) {
         const errMsg = actionErr instanceof Error ? actionErr.message : String(actionErr);
@@ -138,7 +171,7 @@ Deno.serve(async (req) => {
         const newRetry = (action.retry_count || 0) + 1;
 
         if (newRetry >= MAX_RETRIES) {
-          // Exhausted retries
+          // Terminal failure
           await supabase
             .from("automation_actions")
             .update({
@@ -150,13 +183,22 @@ Deno.serve(async (req) => {
               executed_at: new Date().toISOString(),
             })
             .eq("id", action.id);
+
+          // Observability
+          await supabase.from("campaign_events").insert({
+            contact_id: action.contact_id,
+            campaign_id: action.campaign_id,
+            enrollment_id: action.enrollment_id,
+            event_type: "action_failed_terminal",
+            payload: { step_index: action.step_index, error: errMsg.substring(0, 500), retries: newRetry },
+          });
         } else {
-          // Schedule retry with exponential backoff
+          // Non-terminal: schedule retry with backoff
           const nextRun = new Date(Date.now() + backoffMs(newRetry)).toISOString();
           await supabase
             .from("automation_actions")
             .update({
-              status: "failed",
+              status: "retry",
               last_error: errMsg,
               retry_count: newRetry,
               scheduled_for: nextRun,
@@ -193,30 +235,38 @@ async function executeAction(
   supabaseUrl: string,
   serviceKey: string
 ) {
-  const { action_type, action_payload, contact_id } = action;
+  const { action_type, action_payload, campaign_id } = action;
 
   switch (action_type) {
     case "send_message": {
-      const { data: contact } = await supabase
-        .from("wa_contacts")
-        .select("phone, instance_id")
-        .eq("id", contact_id)
+      // Sovereign instance source: campaign.instance_id
+      const { data: campaign } = await supabase
+        .from("campaigns")
+        .select("instance_id")
+        .eq("id", campaign_id)
         .single();
 
-      if (!contact) throw new Error("Contact not found");
+      if (!campaign) throw new Error("Campaign not found");
 
       const { data: inst } = await supabase
         .from("wa_instances")
         .select("instance_name")
-        .eq("id", contact.instance_id)
+        .eq("id", campaign.instance_id)
         .single();
 
-      if (!inst) throw new Error("Instance not found");
+      if (!inst) throw new Error("Instance not found for campaign");
+
+      const { data: contact } = await supabase
+        .from("wa_contacts")
+        .select("phone")
+        .eq("id", action.contact_id)
+        .single();
+
+      if (!contact) throw new Error("Contact not found");
 
       const message = action_payload.message || action_payload.text || "";
       if (!message) throw new Error("No message in payload");
 
-      // Send via evolution-api edge function
       const resp = await fetch(
         `${supabaseUrl}/functions/v1/evolution-api?instance=${inst.instance_name}`,
         {
@@ -238,7 +288,7 @@ async function executeAction(
         throw new Error(`send_message failed: ${resp.status} ${errBody.substring(0, 200)}`);
       }
 
-      console.log(`[queue] Sent message to ${contact.phone}`);
+      console.log(`[queue] Sent message to ${contact.phone} via ${inst.instance_name}`);
       break;
     }
 
@@ -246,7 +296,7 @@ async function executeAction(
       const tagId = action_payload.tag_id;
       if (tagId) {
         await supabase.from("wa_contact_tags").upsert(
-          { contact_id, tag_id: tagId },
+          { contact_id: action.contact_id, tag_id: tagId },
           { onConflict: "contact_id,tag_id", ignoreDuplicates: true }
         );
       }
@@ -263,6 +313,15 @@ async function executeAction(
             handoff_reason: action_payload.reason || "campaign_handoff",
           })
           .eq("id", enrollment.conversation_id);
+
+        // Observability: record mode change
+        await supabase.from("campaign_events").insert({
+          contact_id: action.contact_id,
+          campaign_id: action.campaign_id,
+          enrollment_id: action.enrollment_id,
+          event_type: "conversation_mode_changed",
+          payload: { new_mode: "humano_assumiu", reason: "campaign_handoff", step_index: action.step_index },
+        });
       }
 
       await supabase
@@ -273,7 +332,6 @@ async function executeAction(
     }
 
     case "wait":
-      // Wait actions are handled by scheduled_for timing, just pass through
       break;
 
     default:

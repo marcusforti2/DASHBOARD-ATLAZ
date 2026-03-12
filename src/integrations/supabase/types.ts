@@ -2544,6 +2544,7 @@ export type Database = {
           media_mime_type: string | null
           media_type: string | null
           media_url: string | null
+          provider_message_id: string | null
           sender: string
           text: string
         }
@@ -2557,6 +2558,7 @@ export type Database = {
           media_mime_type?: string | null
           media_type?: string | null
           media_url?: string | null
+          provider_message_id?: string | null
           sender?: string
           text?: string
         }
@@ -2570,6 +2572,7 @@ export type Database = {
           media_mime_type?: string | null
           media_type?: string | null
           media_url?: string | null
+          provider_message_id?: string | null
           sender?: string
           text?: string
         }

@@ -12,7 +12,47 @@ Deno.serve(async (req) => {
 
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
+  const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+
+  // ── Auth guard: only admins can dispatch campaigns ──
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const userSupabase = createClient(SUPABASE_URL, ANON_KEY, {
+    global: { headers: { Authorization: authHeader } },
+  });
+
+  const token = authHeader.replace("Bearer ", "");
+  const { data: claimsData, error: claimsErr } = await userSupabase.auth.getClaims(token);
+  if (claimsErr || !claimsData?.claims) {
+    return new Response(JSON.stringify({ error: "Invalid token" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const userId = claimsData.claims.sub;
+
+  // Check admin role
+  const serviceSupabase = createClient(SUPABASE_URL, SERVICE_KEY);
+  const { data: isAdmin } = await serviceSupabase.rpc("has_role", {
+    _user_id: userId,
+    _role: "admin",
+  });
+
+  if (!isAdmin) {
+    return new Response(JSON.stringify({ error: "Forbidden: admin only" }), {
+      status: 403,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const supabase = serviceSupabase;
 
   try {
     const { campaign_id, contact_ids } = await req.json();
@@ -23,7 +63,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Fetch campaign
+    // Fetch campaign (instance_id is the sovereign source)
     const { data: campaign, error: cErr } = await supabase
       .from("campaigns")
       .select("*")
@@ -79,7 +119,7 @@ Deno.serve(async (req) => {
     let actionsCreated = 0;
 
     for (const contact of eligibleContacts) {
-      // Find conversation for this contact + instance
+      // Find conversation for this contact + campaign's sovereign instance
       const { data: conv } = await supabase
         .from("wa_conversations")
         .select("id")
@@ -116,7 +156,7 @@ Deno.serve(async (req) => {
 
       enrolled++;
 
-      // Create automation actions for each step
+      // Create automation actions for each step (ON CONFLICT DO NOTHING for dedup)
       let cumulativeDelayMs = 0;
       for (let i = 0; i < steps.length; i++) {
         const step = steps[i];
@@ -125,17 +165,21 @@ Deno.serve(async (req) => {
 
         const scheduledFor = new Date(Date.now() + cumulativeDelayMs).toISOString();
 
-        await supabase.from("automation_actions").insert({
-          enrollment_id: enrollment.id,
-          campaign_id,
-          contact_id: contact.id,
-          step_index: i,
-          action_type: step.action_type || "send_message",
-          action_payload: step.payload || {},
-          status: "pending",
-          scheduled_for: scheduledFor,
-        });
-        actionsCreated++;
+        const { error: insertErr } = await supabase.from("automation_actions").upsert(
+          {
+            enrollment_id: enrollment.id,
+            campaign_id,
+            contact_id: contact.id,
+            step_index: i,
+            action_type: step.action_type || "send_message",
+            action_payload: step.payload || {},
+            status: "pending",
+            scheduled_for: scheduledFor,
+          },
+          { onConflict: "enrollment_id,step_index", ignoreDuplicates: true }
+        );
+
+        if (!insertErr) actionsCreated++;
       }
     }
 
