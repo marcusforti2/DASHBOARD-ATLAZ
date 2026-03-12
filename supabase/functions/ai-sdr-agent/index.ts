@@ -136,21 +136,45 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ===== BUG FIX #1: STOP AI AFTER HANDOFF =====
-    // If lead_status is "agendado" or "urgente", the closer took over — AI must NOT respond
+    // ===== ELIGIBILITY CHECK: conversation_mode + lead_stage =====
+    // AI can only respond when conversation_mode = 'ia_ativa'
+    // AI must not respond when lead_stage is in a terminal/blocked stage
     {
       const { data: convCheck } = await supabase
         .from("wa_conversations")
-        .select("lead_status")
+        .select("conversation_mode, lead_stage, lead_status")
         .eq("id", conversation_id)
         .single();
 
-      const blockedStatuses = ["agendado", "urgente"];
-      if (convCheck?.lead_status && blockedStatuses.includes(convCheck.lead_status) && !isProactive && !force) {
-        console.log(`[ai-sdr] Skipping: lead status is '${convCheck.lead_status}' — human takeover active`);
-        return new Response(JSON.stringify({ skipped: `human_takeover_${convCheck.lead_status}` }), {
+      const mode = convCheck?.conversation_mode;
+      const stage = convCheck?.lead_stage;
+
+      // Primary check: conversation_mode
+      if (mode && mode !== "ia_ativa" && mode !== "compartilhado" && !isProactive && !force) {
+        console.log(`[ai-sdr] Skipping: conversation_mode is '${mode}' — AI not allowed`);
+        return new Response(JSON.stringify({ skipped: `mode_blocked_${mode}` }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
+      }
+
+      // Secondary check: lead_stage
+      const blockedStages = ["agendado", "reuniao", "ganho", "perdido", "pausado"];
+      if (stage && blockedStages.includes(stage) && !isProactive && !force) {
+        console.log(`[ai-sdr] Skipping: lead_stage is '${stage}' — blocked stage`);
+        return new Response(JSON.stringify({ skipped: `stage_blocked_${stage}` }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Legacy fallback: if conversation_mode is null, check lead_status
+      if (!mode) {
+        const blockedStatuses = ["agendado", "urgente"];
+        if (convCheck?.lead_status && blockedStatuses.includes(convCheck.lead_status) && !isProactive && !force) {
+          console.log(`[ai-sdr] Skipping (legacy): lead_status is '${convCheck.lead_status}'`);
+          return new Response(JSON.stringify({ skipped: `legacy_blocked_${convCheck.lead_status}` }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
       }
     }
 
