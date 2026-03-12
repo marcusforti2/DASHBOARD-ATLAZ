@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { LayoutGrid, List, Plus, Trash2, GripVertical, Inbox } from 'lucide-react';
+import { LayoutGrid, List, Plus, Trash2, GripVertical, Inbox, Bot, User, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -7,6 +7,11 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { WaContactTagBadges } from './WaContactTagBadges';
 import { LeadDetailModal } from './LeadDetailModal';
 import { getAvatarColor, formatCrmDate } from '@/lib/wa-utils';
+import {
+  LEAD_STAGE_LABELS,
+  CONVERSATION_MODE_LABELS,
+  PRIORITY_LEVEL_LABELS,
+} from '@/domains/conversations/types';
 import type { WaTag } from '@/hooks/use-wa-tags';
 import type { WaConversation } from '@/hooks/use-wa-hub';
 
