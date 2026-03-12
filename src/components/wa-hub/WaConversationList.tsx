@@ -130,6 +130,7 @@ export function WaConversationList({
               }`}>{pf.label}</button>
           ))}
         </div>
+      </div>
 
       {loading ? (
         <div className="flex items-center justify-center py-12">
