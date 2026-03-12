@@ -11,7 +11,9 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useAuth } from '@/hooks/use-auth';
 import type { WaConversation } from '@/hooks/use-wa-hub';
+import type { ConversationMode, LeadStage, PriorityLevel } from '@/domains/conversations/types';
 import { WaContactTagBadges } from './WaContactTagBadges';
 import type { WaTag } from '@/hooks/use-wa-tags';
 
@@ -73,6 +75,7 @@ function getRiskBadge(risk: string) {
 }
 
 export function LeadDetailModal({ open, onOpenChange, conversation, tags, assignedTagIds, onAddTag, onRemoveTag }: Props) {
+  const { profile } = useAuth();
   const [pipedriveData, setPipedriveData] = useState<PipedriveData | null>(null);
   const [leadScore, setLeadScore] = useState<LeadScore | null>(null);
   const [loading, setLoading] = useState(true);
@@ -80,6 +83,12 @@ export function LeadDetailModal({ open, onOpenChange, conversation, tags, assign
   const [togglingAi, setTogglingAi] = useState(false);
   const [doubleChecking, setDoubleChecking] = useState(false);
   const [msgStats, setMsgStats] = useState({ contact: 0, agent: 0, first: '', last: '' });
+  // Snapshot of semantic fields for accurate audit events
+  const [convSnapshot, setConvSnapshot] = useState<{
+    conversation_mode: ConversationMode | null;
+    lead_stage: LeadStage | null;
+    priority_level: PriorityLevel | null;
+  }>({ conversation_mode: null, lead_stage: null, priority_level: null });
 
   const contactId = conversation.contact.id;
   const contactPhone = conversation.contact.phone;
@@ -92,17 +101,24 @@ export function LeadDetailModal({ open, onOpenChange, conversation, tags, assign
         supabase.from('pipedrive_persons').select('*').eq('wa_contact_id', contactId).maybeSingle(),
         supabase.from('wa_lead_scores').select('*').eq('contact_id', contactId).maybeSingle(),
         supabase.from('wa_messages').select('sender, created_at').eq('conversation_id', conversation.id).order('created_at', { ascending: true }),
-        supabase.from('wa_conversations').select('lead_status, conversation_mode').eq('id', conversation.id).single(),
+        supabase.from('wa_conversations').select('lead_status, conversation_mode, lead_stage, priority_level').eq('id', conversation.id).single(),
       ]);
 
+      // Store snapshot for accurate audit events
+      const convData = convResult.data;
+      setConvSnapshot({
+        conversation_mode: (convData?.conversation_mode as ConversationMode) ?? null,
+        lead_stage: (convData?.lead_stage as LeadStage) ?? null,
+        priority_level: (convData?.priority_level as PriorityLevel) ?? null,
+      });
+
       // Determine AI status from conversation_mode (primary) with lead_status fallback
-      const mode = convResult.data?.conversation_mode;
+      const mode = convData?.conversation_mode;
       if (mode) {
         setAiEnabled(mode === 'ia_ativa' || mode === 'compartilhado');
       } else {
-        // Fallback legado
         const blockedStatuses = ['agendado', 'urgente'];
-        setAiEnabled(!blockedStatuses.includes(convResult.data?.lead_status || ''));
+        setAiEnabled(!blockedStatuses.includes(convData?.lead_status || ''));
       }
 
       // Message stats
@@ -183,34 +199,42 @@ export function LeadDetailModal({ open, onOpenChange, conversation, tags, assign
     setTogglingAi(true);
     try {
       const now = new Date().toISOString();
-      const newMode = aiEnabled ? 'humano_assumiu' : 'ia_ativa';
-      const previousMode = aiEnabled ? 'ia_ativa' : 'humano_assumiu';
-      // Dual-write: conversation_mode (new) + lead_status (legacy)
-      const newLegacyStatus = aiEnabled ? 'agendado' : 'em_contato';
+      const newMode: ConversationMode = aiEnabled ? 'humano_assumiu' : 'ia_ativa';
 
       const updatePayload: Record<string, unknown> = {
         conversation_mode: newMode,
         last_mode_changed_at: now,
-        lead_status: newLegacyStatus, // legacy dual-write
       };
+
       if (newMode === 'humano_assumiu') {
         updatePayload.human_takeover_at = now;
         updatePayload.handoff_reason = 'Manual toggle via LeadDetailModal';
+      } else {
+        // Reactivating AI — clear takeover fields
+        updatePayload.human_takeover_at = null;
+        updatePayload.handoff_reason = null;
       }
 
       await supabase.from('wa_conversations').update(updatePayload).eq('id', conversation.id);
 
-      // Insert audit event
+      // Full audit event with real snapshot values
       await supabase.from('wa_conversation_state_events').insert({
         conversation_id: conversation.id,
-        previous_conversation_mode: previousMode,
+        previous_conversation_mode: convSnapshot.conversation_mode,
         new_conversation_mode: newMode,
-        actor_type: 'human',
-        source: 'ui',
+        previous_lead_stage: convSnapshot.lead_stage,
+        new_lead_stage: convSnapshot.lead_stage, // unchanged
+        previous_priority_level: convSnapshot.priority_level,
+        new_priority_level: convSnapshot.priority_level, // unchanged
+        actor_type: 'human' as const,
+        actor_team_member_id: profile?.team_member_id ?? null,
+        source: 'ui' as const,
         reason: aiEnabled ? 'Humano assumiu via LeadDetailModal' : 'IA reativada via LeadDetailModal',
-        metadata: { legacy_lead_status: newLegacyStatus },
+        metadata: {},
       });
 
+      // Update local snapshot
+      setConvSnapshot(prev => ({ ...prev, conversation_mode: newMode }));
       setAiEnabled(!aiEnabled);
       toast.success(aiEnabled ? 'IA desligada para este lead' : 'IA religada para este lead');
     } catch {
