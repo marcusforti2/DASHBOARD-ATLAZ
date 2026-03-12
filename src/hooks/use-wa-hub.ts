@@ -46,14 +46,29 @@ export interface WaConversation {
   contact_id: string;
   instance_id: string;
   assigned_to: string | null;
-  assigned_role: string | null;
-  status: string;
+  assigned_role: AssignmentRole | string | null;
+  status: ConversationStatus | string;
+  /** @deprecated Use lead_stage instead. Mantido para compatibilidade legada. */
   lead_status: string;
   last_message: string | null;
   last_message_at: string | null;
   unread_count: number;
   contact: WaContact;
   messages: WaMessage[];
+
+  // ── Campos semânticos (Fase 1) ──────────────────────────────────
+  lead_stage?: LeadStage;
+  conversation_mode?: ConversationMode;
+  priority_level?: PriorityLevel;
+  handoff_reason?: string | null;
+  human_takeover_at?: string | null;
+  human_takeover_by?: string | null;
+  last_ai_message_at?: string | null;
+  last_human_message_at?: string | null;
+  last_stage_changed_at?: string | null;
+  last_stage_changed_by?: string | null;
+  last_mode_changed_at?: string | null;
+  last_mode_changed_by?: string | null;
 }
 
 export function useWaInstances() {
