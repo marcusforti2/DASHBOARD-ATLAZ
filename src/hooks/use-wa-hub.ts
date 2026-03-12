@@ -46,8 +46,8 @@ export interface WaConversation {
   contact_id: string;
   instance_id: string;
   assigned_to: string | null;
-  assigned_role: AssignmentRole | string | null;
-  status: ConversationStatus | string;
+  assigned_role: AssignmentRole | null;
+  status: ConversationStatus;
   /** @deprecated Use lead_stage instead. Mantido para compatibilidade legada. */
   lead_status: string;
   last_message: string | null;
@@ -56,19 +56,19 @@ export interface WaConversation {
   contact: WaContact;
   messages: WaMessage[];
 
-  // ── Campos semânticos (Fase 1) ──────────────────────────────────
-  lead_stage?: LeadStage;
-  conversation_mode?: ConversationMode;
-  priority_level?: PriorityLevel;
-  handoff_reason?: string | null;
-  human_takeover_at?: string | null;
-  human_takeover_by?: string | null;
-  last_ai_message_at?: string | null;
-  last_human_message_at?: string | null;
-  last_stage_changed_at?: string | null;
-  last_stage_changed_by?: string | null;
-  last_mode_changed_at?: string | null;
-  last_mode_changed_by?: string | null;
+  // ── Campos semânticos (obrigatórios, hidratados com defaults) ───
+  lead_stage: LeadStage;
+  conversation_mode: ConversationMode;
+  priority_level: PriorityLevel;
+  handoff_reason: string | null;
+  human_takeover_at: string | null;
+  human_takeover_by: string | null;
+  last_ai_message_at: string | null;
+  last_human_message_at: string | null;
+  last_stage_changed_at: string | null;
+  last_stage_changed_by: string | null;
+  last_mode_changed_at: string | null;
+  last_mode_changed_by: string | null;
 }
 
 export function useWaInstances() {
@@ -117,10 +117,24 @@ export function useWaConversations(instanceFilter?: string | null) {
       const { data: convs } = await query;
       if (!convs) { setLoading(false); return; }
 
-      // NO N+1: conversations loaded without messages
+      // Hydrate with defaults for required semantic fields
       const enriched = convs.map((conv: any) => ({
         ...conv,
         messages: [] as WaMessage[],
+        lead_stage: conv.lead_stage || 'novo',
+        conversation_mode: conv.conversation_mode || 'ia_ativa',
+        priority_level: conv.priority_level || 'normal',
+        status: conv.status || 'active',
+        assigned_role: conv.assigned_role || null,
+        handoff_reason: conv.handoff_reason || null,
+        human_takeover_at: conv.human_takeover_at || null,
+        human_takeover_by: conv.human_takeover_by || null,
+        last_ai_message_at: conv.last_ai_message_at || null,
+        last_human_message_at: conv.last_human_message_at || null,
+        last_stage_changed_at: conv.last_stage_changed_at || null,
+        last_stage_changed_by: conv.last_stage_changed_by || null,
+        last_mode_changed_at: conv.last_mode_changed_at || null,
+        last_mode_changed_by: conv.last_mode_changed_by || null,
       })) as WaConversation[];
 
       setConversations(enriched);

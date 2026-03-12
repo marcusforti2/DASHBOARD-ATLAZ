@@ -1,9 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Send, Loader2, Image, Mic, Square, Paperclip, Zap, Sparkles, ChevronDown, User, Sticker, Workflow } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, Image, Mic, Square, Paperclip, Zap, Sparkles, ChevronDown, User, Sticker, Workflow, Bot, BotOff, AlertTriangle, Shield } from 'lucide-react';
 import { WaConversation, WaMessage, useQuickReplies } from '@/hooks/use-wa-hub';
 import { WaAiTools } from './WaAiTools';
 import { WaContactTagBadges } from './WaContactTagBadges';
 import { getAvatarColor, formatTime, formatDateSeparator } from '@/lib/wa-utils';
+import {
+  LEAD_STAGE_LABELS,
+  CONVERSATION_MODE_LABELS,
+  PRIORITY_LEVEL_LABELS,
+} from '@/domains/conversations/types';
 import type { WaTag } from '@/hooks/use-wa-tags';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -56,13 +61,14 @@ export default function WaChatView({
     if (file.size > 10 * 1024 * 1024) { toast.error('Arquivo muito grande (máx. 10MB)'); return; }
     const filename = `${conversation.contact.phone}-${Date.now()}-${file.name}`;
     try {
-      const { data, error } = await supabase.storage.from('whatsapp-media').upload(filename, file, {
+      const { data, error } = await supabase.storage.from('wa-media').upload(filename, file, {
         cacheControl: '3600', upsert: false,
       });
       if (error) throw error;
       if (!data?.path) throw new Error('Falha ao salvar arquivo');
-      const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/whatsapp-media/${data.path}`;
-      await onSendMedia(mediaType, url);
+      // wa-media is a public bucket — use getPublicUrl
+      const { data: urlData } = supabase.storage.from('wa-media').getPublicUrl(data.path);
+      await onSendMedia(mediaType, urlData.publicUrl);
       toast.success('Arquivo enviado!');
     } catch (err: any) {
       toast.error(err.message || 'Erro ao enviar arquivo');
@@ -82,28 +88,61 @@ export default function WaChatView({
     catch (err: any) { toast.error(err.message || 'Erro ao enviar figurinha'); }
   };
 
+  // Semantic header helpers
+  const modeLabel = CONVERSATION_MODE_LABELS[conversation.conversation_mode] || conversation.conversation_mode;
+  const stageLabel = LEAD_STAGE_LABELS[conversation.lead_stage] || conversation.lead_stage;
+  const priorityLabel = PRIORITY_LEVEL_LABELS[conversation.priority_level] || conversation.priority_level;
+  const isAi = conversation.conversation_mode === 'ia_ativa' || conversation.conversation_mode === 'compartilhado';
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-border flex items-center gap-4 shrink-0">
-        <button onClick={onBack} className="lg:hidden p-1.5 rounded-full hover:bg-muted">
-          <ArrowLeft className="w-4 h-4 text-muted-foreground" />
-        </button>
-        <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
-          style={{ backgroundColor: `hsl(${getAvatarColor(conversation.contact.name)})` }}>
-          {conversation.contact.name.charAt(0).toUpperCase()}
+      <div className="px-4 py-3 border-b border-border shrink-0">
+        <div className="flex items-center gap-4">
+          <button onClick={onBack} className="lg:hidden p-1.5 rounded-full hover:bg-muted">
+            <ArrowLeft className="w-4 h-4 text-muted-foreground" />
+          </button>
+          <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
+            style={{ backgroundColor: `hsl(${getAvatarColor(conversation.contact.name)})` }}>
+            {conversation.contact.name.charAt(0).toUpperCase()}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-foreground truncate">{conversation.contact.name}</p>
+            <p className="text-xs text-muted-foreground truncate">{conversation.contact.phone}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            {showProfileButton && (
+              <button onClick={onToggleProfile} className="p-1.5 rounded-full hover:bg-muted">
+                <User className="w-4 h-4 text-muted-foreground" />
+              </button>
+            )}
+            <WaAiTools messages={messages} contactName={conversation.contact.name} />
+          </div>
         </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-foreground truncate">{conversation.contact.name}</p>
-          <p className="text-xs text-muted-foreground truncate">{conversation.contact.phone}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {showProfileButton && (
-            <button onClick={onToggleProfile} className="p-1.5 rounded-full hover:bg-muted">
-              <User className="w-4 h-4 text-muted-foreground" />
-            </button>
+        {/* Semantic badges row */}
+        <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+          <span className={`inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full font-medium ${
+            isAi ? 'bg-primary/15 text-primary' : 'bg-amber-500/15 text-amber-600'
+          }`}>
+            {isAi ? <Bot className="w-2.5 h-2.5" /> : <BotOff className="w-2.5 h-2.5" />}
+            {modeLabel}
+          </span>
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full font-medium bg-sky-500/15 text-sky-600">
+            {stageLabel}
+          </span>
+          {conversation.priority_level !== 'normal' && (
+            <span className={`inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full font-medium ${
+              conversation.priority_level === 'urgente' ? 'bg-destructive/15 text-destructive' : 'bg-amber-500/15 text-amber-600'
+            }`}>
+              <AlertTriangle className="w-2.5 h-2.5" />
+              {priorityLabel}
+            </span>
           )}
-          <WaAiTools messages={messages} contactName={conversation.contact.name} />
+          {conversation.handoff_reason && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full font-medium bg-muted text-muted-foreground truncate max-w-[180px]" title={conversation.handoff_reason}>
+              ⚡ {conversation.handoff_reason}
+            </span>
+          )}
         </div>
       </div>
 
@@ -285,9 +324,12 @@ function StickerButton({ onSendSticker, onPreview }: { onSendSticker: (url: stri
     const fetchStickers = async () => {
       setLoading(true);
       try {
-        const { data, error } = await supabase.storage.from('whatsapp-stickers').list('', { limit: 24 });
+        const { data, error } = await supabase.storage.from('wa-media').list('stickers', { limit: 24 });
         if (error) throw error;
-        const urls = data.map(file => `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/whatsapp-stickers/${file.name}`);
+        const urls = data.map(file => {
+          const { data: urlData } = supabase.storage.from('wa-media').getPublicUrl(`stickers/${file.name}`);
+          return urlData.publicUrl;
+        });
         setStickers(urls);
       } catch (err: any) {
         toast.error(err.message || 'Erro ao carregar figurinhas');
