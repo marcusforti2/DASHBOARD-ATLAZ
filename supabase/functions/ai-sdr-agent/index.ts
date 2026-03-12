@@ -136,21 +136,45 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ===== BUG FIX #1: STOP AI AFTER HANDOFF =====
-    // If lead_status is "agendado" or "urgente", the closer took over — AI must NOT respond
+    // ===== ELIGIBILITY CHECK: conversation_mode + lead_stage =====
+    // AI can only respond when conversation_mode = 'ia_ativa'
+    // AI must not respond when lead_stage is in a terminal/blocked stage
     {
       const { data: convCheck } = await supabase
         .from("wa_conversations")
-        .select("lead_status")
+        .select("conversation_mode, lead_stage, lead_status")
         .eq("id", conversation_id)
         .single();
 
-      const blockedStatuses = ["agendado", "urgente"];
-      if (convCheck?.lead_status && blockedStatuses.includes(convCheck.lead_status) && !isProactive && !force) {
-        console.log(`[ai-sdr] Skipping: lead status is '${convCheck.lead_status}' — human takeover active`);
-        return new Response(JSON.stringify({ skipped: `human_takeover_${convCheck.lead_status}` }), {
+      const mode = convCheck?.conversation_mode;
+      const stage = convCheck?.lead_stage;
+
+      // Primary check: conversation_mode
+      if (mode && mode !== "ia_ativa" && mode !== "compartilhado" && !isProactive && !force) {
+        console.log(`[ai-sdr] Skipping: conversation_mode is '${mode}' — AI not allowed`);
+        return new Response(JSON.stringify({ skipped: `mode_blocked_${mode}` }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
+      }
+
+      // Secondary check: lead_stage
+      const blockedStages = ["agendado", "reuniao", "ganho", "perdido", "pausado"];
+      if (stage && blockedStages.includes(stage) && !isProactive && !force) {
+        console.log(`[ai-sdr] Skipping: lead_stage is '${stage}' — blocked stage`);
+        return new Response(JSON.stringify({ skipped: `stage_blocked_${stage}` }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Legacy fallback: if conversation_mode is null, check lead_status
+      if (!mode) {
+        const blockedStatuses = ["agendado", "urgente"];
+        if (convCheck?.lead_status && blockedStatuses.includes(convCheck.lead_status) && !isProactive && !force) {
+          console.log(`[ai-sdr] Skipping (legacy): lead_status is '${convCheck.lead_status}'`);
+          return new Response(JSON.stringify({ skipped: `legacy_blocked_${convCheck.lead_status}` }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
       }
     }
 
@@ -360,7 +384,7 @@ Deno.serve(async (req) => {
     // Get conversation details
     const { data: conversation } = await supabase
       .from("wa_conversations")
-      .select("lead_status, contact_id")
+      .select("lead_status, contact_id, conversation_mode, lead_stage, priority_level")
       .eq("id", conversation_id)
       .single();
 
@@ -384,7 +408,12 @@ Deno.serve(async (req) => {
         console.log("[ai-sdr] Handoff threshold reached — deleting lock message");
         // BUG FIX #1: Delete the lock message before returning to avoid ghost messages
         await supabase.from("wa_messages").delete().eq("id", lockId);
-        await supabase.from("wa_conversations").update({ lead_status: "qualificado" }).eq("id", conversation_id);
+        await supabase.from("wa_conversations").update({
+          lead_status: "qualificado",
+          lead_stage: "qualificado",
+          conversation_mode: "humano_assumiu",
+          last_mode_changed_at: new Date().toISOString(),
+        }).eq("id", conversation_id);
         return new Response(JSON.stringify({ skipped: "handoff_threshold", handoff: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -1475,12 +1504,19 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
       }
     }
 
-    // 2. Auto-update lead status
+    // 2. Auto-update lead status + lead_stage (dual-write)
     if (parsed.new_lead_status && conversation) {
-      await supabase.from("wa_conversations").update({
+      const validStages = ["novo", "em_contato", "qualificado", "agendado", "reuniao", "proposta", "ganho", "perdido", "pausado"];
+      const mappedStage = validStages.includes(parsed.new_lead_status) ? parsed.new_lead_status : null;
+      const updateFields: Record<string, unknown> = {
         lead_status: parsed.new_lead_status,
-      }).eq("id", conversation_id);
-      console.log("[ai-sdr] Lead status →", parsed.new_lead_status);
+        last_stage_changed_at: new Date().toISOString(),
+      };
+      if (mappedStage) {
+        updateFields.lead_stage = mappedStage;
+      }
+      await supabase.from("wa_conversations").update(updateFields).eq("id", conversation_id);
+      console.log("[ai-sdr] Lead status →", parsed.new_lead_status, mappedStage ? `(lead_stage → ${mappedStage})` : "(no stage mapping)");
     }
 
     // 3. Auto-update tags
@@ -1527,7 +1563,14 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
       const handoffType = parsed.handoff_type || "closer";
       const newStatus = handoffType === "closer" ? "qualificado" : "em_contato";
 
-      await supabase.from("wa_conversations").update({ lead_status: newStatus }).eq("id", conversation_id);
+      await supabase.from("wa_conversations").update({
+        lead_status: newStatus,
+        lead_stage: newStatus === "qualificado" ? "qualificado" : "em_contato",
+        conversation_mode: "humano_assumiu",
+        last_mode_changed_at: new Date().toISOString(),
+        human_takeover_at: new Date().toISOString(),
+        handoff_reason: `AI handoff: ${parsed.handoff_reason || "Lead qualificado"}`,
+      }).eq("id", conversation_id);
 
       const responsibleId = handoffType === "closer" ? instance.closer_id : instance.sdr_id;
       if (responsibleId) {
@@ -1594,8 +1637,15 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
       }
 
       // Mark conversation for human takeover (urgent_call uses its own status)
+      const urgentNow = new Date().toISOString();
       await supabase.from("wa_conversations").update({
         lead_status: "urgente",
+        lead_stage: "em_contato",
+        conversation_mode: "humano_assumiu",
+        priority_level: "urgente",
+        human_takeover_at: urgentNow,
+        last_mode_changed_at: urgentNow,
+        handoff_reason: "Lead solicitou ligação urgente",
         assigned_to: instance.closer_id,
         assigned_role: "closer",
       }).eq("id", conversation_id);
@@ -1753,9 +1803,17 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
         }
       }
 
-      // Update lead status to agendado
+      // Update lead status to agendado + semantic fields
+      const agendadoNow = new Date().toISOString();
       await supabase.from("wa_conversations").update({
         lead_status: "agendado",
+        lead_stage: "agendado",
+        conversation_mode: "humano_assumiu",
+        priority_level: "atento",
+        last_stage_changed_at: agendadoNow,
+        last_mode_changed_at: agendadoNow,
+        human_takeover_at: agendadoNow,
+        handoff_reason: "Reunião confirmada pela IA",
       }).eq("id", conversation_id);
     }
 
