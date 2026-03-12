@@ -1253,6 +1253,38 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
     const replyParts = reply.split("|||").map(p => p.trim()).filter(p => p.length > 0);
     console.log(`[ai-sdr] Reply split into ${replyParts.length} parts`);
 
+    // ===== DRY RUN MODE: Return AI response without sending or saving =====
+    if (body.dry_run) {
+      // Clean up lock message
+      if (lockId) {
+        await supabase.from("wa_messages").delete().eq("id", lockId);
+        lockId = null;
+      }
+      console.log("[ai-sdr] DRY RUN — returning response without sending");
+      return new Response(JSON.stringify({
+        ok: true,
+        dry_run: true,
+        reply: reply,
+        reply_parts: replyParts,
+        parsed_json: parsed,
+        lead_score: parsed.lead_score || null,
+        lead_score_value: parsed.lead_score_value || null,
+        new_lead_status: parsed.new_lead_status || null,
+        meeting_confirmed: parsed.meeting_confirmed || false,
+        meeting_datetime: parsed.meeting_datetime || null,
+        should_handoff: parsed.should_handoff || false,
+        schedule_follow_up: parsed.schedule_follow_up || false,
+        urgent_call: parsed.urgent_call || false,
+        add_tags: parsed.add_tags || [],
+        remove_tags: parsed.remove_tags || [],
+        activity_note: parsed.activity_note || "",
+        system_prompt_preview: systemPrompt.substring(0, 500) + "...",
+        user_message_preview: userMessage.substring(0, 500) + "...",
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Send each part with human-like random delays + presence simulation
     if (EVOLUTION_API_URL && EVOLUTION_API_KEY && features.auto_reply) {
       const baseUrl = EVOLUTION_API_URL.replace(/\/$/, "");
