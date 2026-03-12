@@ -101,7 +101,7 @@ export function LeadDetailModal({ open, onOpenChange, conversation, tags, assign
         supabase.from('pipedrive_persons').select('*').eq('wa_contact_id', contactId).maybeSingle(),
         supabase.from('wa_lead_scores').select('*').eq('contact_id', contactId).maybeSingle(),
         supabase.from('wa_messages').select('sender, created_at').eq('conversation_id', conversation.id).order('created_at', { ascending: true }),
-        supabase.from('wa_conversations').select('lead_status, conversation_mode, lead_stage, priority_level').eq('id', conversation.id).single(),
+        supabase.from('wa_conversations').select('conversation_mode, lead_stage, priority_level').eq('id', conversation.id).single(),
       ]);
 
       // Store snapshot for accurate audit events
@@ -112,14 +112,9 @@ export function LeadDetailModal({ open, onOpenChange, conversation, tags, assign
         priority_level: (convData?.priority_level as PriorityLevel) ?? null,
       });
 
-      // Determine AI status from conversation_mode (primary) with lead_status fallback
+      // Determine AI status from conversation_mode only
       const mode = convData?.conversation_mode;
-      if (mode) {
-        setAiEnabled(mode === 'ia_ativa' || mode === 'compartilhado');
-      } else {
-        const blockedStatuses = ['agendado', 'urgente'];
-        setAiEnabled(!blockedStatuses.includes(convData?.lead_status || ''));
-      }
+      setAiEnabled(mode === 'ia_ativa' || mode === 'compartilhado');
 
       // Message stats
       const msgs = msgsResult.data || [];
