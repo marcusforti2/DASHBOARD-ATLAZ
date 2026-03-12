@@ -1559,6 +1559,13 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
         updateFields.lead_stage = mappedStage;
       }
       await supabase.from("wa_conversations").update(updateFields).eq("id", conversation_id);
+      if (mappedStage) {
+        await logStateEvent({
+          newStage: mappedStage,
+          reason: `AI updated lead stage to ${mappedStage}`,
+          metadata: { legacy_lead_status: parsed.new_lead_status, ai_decision: true },
+        });
+      }
       console.log("[ai-sdr] Lead status →", parsed.new_lead_status, mappedStage ? `(lead_stage → ${mappedStage})` : "(no stage mapping)");
     }
 
