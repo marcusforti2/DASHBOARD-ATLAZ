@@ -408,7 +408,12 @@ Deno.serve(async (req) => {
         console.log("[ai-sdr] Handoff threshold reached — deleting lock message");
         // BUG FIX #1: Delete the lock message before returning to avoid ghost messages
         await supabase.from("wa_messages").delete().eq("id", lockId);
-        await supabase.from("wa_conversations").update({ lead_status: "qualificado" }).eq("id", conversation_id);
+        await supabase.from("wa_conversations").update({
+          lead_status: "qualificado",
+          lead_stage: "qualificado",
+          conversation_mode: "humano_assumiu",
+          last_mode_changed_at: new Date().toISOString(),
+        }).eq("id", conversation_id);
         return new Response(JSON.stringify({ skipped: "handoff_threshold", handoff: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
