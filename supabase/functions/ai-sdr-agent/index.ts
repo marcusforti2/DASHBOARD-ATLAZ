@@ -1504,12 +1504,19 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
       }
     }
 
-    // 2. Auto-update lead status
+    // 2. Auto-update lead status + lead_stage (dual-write)
     if (parsed.new_lead_status && conversation) {
-      await supabase.from("wa_conversations").update({
+      const validStages = ["novo", "em_contato", "qualificado", "agendado", "reuniao", "proposta", "ganho", "perdido", "pausado"];
+      const mappedStage = validStages.includes(parsed.new_lead_status) ? parsed.new_lead_status : null;
+      const updateFields: Record<string, unknown> = {
         lead_status: parsed.new_lead_status,
-      }).eq("id", conversation_id);
-      console.log("[ai-sdr] Lead status →", parsed.new_lead_status);
+        last_stage_changed_at: new Date().toISOString(),
+      };
+      if (mappedStage) {
+        updateFields.lead_stage = mappedStage;
+      }
+      await supabase.from("wa_conversations").update(updateFields).eq("id", conversation_id);
+      console.log("[ai-sdr] Lead status →", parsed.new_lead_status, mappedStage ? `(lead_stage → ${mappedStage})` : "(no stage mapping)");
     }
 
     // 3. Auto-update tags
