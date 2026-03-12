@@ -15,25 +15,8 @@ import { Badge } from "@/components/ui/badge";
 import { AiSdrFlowView } from "./AiSdrFlowView";
 import { RoutingPanel } from "./RoutingPanel";
 
-interface AiSdrConfig {
-  greeting: string;
-  tone: string;
-  auto_tag: boolean;
-  max_messages_before_handoff: number;
-  business_hours_only: boolean;
-  prompt_context: string;
-  master_prompt: string;
-  // Granular feature toggles
-  feature_auto_reply: boolean;
-  feature_auto_tag: boolean;
-  feature_qualification: boolean;
-  feature_handoff: boolean;
-  feature_sentiment: boolean;
-  feature_pipedrive_sync: boolean;
-  // Qualification config
-  qualification_questions: string[];
-  score_thresholds: { a_min: number; b_min: number };
-}
+import type { AiSdrConfig } from '@/domains/ai-sdr/types';
+import { DEFAULT_AI_SDR_CONFIG, AI_SDR_TONES } from '@/domains/ai-sdr/types';
 
 interface Instance {
   id: string;
@@ -45,44 +28,7 @@ interface Instance {
   sdr_id: string | null;
 }
 
-const DEFAULT_CONFIG: AiSdrConfig = {
-  greeting: "Olá! 👋 Obrigado por entrar em contato. Como posso ajudar você hoje?",
-  tone: "profissional",
-  auto_tag: true,
-  max_messages_before_handoff: 10,
-  business_hours_only: false,
-  prompt_context: "",
-  master_prompt: "",
-  feature_auto_reply: true,
-  feature_auto_tag: true,
-  feature_qualification: true,
-  feature_handoff: true,
-  feature_sentiment: false,
-  feature_pipedrive_sync: false,
-  qualification_questions: [
-    "Como posso te chamar?",
-    "Qual tipo de negócio você atua?",
-    "Qual o faturamento mensal aproximado?",
-    "Já tem processo comercial estruturado?",
-  ],
-  score_thresholds: { a_min: 80, b_min: 50 },
-};
-
-const TONES = [
-  { value: "profissional", label: "Profissional", emoji: "💼", desc: "Sério e confiável" },
-  { value: "casual", label: "Casual", emoji: "😊", desc: "Amigável e leve" },
-  { value: "consultivo", label: "Consultivo", emoji: "🎯", desc: "Foco em solução" },
-  { value: "energetico", label: "Energético", emoji: "⚡", desc: "Empolgante e ativo" },
-];
-
-const FEATURES = [
-  { key: "feature_auto_reply" as const, icon: MessageSquare, title: "Resposta automática", desc: "Responde leads em tempo real 24h com IA", color: "text-blue-500" },
-  { key: "feature_auto_tag" as const, icon: Tag, title: "Auto-etiquetas", desc: "Classifica leads por estágio automaticamente", color: "text-yellow-500" },
-  { key: "feature_qualification" as const, icon: TrendingUp, title: "Qualificação + Score", desc: "Faz perguntas e classifica leads A/B/C com score automático", color: "text-green-500" },
-  { key: "feature_handoff" as const, icon: ArrowRight, title: "Handoff inteligente", desc: "Score A → Closer | Score B → SDR humano | Score C → encerra", color: "text-orange-500" },
-  { key: "feature_sentiment" as const, icon: Brain, title: "Análise de sentimento", desc: "Detecta frustração, urgência e risco de perda em tempo real", color: "text-purple-500" },
-  { key: "feature_pipedrive_sync" as const, icon: Zap, title: "Sync Pipedrive", desc: "Atualiza deals, cria notas de qualificação no Pipedrive", color: "text-primary" },
-];
+const DEFAULT_CONFIG = DEFAULT_AI_SDR_CONFIG;
 
 interface Props {
   instances: Instance[];

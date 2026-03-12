@@ -10,72 +10,11 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 
-interface AiSdrConfig {
-  greeting: string;
-  tone: string;
-  auto_tag: boolean;
-  max_messages_before_handoff: number;
-  business_hours_only: boolean;
-  prompt_context: string;
-  follow_up_hours: number;
-  follow_up_enabled: boolean;
-  call_focus_mode: boolean;
-  feature_auto_reply: boolean;
-  feature_auto_tag: boolean;
-  feature_qualification: boolean;
-  feature_handoff: boolean;
-  feature_sentiment: boolean;
-  feature_pipedrive_sync: boolean;
-  split_messages: boolean;
-  urgent_call_alert: boolean;
-  meeting_followups: boolean;
-  master_prompt: string;
-  organic_mode_enabled: boolean;
-  organic_prompt: string;
-  organic_tone: string;
-  organic_name: string;
-}
+import type { AiSdrConfig } from '@/domains/ai-sdr/types';
+import { DEFAULT_AI_SDR_CONFIG, AI_SDR_TONES } from '@/domains/ai-sdr/types';
 
-interface Props {
-  instanceId: string;
-  instanceName: string;
-  aiSdrEnabled: boolean;
-  aiSdrConfig: AiSdrConfig;
-  onUpdate: () => void;
-}
-
-const DEFAULT_CONFIG: AiSdrConfig = {
-  greeting: "Olá! 👋 Obrigado por entrar em contato. Como posso ajudar você hoje?",
-  tone: "profissional",
-  auto_tag: true,
-  max_messages_before_handoff: 10,
-  business_hours_only: false,
-  prompt_context: "",
-  follow_up_hours: 24,
-  follow_up_enabled: true,
-  call_focus_mode: true,
-  feature_auto_reply: true,
-  feature_auto_tag: true,
-  feature_qualification: true,
-  feature_handoff: true,
-  feature_sentiment: false,
-  feature_pipedrive_sync: false,
-  split_messages: true,
-  urgent_call_alert: true,
-  meeting_followups: true,
-  master_prompt: "",
-  organic_mode_enabled: true,
-  organic_prompt: "",
-  organic_tone: "casual e amigável",
-  organic_name: "",
-};
-
-const TONES = [
-  { value: "profissional", label: "Profissional", emoji: "💼" },
-  { value: "casual", label: "Casual", emoji: "😊" },
-  { value: "consultivo", label: "Consultivo", emoji: "🎯" },
-  { value: "energetico", label: "Energético", emoji: "⚡" },
-];
+const DEFAULT_CONFIG = DEFAULT_AI_SDR_CONFIG;
+const TONES = AI_SDR_TONES;
 
 export function AiSdrConfigPanel({ instanceId, instanceName, aiSdrEnabled, aiSdrConfig, onUpdate }: Props) {
   const config = { ...DEFAULT_CONFIG, ...aiSdrConfig };
