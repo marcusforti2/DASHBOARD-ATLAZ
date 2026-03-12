@@ -1563,7 +1563,14 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
       const handoffType = parsed.handoff_type || "closer";
       const newStatus = handoffType === "closer" ? "qualificado" : "em_contato";
 
-      await supabase.from("wa_conversations").update({ lead_status: newStatus }).eq("id", conversation_id);
+      await supabase.from("wa_conversations").update({
+        lead_status: newStatus,
+        lead_stage: newStatus === "qualificado" ? "qualificado" : "em_contato",
+        conversation_mode: "humano_assumiu",
+        last_mode_changed_at: new Date().toISOString(),
+        human_takeover_at: new Date().toISOString(),
+        handoff_reason: `AI handoff: ${parsed.handoff_reason || "Lead qualificado"}`,
+      }).eq("id", conversation_id);
 
       const responsibleId = handoffType === "closer" ? instance.closer_id : instance.sdr_id;
       if (responsibleId) {
