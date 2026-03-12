@@ -1878,6 +1878,13 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
         human_takeover_at: agendadoNow,
         handoff_reason: "Reunião confirmada pela IA",
       }).eq("id", conversation_id);
+      await logStateEvent({
+        newStage: "agendado",
+        newMode: "humano_assumiu",
+        newPriority: "atento",
+        reason: "Reunião confirmada pela IA — handoff automático",
+        metadata: { meeting_datetime: parsed.meeting_datetime, meeting_confirmed: true },
+      });
     }
 
     // 8. Pipedrive sync: move deal, create activities
