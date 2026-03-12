@@ -16,8 +16,6 @@ import type { WaConversation } from '@/hooks/use-wa-hub';
 import type { ConversationMode, LeadStage, PriorityLevel } from '@/domains/conversations/types';
 import { WaContactTagBadges } from './WaContactTagBadges';
 import type { WaTag } from '@/hooks/use-wa-tags';
-import { WaContactTagBadges } from './WaContactTagBadges';
-import type { WaTag } from '@/hooks/use-wa-tags';
 
 interface PipedriveData {
   person: {
