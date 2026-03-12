@@ -451,6 +451,12 @@ Deno.serve(async (req) => {
           conversation_mode: "humano_assumiu",
           last_mode_changed_at: new Date().toISOString(),
         }).eq("id", conversation_id);
+        await logStateEvent({
+          newStage: "qualificado",
+          newMode: "humano_assumiu",
+          reason: "Handoff threshold reached — max AI messages exceeded",
+          metadata: { trigger: "handoff_threshold", max_messages: maxBeforeHandoff },
+        });
         return new Response(JSON.stringify({ skipped: "handoff_threshold", handoff: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
