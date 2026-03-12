@@ -24,7 +24,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 export default function WaHubPage() {
   const [tab, setTab] = useState<'chat' | 'dashboard' | 'instances' | 'crm' | 'ai-sdr' | 'pipedrive' | 'ai-prompts'>('chat');
   const [instanceFilter, setInstanceFilter] = useState<string | null>(null);
-  const { conversations, loading } = useWaConversations(instanceFilter);
+  const { conversations, loading, refetch: refetchConversations } = useWaConversations(instanceFilter);
   const { tags, createTag, deleteTag } = useWaTags();
   const { getTagsForContact, addTag, removeTag } = useWaContactTags();
   const [selectedId, setSelectedId] = useState<string | null>(null);
