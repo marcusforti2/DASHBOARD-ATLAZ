@@ -193,6 +193,7 @@ export default function WaHubPage() {
           <WaCrmView conversations={conversations} tags={tags}
             getTagsForContact={(contactId) => getTagsForContact(contactId)}
             onAddTag={addTag} onRemoveTag={removeTag} onCreateTag={createTag} onDeleteTag={deleteTag}
+            onRefresh={refetchConversations}
           />
         </TabsContent>
 

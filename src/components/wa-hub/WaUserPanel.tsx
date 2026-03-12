@@ -280,6 +280,7 @@ export function WaUserPanel({ teamMemberId, memberName, memberRole }: Props) {
             onRemoveTag={removeTag}
             onCreateTag={createTag}
             onDeleteTag={deleteTag}
+            onRefresh={refetchConversations}
           />
         </TabsContent>
 
