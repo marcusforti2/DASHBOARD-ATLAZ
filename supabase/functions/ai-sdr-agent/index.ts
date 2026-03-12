@@ -1803,9 +1803,17 @@ LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
         }
       }
 
-      // Update lead status to agendado
+      // Update lead status to agendado + semantic fields
+      const agendadoNow = new Date().toISOString();
       await supabase.from("wa_conversations").update({
         lead_status: "agendado",
+        lead_stage: "agendado",
+        conversation_mode: "humano_assumiu",
+        priority_level: "atento",
+        last_stage_changed_at: agendadoNow,
+        last_mode_changed_at: agendadoNow,
+        human_takeover_at: agendadoNow,
+        handoff_reason: "Reunião confirmada pela IA",
       }).eq("id", conversation_id);
     }
 
