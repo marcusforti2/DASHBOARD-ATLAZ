@@ -184,6 +184,8 @@ export function WaCrmView({ conversations, tags, getTagsForContact, onAddTag, on
               <tr>
                 <th className="text-left text-xs font-medium text-muted-foreground px-4 py-2">Contato</th>
                 <th className="text-left text-xs font-medium text-muted-foreground px-4 py-2">Telefone</th>
+                <th className="text-left text-xs font-medium text-muted-foreground px-4 py-2">Etapa</th>
+                <th className="text-left text-xs font-medium text-muted-foreground px-4 py-2">Modo</th>
                 <th className="text-left text-xs font-medium text-muted-foreground px-4 py-2">Tags</th>
                 <th className="text-left text-xs font-medium text-muted-foreground px-4 py-2">Última Mensagem</th>
                 <th className="text-left text-xs font-medium text-muted-foreground px-4 py-2">Data</th>
@@ -194,6 +196,15 @@ export function WaCrmView({ conversations, tags, getTagsForContact, onAddTag, on
                 <tr key={conv.id} className="border-t border-border hover:bg-muted/30 cursor-pointer" onClick={() => setSelectedConv(conv)}>
                   <td className="px-4 py-2.5 font-medium text-foreground">{conv.contact.name}</td>
                   <td className="px-4 py-2.5 text-muted-foreground text-xs">{conv.contact.phone}</td>
+                  <td className="px-4 py-2.5">
+                    <div className="flex items-center gap-1">
+                      <SemanticStageBadge stage={conv.lead_stage} />
+                      <SemanticPriorityBadge priority={conv.priority_level} />
+                    </div>
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <SemanticModeBadge mode={conv.conversation_mode} />
+                  </td>
                   <td className="px-4 py-2.5">
                     <WaContactTagBadges contactId={conv.contact.id} assignedTagIds={getTagsForContact(conv.contact.id).map(t => t.tag_id)} allTags={tags} onAdd={onAddTag} onRemove={onRemoveTag} />
                   </td>
