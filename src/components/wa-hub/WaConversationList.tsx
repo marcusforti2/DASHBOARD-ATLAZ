@@ -138,7 +138,7 @@ export function WaConversationList({
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-12 px-4">
-          <p className="text-sm text-muted-foreground">{search || modeFilter ? 'Nenhum resultado' : 'Nenhuma conversa ainda'}</p>
+          <p className="text-sm text-muted-foreground">{search || modeFilter || stageFilter || priorityFilter ? 'Nenhum resultado' : 'Nenhuma conversa ainda'}</p>
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto">
