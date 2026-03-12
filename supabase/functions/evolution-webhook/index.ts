@@ -246,10 +246,88 @@ Deno.serve(async (req) => {
       const effectiveMessage = messageText !== '🎵 Áudio' && messageText !== '📷 Imagem' ? messageText : '';
       const aiTriggerMessage = transcribedText || effectiveMessage;
 
+      // ── Campaign event detection (opt_out / positive_interest) ──
+      if (!isFromMe && contact && conversation && aiTriggerMessage) {
+        const lowerMsg = aiTriggerMessage.toLowerCase().trim();
+        const OPT_OUT_KEYWORDS = ['pare', 'parar', 'sair', 'cancelar', 'não quero mais', 'remover', 'stop'];
+        const INTEREST_KEYWORDS = ['tenho interesse', 'quero saber mais', 'me conta', 'pode me ligar', 'quero comprar', 'vamos conversar'];
+
+        const isOptOut = OPT_OUT_KEYWORDS.some(kw => lowerMsg.includes(kw));
+        const isInterest = !isOptOut && INTEREST_KEYWORDS.some(kw => lowerMsg.includes(kw));
+
+        if (isOptOut) {
+          console.log('[webhook] OPT_OUT detected from', phone);
+          // Record suppression
+          await supabase.from('contact_suppressions').upsert(
+            { phone, reason: 'opt_out', source: 'campaign' },
+            { onConflict: 'phone', ignoreDuplicates: true }
+          );
+          // Cancel all pending actions for this contact
+          await supabase
+            .from('automation_actions')
+            .update({ status: 'cancelled', last_error: 'contact_opted_out', executed_at: new Date().toISOString() })
+            .eq('contact_id', contact.id)
+            .in('status', ['pending', 'failed']);
+          // Mark enrollments as opted_out
+          await supabase
+            .from('campaign_enrollments')
+            .update({ status: 'opted_out', cancelled_at: new Date().toISOString(), cancel_reason: 'opt_out' })
+            .eq('contact_id', contact.id)
+            .eq('status', 'active');
+          // Record event (with dedup)
+          await supabase.from('campaign_events').insert({
+            contact_id: contact.id,
+            event_type: 'opt_out',
+            provider_event_id: providerEventId,
+            payload: { message: lowerMsg.substring(0, 200) },
+          });
+          // Set suppressed flag to skip AI
+          var contactSuppressedByOptOut = true;
+        } else if (isInterest) {
+          console.log('[webhook] POSITIVE_INTEREST detected from', phone);
+          // Cancel future campaign actions for this contact's active enrollments
+          const { data: activeEnrollments } = await supabase
+            .from('campaign_enrollments')
+            .select('id, campaign_id')
+            .eq('contact_id', contact.id)
+            .eq('status', 'active');
+
+          for (const enr of (activeEnrollments || [])) {
+            await supabase
+              .from('automation_actions')
+              .update({ status: 'cancelled', last_error: 'positive_interest_handoff', executed_at: new Date().toISOString() })
+              .eq('enrollment_id', enr.id)
+              .in('status', ['pending', 'failed']);
+
+            await supabase
+              .from('campaign_enrollments')
+              .update({ status: 'completed', completed_at: new Date().toISOString() })
+              .eq('id', enr.id);
+          }
+          // Handoff conversation to human
+          if (conversation) {
+            await supabase.from('wa_conversations').update({
+              conversation_mode: 'humano_assumiu',
+              human_takeover_at: new Date().toISOString(),
+              handoff_reason: 'positive_interest_campaign',
+            }).eq('id', conversation.id);
+          }
+          // Record event
+          await supabase.from('campaign_events').insert({
+            contact_id: contact.id,
+            event_type: 'positive_interest',
+            provider_event_id: providerEventId,
+            payload: { message: lowerMsg.substring(0, 200) },
+          });
+        }
+      }
+
       // Trigger AI SDR agent for incoming messages from contacts
       // DEBOUNCE: Wait 3 seconds to allow batching of rapid sequential messages from the lead
       // The AI SDR agent will fetch recent messages from DB and combine them
-      if (!isFromMe && instance.ai_sdr_enabled && aiTriggerMessage) {
+      // @ts-ignore - contactSuppressed may be set above
+      const isSuppressed = typeof contactSuppressed !== 'undefined' || typeof contactSuppressedByOptOut !== 'undefined';
+      if (!isFromMe && instance.ai_sdr_enabled && aiTriggerMessage && !isSuppressed) {
         // Check if the sender is another managed WhatsApp instance
         const { data: senderInstance } = await supabase
           .from('wa_instances')
