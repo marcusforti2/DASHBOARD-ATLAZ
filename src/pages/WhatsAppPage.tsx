@@ -28,6 +28,7 @@ export default function WhatsAppPage() {
   if (!isAdmin) return <p className="text-sm text-muted-foreground">Acesso restrito a administradores.</p>;
 
   return (
+    <PasswordGate>
     <div className="space-y-6">
       <div>
         <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
