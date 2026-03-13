@@ -23,6 +23,14 @@ import { AiPromptsTab } from '@/components/wa-hub/AiPromptsTab';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function WaHubPage() {
+  return (
+    <PasswordGate>
+      <WaHubPageInner />
+    </PasswordGate>
+  );
+}
+
+function WaHubPageInner() {
   const [tab, setTab] = useState<'chat' | 'dashboard' | 'instances' | 'crm' | 'ai-sdr' | 'pipedrive' | 'ai-prompts'>('chat');
   const [instanceFilter, setInstanceFilter] = useState<string | null>(null);
   const { conversations, loading, refetch: refetchConversations } = useWaConversations(instanceFilter);
