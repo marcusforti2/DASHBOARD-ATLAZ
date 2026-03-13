@@ -207,6 +207,14 @@ const AUTOMATIONS: AutomationDef[] = [
 ];
 
 export default function AiSdrPage() {
+  return (
+    <PasswordGate>
+      <AiSdrPageInner />
+    </PasswordGate>
+  );
+}
+
+function AiSdrPageInner() {
   const [instances, setInstances] = useState<Instance[]>([]);
   const [teamMembers, setTeamMembers] = useState<{ id: string; name: string; member_role: string }[]>([]);
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
