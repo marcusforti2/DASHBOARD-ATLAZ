@@ -2684,7 +2684,7 @@ export type Database = {
           from_role: string | null
           id: string
           note: string | null
-          to_member_id: string
+          to_member_id: string | null
           to_role: string
         }
         Insert: {
@@ -2694,7 +2694,7 @@ export type Database = {
           from_role?: string | null
           id?: string
           note?: string | null
-          to_member_id: string
+          to_member_id?: string | null
           to_role?: string
         }
         Update: {
@@ -2704,7 +2704,7 @@ export type Database = {
           from_role?: string | null
           id?: string
           note?: string | null
-          to_member_id?: string
+          to_member_id?: string | null
           to_role?: string
         }
         Relationships: [
