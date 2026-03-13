@@ -1013,23 +1013,33 @@ export default function TeamManagement() {
   };
 
   const handleDelete = async (member: DbTeamMember) => {
-    // Also try to delete the auth user via edge function
     try {
+      // Find linked auth user
       const { data: profile } = await supabase.from("profiles").select("id").eq("team_member_id", member.id).single();
       if (profile) {
         const { data: { session } } = await supabase.auth.getSession();
-        await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-user`, {
+        const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-user`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
           body: JSON.stringify({ user_id: profile.id }),
         });
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          console.error("delete-user error:", err);
+          // Auth user deletion failed — still proceed to delete team_member
+        }
       }
-    } catch {}
-    // Update profile to unlink, then delete team member
-    await supabase.from("profiles").update({ team_member_id: null }).eq("team_member_id", member.id);
-    const { error } = await supabase.from("team_members").delete().eq("id", member.id);
-    if (error) toast.error(error.message);
-    else { toast.success("Membro excluído"); queryClient.invalidateQueries({ queryKey: ["team-members"] }); }
+      // Delete team member (cascades will handle related data)
+      const { error } = await supabase.from("team_members").delete().eq("id", member.id);
+      if (error) {
+        toast.error("Erro ao excluir: " + error.message);
+      } else {
+        toast.success("Membro excluído");
+        queryClient.invalidateQueries({ queryKey: ["team-members"] });
+      }
+    } catch (err: any) {
+      toast.error("Erro ao excluir membro: " + (err?.message || "erro desconhecido"));
+    }
   };
 
   if (isLoading) {
