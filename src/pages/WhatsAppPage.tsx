@@ -48,6 +48,7 @@ export default function WhatsAppPage() {
       {/* Contacts */}
       <WhatsAppContactsSection members={members || []} />
     </div>
+    </PasswordGate>
   );
 }
 
