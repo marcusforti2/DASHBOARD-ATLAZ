@@ -275,6 +275,8 @@ export function WaUserPanel({ teamMemberId, memberName, memberRole }: Props) {
           <WaCrmView
             conversations={myConversations}
             tags={tags}
+            instances={myInstances}
+            teamMembers={teamMembers}
             getTagsForContact={(contactId) => getTagsForContact(contactId)}
             onAddTag={addTag}
             onRemoveTag={removeTag}
