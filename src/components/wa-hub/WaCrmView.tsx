@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { WaContactTagBadges } from './WaContactTagBadges';
 import { LeadDetailModal } from './LeadDetailModal';
 import { getAvatarColor, formatCrmDate } from '@/lib/wa-utils';
@@ -19,11 +20,13 @@ import {
 } from '@/domains/conversations/types';
 import type { LeadStage, ConversationMode, PriorityLevel } from '@/domains/conversations/types';
 import type { WaTag } from '@/hooks/use-wa-tags';
-import type { WaConversation } from '@/hooks/use-wa-hub';
+import type { WaConversation, WaInstance } from '@/hooks/use-wa-hub';
 
 interface Props {
   conversations: WaConversation[];
   tags: WaTag[];
+  instances: WaInstance[];
+  teamMembers: { id: string; name: string; member_role: string }[];
   getTagsForContact: (contactId: string) => { tag_id: string }[];
   onAddTag: (contactId: string, tagId: string) => Promise<void>;
   onRemoveTag: (contactId: string, tagId: string) => Promise<void>;
@@ -46,13 +49,16 @@ const STAGE_COLORS: Record<LeadStage, string> = {
   pausado: '#9ca3af',
 };
 
-export function WaCrmView({ conversations, tags, getTagsForContact, onAddTag, onRemoveTag, onCreateTag, onDeleteTag, onRefresh }: Props) {
+export function WaCrmView({ conversations, tags, instances, teamMembers, getTagsForContact, onAddTag, onRemoveTag, onCreateTag, onDeleteTag, onRefresh }: Props) {
   const [view, setView] = useState<'kanban' | 'table'>('kanban');
   const [search, setSearch] = useState('');
   const [filterTag, setFilterTag] = useState<string | null>(null);
   const [filterStage, setFilterStage] = useState<LeadStage | null>(null);
   const [filterMode, setFilterMode] = useState<ConversationMode | null>(null);
   const [filterPriority, setFilterPriority] = useState<PriorityLevel | null>(null);
+  const [filterInstanceId, setFilterInstanceId] = useState<string>('all');
+  const [filterCloserId, setFilterCloserId] = useState<string>('all');
+  const [filterSdrId, setFilterSdrId] = useState<string>('all');
   const [showManageTags, setShowManageTags] = useState(false);
   const [newTagName, setNewTagName] = useState('');
   const [newTagColor, setNewTagColor] = useState('#3b82f6');
@@ -60,11 +66,22 @@ export function WaCrmView({ conversations, tags, getTagsForContact, onAddTag, on
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
   const [selectedConv, setSelectedConv] = useState<WaConversation | null>(null);
 
+  const instanceMap = useMemo(() => new Map(instances.map((inst) => [inst.id, inst])), [instances]);
+
   const filteredConversations = useMemo(() => {
     let list = conversations;
     if (search) {
       const q = search.toLowerCase();
       list = list.filter(c => c.contact.name.toLowerCase().includes(q) || c.contact.phone.includes(q));
+    }
+    if (filterInstanceId !== 'all') {
+      list = list.filter(c => c.instance_id === filterInstanceId);
+    }
+    if (filterCloserId !== 'all') {
+      list = list.filter(c => instanceMap.get(c.instance_id)?.closer_id === filterCloserId);
+    }
+    if (filterSdrId !== 'all') {
+      list = list.filter(c => (instanceMap.get(c.instance_id)?.sdr_id || null) === filterSdrId);
     }
     if (filterTag) {
       list = list.filter(c => {
@@ -82,7 +99,7 @@ export function WaCrmView({ conversations, tags, getTagsForContact, onAddTag, on
       list = list.filter(c => c.priority_level === filterPriority);
     }
     return list;
-  }, [conversations, search, filterTag, filterStage, filterMode, filterPriority, getTagsForContact]);
+  }, [conversations, search, filterInstanceId, filterCloserId, filterSdrId, filterTag, filterStage, filterMode, filterPriority, getTagsForContact, instanceMap]);
 
   const getConvsForStage = useCallback(
     (stage: LeadStage) => filteredConversations.filter(c => c.lead_stage === stage),
@@ -110,7 +127,6 @@ export function WaCrmView({ conversations, tags, getTagsForContact, onAddTag, on
     const previousStage = conv.lead_stage;
     const now = new Date().toISOString();
 
-    // Update lead_stage (does NOT touch conversation_mode or priority_level)
     const { error: updateErr } = await supabase
       .from('wa_conversations')
       .update({
@@ -125,7 +141,6 @@ export function WaCrmView({ conversations, tags, getTagsForContact, onAddTag, on
       return;
     }
 
-    // Insert audit event
     await supabase.from('wa_conversation_state_events' as any).insert({
       conversation_id: conv.id,
       previous_lead_stage: previousStage,
@@ -166,6 +181,38 @@ export function WaCrmView({ conversations, tags, getTagsForContact, onAddTag, on
               </button>
             </div>
           </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+          <Select value={filterInstanceId} onValueChange={setFilterInstanceId}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Instância" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as instâncias</SelectItem>
+              {instances.map(inst => (
+                <SelectItem key={inst.id} value={inst.id}>{inst.instance_name.replace(/^wpp_/i, '')}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={filterSdrId} onValueChange={setFilterSdrId}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="SDR responsável" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os SDRs</SelectItem>
+              {teamMembers.filter(member => member.member_role.includes('sdr')).map(member => (
+                <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={filterCloserId} onValueChange={setFilterCloserId}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Closer responsável" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os closers</SelectItem>
+              {teamMembers.filter(member => member.member_role.includes('closer')).map(member => (
+                <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Filters row */}
@@ -236,7 +283,7 @@ export function WaCrmView({ conversations, tags, getTagsForContact, onAddTag, on
                   <EmptyColumn />
                 ) : (
                   stageConvs.map(conv => (
-                    <KanbanCard key={conv.id} conv={conv} stageColor={color} tags={tags} assignedTagIds={getTagsForContact(conv.contact.id).map(t => t.tag_id)} onAddTag={onAddTag} onRemoveTag={onRemoveTag} onDragStart={handleDragStart} onClick={() => setSelectedConv(conv)} />
+                    <KanbanCard key={conv.id} conv={conv} stageColor={color} tags={tags} assignedTagIds={getTagsForContact(conv.contact.id).map(t => t.tag_id)} onAddTag={onAddTag} onRemoveTag={onRemoveTag} onDragStart={handleDragStart} onClick={() => setSelectedConv(conv)} instanceLabel={instanceMap.get(conv.instance_id)?.instance_name?.replace(/^wpp_/i, '') || 'Sem instância'} sdrLabel={teamMembers.find(member => member.id === instanceMap.get(conv.instance_id)?.sdr_id)?.name || 'Não vinculado'} closerLabel={teamMembers.find(member => member.id === instanceMap.get(conv.instance_id)?.closer_id)?.name || 'Não vinculado'} />
                   ))
                 )}
               </KanbanColumn>
@@ -253,6 +300,8 @@ export function WaCrmView({ conversations, tags, getTagsForContact, onAddTag, on
               <tr>
                 <th className="text-left text-xs font-medium text-muted-foreground px-4 py-2">Contato</th>
                 <th className="text-left text-xs font-medium text-muted-foreground px-4 py-2">Telefone</th>
+                <th className="text-left text-xs font-medium text-muted-foreground px-4 py-2">Instância</th>
+                <th className="text-left text-xs font-medium text-muted-foreground px-4 py-2">Responsáveis</th>
                 <th className="text-left text-xs font-medium text-muted-foreground px-4 py-2">Etapa</th>
                 <th className="text-left text-xs font-medium text-muted-foreground px-4 py-2">Modo</th>
                 <th className="text-left text-xs font-medium text-muted-foreground px-4 py-2">Tags</th>
@@ -265,6 +314,13 @@ export function WaCrmView({ conversations, tags, getTagsForContact, onAddTag, on
                 <tr key={conv.id} className="border-t border-border hover:bg-muted/30 cursor-pointer" onClick={() => setSelectedConv(conv)}>
                   <td className="px-4 py-2.5 font-medium text-foreground">{conv.contact.name}</td>
                   <td className="px-4 py-2.5 text-muted-foreground text-xs">{conv.contact.phone}</td>
+                  <td className="px-4 py-2.5 text-xs text-muted-foreground">{instanceMap.get(conv.instance_id)?.instance_name?.replace(/^wpp_/i, '') || 'Sem instância'}</td>
+                  <td className="px-4 py-2.5">
+                    <div className="flex flex-col gap-1 text-[11px]">
+                      <span className="text-muted-foreground">SDR: {teamMembers.find(member => member.id === instanceMap.get(conv.instance_id)?.sdr_id)?.name || 'Não vinculado'}</span>
+                      <span className="text-muted-foreground">Closer: {teamMembers.find(member => member.id === instanceMap.get(conv.instance_id)?.closer_id)?.name || 'Não vinculado'}</span>
+                    </div>
+                  </td>
                   <td className="px-4 py-2.5">
                     <div className="flex items-center gap-1">
                       <SemanticStageBadge stage={conv.lead_stage} />
@@ -289,7 +345,7 @@ export function WaCrmView({ conversations, tags, getTagsForContact, onAddTag, on
         </div>
       )}
 
-      {/* Manage Tags Dialog — tags are now auxiliary only, no is_stage checkbox */}
+      {/* Manage Tags Dialog */}
       <Dialog open={showManageTags} onOpenChange={setShowManageTags}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -385,11 +441,12 @@ function EmptyColumn() {
 }
 
 /* ── Kanban Card ── */
-function KanbanCard({ conv, stageColor, tags, assignedTagIds, onAddTag, onRemoveTag, onDragStart, onClick }: {
+function KanbanCard({ conv, stageColor, tags, assignedTagIds, onAddTag, onRemoveTag, onDragStart, onClick, instanceLabel, sdrLabel, closerLabel }: {
   conv: WaConversation; stageColor: string; tags: WaTag[]; assignedTagIds: string[];
   onAddTag: (contactId: string, tagId: string) => Promise<void>;
   onRemoveTag: (contactId: string, tagId: string) => Promise<void>;
   onDragStart: (convId: string) => void; onClick?: () => void;
+  instanceLabel: string; sdrLabel: string; closerLabel: string;
 }) {
   const avatarColor = getAvatarColor(conv.contact.name);
 
@@ -442,6 +499,11 @@ function KanbanCard({ conv, stageColor, tags, assignedTagIds, onAddTag, onRemove
       {/* Auxiliary tags */}
       <div className="pl-5">
         <WaContactTagBadges contactId={conv.contact.id} assignedTagIds={assignedTagIds} allTags={tags} onAdd={onAddTag} onRemove={onRemoveTag} />
+      </div>
+      <div className="ml-5 rounded-lg bg-muted/40 px-2 py-1.5 space-y-1">
+        <p className="text-[10px] text-muted-foreground truncate">Instância: <span className="text-foreground">{instanceLabel}</span></p>
+        <p className="text-[10px] text-muted-foreground truncate">SDR: <span className="text-foreground">{sdrLabel}</span></p>
+        <p className="text-[10px] text-muted-foreground truncate">Closer: <span className="text-foreground">{closerLabel}</span></p>
       </div>
     </div>
   );
