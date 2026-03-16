@@ -8,7 +8,7 @@ import {
   MessageCircle, Phone, Send, Loader2, ShieldCheck, Users,
 } from "lucide-react";
 import FlowBuilder from "@/components/whatsapp/FlowBuilder";
-import PasswordGate from "@/components/PasswordGate";
+
 
 export default function WhatsAppPage() {
   const { user, isAdmin } = useAuth();
