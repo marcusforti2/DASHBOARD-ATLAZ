@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import PasswordGate from "@/components/PasswordGate";
+
 import { toast } from "sonner";
 import {
   Bot, Settings2, MessageSquare, Users, Tag, Clock,
@@ -207,11 +207,7 @@ const AUTOMATIONS: AutomationDef[] = [
 ];
 
 export default function AiSdrPage() {
-  return (
-    <PasswordGate>
-      <AiSdrPageInner />
-    </PasswordGate>
-  );
+  return <AiSdrPageInner />;
 }
 
 function AiSdrPageInner() {
