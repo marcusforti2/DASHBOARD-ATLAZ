@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import PasswordGate from '@/components/PasswordGate';
+
 import { useWaConversations, useWaMessages } from '@/hooks/use-wa-hub';
 import type { WaConversation, WaInstance } from '@/hooks/use-wa-hub';
 import { useWaTags, useWaContactTags } from '@/hooks/use-wa-tags';
