@@ -207,11 +207,7 @@ const AUTOMATIONS: AutomationDef[] = [
 ];
 
 export default function AiSdrPage() {
-  return (
-    <PasswordGate>
-      <AiSdrPageInner />
-    </PasswordGate>
-  );
+  return <AiSdrPageInner />;
 }
 
 function AiSdrPageInner() {
