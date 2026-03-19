@@ -330,20 +330,6 @@ export function WaCrmView({ conversations, tags, instances, teamMembers, getTags
   );
 }
 
-/* ── Filter Chip ── */
-function FilterChip({ active, onClick, color, children }: { active: boolean; onClick: () => void; color?: string; children: React.ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`text-[10px] px-2.5 py-1 rounded-full font-medium transition-colors whitespace-nowrap ${
-        active ? 'text-white' : 'text-muted-foreground hover:bg-accent'
-      }`}
-      style={active ? { backgroundColor: color || 'hsl(var(--primary))' } : {}}
-    >
-      {children}
-    </button>
-  );
-}
 
 /* ── Kanban Column ── */
 function KanbanColumn({ label, color, count, stageId, dragOverStage, onDragOver, onDragLeave, onDrop, children }: {
