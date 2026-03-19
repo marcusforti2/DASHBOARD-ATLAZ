@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { UserPlus, Users, Loader2, Linkedin, Send, AlertCircle } from 'lucide-react';
+import { UserPlus, Users, Loader2, Linkedin, Send, AlertCircle, Sparkles, CheckCircle2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { WaInstance } from '@/hooks/use-wa-hub';
@@ -43,6 +43,10 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
   const [batchTriggerAi, setBatchTriggerAi] = useState(true);
   const [batchSubmitting, setBatchSubmitting] = useState(false);
 
+  // AI-parsed leads (overrides manual parsing when set)
+  const [aiParsedLeads, setAiParsedLeads] = useState<LeadInput[] | null>(null);
+  const [aiProcessing, setAiProcessing] = useState(false);
+
   // Auto-resolve instance by SDR
   const sdrInstances = useMemo(() => {
     return instances.filter(i => i.sdr_id && i.ai_sdr_enabled);
@@ -56,7 +60,6 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
       .map(line => line.trim())
       .filter(Boolean)
       .map(line => {
-        // Format: Name, Phone[, LinkedIn URL]
         const parts = line.split(/[,;\t]+/).map(p => p.trim());
         return {
           name: parts[0] || '',
@@ -67,7 +70,44 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
       .filter(l => l.name && l.phone);
   };
 
-  const batchLeads = useMemo(() => parseBatchLeads(batchText), [batchText]);
+  const batchLeads = useMemo(() => aiParsedLeads ?? parseBatchLeads(batchText), [batchText, aiParsedLeads]);
+
+  const handleAiProcess = async () => {
+    if (!batchText.trim()) {
+      toast.error('Cole o texto com os leads primeiro');
+      return;
+    }
+    setAiProcessing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('parse-lead-batch', {
+        body: { text: batchText },
+      });
+      if (error) throw error;
+      const leads: LeadInput[] = (data?.leads || []).map((l: any) => ({
+        name: l.name || '',
+        phone: l.phone || '',
+        linkedinUrl: l.linkedin_url || l.linkedinUrl || '',
+      })).filter((l: LeadInput) => l.name && l.phone);
+
+      if (leads.length === 0) {
+        toast.error('A IA não conseguiu extrair leads do texto. Verifique o conteúdo.');
+      } else {
+        setAiParsedLeads(leads);
+        toast.success(`IA organizou ${leads.length} lead${leads.length !== 1 ? 's' : ''}`);
+      }
+    } catch (err) {
+      console.error('AI parse error:', err);
+      toast.error('Erro ao processar com IA. Tente novamente.');
+    } finally {
+      setAiProcessing(false);
+    }
+  };
+
+  // Reset AI parsed leads when text changes
+  const handleBatchTextChange = (text: string) => {
+    setBatchText(text);
+    setAiParsedLeads(null);
+  };
 
   const normalizePhone = (p: string): string => {
     let clean = p.replace(/[^0-9+]/g, '');
@@ -90,7 +130,6 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
     }
 
     try {
-      // Check if contact already exists
       const { data: existingContact } = await supabase
         .from('wa_contacts')
         .select('id')
@@ -116,7 +155,6 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
         contactId = newContact.id;
       }
 
-      // Check if conversation already exists
       const { data: existingConv } = await supabase
         .from('wa_conversations')
         .select('id')
@@ -145,7 +183,6 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
         conversationId = newConv.id;
       }
 
-      // Add tag if selected
       if (tagId && tagId !== 'none') {
         const { data: existingTag } = await supabase
           .from('wa_contact_tags')
@@ -162,7 +199,6 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
         }
       }
 
-      // Store LinkedIn URL as a note if provided
       if (lead.linkedinUrl) {
         await supabase.from('wa_messages').insert({
           conversation_id: conversationId,
@@ -174,7 +210,6 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
         } as any);
       }
 
-      // Trigger AI SDR
       if (shouldTriggerAi && inst.ai_sdr_enabled) {
         try {
           await supabase.functions.invoke('ai-sdr-agent', {
@@ -190,7 +225,6 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
           });
         } catch (aiErr) {
           console.error('AI SDR trigger error:', aiErr);
-          // Don't fail the whole operation
         }
       }
 
@@ -223,7 +257,7 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
 
   const handleSubmitBatch = async () => {
     if (batchLeads.length === 0) {
-      toast.error('Nenhum lead válido encontrado. Use formato: Nome, Telefone');
+      toast.error('Nenhum lead válido encontrado.');
       return;
     }
     setBatchSubmitting(true);
@@ -236,6 +270,7 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
     toast.success(`${ok} leads cadastrados${fail > 0 ? `, ${fail} falharam` : ''}${batchTriggerAi ? ' — IA disparada!' : ''}`);
     if (ok > 0) {
       setBatchText('');
+      setAiParsedLeads(null);
       onRefresh?.();
     }
   };
@@ -328,32 +363,57 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
           {/* Batch */}
           <TabsContent value="batch" className="space-y-3">
             <div className="space-y-1.5">
-              <Label className="text-xs">Lista de Leads</Label>
+              <Label className="text-xs">Cole os dados dos leads</Label>
               <Textarea
                 value={batchText}
-                onChange={e => setBatchText(e.target.value)}
-                placeholder={`Cole a lista no formato:\nJoão Silva, 11999998888, https://linkedin.com/in/joao\nMaria Santos, 21988887777\nPedro Costa, 31977776666`}
-                className="min-h-[160px] text-xs font-mono"
+                onChange={e => handleBatchTextChange(e.target.value)}
+                placeholder={`Cole aqui em qualquer formato:\nJoão Silva 11999998888 linkedin.com/in/joao\nMaria Santos - (21) 98888-7777\nPedro Costa, 31977776666, https://linkedin.com/in/pedro\n\nA IA organiza automaticamente!`}
+                className="min-h-[140px] text-xs font-mono"
               />
               <p className="text-[10px] text-muted-foreground">
-                Formato: Nome, Telefone[, LinkedIn URL] — um por linha. Separador: vírgula, ponto-e-vírgula ou tab.
+                Cole em qualquer formato — a IA extrai nomes, telefones e LinkedIn automaticamente.
               </p>
             </div>
+
+            {/* AI Process Button */}
+            <Button
+              variant="outline"
+              onClick={handleAiProcess}
+              disabled={aiProcessing || !batchText.trim()}
+              className="w-full h-9 text-xs gap-2 border-primary/30 hover:bg-primary/5"
+            >
+              {aiProcessing ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="w-3.5 h-3.5 text-primary" />
+              )}
+              {aiProcessing ? 'Processando com IA...' : '✨ Processar com IA'}
+            </Button>
+
+            {/* Parsed leads preview */}
             {batchLeads.length > 0 && (
-              <div className="rounded-lg bg-muted/50 p-2.5 space-y-1">
-                <p className="text-xs font-medium text-foreground">{batchLeads.length} leads detectados:</p>
-                <div className="max-h-[120px] overflow-y-auto space-y-0.5">
-                  {batchLeads.slice(0, 20).map((l, i) => (
-                    <p key={i} className="text-[10px] text-muted-foreground truncate">
-                      {l.name} — {l.phone} {l.linkedinUrl && `🔗`}
-                    </p>
+              <div className={`rounded-lg p-2.5 space-y-1.5 ${aiParsedLeads ? 'bg-primary/5 border border-primary/20' : 'bg-muted/50'}`}>
+                <div className="flex items-center gap-2">
+                  {aiParsedLeads && <CheckCircle2 className="w-3.5 h-3.5 text-primary" />}
+                  <p className="text-xs font-medium text-foreground">
+                    {aiParsedLeads ? `✅ ${batchLeads.length} leads organizados pela IA:` : `${batchLeads.length} leads detectados:`}
+                  </p>
+                </div>
+                <div className="max-h-[150px] overflow-y-auto space-y-1">
+                  {batchLeads.slice(0, 30).map((l, i) => (
+                    <div key={i} className="flex items-center gap-2 text-[10px] py-0.5 px-1.5 rounded bg-background/50">
+                      <span className="text-foreground font-medium truncate max-w-[140px]">{l.name}</span>
+                      <span className="text-muted-foreground">{l.phone}</span>
+                      {l.linkedinUrl && <Linkedin className="w-2.5 h-2.5 text-primary shrink-0" />}
+                    </div>
                   ))}
-                  {batchLeads.length > 20 && (
-                    <p className="text-[10px] text-muted-foreground">...e mais {batchLeads.length - 20}</p>
+                  {batchLeads.length > 30 && (
+                    <p className="text-[10px] text-muted-foreground pl-1.5">...e mais {batchLeads.length - 30}</p>
                   )}
                 </div>
               </div>
             )}
+
             <div className="space-y-1.5">
               <Label className="text-xs">Tag / Label</Label>
               <Select value={batchTagId} onValueChange={setBatchTagId}>
