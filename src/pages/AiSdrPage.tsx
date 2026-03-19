@@ -105,11 +105,6 @@ const AUTOMATIONS: AutomationDef[] = [
     explanation: "A IA analisa o tom emocional de cada mensagem do lead (positivo, neutro, frustrado, irritado). Se detectar frustração ou risco de perda, ajusta o tom da resposta para ser mais empático e pode acionar um alerta ao gestor. Útil para identificar leads que estão prestes a desistir.",
   },
   {
-    key: "feature_pipedrive_sync", icon: Zap, title: "Sync Pipedrive", desc: "Atualiza deals e notas no CRM",
-    color: "text-primary",
-    explanation: "Sincroniza automaticamente as informações da conversa com o Pipedrive: cria/atualiza deals, adiciona notas com resumo da conversa, e move o deal entre estágios conforme a qualificação avança. Requer integração Pipedrive configurada no WhatsApp Hub.",
-  },
-  {
     key: "business_hours_only", icon: Clock, title: "Só Horário Comercial", desc: "IA só responde dentro do horário configurado",
     color: "text-slate-500",
     explanation: "Restringe as respostas automáticas da IA para o horário comercial (horário de Brasília). Mensagens recebidas fora deste horário NÃO são respondidas até o próximo dia útil. A IA também NÃO responde aos finais de semana.",
