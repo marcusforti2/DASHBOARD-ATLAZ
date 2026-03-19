@@ -170,12 +170,6 @@ export function AiSdrFlowView({ config, closerName }: Props) {
       n.push({ id: "end", type: "flowNode", position: { x, y: Y + 140 }, data: { nodeType: "end", label: "Encerra educadamente", desc: "Envia conteúdo de valor" } });
       e.push({ id: "e-scoreC-end", source: "scoreC", target: "end", ...edgeDefaults });
 
-      // Pipedrive sync (parallel)
-      if (config.feature_pipedrive_sync) {
-        n.push({ id: "pipedrive", type: "flowNode", position: { x: x + GAP, y: Y }, data: { nodeType: "pipedrive", label: "Sync Pipedrive", desc: "Atualiza deal + notas" } });
-        e.push({ id: "e-cal-pipe", source: "calendar", target: "pipedrive", ...edgeDefaults, style: { ...edgeDefaults.style, strokeDasharray: "5 5" } });
-        e.push({ id: "e-sdr-pipe", source: "handoffSdr", target: "pipedrive", ...edgeDefaults, style: { ...edgeDefaults.style, strokeDasharray: "5 5" } });
-      }
     } else if (config.feature_handoff !== false) {
       // Simple handoff without qualification
       x += GAP;
