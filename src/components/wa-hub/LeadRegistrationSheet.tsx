@@ -11,7 +11,7 @@ import { UserPlus, Users, Loader2, Linkedin, Send, AlertCircle, Sparkles, CheckC
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { WaInstance } from '@/hooks/use-wa-hub';
-import type { LeadSource } from '@/domains/ai-sdr/types';
+import { type LeadSource, DEFAULT_AI_SDR_CONFIG } from '@/domains/ai-sdr/types';
 
 interface Props {
   open: boolean;
