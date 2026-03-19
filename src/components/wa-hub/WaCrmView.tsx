@@ -327,6 +327,15 @@ export function WaCrmView({ conversations, tags, instances, teamMembers, getTags
           onAddTag={onAddTag} onRemoveTag={onRemoveTag}
         />
       )}
+
+      <LeadRegistrationSheet
+        open={showLeadRegistration}
+        onOpenChange={setShowLeadRegistration}
+        instances={instances}
+        tags={tags}
+        teamMembers={teamMembers}
+        onRefresh={onRefresh}
+      />
     </div>
   );
 }
