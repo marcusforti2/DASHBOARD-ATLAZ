@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { UserPlus, Users, Loader2, Linkedin, Send, AlertCircle, Sparkles, CheckCircle2, Tag } from 'lucide-react';
+import { UserPlus, Users, Loader2, Linkedin, Send, AlertCircle, Sparkles, CheckCircle2, Tag, MessageSquare } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { WaInstance } from '@/hooks/use-wa-hub';
