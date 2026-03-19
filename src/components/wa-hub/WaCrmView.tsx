@@ -160,6 +160,59 @@ export function WaCrmView({ conversations, tags, instances, teamMembers, getTags
     onRefresh?.();
   };
 
+  // ── Edit Lead ──
+  const openEdit = (conv: WaConversation) => {
+    setEditingConv(conv);
+    setEditName(conv.contact.name);
+    setEditPhone(conv.contact.phone);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingConv || !editName.trim() || !editPhone.trim()) return;
+    setEditSaving(true);
+    const { error } = await supabase
+      .from('wa_contacts')
+      .update({ name: editName.trim(), phone: editPhone.trim() } as any)
+      .eq('id', editingConv.contact.id);
+    setEditSaving(false);
+    if (error) { toast.error('Erro ao editar lead'); console.error(error); return; }
+    toast.success('Lead atualizado!');
+    setEditingConv(null);
+    onRefresh?.();
+  };
+
+  // ── Delete Lead ──
+  const handleDeleteLead = async () => {
+    if (!deletingConv) return;
+    setDeleteLoading(true);
+    try {
+      // Delete messages first
+      await supabase.from('wa_messages').delete().eq('conversation_id', deletingConv.id);
+      // Delete state events
+      await supabase.from('wa_conversation_state_events' as any).delete().eq('conversation_id', deletingConv.id);
+      // Delete contact tags
+      await supabase.from('wa_contact_tags' as any).delete().eq('contact_id', deletingConv.contact.id);
+      // Delete conversation
+      await supabase.from('wa_conversations').delete().eq('id', deletingConv.id);
+      // Delete contact (only if no other conversations reference it)
+      const { data: otherConvs } = await supabase
+        .from('wa_conversations')
+        .select('id')
+        .eq('contact_id', deletingConv.contact.id)
+        .limit(1);
+      if (!otherConvs || otherConvs.length === 0) {
+        await supabase.from('wa_contacts').delete().eq('id', deletingConv.contact.id);
+      }
+      toast.success(`Lead "${deletingConv.contact.name}" excluído`);
+      onRefresh?.();
+    } catch (err) {
+      console.error('Delete error:', err);
+      toast.error('Erro ao excluir lead');
+    }
+    setDeleteLoading(false);
+    setDeletingConv(null);
+  };
+
   return (
     <div className="space-y-4">
       {/* Toolbar */}
