@@ -249,6 +249,9 @@ function WaHubPageInner() {
           <TabsTrigger value="ai-prompts" className="text-xs gap-1.5">
             <Brain className="w-3.5 h-3.5" /> Prompts IA
           </TabsTrigger>
+          <TabsTrigger value="ai-center" className="text-xs gap-1.5">
+            <Eye className="w-3.5 h-3.5" /> AI Center
+          </TabsTrigger>
           <TabsTrigger value="instances" className="text-xs gap-1.5">
             <Wifi className="w-3.5 h-3.5" /> Instâncias
             {connectedCount > 0 && (
