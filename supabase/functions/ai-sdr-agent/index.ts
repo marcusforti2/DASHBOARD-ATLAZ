@@ -674,13 +674,12 @@ Deno.serve(async (req) => {
     const followUpHours = config.follow_up_hours || 24;
 
     // ===== ORGANIC CONTACT DETECTION =====
-    // A contact is "organic" when: not a proactive trigger + no Pipedrive deal + no source tags
     const sourceTagNames = ["linkedin", "dripify", "indicação", "indicacao", "prospecção", "prospeccao"];
     const hasSourceTag = currentTagNames.some((t: string) =>
       sourceTagNames.some(s => t.toLowerCase().includes(s))
     );
-    const hasPipedriveDeal = pipedriveContext.length > 0;
-    const isOrganicContact = !isProactive && !hasSourceTag && !hasPipedriveDeal;
+    const isOrganicContact = !isProactive && !hasSourceTag;
+    const organicModeEnabled = config.organic_mode_enabled === true;
     // BUG FIX #2: Organic mode must be OPT-IN (=== true), not opt-out (!== false)
     const organicModeEnabled = config.organic_mode_enabled === true;
 
