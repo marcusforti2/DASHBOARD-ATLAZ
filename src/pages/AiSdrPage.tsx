@@ -278,14 +278,24 @@ function AiSdrPageInner() {
 
   const loadData = async () => {
     setLoadingData(true);
-    const [instRes, membRes] = await Promise.all([
+    const [instRes, membRes, knowledgeRes] = await Promise.all([
       supabase.from("wa_instances").select("id, instance_name, is_connected, ai_sdr_enabled, ai_sdr_config, closer_id, sdr_id"),
       supabase.from("team_members").select("id, name, member_role").eq("active", true),
+      supabase.from("company_knowledge").select("id, title, content, category").eq("active", true).like("category", "ai_sdr_%"),
     ]);
     const insts = (instRes.data || []) as Instance[];
     setInstances(insts);
     setTeamMembers(membRes.data || []);
     if (insts.length > 0 && !selectedInstanceId) setSelectedInstanceId(insts[0].id);
+
+    // Load centralized knowledge
+    const kFields = { ...knowledgeFields };
+    for (const k of (knowledgeRes.data || [])) {
+      if (kFields[k.category]) {
+        kFields[k.category] = { id: k.id, content: k.content };
+      }
+    }
+    setKnowledgeFields(kFields);
 
     // Stats
     const activeCount = insts.filter(i => i.ai_sdr_enabled).length;
