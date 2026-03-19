@@ -44,6 +44,8 @@ import { AiSdrSummaryCard } from '@/components/wa-hub/AiSdrSummaryCard';
 import { PipedriveTab } from '@/components/wa-hub/PipedriveTab';
 import { AiPromptsTab } from '@/components/wa-hub/AiPromptsTab';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Badge } from '@/components/ui/badge';
 
 export default function WaHubPage() {
   return (
@@ -196,17 +198,27 @@ function WaHubPageInner() {
           <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">Visão Total</span>
         </div>
         <div className="ml-auto flex items-center gap-4 flex-wrap">
+          <HubScopeFilters
+            instances={instances}
+            teamMembers={teamMembers}
+            selectedInstanceId={selectedInstanceId}
+            selectedCloserId={selectedCloserId}
+            selectedSdrId={selectedSdrId}
+            connectionFilter={connectionFilter}
+            scopedInstances={scopeBaseInstances}
+            onInstanceChange={setSelectedInstanceId}
+            onCloserChange={setSelectedCloserId}
+            onSdrChange={setSelectedSdrId}
+            onConnectionChange={setConnectionFilter}
+            onClear={clearScopeFilters}
+          />
           <div className="flex items-center gap-1.5">
             <Eye className="w-3.5 h-3.5 text-primary" />
-            <span className="text-xs text-muted-foreground">{totalConvs} conversas no recorte</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-            <span className="text-xs text-muted-foreground">{activeCount} ativas</span>
+            <span className="text-xs text-muted-foreground">{totalConvs} conversas</span>
           </div>
           <div className="flex items-center gap-1.5">
             <Users className="w-3.5 h-3.5 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">{visibleInstances.length} instâncias visíveis</span>
+            <span className="text-xs text-muted-foreground">{visibleInstances.length} instâncias</span>
           </div>
           <div className="flex items-center gap-1.5">
             <Wifi className="w-3.5 h-3.5 text-emerald-500" />
@@ -215,20 +227,6 @@ function WaHubPageInner() {
         </div>
       </div>
 
-      <HubScopeFilters
-        instances={instances}
-        teamMembers={teamMembers}
-        selectedInstanceId={selectedInstanceId}
-        selectedCloserId={selectedCloserId}
-        selectedSdrId={selectedSdrId}
-        connectionFilter={connectionFilter}
-        scopedInstances={scopeBaseInstances}
-        onInstanceChange={setSelectedInstanceId}
-        onCloserChange={setSelectedCloserId}
-        onSdrChange={setSelectedSdrId}
-        onConnectionChange={setConnectionFilter}
-        onClear={clearScopeFilters}
-      />
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
         <TabsList>
@@ -419,83 +417,101 @@ function HubScopeFilters({
   const hasActiveFilters = !!selectedInstanceId || selectedCloserId !== 'all' || selectedSdrId !== 'all' || connectionFilter !== 'all';
   const instanceOptions = selectedCloserId !== 'all' || selectedSdrId !== 'all' || connectionFilter !== 'all' ? scopedInstances : instances;
 
+  const activeCount = [
+    selectedCloserId !== 'all',
+    selectedSdrId !== 'all',
+    connectionFilter !== 'all',
+    !!selectedInstanceId,
+  ].filter(Boolean).length;
+
   return (
-    <div className="rounded-2xl border border-border bg-card p-4">
-      <div className="flex items-center gap-2 mb-3">
-        <Filter className="w-4 h-4 text-primary" />
-        <h3 className="text-sm font-semibold text-foreground">Escopo operacional</h3>
-        <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-          tudo que aparece em Conversas e CRM respeita esse filtro
-        </span>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
-        <div>
-          <label className="text-xs text-muted-foreground mb-1.5 block">Closer</label>
-          <Select value={selectedCloserId} onValueChange={onCloserChange}>
-            <SelectTrigger className="h-9 text-sm">
-              <SelectValue placeholder="Todos os closers" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os closers</SelectItem>
-              {closerOptions.map((member) => (
-                <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-2 text-xs">
+          <Filter className="w-3.5 h-3.5" />
+          Escopo operacional
+          {activeCount > 0 && (
+            <Badge variant="default" className="ml-1 h-4 min-w-4 px-1 text-[9px]">
+              {activeCount}
+            </Badge>
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-4" align="start">
+        <div className="flex items-center gap-2 mb-3">
+          <Filter className="w-4 h-4 text-primary" />
+          <h3 className="text-sm font-semibold text-foreground">Escopo operacional</h3>
         </div>
+        <p className="text-[10px] text-muted-foreground mb-3">
+          Tudo que aparece em Conversas e CRM respeita esse filtro
+        </p>
 
-        <div>
-          <label className="text-xs text-muted-foreground mb-1.5 block">SDR</label>
-          <Select value={selectedSdrId} onValueChange={onSdrChange}>
-            <SelectTrigger className="h-9 text-sm">
-              <SelectValue placeholder="Todos os SDRs" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os SDRs</SelectItem>
-              {sdrOptions.map((member) => (
-                <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Closer</label>
+            <Select value={selectedCloserId} onValueChange={onCloserChange}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Todos os closers" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os closers</SelectItem>
+                {closerOptions.map((member) => (
+                  <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-        <div>
-          <label className="text-xs text-muted-foreground mb-1.5 block">Status da instância</label>
-          <Select value={connectionFilter} onValueChange={(value) => onConnectionChange(value as ConnectionFilter)}>
-            <SelectTrigger className="h-9 text-sm">
-              <SelectValue placeholder="Todas" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas</SelectItem>
-              <SelectItem value="connected">Conectadas</SelectItem>
-              <SelectItem value="disconnected">Desconectadas</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">SDR</label>
+            <Select value={selectedSdrId} onValueChange={onSdrChange}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Todos os SDRs" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os SDRs</SelectItem>
+                {sdrOptions.map((member) => (
+                  <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-        <div>
-          <label className="text-xs text-muted-foreground mb-1.5 block">Instância</label>
-          <Select value={selectedInstanceId ?? 'all'} onValueChange={(value) => onInstanceChange(value === 'all' ? null : value)}>
-            <SelectTrigger className="h-9 text-sm">
-              <SelectValue placeholder="Todas as instâncias" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as instâncias</SelectItem>
-              {instanceOptions.map((inst) => (
-                <SelectItem key={inst.id} value={inst.id}>{inst.instance_name.replace(/^wpp_/i, '')}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Status da instância</label>
+            <Select value={connectionFilter} onValueChange={(value) => onConnectionChange(value as ConnectionFilter)}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Todas" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                <SelectItem value="connected">Conectadas</SelectItem>
+                <SelectItem value="disconnected">Desconectadas</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-        <div className="flex items-end">
-          <Button variant="outline" className="w-full gap-2" onClick={onClear} disabled={!hasActiveFilters}>
-            <X className="w-4 h-4" /> Limpar recorte
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Instância</label>
+            <Select value={selectedInstanceId ?? 'all'} onValueChange={(value) => onInstanceChange(value === 'all' ? null : value)}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Todas as instâncias" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as instâncias</SelectItem>
+                {instanceOptions.map((inst) => (
+                  <SelectItem key={inst.id} value={inst.id}>{inst.instance_name.replace(/^wpp_/i, '')}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Button variant="outline" size="sm" className="w-full gap-2 text-xs" onClick={onClear} disabled={!hasActiveFilters}>
+            <X className="w-3.5 h-3.5" /> Limpar recorte
           </Button>
         </div>
-      </div>
-    </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
