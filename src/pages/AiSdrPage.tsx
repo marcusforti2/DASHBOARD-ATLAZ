@@ -693,8 +693,11 @@ function AiSdrPageInner() {
         return (
           <div className="space-y-6">
             <div>
-              <h3 className="text-base font-bold text-foreground mb-1">Conhecimento & Prompts</h3>
-              <p className="text-sm text-muted-foreground">O que a IA sabe sobre seu negócio e como deve se comportar.</p>
+              <h3 className="text-base font-bold text-foreground mb-1">Conhecimento Centralizado</h3>
+              <p className="text-sm text-muted-foreground">
+                O que a IA sabe sobre seu negócio. <strong>Compartilhado por todas as instâncias.</strong>
+              </p>
+              <Badge variant="secondary" className="mt-1.5 text-[10px]">🌐 Global — todas as instâncias usam este conhecimento</Badge>
             </div>
 
             {/* Master Prompt */}
@@ -703,8 +706,8 @@ function AiSdrPageInner() {
                 <Shield className="w-4 h-4" /> Prompt Master — Regras Absolutas
               </label>
               <Textarea
-                value={localConfig.master_prompt}
-                onChange={e => update("master_prompt", e.target.value)}
+                value={knowledgeFields.ai_sdr_master_prompt.content}
+                onChange={e => updateKnowledge("ai_sdr_master_prompt", e.target.value)}
                 placeholder={`Defina personalidade e regras absolutas:\n\nExemplo:\nVocê é a Clara, consultora da Atlas.\nNUNCA revele que é IA.\nSe o lead mencionar preço, diga: "Vou conectar com nosso especialista."`}
                 rows={10}
                 className="text-sm resize-none bg-card"
@@ -723,22 +726,22 @@ function AiSdrPageInner() {
                 Descreva o perfil ideal de cliente, suas dores viscerais e desejos profundos. A IA usará isso para gerar rapport e quebrar objeções.
               </p>
               <Textarea
-                value={localConfig.target_audience || ""}
-                onChange={e => update("target_audience", e.target.value)}
+                value={knowledgeFields.ai_sdr_target_audience.content}
+                onChange={e => updateKnowledge("ai_sdr_target_audience", e.target.value)}
                 placeholder={`Quem é seu cliente ideal (ICP):\n• Cargo / perfil: Ex: Executivos C-level em transição de carreira\n• Segmento: Ex: Educação, consultoria, SaaS\n• Faturamento: Ex: Acima de R$50k/mês\n• Gatilhos: Ex: Burnout, ambição reprimida, desejo de autonomia`}
                 rows={5}
                 className="text-sm resize-none bg-card"
               />
               <Textarea
-                value={localConfig.pain_points || ""}
-                onChange={e => update("pain_points", e.target.value)}
+                value={knowledgeFields.ai_sdr_pain_points.content}
+                onChange={e => updateKnowledge("ai_sdr_pain_points", e.target.value)}
                 placeholder={`Dores viscerais do público:\n• "Estou preso num emprego que não me representa"\n• "Sei que posso mais mas não sei por onde começar"\n• "Já tentei vender mentoria mas não escalou"\n• "Tenho medo de largar o certo pelo incerto"`}
                 rows={5}
                 className="text-sm resize-none bg-card"
               />
               <Textarea
-                value={localConfig.desires || ""}
-                onChange={e => update("desires", e.target.value)}
+                value={knowledgeFields.ai_sdr_desires.content}
+                onChange={e => updateKnowledge("ai_sdr_desires", e.target.value)}
                 placeholder={`Desejos profundos:\n• Liberdade financeira e de tempo\n• Ser reconhecido como autoridade\n• Faturar 1M/ano com mentoria\n• Impactar vidas e deixar um legado\n• Sair do operacional e viver de intelectual`}
                 rows={5}
                 className="text-sm resize-none bg-card"
@@ -751,12 +754,20 @@ function AiSdrPageInner() {
                 <Brain className="w-3.5 h-3.5" /> Contexto do negócio (complementar)
               </label>
               <Textarea
-                value={localConfig.prompt_context}
-                onChange={e => update("prompt_context", e.target.value)}
+                value={knowledgeFields.ai_sdr_context.content}
+                onChange={e => updateKnowledge("ai_sdr_context", e.target.value)}
                 placeholder={`Informações adicionais:\n• Qual seu produto/serviço?\n• Qual o ticket médio?\n• Critérios de qualificação`}
                 rows={6}
                 className="text-sm resize-none"
               />
+            </div>
+
+            {/* Save knowledge button */}
+            <div className="flex justify-end">
+              <Button onClick={handleSaveKnowledge} disabled={savingKnowledge} size="lg" className="gap-2 shadow-lg">
+                {savingKnowledge ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                Salvar Conhecimento
+              </Button>
             </div>
 
             {/* Embedded Business Prompts */}
