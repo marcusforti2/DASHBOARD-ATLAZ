@@ -90,7 +90,7 @@ export function LeadDetailModal({ open, onOpenChange, conversation, tags, assign
       const [scoreResult, msgsResult, convResult, eventsResult] = await Promise.all([
         supabase.from('wa_lead_scores').select('*').eq('contact_id', contactId).maybeSingle(),
         supabase.from('wa_messages').select('sender, created_at').eq('conversation_id', conversation.id).order('created_at', { ascending: true }),
-        supabase.from('wa_conversations').select('conversation_mode, lead_stage, priority_level').eq('id', conversation.id).single(),
+        supabase.from('wa_conversations').select('conversation_mode, lead_stage, priority_level, linkedin_context, linkedin_profile').eq('id', conversation.id).single(),
         supabase.from('wa_conversation_state_events').select('*').eq('conversation_id', conversation.id).order('created_at', { ascending: false }).limit(20),
       ]);
 
