@@ -1104,7 +1104,7 @@ IMPORTANTE: Mencione algo ESPECÍFICO do perfil (cargo, empresa, setor) para cri
         }
       }
 
-      userMessage = `Este é um NOVO LEAD que acabou de ser cadastrado no CRM (Pipedrive). Você deve iniciar a conversa proativamente pelo WhatsApp.
+      userMessage = `Este é um NOVO LEAD. Você deve iniciar a conversa proativamente pelo WhatsApp.
 
 ORIGEM DO LEAD: ${sourceName}
 
