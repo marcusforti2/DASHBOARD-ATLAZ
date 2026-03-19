@@ -523,17 +523,18 @@ function KanbanCard({ conv, stageColor, tags, assignedTagIds, onAddTag, onRemove
         if ((e.target as HTMLElement).closest('[data-tag-badge]') || (e.target as HTMLElement).closest('[data-action-menu]')) return;
         onClick?.();
       }}
-      className="rounded-lg border border-border bg-card p-3 space-y-2 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer active:cursor-grabbing active:opacity-70 active:scale-[0.98]"
+      className="rounded-lg border border-border bg-card p-2.5 space-y-1.5 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer active:cursor-grabbing active:opacity-70 active:scale-[0.98]"
       style={{ borderLeftWidth: '3px', borderLeftColor: stageColor }}
     >
+      {/* Header: avatar + name + actions */}
       <div className="flex items-center gap-2">
-        <GripVertical className="w-3 h-3 text-muted-foreground/30 shrink-0 cursor-grab" />
+        <GripVertical className="w-3 h-3 text-muted-foreground/20 shrink-0 cursor-grab" />
         <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0" style={{ backgroundColor: `hsl(${avatarColor})` }}>
           {conv.contact.name.charAt(0).toUpperCase()}
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold text-foreground truncate">{conv.contact.name}</p>
-          <p className="text-[9px] text-muted-foreground">{conv.contact.phone}</p>
+          <p className="text-[9px] text-muted-foreground font-mono">{conv.contact.phone}</p>
         </div>
         {timeSince && (
           <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium shrink-0 ${
@@ -554,23 +555,27 @@ function KanbanCard({ conv, stageColor, tags, assignedTagIds, onAddTag, onRemove
           </DropdownMenu>
         </div>
       </div>
+
+      {/* Last message */}
       {conv.last_message && (
         <p className="text-[10px] text-muted-foreground truncate pl-5">{conv.last_message}</p>
       )}
-      {/* Semantic badges */}
+
+      {/* Semantic badges + responsáveis inline */}
       <div className="flex items-center gap-1 pl-5 flex-wrap">
         <SemanticModeBadge mode={conv.conversation_mode} />
         <SemanticPriorityBadge priority={conv.priority_level} />
+        <span className="text-[8px] text-muted-foreground/70 ml-auto truncate max-w-[100px]" title={`${sdrLabel} / ${closerLabel}`}>
+          {closerLabel !== 'Não vinculado' ? closerLabel : sdrLabel}
+        </span>
       </div>
-      {/* Auxiliary tags */}
-      <div className="pl-5">
-        <WaContactTagBadges contactId={conv.contact.id} assignedTagIds={assignedTagIds} allTags={tags} onAdd={onAddTag} onRemove={onRemoveTag} />
-      </div>
-      <div className="ml-5 rounded-lg bg-muted/40 px-2 py-1.5 space-y-1">
-        <p className="text-[10px] text-muted-foreground truncate">Instância: <span className="text-foreground">{instanceLabel}</span></p>
-        <p className="text-[10px] text-muted-foreground truncate">SDR: <span className="text-foreground">{sdrLabel}</span></p>
-        <p className="text-[10px] text-muted-foreground truncate">Closer: <span className="text-foreground">{closerLabel}</span></p>
-      </div>
+
+      {/* Tags */}
+      {assignedTagIds.length > 0 && (
+        <div className="pl-5">
+          <WaContactTagBadges contactId={conv.contact.id} assignedTagIds={assignedTagIds} allTags={tags} onAdd={onAddTag} onRemove={onRemoveTag} />
+        </div>
+      )}
     </div>
   );
 }
