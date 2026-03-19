@@ -161,6 +161,7 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
               lead_source_name: selectedSource?.name || 'PROSPECÇÃO',
               lead_source_context: selectedSource?.context || '',
               linkedin_url: lead.linkedinUrl || '',
+              linkedin_context: lead.linkedinContext || '',
             },
           });
         } catch (aiErr) { console.error('AI SDR trigger error:', aiErr); }
