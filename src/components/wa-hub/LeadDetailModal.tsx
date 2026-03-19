@@ -62,7 +62,7 @@ function getRiskBadge(risk: string) {
 
 export function LeadDetailModal({ open, onOpenChange, conversation, tags, assignedTagIds, onAddTag, onRemoveTag }: Props) {
   const { profile } = useAuth();
-  const [pipedriveData, setPipedriveData] = useState<PipedriveData | null>(null);
+  
   const [leadScore, setLeadScore] = useState<LeadScore | null>(null);
   const [loading, setLoading] = useState(true);
   const [aiEnabled, setAiEnabled] = useState(true);
