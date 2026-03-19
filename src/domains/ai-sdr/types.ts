@@ -131,7 +131,7 @@ export const DEFAULT_AI_SDR_CONFIG: AiSdrConfig = {
   feature_qualification: true,
   feature_handoff: true,
   feature_sentiment: false,
-  feature_pipedrive_sync: false,
+  
   max_messages_before_handoff: 10,
   business_hours_only: false,
   business_hours_start: 8,
