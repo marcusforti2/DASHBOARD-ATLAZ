@@ -110,40 +110,6 @@ export function LeadDetailModal({ open, onOpenChange, conversation, tags, assign
 
       setLeadScore(scoreResult.data as LeadScore | null);
 
-      // Pipedrive enrichment
-      if (personResult.data) {
-        const person = personResult.data;
-        const pipedriveId = person.pipedrive_id;
-        const [dealsResult, activitiesResult, notesResult] = await Promise.all([
-          supabase.from('pipedrive_deals').select('title, value, currency, status, stage_name, pipeline_name, pipedrive_id').eq('person_id', pipedriveId).order('created_at', { ascending: false }).limit(5),
-          supabase.from('pipedrive_activities').select('subject, type, due_date, done').eq('person_pipedrive_id', pipedriveId).order('due_date', { ascending: false }).limit(5),
-          supabase.from('pipedrive_notes').select('content, created_at').eq('person_pipedrive_id', pipedriveId).order('created_at', { ascending: false }).limit(3),
-        ]);
-        setPipedriveData({
-          person: { name: person.name, email: person.email, phone: person.phone, org_name: person.org_name, owner_name: person.owner_name },
-          deals: dealsResult.data || [],
-          activities: activitiesResult.data || [],
-          notes: notesResult.data || [],
-        });
-      } else {
-        const cleanPhone = contactPhone.replace(/\D/g, '');
-        const { data: personByPhone } = await supabase.from('pipedrive_persons').select('*').ilike('phone', `%${cleanPhone.slice(-8)}%`).maybeSingle();
-        if (personByPhone) {
-          const [dealsResult, activitiesResult, notesResult] = await Promise.all([
-            supabase.from('pipedrive_deals').select('title, value, currency, status, stage_name, pipeline_name, pipedrive_id').eq('person_id', personByPhone.pipedrive_id).order('created_at', { ascending: false }).limit(5),
-            supabase.from('pipedrive_activities').select('subject, type, due_date, done').eq('person_pipedrive_id', personByPhone.pipedrive_id).order('due_date', { ascending: false }).limit(5),
-            supabase.from('pipedrive_notes').select('content, created_at').eq('person_pipedrive_id', personByPhone.pipedrive_id).order('created_at', { ascending: false }).limit(3),
-          ]);
-          setPipedriveData({
-            person: { name: personByPhone.name, email: personByPhone.email, phone: personByPhone.phone, org_name: personByPhone.org_name, owner_name: personByPhone.owner_name },
-            deals: dealsResult.data || [],
-            activities: activitiesResult.data || [],
-            notes: notesResult.data || [],
-          });
-        } else {
-          setPipedriveData(null);
-        }
-      }
     } catch (err) {
       console.error('Error fetching lead data:', err);
     } finally {
