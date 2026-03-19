@@ -3,7 +3,6 @@ import { LayoutGrid, List, Plus, Trash2, GripVertical, Inbox, Bot, User, AlertTr
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { WaContactTagBadges } from './WaContactTagBadges';
 import { LeadDetailModal } from './LeadDetailModal';
