@@ -39,7 +39,6 @@ const colorMap: Record<string, string> = {
   tag: "border-yellow-500 bg-yellow-500/10 text-yellow-500",
   sentiment: "border-purple-500 bg-purple-500/10 text-purple-500",
   end: "border-muted-foreground bg-muted text-muted-foreground",
-  end: "border-muted-foreground bg-muted text-muted-foreground",
 };
 
 function FlowNode({ data }: { data: any }) {
