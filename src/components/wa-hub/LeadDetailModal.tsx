@@ -259,6 +259,58 @@ export function LeadDetailModal({ open, onOpenChange, conversation, tags, assign
     }
   };
 
+  const handleSaveLinkedinContext = async () => {
+    setSavingContext(true);
+    try {
+      await supabase.from('wa_conversations').update({
+        linkedin_context: linkedinContext,
+      } as any).eq('id', conversation.id);
+      toast.success('Contexto LinkedIn salvo!');
+    } catch {
+      toast.error('Erro ao salvar contexto');
+    } finally {
+      setSavingContext(false);
+    }
+  };
+
+  const handleEnrichPiloterr = async () => {
+    setEnriching(true);
+    try {
+      // Find LinkedIn URL from messages or use contact name for search
+      const { data: msgs } = await supabase.from('wa_messages')
+        .select('text').eq('conversation_id', conversation.id)
+        .like('text', '%linkedin.com%').limit(1);
+      
+      const linkedinMsg = msgs?.[0]?.text || '';
+      const urlMatch = linkedinMsg.match(/https?:\/\/(www\.)?linkedin\.com\/in\/[^\s]+/);
+      
+      const body: any = {};
+      if (urlMatch) {
+        body.linkedin_url = urlMatch[0];
+      } else {
+        body.query = conversation.contact.name;
+      }
+      
+      const { data, error } = await supabase.functions.invoke('linkedin-scraper', { body });
+      if (error) throw error;
+      
+      if (data?.found && data?.profile) {
+        await supabase.from('wa_conversations').update({
+          linkedin_profile: data.profile,
+        } as any).eq('id', conversation.id);
+        setLinkedinProfile(data.profile);
+        toast.success(`Perfil LinkedIn enriquecido: ${data.profile.full_name}`);
+      } else {
+        toast.info('Perfil não encontrado no LinkedIn');
+      }
+    } catch (err) {
+      console.error('Piloterr error:', err);
+      toast.error('Erro ao buscar perfil LinkedIn');
+    } finally {
+      setEnriching(false);
+    }
+  };
+
   const formatCurrency = (val: number | null, cur: string | null) => {
     if (!val) return '—';
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: cur || 'BRL' }).format(val);
