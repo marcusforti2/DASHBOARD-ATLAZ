@@ -72,7 +72,7 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
       const { data, error } = await supabase.functions.invoke('parse-lead-batch', { body: { text: batchText } });
       if (error) throw error;
       const leads: LeadInput[] = (data?.leads || []).map((l: any) => ({
-        name: l.name || '', phone: l.phone || '', linkedinUrl: l.linkedin_url || l.linkedinUrl || '', linkedinContext: '',
+        name: l.name || '', phone: l.phone || '', linkedinUrl: l.linkedin_url || l.linkedinUrl || '', linkedinContext: l.linkedin_context || '',
       })).filter((l: LeadInput) => l.name && l.phone);
       if (leads.length === 0) {
         toast.error('A IA não conseguiu extrair leads do texto.');
