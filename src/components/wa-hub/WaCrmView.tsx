@@ -87,15 +87,7 @@ export function WaCrmView({ conversations, tags, instances, teamMembers, getTags
         return ct.some(t => t.tag_id === filterTag);
       });
     }
-    if (filterStage) {
-      list = list.filter(c => c.lead_stage === filterStage);
-    }
-    if (filterMode) {
-      list = list.filter(c => c.conversation_mode === filterMode);
-    }
-    if (filterPriority) {
-      list = list.filter(c => c.priority_level === filterPriority);
-    }
+    return list;
     return list;
   }, [conversations, search, filterInstanceId, filterCloserId, filterSdrId, filterTag, filterStage, filterMode, filterPriority, getTagsForContact, instanceMap]);
 
