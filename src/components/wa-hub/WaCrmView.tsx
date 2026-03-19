@@ -1,11 +1,12 @@
 import { useState, useMemo, useCallback } from 'react';
-import { LayoutGrid, List, Plus, Trash2, GripVertical, Inbox, Bot, User, AlertTriangle } from 'lucide-react';
+import { LayoutGrid, List, Plus, Trash2, GripVertical, Inbox, Bot, User, AlertTriangle, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { WaContactTagBadges } from './WaContactTagBadges';
 import { LeadDetailModal } from './LeadDetailModal';
+import { LeadRegistrationSheet } from './LeadRegistrationSheet';
 import { getAvatarColor, formatCrmDate } from '@/lib/wa-utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -59,6 +60,7 @@ export function WaCrmView({ conversations, tags, instances, teamMembers, getTags
   const [draggingConvId, setDraggingConvId] = useState<string | null>(null);
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
   const [selectedConv, setSelectedConv] = useState<WaConversation | null>(null);
+  const [showLeadRegistration, setShowLeadRegistration] = useState(false);
 
   const instanceMap = useMemo(() => new Map(instances.map((inst) => [inst.id, inst])), [instances]);
 
@@ -155,6 +157,9 @@ export function WaCrmView({ conversations, tags, instances, teamMembers, getTags
           <Input placeholder="Buscar contato..." value={search} onChange={e => setSearch(e.target.value)} className="h-8 text-sm w-56" />
 
           <div className="ml-auto flex items-center gap-2">
+            <Button size="sm" variant="default" className="h-7 text-xs gap-1" onClick={() => setShowLeadRegistration(true)}>
+              <UserPlus className="w-3 h-3" /> Cadastrar Leads
+            </Button>
             <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setShowManageTags(true)}>
               <Plus className="w-3 h-3" /> Gerenciar Tags
             </Button>
@@ -322,6 +327,15 @@ export function WaCrmView({ conversations, tags, instances, teamMembers, getTags
           onAddTag={onAddTag} onRemoveTag={onRemoveTag}
         />
       )}
+
+      <LeadRegistrationSheet
+        open={showLeadRegistration}
+        onOpenChange={setShowLeadRegistration}
+        instances={instances}
+        tags={tags}
+        teamMembers={teamMembers}
+        onRefresh={onRefresh}
+      />
     </div>
   );
 }
