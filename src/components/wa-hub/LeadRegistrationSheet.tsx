@@ -26,6 +26,7 @@ interface LeadInput {
   name: string;
   phone: string;
   linkedinUrl: string;
+  linkedinContext: string;
 }
 
 export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, teamMembers, onRefresh }: Props) {
