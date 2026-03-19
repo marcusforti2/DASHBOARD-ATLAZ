@@ -71,6 +71,10 @@ export function LeadDetailModal({ open, onOpenChange, conversation, tags, assign
   const [doubleChecking, setDoubleChecking] = useState(false);
   const [msgStats, setMsgStats] = useState({ contact: 0, agent: 0, first: '', last: '' });
   const [stateEvents, setStateEvents] = useState<WaConversationStateEvent[]>([]);
+  const [linkedinContext, setLinkedinContext] = useState('');
+  const [linkedinProfile, setLinkedinProfile] = useState<any>(null);
+  const [savingContext, setSavingContext] = useState(false);
+  const [enriching, setEnriching] = useState(false);
   const [convSnapshot, setConvSnapshot] = useState<{
     conversation_mode: ConversationMode;
     lead_stage: LeadStage;
