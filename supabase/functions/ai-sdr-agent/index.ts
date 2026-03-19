@@ -909,13 +909,13 @@ ${aiPrompts || ""}
 
 ${generalKnowledge ? `INFORMAÇÕES DA EMPRESA:\n${generalKnowledge}` : ""}
 
-${config.prompt_context ? `INSTRUÇÕES ADICIONAIS:\n${config.prompt_context}` : ""}
+${promptContext ? `INSTRUÇÕES ADICIONAIS:\n${promptContext}` : ""}
 
-${config.target_audience ? `PÚBLICO-ALVO (ICP):\n${config.target_audience}` : ""}
+${targetAudience ? `PÚBLICO-ALVO (ICP):\n${targetAudience}` : ""}
 
-${config.pain_points ? `DORES VISCERAIS DO PÚBLICO (use para gerar rapport e quebrar objeções):\n${config.pain_points}` : ""}
+${painPoints ? `DORES VISCERAIS DO PÚBLICO (use para gerar rapport e quebrar objeções):\n${painPoints}` : ""}
 
-${config.desires ? `DESEJOS PROFUNDOS DO PÚBLICO (use para criar urgência e motivação):\n${config.desires}` : ""}
+${desires ? `DESEJOS PROFUNDOS DO PÚBLICO (use para criar urgência e motivação):\n${desires}` : ""}
 
 SEU OBJETIVO PRINCIPAL:
 - QUALIFICAR RÁPIDO e CHAMAR PARA UMA LIGAÇÃO/REUNIÃO com ${closerName || "o especialista"}
