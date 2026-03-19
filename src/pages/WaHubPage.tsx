@@ -57,7 +57,7 @@ export default function WaHubPage() {
 type ConnectionFilter = 'all' | 'connected' | 'disconnected';
 
 function WaHubPageInner() {
-  const [tab, setTab] = useState<'chat' | 'dashboard' | 'instances' | 'crm' | 'ai-sdr' | 'ai-prompts'>('chat');
+  const [tab, setTab] = useState<'chat' | 'dashboard' | 'instances' | 'crm' | 'ai-sdr' | 'ai-prompts' | 'ai-center'>('chat');
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
   const [selectedCloserId, setSelectedCloserId] = useState<string>('all');
   const [selectedSdrId, setSelectedSdrId] = useState<string>('all');
