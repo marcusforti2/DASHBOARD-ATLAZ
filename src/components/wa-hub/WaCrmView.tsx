@@ -288,7 +288,7 @@ export function WaCrmView({ conversations, tags, instances, teamMembers, getTags
                   <EmptyColumn />
                 ) : (
                   stageConvs.map(conv => (
-                    <KanbanCard key={conv.id} conv={conv} stageColor={color} tags={tags} assignedTagIds={getTagsForContact(conv.contact.id).map(t => t.tag_id)} onAddTag={onAddTag} onRemoveTag={onRemoveTag} onDragStart={handleDragStart} onClick={() => setSelectedConv(conv)} instanceLabel={instanceMap.get(conv.instance_id)?.instance_name?.replace(/^wpp_/i, '') || 'Sem instância'} sdrLabel={teamMembers.find(member => member.id === instanceMap.get(conv.instance_id)?.sdr_id)?.name || 'Não vinculado'} closerLabel={teamMembers.find(member => member.id === instanceMap.get(conv.instance_id)?.closer_id)?.name || 'Não vinculado'} />
+                    <KanbanCard key={conv.id} conv={conv} stageColor={color} tags={tags} assignedTagIds={getTagsForContact(conv.contact.id).map(t => t.tag_id)} onAddTag={onAddTag} onRemoveTag={onRemoveTag} onDragStart={handleDragStart} onClick={() => setSelectedConv(conv)} onEdit={() => openEdit(conv)} onDelete={() => setDeletingConv(conv)} instanceLabel={instanceMap.get(conv.instance_id)?.instance_name?.replace(/^wpp_/i, '') || 'Sem instância'} sdrLabel={teamMembers.find(member => member.id === instanceMap.get(conv.instance_id)?.sdr_id)?.name || 'Não vinculado'} closerLabel={teamMembers.find(member => member.id === instanceMap.get(conv.instance_id)?.closer_id)?.name || 'Não vinculado'} />
                   ))
                 )}
               </KanbanColumn>
