@@ -837,7 +837,7 @@ ${aiPrompts || ""}
 
 ${generalKnowledge ? `INFORMAÇÕES DA EMPRESA:\n${generalKnowledge}` : ""}
 
-${config.prompt_context ? `CONTEXTO ADICIONAL:\n${config.prompt_context}` : ""}
+${promptContext ? `CONTEXTO ADICIONAL:\n${promptContext}` : ""}
 
 SEU COMPORTAMENTO COMO ASSISTENTE RECEPTIVO:
 1. RESPONDA dúvidas sobre a empresa, produtos e serviços de forma clara e prestativa
