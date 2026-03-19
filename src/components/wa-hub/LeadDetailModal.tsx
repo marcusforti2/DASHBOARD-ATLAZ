@@ -32,34 +32,7 @@ import { WaContactTagBadges } from './WaContactTagBadges';
 import type { WaTag } from '@/hooks/use-wa-tags';
 import { getAvatarColor } from '@/lib/wa-utils';
 
-interface PipedriveData {
-  person: {
-    name: string;
-    email: string | null;
-    phone: string | null;
-    org_name: string | null;
-    owner_name: string | null;
-  } | null;
-  deals: {
-    title: string;
-    value: number | null;
-    currency: string | null;
-    status: string | null;
-    stage_name: string | null;
-    pipeline_name: string | null;
-    pipedrive_id: number;
-  }[];
-  activities: {
-    subject: string | null;
-    type: string | null;
-    due_date: string | null;
-    done: boolean | null;
-  }[];
-  notes: {
-    content: string | null;
-    created_at: string;
-  }[];
-}
+
 
 interface LeadScore {
   score: number;
