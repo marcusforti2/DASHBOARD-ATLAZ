@@ -342,11 +342,11 @@ function WaHubPageInner() {
           </div>
         </TabsContent>
 
-        <TabsContent value="dashboard" className="mt-4">
+        <TabsContent value="dashboard" className="mt-4 px-4">
           <WaDashboard />
         </TabsContent>
 
-        <TabsContent value="crm" className="mt-4">
+        <TabsContent value="crm" className="mt-4 px-4">
           <WaCrmView
             conversations={conversations}
             tags={tags}
@@ -361,7 +361,7 @@ function WaHubPageInner() {
           />
         </TabsContent>
 
-        <TabsContent value="ai-sdr" className="mt-4">
+        <TabsContent value="ai-sdr" className="mt-4 px-4">
           <AiSdrSummaryCard
             instances={visibleInstances as any}
             teamMembers={teamMembers}
@@ -371,15 +371,15 @@ function WaHubPageInner() {
           />
         </TabsContent>
 
-        <TabsContent value="ai-prompts" className="mt-4">
+        <TabsContent value="ai-prompts" className="mt-4 px-4">
           <AiPromptsTab />
         </TabsContent>
 
-        <TabsContent value="pipedrive" className="mt-4">
+        <TabsContent value="pipedrive" className="mt-4 px-4">
           <PipedriveTab />
         </TabsContent>
 
-        <TabsContent value="instances" className="mt-4">
+        <TabsContent value="instances" className="mt-4 px-4">
           <InstancesTab mgr={mgr} conversations={allConversations} />
         </TabsContent>
       </Tabs>
