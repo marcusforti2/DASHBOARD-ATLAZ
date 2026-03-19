@@ -60,6 +60,7 @@ export function WaCrmView({ conversations, tags, instances, teamMembers, getTags
   const [draggingConvId, setDraggingConvId] = useState<string | null>(null);
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
   const [selectedConv, setSelectedConv] = useState<WaConversation | null>(null);
+  const [showLeadRegistration, setShowLeadRegistration] = useState(false);
 
   const instanceMap = useMemo(() => new Map(instances.map((inst) => [inst.id, inst])), [instances]);
 
