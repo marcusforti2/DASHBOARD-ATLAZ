@@ -455,7 +455,8 @@ Deno.serve(async (req) => {
             } catch (aiErr) {
               console.error('[webhook] AI SDR trigger failed:', aiErr);
             }
-          }
+            } // close 2nd check else
+          } // close 1st check else
         }
       }
     } // <-- close messages.upsert block
