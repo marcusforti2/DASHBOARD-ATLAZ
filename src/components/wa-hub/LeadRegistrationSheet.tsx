@@ -127,11 +127,18 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
       let conversationId: string;
       if (existingConv) {
         conversationId = existingConv.id;
+        // Update linkedin context if provided
+        if (lead.linkedinContext) {
+          await supabase.from('wa_conversations').update({
+            linkedin_context: lead.linkedinContext,
+          } as any).eq('id', existingConv.id);
+        }
       } else {
         const { data: newConv, error: convErr } = await supabase
           .from('wa_conversations').insert({
             contact_id: contactId, instance_id: inst.id, status: 'active',
             lead_stage: 'novo', conversation_mode: 'ia_ativa', priority_level: 'normal',
+            linkedin_context: lead.linkedinContext || '',
           } as any).select('id').single();
         if (convErr) throw convErr;
         conversationId = newConv.id;
