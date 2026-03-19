@@ -31,6 +31,7 @@ Para cada lead, extraia:
 - name: Nome completo da pessoa
 - phone: Número de telefone (apenas dígitos, com DDD, sem +55)
 - linkedin_url: URL do LinkedIn (se houver)
+- linkedin_context: Resumo do contexto da conversa prévia com esse lead (se mencionado no texto). Ex: "já conversamos sobre mentoria", "interessado em escalar vendas", "tem empresa de consultoria". Se não houver contexto, retorne string vazia.
 
 REGRAS:
 1. Telefones podem estar em qualquer formato: (11) 99999-8888, 11999998888, +55 11 99999-8888, etc. Normalize para apenas dígitos com DDD.
@@ -39,9 +40,10 @@ REGRAS:
 4. Se não encontrar LinkedIn, retorne string vazia.
 5. Ignore linhas que são claramente cabeçalhos, instruções ou texto irrelevante.
 6. Seja generoso na extração — se parece um lead, extraia.
+7. Se houver anotações, comentários ou contexto junto ao lead (ex: "falamos sobre X", "CEO de empresa Y"), capture isso no linkedin_context.
 
 RESPONDA APENAS com JSON válido no formato:
-{"leads": [{"name": "...", "phone": "...", "linkedin_url": "..."}, ...]}`;
+{"leads": [{"name": "...", "phone": "...", "linkedin_url": "...", "linkedin_context": "..."}, ...]}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
