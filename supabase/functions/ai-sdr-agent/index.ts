@@ -693,7 +693,6 @@ Deno.serve(async (req) => {
       sourceTagNames.some(s => t.toLowerCase().includes(s))
     );
     const isOrganicContact = !isProactive && !hasSourceTag;
-    const organicModeEnabled = config.organic_mode_enabled === true;
     // BUG FIX #2: Organic mode must be OPT-IN (=== true), not opt-out (!== false)
     const organicModeEnabled = config.organic_mode_enabled === true;
 
