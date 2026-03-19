@@ -1139,10 +1139,11 @@ INSTRUÇÕES GERAIS PARA PRIMEIRA MENSAGEM:
 1. Adapte a abordagem ao contexto da origem (${sourceName}) — cada origem tem um tom diferente
 2. Seja natural e pessoal — use o primeiro nome do lead
 3. NÃO faça pitch direto — gere curiosidade e abra a conversa
-4. Termine com uma pergunta aberta para engajar o lead
-5. Mantenha a mensagem curta (máximo 4 linhas)
+4. Termine com uma pergunta casual para engajar o lead (ex: "como tá o dia?", "tudo bem?")
+5. Mantenha a mensagem curta (máximo 3-4 linhas)
 6. Varie o estilo: às vezes mais direto, às vezes mais descontraído — não use sempre o mesmo template
-${proactiveLinkedinContext ? "7. USE os dados do LinkedIn para criar uma abordagem PERSONALIZADA e DIFERENCIADA" : ""}
+7. Se a origem é PROSPECÇÃO/LINKEDIN: a primeira mensagem é APENAS uma ponte casual dizendo que vocês conversaram no LinkedIn e ele passou o WhatsApp. NÃO mencione reunião, agenda, negócio ou produto na primeira mensagem. Só depois que o lead responder e houver troca natural de mensagens, proponha uma ligação de 15 min.
+${proactiveLinkedinContext ? "8. USE os dados do LinkedIn para criar uma abordagem PERSONALIZADA e DIFERENCIADA" : ""}
 
 LEMBRE: Use o separador "|||" para quebrar em mensagens curtas.`;
     } else {
