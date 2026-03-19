@@ -970,7 +970,7 @@ CLASSIFICAÇÃO (baseada em se aceitou ligação):
 
 TOM: ${config.tone || "profissional"}
 ${calendarContext}
-${pipedriveContext}
+
 ${linkedinContext}
 
 ETIQUETAS DISPONÍVEIS: ${availableTagNames.join(", ")}
