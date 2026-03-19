@@ -13,11 +13,9 @@ import {
   LEAD_STAGES,
   LEAD_STAGE_LABELS,
   CONVERSATION_MODE_LABELS,
-  CONVERSATION_MODES,
-  PRIORITY_LEVELS,
   PRIORITY_LEVEL_LABELS,
 } from '@/domains/conversations/types';
-import type { LeadStage, ConversationMode, PriorityLevel } from '@/domains/conversations/types';
+import type { LeadStage } from '@/domains/conversations/types';
 import type { WaTag } from '@/hooks/use-wa-tags';
 import type { WaConversation, WaInstance } from '@/hooks/use-wa-hub';
 
