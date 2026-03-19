@@ -1067,7 +1067,7 @@ Responda EXATAMENTE neste formato JSON:
       }
 
       // Enrich with LinkedIn data via Piloterr for proactive triggers
-      let proactiveLinkedinContext = linkedinContext; // may already be set from pipedrive_persons
+      let proactiveLinkedinContext = linkedinContext;
       if (!proactiveLinkedinContext && linkedinUrl) {
         const PILOTERR_API_KEY = Deno.env.get("PILOTERR_API_KEY");
         if (PILOTERR_API_KEY) {
