@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL");
   const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_KEY");
-  const PIPEDRIVE_API_TOKEN = Deno.env.get("PIPEDRIVE_API_TOKEN");
+  
 
   if (!LOVABLE_API_KEY) {
     return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { conversation_id, instance_id, contact_phone: _contact_phone, instance_name, contact_name: _contact_name, incoming_message, trigger_type, pipedrive_context, force, incoming_is_audio } = body;
+    const { conversation_id, instance_id, contact_phone: _contact_phone, instance_name, contact_name: _contact_name, incoming_message, trigger_type, force, incoming_is_audio } = body;
     let contact_phone = _contact_phone;
     let contact_name = _contact_name;
     const instName = instance_name || null; // will be resolved after instance fetch
@@ -119,7 +119,7 @@ Deno.serve(async (req) => {
       qualification: config.feature_qualification !== false,
       handoff: config.feature_handoff !== false,
       sentiment: config.feature_sentiment === true,
-      pipedrive_sync: config.feature_pipedrive_sync === true,
+      
       rate_limit: config.feature_rate_limit !== false,
       reengagement: config.feature_reengagement === true,
       blacklist: config.feature_blacklist === true,
@@ -661,115 +661,8 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Get Pipedrive deal context + LinkedIn enrichment
-    let pipedriveContext = "";
+
     let linkedinContext = "";
-    if (features.pipedrive_sync && conversation?.contact_id) {
-      try {
-        const { data: pipeContact } = await supabase
-          .from("pipedrive_persons")
-          .select("pipedrive_id, name, org_name, raw_data")
-          .eq("wa_contact_id", conversation.contact_id)
-          .single();
-
-        if (pipeContact) {
-          const { data: deals } = await supabase
-            .from("pipedrive_deals")
-            .select("title, value, stage_name, status, currency")
-            .eq("person_id", pipeContact.pipedrive_id)
-            .limit(3);
-
-          if (deals?.length) {
-            pipedriveContext = `\n\nDADOS DO PIPEDRIVE:\nContato: ${pipeContact.name} (${pipeContact.org_name || "sem empresa"})\nDeals:\n${deals.map(d => `- ${d.title}: ${d.status} | ${d.stage_name} | ${d.currency} ${d.value}`).join("\n")}`;
-          }
-
-          // LinkedIn scraping via Piloterr
-          const PILOTERR_API_KEY = Deno.env.get("PILOTERR_API_KEY");
-          if (PILOTERR_API_KEY) {
-            try {
-              // Try to extract LinkedIn URL from Pipedrive raw_data
-              const rawData: any = pipeContact.raw_data || {};
-              let linkedinUrl = "";
-              
-              // Pipedrive stores social profiles in various fields
-              if (typeof rawData === 'object') {
-                // Check common fields for LinkedIn URL
-                const jsonStr = JSON.stringify(rawData).toLowerCase();
-                const linkedinMatch = jsonStr.match(/https?:\/\/(?:www\.)?linkedin\.com\/in\/[a-zA-Z0-9_-]+/i);
-                if (linkedinMatch) {
-                  linkedinUrl = linkedinMatch[0];
-                }
-              }
-
-              if (linkedinUrl) {
-                console.log("[ai-sdr] LinkedIn URL found in Pipedrive:", linkedinUrl);
-                const scraperResp = await fetch(`${SUPABASE_URL}/functions/v1/linkedin-scraper`, {
-                  method: "POST",
-                  headers: {
-                    Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({ linkedin_url: linkedinUrl }),
-                });
-
-                if (scraperResp.ok) {
-                  const scraperData = await scraperResp.json();
-                  if (scraperData.found && scraperData.profile) {
-                    const p = scraperData.profile;
-                    linkedinContext = `\n\nPERFIL LINKEDIN DO LEAD (use para personalizar a abordagem):
-- Nome: ${p.full_name}
-- Cargo: ${p.company_role || p.headline}
-- Empresa: ${p.company}
-- Setor: ${p.industry || "N/A"}
-- Localização: ${p.location || "N/A"}
-- Resumo: ${p.summary ? p.summary.substring(0, 300) : "N/A"}
-${p.experience?.length ? `- Experiência recente:\n${p.experience.map((e: any) => `  • ${e.title} @ ${e.company} (${e.duration})`).join("\n")}` : ""}
-${p.education?.length ? `- Formação: ${p.education.map((e: any) => `${e.degree} - ${e.school}`).join(", ")}` : ""}
-
-IMPORTANTE: Use essas informações para criar rapport GENUÍNO. Mencione algo específico do perfil dele (cargo, empresa, setor) para mostrar que você pesquisou. NÃO seja genérico.`;
-                    console.log("[ai-sdr] LinkedIn enrichment success:", p.full_name, p.company);
-                  }
-                }
-              } else {
-                // Try searching by name + company
-                const searchQuery = `${pipeContact.name} ${pipeContact.org_name || ""}`.trim();
-                if (searchQuery.length > 3) {
-                  console.log("[ai-sdr] Searching LinkedIn by name:", searchQuery);
-                  const scraperResp = await fetch(`${SUPABASE_URL}/functions/v1/linkedin-scraper`, {
-                    method: "POST",
-                    headers: {
-                      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-                      "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({ query: searchQuery }),
-                  });
-
-                  if (scraperResp.ok) {
-                    const scraperData = await scraperResp.json();
-                    if (scraperData.found && scraperData.profile) {
-                      const p = scraperData.profile;
-                      linkedinContext = `\n\nPERFIL LINKEDIN ENCONTRADO (possível match - use com cuidado):
-- Nome: ${p.full_name}
-- Cargo: ${p.company_role || p.headline}
-- Empresa: ${p.company}
-- Setor: ${p.industry || "N/A"}
-- Localização: ${p.location || "N/A"}
-
-Use essas informações para personalizar a abordagem, mas NÃO mencione diretamente que buscou no LinkedIn.`;
-                      console.log("[ai-sdr] LinkedIn search match:", p.full_name);
-                    }
-                  }
-                }
-              }
-            } catch (linkedinErr) {
-              console.error("[ai-sdr] LinkedIn scraping error (non-blocking):", linkedinErr);
-            }
-          }
-        }
-      } catch (pipeErr) {
-        console.error("[ai-sdr] Pipedrive context error:", pipeErr);
-      }
-    }
 
     const qualificationQuestions = config.qualification_questions || [
       "Como posso te chamar?",
@@ -781,13 +674,12 @@ Use essas informações para personalizar a abordagem, mas NÃO mencione diretam
     const followUpHours = config.follow_up_hours || 24;
 
     // ===== ORGANIC CONTACT DETECTION =====
-    // A contact is "organic" when: not a proactive trigger + no Pipedrive deal + no source tags
     const sourceTagNames = ["linkedin", "dripify", "indicação", "indicacao", "prospecção", "prospeccao"];
     const hasSourceTag = currentTagNames.some((t: string) =>
       sourceTagNames.some(s => t.toLowerCase().includes(s))
     );
-    const hasPipedriveDeal = pipedriveContext.length > 0;
-    const isOrganicContact = !isProactive && !hasSourceTag && !hasPipedriveDeal;
+    const isOrganicContact = !isProactive && !hasSourceTag;
+    const organicModeEnabled = config.organic_mode_enabled === true;
     // BUG FIX #2: Organic mode must be OPT-IN (=== true), not opt-out (!== false)
     const organicModeEnabled = config.organic_mode_enabled === true;
 
@@ -1078,7 +970,7 @@ CLASSIFICAÇÃO (baseada em se aceitou ligação):
 
 TOM: ${config.tone || "profissional"}
 ${calendarContext}
-${pipedriveContext}
+
 ${linkedinContext}
 
 ETIQUETAS DISPONÍVEIS: ${availableTagNames.join(", ")}
@@ -1159,18 +1051,13 @@ Responda EXATAMENTE neste formato JSON:
     }
     let userMessage: string;
     if (isProactive) {
-      const pCtx = pipedrive_context || {};
+      const pCtx: any = {};
       const linkedinUrl = pCtx.linkedin_url || "";
       const sourceContext = pCtx.lead_source_context || "";
       const sourceName = pCtx.lead_source_name || "PROSPECÇÃO";
 
       // If no specific context from lead_source config, try matching from instance config
       let finalSourceContext = sourceContext;
-      if (!finalSourceContext && pCtx.label_id) {
-        const leadSources = config.lead_sources || [];
-        const matched = leadSources.find((s: any) => s.active && Number(s.pipedrive_label_id) === Number(pCtx.label_id));
-        if (matched) finalSourceContext = matched.context || "";
-      }
 
       // FIX P5: Replace [NOME_DO_CLOSER] placeholder with actual closer name
       if (finalSourceContext && closerName) {
@@ -1180,7 +1067,7 @@ Responda EXATAMENTE neste formato JSON:
       }
 
       // Enrich with LinkedIn data via Piloterr for proactive triggers
-      let proactiveLinkedinContext = linkedinContext; // may already be set from pipedrive_persons
+      let proactiveLinkedinContext = linkedinContext;
       if (!proactiveLinkedinContext && linkedinUrl) {
         const PILOTERR_API_KEY = Deno.env.get("PILOTERR_API_KEY");
         if (PILOTERR_API_KEY) {
@@ -1217,7 +1104,7 @@ IMPORTANTE: Mencione algo ESPECÍFICO do perfil (cargo, empresa, setor) para cri
         }
       }
 
-      userMessage = `Este é um NOVO LEAD que acabou de ser cadastrado no CRM (Pipedrive). Você deve iniciar a conversa proativamente pelo WhatsApp.
+      userMessage = `Este é um NOVO LEAD. Você deve iniciar a conversa proativamente pelo WhatsApp.
 
 ORIGEM DO LEAD: ${sourceName}
 

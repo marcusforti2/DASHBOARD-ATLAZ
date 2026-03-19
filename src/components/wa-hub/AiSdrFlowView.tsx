@@ -21,7 +21,7 @@ const iconMap: Record<string, any> = {
   trigger: Zap, incoming: Phone, greeting: Send, qualify: MessageSquare,
   score: Target, scoreA: CheckCircle2, scoreB: AlertTriangle, scoreC: Ban,
   calendar: Calendar, handoffCloser: Users, handoffSdr: Users,
-  tag: Tag, sentiment: Brain, pipedrive: Zap, end: Shield,
+  tag: Tag, sentiment: Brain, end: Shield,
 };
 
 const colorMap: Record<string, string> = {
@@ -38,7 +38,6 @@ const colorMap: Record<string, string> = {
   handoffSdr: "border-amber-500 bg-amber-500/10 text-amber-500",
   tag: "border-yellow-500 bg-yellow-500/10 text-yellow-500",
   sentiment: "border-purple-500 bg-purple-500/10 text-purple-500",
-  pipedrive: "border-primary bg-primary/10 text-primary",
   end: "border-muted-foreground bg-muted text-muted-foreground",
 };
 
@@ -80,7 +79,7 @@ interface Props {
     feature_qualification?: boolean;
     feature_handoff?: boolean;
     feature_sentiment?: boolean;
-    feature_pipedrive_sync?: boolean;
+    
     qualification_questions?: string[];
     score_thresholds?: { a_min: number; b_min: number };
     master_prompt?: string;
@@ -106,7 +105,7 @@ export function AiSdrFlowView({ config, closerName }: Props) {
     };
 
     // 1 — Trigger
-    n.push({ id: "trigger", type: "flowNode", position: { x, y: Y }, data: { nodeType: "trigger", label: "Trigger", desc: "Pipedrive / Mensagem recebida" } });
+    n.push({ id: "trigger", type: "flowNode", position: { x, y: Y }, data: { nodeType: "trigger", label: "Trigger", desc: "Mensagem recebida" } });
 
     // 2 — Incoming
     x += GAP;
@@ -171,12 +170,6 @@ export function AiSdrFlowView({ config, closerName }: Props) {
       n.push({ id: "end", type: "flowNode", position: { x, y: Y + 140 }, data: { nodeType: "end", label: "Encerra educadamente", desc: "Envia conteúdo de valor" } });
       e.push({ id: "e-scoreC-end", source: "scoreC", target: "end", ...edgeDefaults });
 
-      // Pipedrive sync (parallel)
-      if (config.feature_pipedrive_sync) {
-        n.push({ id: "pipedrive", type: "flowNode", position: { x: x + GAP, y: Y }, data: { nodeType: "pipedrive", label: "Sync Pipedrive", desc: "Atualiza deal + notas" } });
-        e.push({ id: "e-cal-pipe", source: "calendar", target: "pipedrive", ...edgeDefaults, style: { ...edgeDefaults.style, strokeDasharray: "5 5" } });
-        e.push({ id: "e-sdr-pipe", source: "handoffSdr", target: "pipedrive", ...edgeDefaults, style: { ...edgeDefaults.style, strokeDasharray: "5 5" } });
-      }
     } else if (config.feature_handoff !== false) {
       // Simple handoff without qualification
       x += GAP;

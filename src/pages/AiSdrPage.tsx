@@ -105,11 +105,6 @@ const AUTOMATIONS: AutomationDef[] = [
     explanation: "A IA analisa o tom emocional de cada mensagem do lead (positivo, neutro, frustrado, irritado). Se detectar frustração ou risco de perda, ajusta o tom da resposta para ser mais empático e pode acionar um alerta ao gestor. Útil para identificar leads que estão prestes a desistir.",
   },
   {
-    key: "feature_pipedrive_sync", icon: Zap, title: "Sync Pipedrive", desc: "Atualiza deals e notas no CRM",
-    color: "text-primary",
-    explanation: "Sincroniza automaticamente as informações da conversa com o Pipedrive: cria/atualiza deals, adiciona notas com resumo da conversa, e move o deal entre estágios conforme a qualificação avança. Requer integração Pipedrive configurada no WhatsApp Hub.",
-  },
-  {
     key: "business_hours_only", icon: Clock, title: "Só Horário Comercial", desc: "IA só responde dentro do horário configurado",
     color: "text-slate-500",
     explanation: "Restringe as respostas automáticas da IA para o horário comercial (horário de Brasília). Mensagens recebidas fora deste horário NÃO são respondidas até o próximo dia útil. A IA também NÃO responde aos finais de semana.",
@@ -267,14 +262,6 @@ function AiSdrPageInner() {
   useEffect(() => {
     if (selectedInstance) {
       const merged = { ...DEFAULT_CONFIG, ...(selectedInstance.ai_sdr_config || {}) };
-      // Auto-fill missing pipedrive_label_id from defaults
-      if (merged.lead_sources?.length) {
-        const defaultMap = Object.fromEntries(DEFAULT_CONFIG.lead_sources.map(s => [s.id, s.pipedrive_label_id]));
-        merged.lead_sources = merged.lead_sources.map(src => ({
-          ...src,
-          pipedrive_label_id: src.pipedrive_label_id ?? defaultMap[src.id] ?? src.pipedrive_label_id,
-        }));
-      }
       setLocalConfig(merged);
     }
   }, [selectedInstanceId, selectedInstance?.ai_sdr_config]);
@@ -461,19 +448,6 @@ function AiSdrPageInner() {
                     </div>
                     {src.active && (
                       <div className="px-4 pb-4 pt-0 space-y-3">
-                        <div className="flex items-center gap-3">
-                          <div className="flex-1">
-                            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">
-                              Pipedrive Label ID
-                            </label>
-                            <div className="h-8 w-28 flex items-center px-2 rounded-md bg-muted/50 border border-border text-xs font-mono text-muted-foreground">
-                              {src.pipedrive_label_id ?? "—"}
-                            </div>
-                          </div>
-                          <p className="text-[10px] text-muted-foreground flex-1">
-                            ID da etiqueta no Pipedrive. A IA só dispara proativamente para deals com essa etiqueta.
-                          </p>
-                        </div>
                         <div>
                           <div className="flex items-center justify-between mb-1">
                             <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">

@@ -36,9 +36,6 @@ function MemberFormDialog({
   const [name, setName] = useState(member?.name || "");
   const [email, setEmail] = useState(member?.email || "");
   const [phone, setPhone] = useState(member?.phone || "");
-  const [pipedriveUserId, setPipedriveUserId] = useState<string>(
-    member?.pipedrive_user_id ? String(member.pipedrive_user_id) : ""
-  );
   const [password, setPassword] = useState("");
   const [selectedRoles, setSelectedRoles] = useState<Set<string>>(() => {
     if (member?.member_role) {
@@ -83,8 +80,6 @@ function MemberFormDialog({
       const updates: Record<string, any> = { name: name.trim(), member_role: newRole };
       if (email.trim()) updates.email = email.trim();
       if (phone.trim()) updates.phone = phone.trim().replace(/\D/g, "");
-      if (pipedriveUserId.trim()) updates.pipedrive_user_id = parseInt(pipedriveUserId.trim(), 10);
-      else updates.pipedrive_user_id = null;
       const { error } = await supabase.from("team_members").update(updates).eq("id", member.id);
       if (error) toast.error(error.message); else { toast.success("Membro atualizado!"); onSaved(); onClose(); }
       setSaving(false);
@@ -425,19 +420,6 @@ Faça login e comece a registrar suas métricas. Bora pra cima! 🚀`;
                   onChange={e => setPhone(e.target.value)}
                   placeholder="(11) 99999-9999"
                   className="w-full rounded-xl border border-border bg-secondary px-3 py-2.5 text-sm text-secondary-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all"
-                />
-              </div>
-              {/* Pipedrive User ID */}
-              <div>
-                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
-                  <Zap size={10} /> ID Pipedrive <span className="text-[8px] font-normal opacity-60">(Configurações → Usuários no Pipedrive)</span>
-                </label>
-                <input
-                  type="number"
-                  value={pipedriveUserId}
-                  onChange={e => setPipedriveUserId(e.target.value)}
-                  placeholder="Ex: 12345678"
-                  className="w-full rounded-xl border border-border bg-secondary px-3 py-2.5 text-sm text-secondary-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all font-mono"
                 />
               </div>
             </>

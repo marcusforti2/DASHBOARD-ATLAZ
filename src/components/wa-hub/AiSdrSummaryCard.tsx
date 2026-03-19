@@ -98,7 +98,7 @@ export function AiSdrSummaryCard({ instances, teamMembers, onNavigate }: Props) 
             config.feature_qualification !== false,
             config.feature_handoff !== false,
             config.feature_sentiment,
-            config.feature_pipedrive_sync,
+            
             config.call_focus_mode !== false,
             config.follow_up_enabled !== false,
             config.split_messages !== false,

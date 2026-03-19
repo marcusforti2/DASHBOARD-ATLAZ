@@ -164,7 +164,7 @@ export function AiSdrTab({ instances, teamMembers, onRefetch }: Props) {
             const config = { ...DEFAULT_CONFIG, ...(inst.ai_sdr_config || {}) };
             const featureCount = [
               config.feature_auto_reply, config.feature_auto_tag, config.feature_qualification,
-              config.feature_handoff, config.feature_sentiment, config.feature_pipedrive_sync,
+              config.feature_handoff, config.feature_sentiment,
             ].filter(Boolean).length;
             return (
               <div key={inst.id} className={`rounded-xl border p-4 transition-all ${

@@ -99,7 +99,6 @@ export function AiSdrConfigPanel({ instanceId, instanceName, aiSdrEnabled, aiSdr
     localConfig.feature_qualification,
     localConfig.feature_handoff,
     localConfig.feature_sentiment,
-    localConfig.feature_pipedrive_sync,
     localConfig.call_focus_mode,
     localConfig.follow_up_enabled,
     localConfig.split_messages,
@@ -227,13 +226,6 @@ export function AiSdrConfigPanel({ instanceId, instanceName, aiSdrEnabled, aiSdr
                 value={localConfig.feature_sentiment}
                 configKey="feature_sentiment"
                 description="Analisa se lead está positivo, neutro ou negativo"
-              />
-              <ToggleItem
-                label="Sync Pipedrive"
-                icon={<BarChart3 size={11} />}
-                value={localConfig.feature_pipedrive_sync}
-                configKey="feature_pipedrive_sync"
-                description="Sincroniza qualificação e notas com Pipedrive"
               />
               <ToggleItem
                 label="Só Horário Comercial"

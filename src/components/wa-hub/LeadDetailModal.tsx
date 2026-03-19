@@ -32,34 +32,7 @@ import { WaContactTagBadges } from './WaContactTagBadges';
 import type { WaTag } from '@/hooks/use-wa-tags';
 import { getAvatarColor } from '@/lib/wa-utils';
 
-interface PipedriveData {
-  person: {
-    name: string;
-    email: string | null;
-    phone: string | null;
-    org_name: string | null;
-    owner_name: string | null;
-  } | null;
-  deals: {
-    title: string;
-    value: number | null;
-    currency: string | null;
-    status: string | null;
-    stage_name: string | null;
-    pipeline_name: string | null;
-    pipedrive_id: number;
-  }[];
-  activities: {
-    subject: string | null;
-    type: string | null;
-    due_date: string | null;
-    done: boolean | null;
-  }[];
-  notes: {
-    content: string | null;
-    created_at: string;
-  }[];
-}
+
 
 interface LeadScore {
   score: number;
@@ -89,7 +62,7 @@ function getRiskBadge(risk: string) {
 
 export function LeadDetailModal({ open, onOpenChange, conversation, tags, assignedTagIds, onAddTag, onRemoveTag }: Props) {
   const { profile } = useAuth();
-  const [pipedriveData, setPipedriveData] = useState<PipedriveData | null>(null);
+  
   const [leadScore, setLeadScore] = useState<LeadScore | null>(null);
   const [loading, setLoading] = useState(true);
   const [aiEnabled, setAiEnabled] = useState(true);
@@ -109,8 +82,7 @@ export function LeadDetailModal({ open, onOpenChange, conversation, tags, assign
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [personResult, scoreResult, msgsResult, convResult, eventsResult] = await Promise.all([
-        supabase.from('pipedrive_persons').select('*').eq('wa_contact_id', contactId).maybeSingle(),
+      const [scoreResult, msgsResult, convResult, eventsResult] = await Promise.all([
         supabase.from('wa_lead_scores').select('*').eq('contact_id', contactId).maybeSingle(),
         supabase.from('wa_messages').select('sender, created_at').eq('conversation_id', conversation.id).order('created_at', { ascending: true }),
         supabase.from('wa_conversations').select('conversation_mode, lead_stage, priority_level').eq('id', conversation.id).single(),
@@ -138,40 +110,6 @@ export function LeadDetailModal({ open, onOpenChange, conversation, tags, assign
 
       setLeadScore(scoreResult.data as LeadScore | null);
 
-      // Pipedrive enrichment
-      if (personResult.data) {
-        const person = personResult.data;
-        const pipedriveId = person.pipedrive_id;
-        const [dealsResult, activitiesResult, notesResult] = await Promise.all([
-          supabase.from('pipedrive_deals').select('title, value, currency, status, stage_name, pipeline_name, pipedrive_id').eq('person_id', pipedriveId).order('created_at', { ascending: false }).limit(5),
-          supabase.from('pipedrive_activities').select('subject, type, due_date, done').eq('person_pipedrive_id', pipedriveId).order('due_date', { ascending: false }).limit(5),
-          supabase.from('pipedrive_notes').select('content, created_at').eq('person_pipedrive_id', pipedriveId).order('created_at', { ascending: false }).limit(3),
-        ]);
-        setPipedriveData({
-          person: { name: person.name, email: person.email, phone: person.phone, org_name: person.org_name, owner_name: person.owner_name },
-          deals: dealsResult.data || [],
-          activities: activitiesResult.data || [],
-          notes: notesResult.data || [],
-        });
-      } else {
-        const cleanPhone = contactPhone.replace(/\D/g, '');
-        const { data: personByPhone } = await supabase.from('pipedrive_persons').select('*').ilike('phone', `%${cleanPhone.slice(-8)}%`).maybeSingle();
-        if (personByPhone) {
-          const [dealsResult, activitiesResult, notesResult] = await Promise.all([
-            supabase.from('pipedrive_deals').select('title, value, currency, status, stage_name, pipeline_name, pipedrive_id').eq('person_id', personByPhone.pipedrive_id).order('created_at', { ascending: false }).limit(5),
-            supabase.from('pipedrive_activities').select('subject, type, due_date, done').eq('person_pipedrive_id', personByPhone.pipedrive_id).order('due_date', { ascending: false }).limit(5),
-            supabase.from('pipedrive_notes').select('content, created_at').eq('person_pipedrive_id', personByPhone.pipedrive_id).order('created_at', { ascending: false }).limit(3),
-          ]);
-          setPipedriveData({
-            person: { name: personByPhone.name, email: personByPhone.email, phone: personByPhone.phone, org_name: personByPhone.org_name, owner_name: personByPhone.owner_name },
-            deals: dealsResult.data || [],
-            activities: activitiesResult.data || [],
-            notes: notesResult.data || [],
-          });
-        } else {
-          setPipedriveData(null);
-        }
-      }
     } catch (err) {
       console.error('Error fetching lead data:', err);
     } finally {
@@ -350,18 +288,6 @@ export function LeadDetailModal({ open, onOpenChange, conversation, tags, assign
                 <Phone className="w-3 h-3" />
                 {conversation.contact.phone}
               </p>
-              {pipedriveData?.person?.email && (
-                <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
-                  <Mail className="w-3 h-3" />
-                  {pipedriveData.person.email}
-                </p>
-              )}
-              {pipedriveData?.person?.org_name && (
-                <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
-                  <Building2 className="w-3 h-3" />
-                  {pipedriveData.person.org_name}
-                </p>
-              )}
             </div>
           </div>
 
@@ -512,76 +438,6 @@ export function LeadDetailModal({ open, onOpenChange, conversation, tags, assign
                 </div>
               )}
 
-              {/* Pipedrive Section */}
-              {pipedriveData ? (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Briefcase className="w-3.5 h-3.5 text-primary" />
-                    <span className="text-xs font-semibold text-foreground">Pipedrive</span>
-                    {pipedriveData.person?.owner_name && (
-                      <Badge variant="secondary" className="text-[9px] ml-auto">
-                        <User className="w-2.5 h-2.5 mr-1" />
-                        {pipedriveData.person.owner_name}
-                      </Badge>
-                    )}
-                  </div>
-
-                  {pipedriveData.deals.length > 0 && (
-                    <div className="space-y-1.5">
-                      <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Negócios</p>
-                      {pipedriveData.deals.map((deal, i) => (
-                        <div key={i} className="flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2">
-                          <DollarSign className="w-3.5 h-3.5 text-primary shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-foreground truncate">{deal.title}</p>
-                            <p className="text-[9px] text-muted-foreground">
-                              {deal.pipeline_name} → {deal.stage_name}
-                            </p>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <p className="text-xs font-bold text-foreground">{formatCurrency(deal.value, deal.currency)}</p>
-                            <Badge variant="outline" className={`text-[8px] ${deal.status === 'won' ? 'text-primary border-primary/30' : deal.status === 'lost' ? 'text-destructive border-destructive/30' : 'text-foreground border-border'}`}>
-                              {deal.status === 'won' ? 'Ganho' : deal.status === 'lost' ? 'Perdido' : 'Aberto'}
-                            </Badge>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {pipedriveData.activities.length > 0 && (
-                    <div className="space-y-1.5">
-                      <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Atividades recentes</p>
-                      {pipedriveData.activities.slice(0, 3).map((act, i) => (
-                        <div key={i} className="flex items-center gap-2 text-xs">
-                          <Calendar className="w-3 h-3 text-muted-foreground shrink-0" />
-                          <span className="text-foreground flex-1 truncate">{act.subject || act.type}</span>
-                          <span className="text-[9px] text-muted-foreground">{act.due_date ? formatDate(act.due_date) : ''}</span>
-                          {act.done && <CheckCheck className="w-3 h-3 text-primary" />}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {pipedriveData.notes.length > 0 && (
-                    <div className="space-y-1.5">
-                      <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Notas CRM</p>
-                      {pipedriveData.notes.map((note, i) => (
-                        <div key={i} className="rounded-lg bg-muted/40 px-3 py-2">
-                          <p className="text-[10px] text-foreground line-clamp-3" dangerouslySetInnerHTML={{ __html: note.content || '' }} />
-                          <p className="text-[8px] text-muted-foreground mt-1">{formatDate(note.created_at)}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center py-4 rounded-lg bg-muted/30">
-                  <Briefcase className="w-5 h-5 text-muted-foreground mx-auto mb-1" />
-                  <p className="text-xs text-muted-foreground">Lead não encontrado no Pipedrive</p>
-                  <p className="text-[9px] text-muted-foreground mt-0.5">O contato será vinculado automaticamente na próxima interação da IA</p>
-                </div>
-              )}
             </>
           )}
         </div>

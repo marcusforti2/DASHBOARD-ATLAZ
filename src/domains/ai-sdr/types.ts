@@ -37,7 +37,7 @@ export interface LeadSource {
   active: boolean;
   context: string;
   color: string;
-  pipedrive_label_id?: number | null;
+  
   automation?: LeadSourceAutomation;
 }
 
@@ -65,7 +65,7 @@ export interface AiSdrConfig {
   feature_qualification: boolean;
   feature_handoff: boolean;
   feature_sentiment: boolean;
-  feature_pipedrive_sync: boolean;
+  
 
   // Automation
   max_messages_before_handoff: number;
@@ -131,7 +131,7 @@ export const DEFAULT_AI_SDR_CONFIG: AiSdrConfig = {
   feature_qualification: true,
   feature_handoff: true,
   feature_sentiment: false,
-  feature_pipedrive_sync: false,
+  
   max_messages_before_handoff: 10,
   business_hours_only: false,
   business_hours_start: 8,
@@ -177,7 +177,7 @@ export const DEFAULT_AI_SDR_CONFIG: AiSdrConfig = {
       context:
         'Lead veio de prospecção ativa no LinkedIn. Você já se conectou com ele e agora está dando continuidade à conversa. Seja pessoal, mencione algo do perfil dele. NÃO diga o nome da empresa logo de cara.',
       color: '#4DA6FF',
-      pipedrive_label_id: 43,
+      
       automation: { ...DEFAULT_SOURCE_AUTOMATION, follow_up_hours: 24, notification_priority: 'normal' },
     },
     {
@@ -187,7 +187,7 @@ export const DEFAULT_AI_SDR_CONFIG: AiSdrConfig = {
       context:
         'Lead recebeu uma sequência automatizada (Dripify ou similar) e respondeu. O contexto é diferente da prospecção manual — ele pode não lembrar quem você é. Apresente-se brevemente e retome o interesse.',
       color: '#E8A441',
-      pipedrive_label_id: 40,
+      
       automation: { ...DEFAULT_SOURCE_AUTOMATION, follow_up_hours: 48, notification_priority: 'normal' },
     },
     {
@@ -197,7 +197,7 @@ export const DEFAULT_AI_SDR_CONFIG: AiSdrConfig = {
       context:
         'Lead veio por indicação de alguém. Mencione quem indicou (se disponível) e use isso como ponte de confiança. Tom mais próximo e caloroso.',
       color: '#3B82F6',
-      pipedrive_label_id: 27,
+      
       automation: {
         ...DEFAULT_SOURCE_AUTOMATION,
         follow_up_hours: 12,

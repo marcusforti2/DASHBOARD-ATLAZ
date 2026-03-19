@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
-  ArrowRight, CheckCircle2, XCircle, AlertTriangle,
-  Phone, User, Bot, Wifi, WifiOff, Mail,
+  ArrowRight, CheckCircle2, AlertTriangle,
+  User, Bot, Wifi, WifiOff, Mail,
 } from "lucide-react";
 
 interface RoutingMap {
@@ -14,10 +14,9 @@ interface RoutingMap {
   ai_sdr_enabled: boolean;
   closer_name: string | null;
   closer_email: string | null;
-  closer_pipedrive_id: number | null;
   sdr_name: string | null;
   phone: string | null;
-  lead_sources: { name: string; pipedrive_label_id: number; active: boolean }[];
+  lead_sources: { name: string; active: boolean }[];
   issues: string[];
 }
 
@@ -39,7 +38,7 @@ export function RoutingPanel() {
 
       const { data: members } = await supabase
         .from("team_members")
-        .select("id, name, email, pipedrive_user_id")
+        .select("id, name, email")
         .in("id", allIds.length > 0 ? allIds : ["__none__"]);
 
       const memberMap = new Map((members || []).map(m => [m.id, m]));
@@ -54,7 +53,7 @@ export function RoutingPanel() {
         if (!inst.is_connected) issues.push("Instância desconectada");
         if (!inst.ai_sdr_enabled) issues.push("SDR IA desabilitada");
         if (!closer) issues.push("Sem closer vinculado");
-        if (closer && !closer.email && !(closer as any).pipedrive_user_id) issues.push("Closer sem email e sem ID Pipedrive");
+        if (closer && !closer.email) issues.push("Closer sem email");
         if (inst.ai_sdr_enabled && leadSources.filter((s: any) => s.active).length === 0)
           issues.push("Sem lead sources configuradas");
 
@@ -65,7 +64,6 @@ export function RoutingPanel() {
           ai_sdr_enabled: inst.ai_sdr_enabled,
           closer_name: closer?.name || null,
           closer_email: closer?.email || null,
-          closer_pipedrive_id: (closer as any)?.pipedrive_user_id || null,
           sdr_name: sdr?.name || null,
           phone: inst.phone,
           lead_sources: leadSources,
@@ -96,7 +94,7 @@ export function RoutingPanel() {
       </div>
 
       <p className="text-sm text-muted-foreground">
-        Quando um deal entra no Pipedrive, o sistema identifica o <strong>dono do deal → email → closer → instância WhatsApp</strong> e dispara a SDR IA proativa.
+        Quando um novo lead chega, o sistema identifica o <strong>closer → instância WhatsApp</strong> e dispara a SDR IA proativa.
       </p>
 
       <div className="grid gap-3">
@@ -106,23 +104,18 @@ export function RoutingPanel() {
             className={`border ${r.issues.length === 0 ? "border-green-500/30 bg-green-500/5" : r.issues.length <= 1 ? "border-yellow-500/30 bg-yellow-500/5" : "border-red-500/30 bg-red-500/5"}`}
           >
             <CardContent className="pt-4 pb-3 px-4">
-              {/* Flow row */}
               <div className="flex items-center gap-2 flex-wrap text-sm">
-                {/* Pipedrive ID */}
                 <div className="flex items-center gap-1 bg-muted/50 rounded-lg px-2 py-1">
                   <Mail className="h-3.5 w-3.5 text-muted-foreground" />
                   <span className="font-mono text-xs">
-                    {r.closer_pipedrive_id
-                      ? <span>ID: {r.closer_pipedrive_id}</span>
-                      : r.closer_email
-                        ? r.closer_email
-                        : <span className="text-destructive">sem vínculo</span>}
+                    {r.closer_email
+                      ? r.closer_email
+                      : <span className="text-destructive">sem vínculo</span>}
                   </span>
                 </div>
 
                 <ArrowRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
 
-                {/* Closer */}
                 <div className="flex items-center gap-1 bg-muted/50 rounded-lg px-2 py-1">
                   <User className="h-3.5 w-3.5 text-primary" />
                   <span className="font-medium">{r.closer_name || <span className="text-destructive">—</span>}</span>
@@ -130,7 +123,6 @@ export function RoutingPanel() {
 
                 <ArrowRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
 
-                {/* Instance */}
                 <div className="flex items-center gap-1.5 bg-muted/50 rounded-lg px-2 py-1">
                   {r.is_connected
                     ? <Wifi className="h-3.5 w-3.5 text-green-500" />
@@ -143,7 +135,6 @@ export function RoutingPanel() {
 
                 <ArrowRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
 
-                {/* SDR IA */}
                 <div className="flex items-center gap-1 bg-muted/50 rounded-lg px-2 py-1">
                   <Bot className="h-3.5 w-3.5" />
                   {r.ai_sdr_enabled
@@ -152,14 +143,12 @@ export function RoutingPanel() {
                 </div>
               </div>
 
-              {/* SDR name */}
               {r.sdr_name && (
                 <p className="text-xs text-muted-foreground mt-1.5 ml-1">
                   SDR humano: {r.sdr_name}
                 </p>
               )}
 
-              {/* Lead sources */}
               {r.lead_sources.length > 0 && (
                 <div className="flex gap-1 mt-2 flex-wrap">
                   {r.lead_sources.map((ls, i) => (
@@ -168,14 +157,13 @@ export function RoutingPanel() {
                       variant={ls.active ? "default" : "secondary"}
                       className="text-[10px]"
                     >
-                      {ls.name || `Label ${ls.pipedrive_label_id}`}
+                      {ls.name || "Fonte"}
                       {!ls.active && " (off)"}
                     </Badge>
                   ))}
                 </div>
               )}
 
-              {/* Issues */}
               {r.issues.length > 0 && (
                 <div className="mt-2 space-y-0.5">
                   {r.issues.map((issue, i) => (
@@ -187,7 +175,6 @@ export function RoutingPanel() {
                 </div>
               )}
 
-              {/* Status badge */}
               {r.issues.length === 0 && (
                 <div className="flex items-center gap-1 mt-2 text-xs text-green-500">
                   <CheckCircle2 className="h-3 w-3" />
