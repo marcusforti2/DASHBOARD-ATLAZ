@@ -101,6 +101,8 @@ export function LeadDetailModal({ open, onOpenChange, conversation, tags, assign
         priority_level: (convData?.priority_level as PriorityLevel) || 'normal',
       };
       setConvSnapshot(snapshot);
+      setLinkedinContext((convData as any)?.linkedin_context || '');
+      setLinkedinProfile((convData as any)?.linkedin_profile && Object.keys((convData as any).linkedin_profile).length > 0 ? (convData as any).linkedin_profile : null);
       setAiEnabled(snapshot.conversation_mode === 'ia_ativa' || snapshot.conversation_mode === 'compartilhado');
 
       setStateEvents((eventsResult.data || []) as unknown as WaConversationStateEvent[]);
