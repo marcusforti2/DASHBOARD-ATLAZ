@@ -1051,7 +1051,7 @@ Responda EXATAMENTE neste formato JSON:
     }
     let userMessage: string;
     if (isProactive) {
-      const pCtx = pipedrive_context || {};
+      const pCtx: any = {};
       const linkedinUrl = pCtx.linkedin_url || "";
       const sourceContext = pCtx.lead_source_context || "";
       const sourceName = pCtx.lead_source_name || "PROSPECÇÃO";
