@@ -232,6 +232,7 @@ function WaHubPageInner() {
         onClear={clearScopeFilters}
       />
 
+
       <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
         <TabsList>
           <TabsTrigger value="chat" className="text-xs gap-1.5">
