@@ -41,7 +41,7 @@ import { WaCrmView } from '@/components/wa-hub/WaCrmView';
 import { WaLeadProfilePanel } from '@/components/wa-hub/WaLeadProfilePanel';
 import { AiSdrConfigPanel } from '@/components/wa-hub/AiSdrConfigPanel';
 import { AiSdrSummaryCard } from '@/components/wa-hub/AiSdrSummaryCard';
-import { PipedriveTab } from '@/components/wa-hub/PipedriveTab';
+
 import { AiPromptsTab } from '@/components/wa-hub/AiPromptsTab';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
