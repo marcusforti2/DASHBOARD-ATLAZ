@@ -521,7 +521,7 @@ function KanbanCard({ conv, stageColor, tags, assignedTagIds, onAddTag, onRemove
       draggable
       onDragStart={() => onDragStart(conv.id)}
       onClick={(e) => {
-        if ((e.target as HTMLElement).closest('[data-tag-badge]')) return;
+        if ((e.target as HTMLElement).closest('[data-tag-badge]') || (e.target as HTMLElement).closest('[data-action-menu]')) return;
         onClick?.();
       }}
       className="rounded-lg border border-border bg-card p-3 space-y-2 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer active:cursor-grabbing active:opacity-70 active:scale-[0.98]"
@@ -543,6 +543,17 @@ function KanbanCard({ conv, stageColor, tags, assignedTagIds, onAddTag, onRemove
             ⏰ {timeSince}
           </span>
         )}
+        <div data-action-menu>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="p-1 rounded hover:bg-muted"><MoreVertical className="w-3.5 h-3.5 text-muted-foreground" /></button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit?.(); }}><Pencil className="w-3 h-3 mr-2" /> Editar</DropdownMenuItem>
+              <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); onDelete?.(); }}><Trash2 className="w-3 h-3 mr-2" /> Excluir</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
       {conv.last_message && (
         <p className="text-[10px] text-muted-foreground truncate pl-5">{conv.last_message}</p>
