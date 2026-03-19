@@ -371,9 +371,10 @@ Deno.serve(async (req) => {
         if (senderInstance) {
           console.log('[webhook] Skipping AI SDR: sender is managed instance', phone);
         } else {
-          // DEBOUNCE: Wait 3 seconds to batch rapid messages
-          console.log('[webhook] Waiting 3s debounce before triggering AI SDR...');
-          await new Promise(resolve => setTimeout(resolve, 3000));
+          // DEBOUNCE: Wait 8 seconds to batch rapid WhatsApp messages
+          // People send messages in bursts on WhatsApp (3-5 msgs in a row)
+          console.log('[webhook] Waiting 8s debounce before triggering AI SDR...');
+          await new Promise(resolve => setTimeout(resolve, 8000));
 
           // After debounce, check if a NEWER message arrived (if so, skip - the newer webhook will handle it)
           const { data: newerMsgs } = await supabase
@@ -389,8 +390,23 @@ Deno.serve(async (req) => {
           if (newerMsgs && newerMsgs.length > 0) {
             console.log('[webhook] Skipping AI SDR: newer message exists, letting that webhook handle it');
           } else {
-            // Fetch all recent contact messages (last 30s) to batch them
-            const batchWindow = new Date(Date.now() - 30000).toISOString();
+            // SECOND CHECK: Wait 3 more seconds and verify again (catches fast-typers)
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            const { data: newerMsgs2 } = await supabase
+              .from('wa_messages')
+              .select('id, created_at')
+              .eq('conversation_id', conversation.id)
+              .eq('sender', 'contact')
+              .gt('created_at', msgData.messageTimestamp
+                ? new Date(msgData.messageTimestamp * 1000).toISOString()
+                : now)
+              .limit(1);
+
+            if (newerMsgs2 && newerMsgs2.length > 0) {
+              console.log('[webhook] Skipping AI SDR (2nd check): newer message arrived during final wait');
+            } else {
+            // Fetch all recent contact messages (last 60s) to batch them
+            const batchWindow = new Date(Date.now() - 60000).toISOString();
             const { data: recentMsgs } = await supabase
               .from('wa_messages')
               .select('text')
