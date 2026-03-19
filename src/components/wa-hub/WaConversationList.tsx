@@ -11,6 +11,13 @@ import {
   PRIORITY_LEVELS,
 } from '@/domains/conversations/types';
 import type { ConversationMode, LeadStage, PriorityLevel } from '@/domains/conversations/types';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type { WaTag } from '@/hooks/use-wa-tags';
 
 interface Props {
