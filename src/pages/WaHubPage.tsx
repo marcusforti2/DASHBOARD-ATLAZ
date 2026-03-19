@@ -44,6 +44,8 @@ import { AiSdrSummaryCard } from '@/components/wa-hub/AiSdrSummaryCard';
 import { PipedriveTab } from '@/components/wa-hub/PipedriveTab';
 import { AiPromptsTab } from '@/components/wa-hub/AiPromptsTab';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Badge } from '@/components/ui/badge';
 
 export default function WaHubPage() {
   return (
