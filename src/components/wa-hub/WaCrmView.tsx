@@ -205,56 +205,6 @@ export function WaCrmView({ conversations, tags, instances, teamMembers, getTags
           </Select>
         </div>
 
-        {/* Filters row */}
-        <ScrollArea className="w-full">
-          <div className="flex items-center gap-1.5 pb-1">
-            {/* Stage filters */}
-            <span className="text-[9px] text-muted-foreground font-medium mr-1">Etapa:</span>
-            <FilterChip active={!filterStage} onClick={() => setFilterStage(null)}>Todas</FilterChip>
-            {LEAD_STAGES.map(s => (
-              <FilterChip key={s} active={filterStage === s} onClick={() => setFilterStage(filterStage === s ? null : s)} color={STAGE_COLORS[s]}>
-                {LEAD_STAGE_LABELS[s]}
-              </FilterChip>
-            ))}
-
-            <span className="w-px h-4 bg-border mx-1" />
-
-            {/* Mode filters */}
-            <span className="text-[9px] text-muted-foreground font-medium mr-1">Modo:</span>
-            <FilterChip active={!filterMode} onClick={() => setFilterMode(null)}>Todos</FilterChip>
-            {CONVERSATION_MODES.map(m => (
-              <FilterChip key={m} active={filterMode === m} onClick={() => setFilterMode(filterMode === m ? null : m)}>
-                {CONVERSATION_MODE_LABELS[m]}
-              </FilterChip>
-            ))}
-
-            <span className="w-px h-4 bg-border mx-1" />
-
-            {/* Priority filters */}
-            <span className="text-[9px] text-muted-foreground font-medium mr-1">Prioridade:</span>
-            <FilterChip active={!filterPriority} onClick={() => setFilterPriority(null)}>Todas</FilterChip>
-            {PRIORITY_LEVELS.filter(p => p !== 'normal').map(p => (
-              <FilterChip key={p} active={filterPriority === p} onClick={() => setFilterPriority(filterPriority === p ? null : p)}>
-                {PRIORITY_LEVEL_LABELS[p]}
-              </FilterChip>
-            ))}
-
-            {/* Tag filter */}
-            {tags.length > 0 && (
-              <>
-                <span className="w-px h-4 bg-border mx-1" />
-                <span className="text-[9px] text-muted-foreground font-medium mr-1">Tag:</span>
-                <FilterChip active={!filterTag} onClick={() => setFilterTag(null)}>Todas</FilterChip>
-                {tags.map(tag => (
-                  <FilterChip key={tag.id} active={filterTag === tag.id} onClick={() => setFilterTag(filterTag === tag.id ? null : tag.id)} color={tag.color}>
-                    {tag.name}
-                  </FilterChip>
-                ))}
-              </>
-            )}
-          </div>
-          <ScrollBar orientation="horizontal" />
-        </ScrollArea>
       </div>
 
       {/* Kanban View */}
