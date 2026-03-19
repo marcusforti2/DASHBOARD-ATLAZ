@@ -453,6 +453,67 @@ export function LeadDetailModal({ open, onOpenChange, conversation, tags, assign
 
         <Separator />
 
+        {/* LinkedIn Context & Profile */}
+        <div className="px-5 py-3 space-y-3">
+          <div className="flex items-center gap-2">
+            <Linkedin className="w-3.5 h-3.5 text-primary" />
+            <span className="text-xs font-semibold text-foreground">LinkedIn & Contexto</span>
+            <Button size="sm" variant="outline" className="ml-auto h-7 text-[10px] gap-1" onClick={handleEnrichPiloterr} disabled={enriching}>
+              {enriching ? <Loader2 className="w-3 h-3 animate-spin" /> : <Search className="w-3 h-3" />}
+              Enriquecer Perfil
+            </Button>
+          </div>
+
+          {linkedinProfile && (
+            <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 space-y-1.5">
+              <p className="text-xs font-semibold text-foreground">{linkedinProfile.full_name}</p>
+              {linkedinProfile.headline && <p className="text-[10px] text-muted-foreground">{linkedinProfile.headline}</p>}
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                {linkedinProfile.company && (
+                  <Badge variant="secondary" className="text-[9px] gap-1">
+                    <Building2 className="w-2.5 h-2.5" />{linkedinProfile.company}
+                  </Badge>
+                )}
+                {linkedinProfile.company_role && (
+                  <Badge variant="outline" className="text-[9px] gap-1">
+                    <Briefcase className="w-2.5 h-2.5" />{linkedinProfile.company_role}
+                  </Badge>
+                )}
+                {linkedinProfile.location && (
+                  <Badge variant="outline" className="text-[9px]">{linkedinProfile.location}</Badge>
+                )}
+              </div>
+              {linkedinProfile.summary && (
+                <p className="text-[10px] text-muted-foreground mt-1 line-clamp-3">{linkedinProfile.summary}</p>
+              )}
+              {linkedinProfile.linkedin_url && (
+                <a href={linkedinProfile.linkedin_url} target="_blank" rel="noopener noreferrer"
+                  className="text-[10px] text-primary hover:underline flex items-center gap-1 mt-1">
+                  <ExternalLink className="w-2.5 h-2.5" /> Ver no LinkedIn
+                </a>
+              )}
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+              Contexto da conversa no LinkedIn
+            </label>
+            <Textarea
+              value={linkedinContext}
+              onChange={e => setLinkedinContext(e.target.value)}
+              placeholder="Ex: Conversamos sobre modelo de mentoria, ele perguntou sobre preço e formato..."
+              className="min-h-[60px] text-xs resize-none"
+            />
+            <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1 w-full" onClick={handleSaveLinkedinContext} disabled={savingContext}>
+              {savingContext ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+              Salvar Contexto
+            </Button>
+          </div>
+        </div>
+
+        <Separator />
+
         {/* Content Area */}
         <div className="px-5 py-3 overflow-y-auto max-h-[40vh] space-y-4">
           {loading ? (
