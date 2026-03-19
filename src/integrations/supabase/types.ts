@@ -2296,6 +2296,8 @@ export type Database = {
           last_stage_changed_by: string | null
           lead_stage: Database["public"]["Enums"]["lead_stage_enum"]
           lead_status: string
+          linkedin_context: string | null
+          linkedin_profile: Json | null
           priority_level: Database["public"]["Enums"]["priority_level_enum"]
           status: string
           unread_count: number
@@ -2322,6 +2324,8 @@ export type Database = {
           last_stage_changed_by?: string | null
           lead_stage?: Database["public"]["Enums"]["lead_stage_enum"]
           lead_status?: string
+          linkedin_context?: string | null
+          linkedin_profile?: Json | null
           priority_level?: Database["public"]["Enums"]["priority_level_enum"]
           status?: string
           unread_count?: number
@@ -2348,6 +2352,8 @@ export type Database = {
           last_stage_changed_by?: string | null
           lead_stage?: Database["public"]["Enums"]["lead_stage_enum"]
           lead_status?: string
+          linkedin_context?: string | null
+          linkedin_profile?: Json | null
           priority_level?: Database["public"]["Enums"]["priority_level_enum"]
           status?: string
           unread_count?: number
