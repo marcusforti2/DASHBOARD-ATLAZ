@@ -322,7 +322,7 @@ export default function Index() {
             </div>
           </header>
 
-          <main className="flex-1 p-2 sm:p-4 lg:p-6 max-w-[1600px] mx-auto w-full">
+          <main className={`flex-1 ${adminView === 'wa-hub' ? 'p-0 max-w-none' : 'p-2 sm:p-4 lg:p-6 max-w-[1600px] mx-auto'} w-full`}>
             {renderAdminContent()}
           </main>
         </div>
