@@ -620,227 +620,246 @@ function InstancesTab({
     toast.success(`${total} conversa(s) sincronizadas com o responsável da instância`);
   };
 
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
   return (
     <div className="space-y-4">
+      {/* Action bar */}
       <div className="flex items-center gap-2 flex-wrap">
         {!showCreate && (
-          <Button onClick={() => setShowCreate(true)} variant="outline" className="gap-2">
-            <Plus className="w-4 h-4" /> Nova Instância
+          <Button onClick={() => setShowCreate(true)} variant="outline" size="sm" className="gap-2 text-xs">
+            <Plus className="w-3.5 h-3.5" /> Nova Instância
           </Button>
         )}
-        <Button onClick={handleReconnectAll} variant="default" className="gap-2 text-xs">
+        <Button onClick={handleReconnectAll} variant="default" size="sm" className="gap-2 text-xs">
           <RefreshCw className="w-3.5 h-3.5" /> Reconectar Todas
         </Button>
-        <Button onClick={handleReconfigureAllWebhooks} variant="secondary" className="gap-2 text-xs">
+        <Button onClick={handleReconfigureAllWebhooks} variant="secondary" size="sm" className="gap-2 text-xs">
           <Link2 className="w-3.5 h-3.5" /> Reconfigurar Webhooks
         </Button>
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
-          <div>
-            <label className="text-xs text-muted-foreground mb-1.5 block">Buscar instância</label>
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Nome ou telefone"
-              className="h-9 text-sm"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground mb-1.5 block">Status</label>
-            <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as ConnectionFilter)}>
-              <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas</SelectItem>
-                <SelectItem value="connected">Conectadas</SelectItem>
-                <SelectItem value="disconnected">Desconectadas</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground mb-1.5 block">Closer</label>
-            <Select value={closerFilter} onValueChange={setCloserFilter}>
-              <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os closers</SelectItem>
-                {closerOptions.map((member) => (
-                  <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground mb-1.5 block">SDR</label>
-            <Select value={sdrFilter} onValueChange={setSdrFilter}>
-              <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os SDRs</SelectItem>
-                {sdrOptions.map((member) => (
-                  <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+      {/* Filters - compact row */}
+      <div className="flex items-end gap-3 flex-wrap">
+        <div className="w-48">
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar instância..."
+            className="h-8 text-xs"
+          />
         </div>
+        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as ConnectionFilter)}>
+          <SelectTrigger className="h-8 text-xs w-36"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas</SelectItem>
+            <SelectItem value="connected">Conectadas</SelectItem>
+            <SelectItem value="disconnected">Desconectadas</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={closerFilter} onValueChange={setCloserFilter}>
+          <SelectTrigger className="h-8 text-xs w-40"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos closers</SelectItem>
+            {closerOptions.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={sdrFilter} onValueChange={setSdrFilter}>
+          <SelectTrigger className="h-8 text-xs w-40"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos SDRs</SelectItem>
+            {sdrOptions.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
       </div>
 
+      {/* Create form */}
       {showCreate && (
-        <div className="rounded-xl bg-card border border-border p-5 space-y-4">
+        <div className="rounded-xl bg-card border border-border p-4 space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-foreground">Criar Nova Instância</h3>
             <button onClick={() => setShowCreate(false)} className="text-xs text-muted-foreground hover:text-foreground">Cancelar</button>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Nome da Instância *</label>
-              <Input placeholder="Ex: closer_joao" value={newName} onChange={(e) => setNewName(e.target.value)} className="h-9 text-sm" />
+              <label className="text-[10px] text-muted-foreground mb-1 block">Nome *</label>
+              <Input placeholder="Ex: closer_joao" value={newName} onChange={(e) => setNewName(e.target.value)} className="h-8 text-xs" />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Telefone</label>
-              <Input placeholder="5511999999999" value={newPhone} onChange={(e) => setNewPhone(e.target.value)} className="h-9 text-sm" />
+              <label className="text-[10px] text-muted-foreground mb-1 block">Telefone</label>
+              <Input placeholder="5511999999999" value={newPhone} onChange={(e) => setNewPhone(e.target.value)} className="h-8 text-xs" />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">SDR responsável</label>
+              <label className="text-[10px] text-muted-foreground mb-1 block">SDR</label>
               <Select value={newSdrId} onValueChange={setNewSdrId}>
-                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Nenhum" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Nenhum</SelectItem>
-                  {sdrOptions.map((member) => (
-                    <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>
-                  ))}
+                  {sdrOptions.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Closer responsável</label>
+              <label className="text-[10px] text-muted-foreground mb-1 block">Closer</label>
               <Select value={newCloserId} onValueChange={setNewCloserId}>
-                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Nenhum" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Nenhum</SelectItem>
-                  {closerOptions.map((member) => (
-                    <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>
-                  ))}
+                  {closerOptions.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
           </div>
-          <Button onClick={handleCreateInstance} disabled={creating} className="gap-2">
+          <Button onClick={handleCreateInstance} disabled={creating} size="sm" className="gap-2 text-xs">
             {creating && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
             Criar Instância
           </Button>
         </div>
       )}
 
+      {/* Table */}
       {filteredInstances.length === 0 && !showCreate ? (
         <div className="rounded-xl bg-card border border-border p-8 text-center">
-          <Wifi className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground">Nenhuma instância encontrada nesse filtro</p>
-          <p className="text-[10px] text-muted-foreground mt-1">Ajuste os filtros ou crie uma nova instância</p>
+          <Wifi className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
+          <p className="text-sm text-muted-foreground">Nenhuma instância encontrada</p>
         </div>
       ) : (
-        filteredInstances.map((inst) => {
-          const displayName = inst.instance_name.replace(/^wpp_/i, '').replace(/_/g, ' ').replace(/^\w/, (c: string) => c.toUpperCase());
-          const assignedCloser = teamMembers.find((m) => m.id === inst.closer_id);
-          const assignedSdr = teamMembers.find((m) => m.id === (inst as any).sdr_id);
-          const isEditing = editingId === inst.id;
-          const counts = countsByInstance.get(inst.id) || { total: 0, active: 0 };
+        <div className="rounded-xl border border-border bg-card overflow-hidden">
+          {/* Table header */}
+          <div className="grid grid-cols-[minmax(0,2fr)_100px_minmax(0,1.2fr)_minmax(0,1.2fr)_80px_80px_120px] gap-2 px-4 py-2.5 border-b border-border bg-muted/40 text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+            <span>Instância</span>
+            <span>Status</span>
+            <span>Closer</span>
+            <span>SDR</span>
+            <span className="text-center">Conversas</span>
+            <span className="text-center">SDR IA</span>
+            <span className="text-right">Ações</span>
+          </div>
 
-          return (
-            <div key={inst.id} className="rounded-xl bg-card border border-border p-4 space-y-4">
-              <div className="flex items-start gap-3 flex-wrap">
-                <div className="flex items-center gap-2">
-                  <Wifi className={`w-4 h-4 ${inst.is_connected ? 'text-emerald-500' : 'text-muted-foreground'}`} />
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-semibold text-foreground">{displayName}</span>
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${inst.is_connected ? 'bg-emerald-500/10 text-emerald-600' : 'bg-muted text-muted-foreground'}`}>
-                        {inst.is_connected ? 'Conectada' : 'Desconectada'}
-                      </span>
+          {/* Table rows */}
+          {filteredInstances.map((inst) => {
+            const displayName = inst.instance_name.replace(/^wpp_/i, '').replace(/_/g, ' ').replace(/^\w/, (c: string) => c.toUpperCase());
+            const assignedCloser = teamMembers.find((m) => m.id === inst.closer_id);
+            const assignedSdr = teamMembers.find((m) => m.id === (inst as any).sdr_id);
+            const isEditing = editingId === inst.id;
+            const counts = countsByInstance.get(inst.id) || { total: 0, active: 0 };
+            const isExpanded = expandedId === inst.id;
+
+            return (
+              <div key={inst.id} className="border-b border-border last:border-b-0">
+                {/* Main row */}
+                <div
+                  className="grid grid-cols-[minmax(0,2fr)_100px_minmax(0,1.2fr)_minmax(0,1.2fr)_80px_80px_120px] gap-2 px-4 py-3 items-center hover:bg-muted/20 cursor-pointer transition-colors"
+                  onClick={() => setExpandedId(isExpanded ? null : inst.id)}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Wifi className={`w-3.5 h-3.5 shrink-0 ${inst.is_connected ? 'text-emerald-500' : 'text-muted-foreground/40'}`} />
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">{displayName}</p>
+                      <p className="text-[10px] font-mono text-muted-foreground truncate">{inst.instance_name}</p>
                     </div>
-                    <p className="text-[11px] font-mono text-muted-foreground mt-0.5">{inst.instance_name}</p>
+                  </div>
+
+                  <div>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${inst.is_connected ? 'bg-emerald-500/10 text-emerald-500' : 'bg-muted text-muted-foreground'}`}>
+                      {inst.is_connected ? 'Conectada' : 'Desconectada'}
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-foreground truncate">{assignedCloser?.name || <span className="text-muted-foreground">—</span>}</p>
+                  <p className="text-xs text-foreground truncate">{assignedSdr?.name || <span className="text-muted-foreground">—</span>}</p>
+
+                  <p className="text-xs text-center font-medium text-foreground">{counts.total}</p>
+
+                  <div className="flex justify-center">
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${inst.ai_sdr_enabled ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                      {inst.ai_sdr_enabled ? 'Ativo' : 'Off'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
+                    {isEditing ? (
+                      <>
+                        <Button size="sm" variant="ghost" onClick={cancelEdit} className="h-7 w-7 p-0"><X className="w-3.5 h-3.5" /></Button>
+                        <Button size="sm" variant="ghost" onClick={() => handleSaveEdit(inst.id)} disabled={saving} className="h-7 w-7 p-0 text-primary">
+                          {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button size="sm" variant="ghost" onClick={() => handleCopyWebhookUrl(inst.instance_name)} title="Copiar Webhook" className="h-7 w-7 p-0"><Copy className="w-3.5 h-3.5" /></Button>
+                        <Button size="sm" variant="ghost" onClick={() => startEdit(inst)} title="Editar" className="h-7 w-7 p-0"><Pencil className="w-3.5 h-3.5" /></Button>
+                        <Button size="sm" variant="ghost" onClick={() => handleDelete(inst.id, inst.instance_name)} title="Excluir" className="h-7 w-7 p-0 text-destructive hover:text-destructive"><Trash2 className="w-3.5 h-3.5" /></Button>
+                      </>
+                    )}
                   </div>
                 </div>
 
-                <div className="ml-auto flex items-center gap-1">
-                  {isEditing ? (
-                    <>
-                      <Button size="sm" variant="ghost" onClick={cancelEdit} className="h-7 w-7 p-0"><X className="w-3.5 h-3.5" /></Button>
-                      <Button size="sm" variant="ghost" onClick={() => handleSaveEdit(inst.id)} disabled={saving} className="h-7 w-7 p-0 text-primary">
-                        {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                {/* Expanded details */}
+                {(isExpanded || isEditing) && (
+                  <div className="px-4 pb-4 pt-1 space-y-3 bg-muted/10 border-t border-border/50" onClick={(e) => e.stopPropagation()}>
+                    {isEditing && (
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <label className="text-[10px] text-muted-foreground mb-1 block">Telefone</label>
+                          <Input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} placeholder="5511999999999" className="h-8 text-xs" />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-muted-foreground mb-1 block">SDR</label>
+                          <Select value={editSdrId} onValueChange={setEditSdrId}>
+                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Nenhum</SelectItem>
+                              {sdrOptions.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-muted-foreground mb-1 block">Closer</label>
+                          <Select value={editCloserId} onValueChange={setEditCloserId}>
+                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Nenhum</SelectItem>
+                              {closerOptions.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Phone className="w-3 h-3" />
+                        <span>{inst.phone || 'Sem telefone'}</span>
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {counts.total} conversas • {counts.active} ativas
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1.5" onClick={() => handleSyncAssignments(inst)}>
+                        <Users className="w-3 h-3" /> Sincronizar responsáveis
                       </Button>
-                    </>
-                  ) : (
-                    <>
-                      <Button size="sm" variant="ghost" onClick={() => handleSetWebhook(inst.instance_name)} title="Cadastrar Webhook" className="h-7 w-7 p-0"><Link2 className="w-3.5 h-3.5" /></Button>
-                      <Button size="sm" variant="ghost" onClick={() => handleCopyWebhookUrl(inst.instance_name)} title="Copiar URL do Webhook" className="h-7 w-7 p-0"><Copy className="w-3.5 h-3.5" /></Button>
-                      <Button size="sm" variant="ghost" onClick={() => startEdit(inst)} className="h-7 w-7 p-0"><Pencil className="w-3.5 h-3.5" /></Button>
-                      <Button size="sm" variant="ghost" onClick={() => handleDelete(inst.id, inst.instance_name)} className="h-7 w-7 p-0 text-destructive hover:text-destructive"><Trash2 className="w-3.5 h-3.5" /></Button>
-                    </>
-                  )}
-                </div>
-              </div>
+                      <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1.5" onClick={() => handleSetWebhook(inst.instance_name)}>
+                        <Link2 className="w-3 h-3" /> Webhook
+                      </Button>
+                    </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
-                <InfoTile icon={<Phone className="w-3.5 h-3.5" />} label="Telefone" value={inst.phone || 'Não informado'} />
-                <InfoTile icon={<Users className="w-3.5 h-3.5" />} label="SDR responsável" value={assignedSdr?.name || 'Não vinculado'} />
-                <InfoTile icon={<UserPlus className="w-3.5 h-3.5" />} label="Closer responsável" value={assignedCloser?.name || 'Não vinculado'} />
-                <InfoTile icon={<MessageSquare className="w-3.5 h-3.5" />} label="Conversas" value={`${counts.total} total, ${counts.active} ativas`} />
-              </div>
-
-              <div className="flex items-center gap-2 flex-wrap">
-                <Button variant="outline" size="sm" className="h-8 text-xs gap-2" onClick={() => handleSyncAssignments(inst)}>
-                  <Users className="w-3.5 h-3.5" /> Sincronizar responsáveis nas conversas
-                </Button>
-                <span className="text-[11px] text-muted-foreground">
-                  Usa o closer da instância. Se não houver, usa o SDR.
-                </span>
-              </div>
-
-              {isEditing && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Telefone</label>
-                    <Input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} placeholder="5511999999999" className="h-8 text-sm" />
+                    <AiSdrConfigPanel
+                      instanceId={inst.id}
+                      instanceName={inst.instance_name}
+                      aiSdrEnabled={inst.ai_sdr_enabled || false}
+                      aiSdrConfig={inst.ai_sdr_config || {}}
+                      onUpdate={refetchInstances}
+                    />
+                    <WaInstancePanel instanceName={inst.instance_name} closerName={displayName} instanceId={inst.id} />
                   </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">SDR responsável</label>
-                    <Select value={editSdrId} onValueChange={setEditSdrId}>
-                      <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Nenhum" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Nenhum</SelectItem>
-                        {sdrOptions.map((member) => (
-                          <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Closer responsável</label>
-                    <Select value={editCloserId} onValueChange={setEditCloserId}>
-                      <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Nenhum" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Nenhum</SelectItem>
-                        {closerOptions.map((member) => (
-                          <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              )}
-
-              <AiSdrConfigPanel
-                instanceId={inst.id}
-                instanceName={inst.instance_name}
-                aiSdrEnabled={inst.ai_sdr_enabled || false}
-                aiSdrConfig={inst.ai_sdr_config || {}}
-                onUpdate={refetchInstances}
-              />
-              <WaInstancePanel instanceName={inst.instance_name} closerName={displayName} instanceId={inst.id} />
-            </div>
-          );
-        })
+                )}
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );
