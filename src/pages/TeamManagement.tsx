@@ -36,9 +36,6 @@ function MemberFormDialog({
   const [name, setName] = useState(member?.name || "");
   const [email, setEmail] = useState(member?.email || "");
   const [phone, setPhone] = useState(member?.phone || "");
-  const [pipedriveUserId, setPipedriveUserId] = useState<string>(
-    member?.pipedrive_user_id ? String(member.pipedrive_user_id) : ""
-  );
   const [password, setPassword] = useState("");
   const [selectedRoles, setSelectedRoles] = useState<Set<string>>(() => {
     if (member?.member_role) {
