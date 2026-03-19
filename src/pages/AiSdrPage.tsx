@@ -217,6 +217,16 @@ function AiSdrPageInner() {
   const [stats, setStats] = useState({ totalMessages: 0, handoffs: 0, activeInstances: 0, avgResponseTime: 0 });
   const [enrichingSourceId, setEnrichingSourceId] = useState<string | null>(null);
 
+  // Centralized knowledge state
+  const [knowledgeFields, setKnowledgeFields] = useState<Record<string, { id: string | null; content: string }>>({
+    ai_sdr_master_prompt: { id: null, content: "" },
+    ai_sdr_target_audience: { id: null, content: "" },
+    ai_sdr_pain_points: { id: null, content: "" },
+    ai_sdr_desires: { id: null, content: "" },
+    ai_sdr_context: { id: null, content: "" },
+  });
+  const [savingKnowledge, setSavingKnowledge] = useState(false);
+
   const handleEnrichContext = async (idx: number, src: LeadSource) => {
     if (!src.context.trim()) {
       toast.error("Escreva um rascunho de contexto antes de enriquecer.");
