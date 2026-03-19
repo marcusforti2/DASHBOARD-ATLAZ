@@ -89,7 +89,7 @@ export function WaCrmView({ conversations, tags, instances, teamMembers, getTags
     }
     return list;
     return list;
-  }, [conversations, search, filterInstanceId, filterCloserId, filterSdrId, filterTag, filterStage, filterMode, filterPriority, getTagsForContact, instanceMap]);
+  }, [conversations, search, filterInstanceId, filterCloserId, filterSdrId, filterTag, getTagsForContact, instanceMap]);
 
   const getConvsForStage = useCallback(
     (stage: LeadStage) => filteredConversations.filter(c => c.lead_stage === stage),
