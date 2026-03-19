@@ -82,8 +82,7 @@ export function LeadDetailModal({ open, onOpenChange, conversation, tags, assign
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [personResult, scoreResult, msgsResult, convResult, eventsResult] = await Promise.all([
-        supabase.from('pipedrive_persons').select('*').eq('wa_contact_id', contactId).maybeSingle(),
+      const [scoreResult, msgsResult, convResult, eventsResult] = await Promise.all([
         supabase.from('wa_lead_scores').select('*').eq('contact_id', contactId).maybeSingle(),
         supabase.from('wa_messages').select('sender, created_at').eq('conversation_id', conversation.id).order('created_at', { ascending: true }),
         supabase.from('wa_conversations').select('conversation_mode, lead_stage, priority_level').eq('id', conversation.id).single(),
