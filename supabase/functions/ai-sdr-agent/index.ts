@@ -701,8 +701,8 @@ Deno.serve(async (req) => {
       console.log("[ai-sdr] Organic contact detected — switching to receptive assistant mode");
     }
 
-    // Build the master system prompt
-    const masterPrompt = config.master_prompt || "";
+    // Build the master system prompt (masterPrompt already resolved from company_knowledge above)
+
     const identityLine = closerName
       ? `Você é ${closerName}, especialista comercial. O lead DEVE acreditar que está falando diretamente com ${closerName}. Use primeira pessoa. NUNCA mencione que é IA, assistente virtual ou bot.`
       : `Você é uma SDR (Sales Development Representative) virtual de IA integrada ao WhatsApp.`;
