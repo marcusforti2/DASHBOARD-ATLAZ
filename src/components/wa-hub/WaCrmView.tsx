@@ -496,11 +496,12 @@ function EmptyColumn() {
 }
 
 /* ── Kanban Card ── */
-function KanbanCard({ conv, stageColor, tags, assignedTagIds, onAddTag, onRemoveTag, onDragStart, onClick, instanceLabel, sdrLabel, closerLabel }: {
+function KanbanCard({ conv, stageColor, tags, assignedTagIds, onAddTag, onRemoveTag, onDragStart, onClick, onEdit, onDelete, instanceLabel, sdrLabel, closerLabel }: {
   conv: WaConversation; stageColor: string; tags: WaTag[]; assignedTagIds: string[];
   onAddTag: (contactId: string, tagId: string) => Promise<void>;
   onRemoveTag: (contactId: string, tagId: string) => Promise<void>;
   onDragStart: (convId: string) => void; onClick?: () => void;
+  onEdit?: () => void; onDelete?: () => void;
   instanceLabel: string; sdrLabel: string; closerLabel: string;
 }) {
   const avatarColor = getAvatarColor(conv.contact.name);
