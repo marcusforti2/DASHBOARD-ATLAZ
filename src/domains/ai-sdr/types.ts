@@ -111,11 +111,6 @@ export interface AiSdrConfig {
 export const DEFAULT_AI_SDR_CONFIG: AiSdrConfig = {
   greeting: 'Olá! 👋 Obrigado por entrar em contato. Como posso ajudar você hoje?',
   tone: 'profissional',
-  organic_mode_enabled: true,
-  organic_prompt:
-    'O gestor está em imersão hoje, 100% indisponível. Quando alguém mandar msg:\n1. Responda de forma curta e casual (tipo 1 frase só no começo)\n2. Pergunte do que se trata\n3. Anote o assunto e quem é\n4. Fale que vai ver quem cuida disso e retorna depois\n5. Use abreviações: hj, vc, blz, tb, msg\n6. NÃO prometa nada, só anote\n7. Se insistir, diga que ele tá em evento o dia todo e volta amanhã',
-  organic_tone: 'casual e amigável',
-  organic_name: 'Bia',
   prompt_context: '',
   master_prompt: '',
   target_audience: '',
