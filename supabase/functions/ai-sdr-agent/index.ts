@@ -119,7 +119,7 @@ Deno.serve(async (req) => {
       qualification: config.feature_qualification !== false,
       handoff: config.feature_handoff !== false,
       sentiment: config.feature_sentiment === true,
-      pipedrive_sync: config.feature_pipedrive_sync === true,
+      
       rate_limit: config.feature_rate_limit !== false,
       reengagement: config.feature_reengagement === true,
       blacklist: config.feature_blacklist === true,
