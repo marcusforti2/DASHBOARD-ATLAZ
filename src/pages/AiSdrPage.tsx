@@ -448,19 +448,6 @@ function AiSdrPageInner() {
                     </div>
                     {src.active && (
                       <div className="px-4 pb-4 pt-0 space-y-3">
-                        <div className="flex items-center gap-3">
-                          <div className="flex-1">
-                            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">
-                              Pipedrive Label ID
-                            </label>
-                            <div className="h-8 w-28 flex items-center px-2 rounded-md bg-muted/50 border border-border text-xs font-mono text-muted-foreground">
-                              {src.pipedrive_label_id ?? "—"}
-                            </div>
-                          </div>
-                          <p className="text-[10px] text-muted-foreground flex-1">
-                            ID da etiqueta no Pipedrive. A IA só dispara proativamente para deals com essa etiqueta.
-                          </p>
-                        </div>
                         <div>
                           <div className="flex items-center justify-between mb-1">
                             <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">
