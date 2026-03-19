@@ -19,7 +19,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { WaTag } from '@/hooks/use-wa-tags';
-
 interface Props {
   conversations: WaConversation[];
   instances: WaInstance[];
