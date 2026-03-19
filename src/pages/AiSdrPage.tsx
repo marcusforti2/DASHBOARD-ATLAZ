@@ -262,14 +262,6 @@ function AiSdrPageInner() {
   useEffect(() => {
     if (selectedInstance) {
       const merged = { ...DEFAULT_CONFIG, ...(selectedInstance.ai_sdr_config || {}) };
-      // Auto-fill missing pipedrive_label_id from defaults
-      if (merged.lead_sources?.length) {
-        const defaultMap = Object.fromEntries(DEFAULT_CONFIG.lead_sources.map(s => [s.id, s.pipedrive_label_id]));
-        merged.lead_sources = merged.lead_sources.map(src => ({
-          ...src,
-          pipedrive_label_id: src.pipedrive_label_id ?? defaultMap[src.id] ?? src.pipedrive_label_id,
-        }));
-      }
       setLocalConfig(merged);
     }
   }, [selectedInstanceId, selectedInstance?.ai_sdr_config]);
