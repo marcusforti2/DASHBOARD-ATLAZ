@@ -21,7 +21,7 @@ const iconMap: Record<string, any> = {
   trigger: Zap, incoming: Phone, greeting: Send, qualify: MessageSquare,
   score: Target, scoreA: CheckCircle2, scoreB: AlertTriangle, scoreC: Ban,
   calendar: Calendar, handoffCloser: Users, handoffSdr: Users,
-  tag: Tag, sentiment: Brain, pipedrive: Zap, end: Shield,
+  tag: Tag, sentiment: Brain, end: Shield,
 };
 
 const colorMap: Record<string, string> = {
