@@ -376,6 +376,9 @@ function WaHubPageInner() {
           <AiPromptsTab />
         </TabsContent>
 
+        <TabsContent value="ai-center" className="mt-4 px-4">
+          <AiCommandCenter instances={instances} teamMembers={teamMembers} />
+        </TabsContent>
 
         <TabsContent value="instances" className="mt-4 px-4">
           <InstancesTab mgr={mgr} conversations={allConversations} />
