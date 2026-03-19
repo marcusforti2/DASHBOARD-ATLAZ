@@ -199,7 +199,7 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
     }
     setBatchSubmitting(false);
     toast.success(`${ok} leads cadastrados${fail > 0 ? `, ${fail} falharam` : ''}${batchTriggerAi ? ' — IA disparada!' : ''}`);
-    if (ok > 0) { setBatchText(''); setAiParsedLeads(null); onRefresh?.(); }
+    if (ok > 0) { setBatchText(''); setAiParsedLeads(null); setBatchLinkedinContext(''); onRefresh?.(); }
   };
 
   const SourceSelector = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
