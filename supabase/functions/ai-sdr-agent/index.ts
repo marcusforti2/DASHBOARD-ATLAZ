@@ -1064,7 +1064,11 @@ Responda EXATAMENTE neste formato JSON:
     }
     let userMessage: string;
     if (isProactive) {
-      const pCtx: any = {};
+      const pCtx: any = {
+        linkedin_url: body_linkedin_url || "",
+        lead_source_context: lead_source_context || "",
+        lead_source_name: lead_source_name || "PROSPECÇÃO",
+      };
       const linkedinUrl = pCtx.linkedin_url || "";
       const sourceContext = pCtx.lead_source_context || "";
       const sourceName = pCtx.lead_source_name || "PROSPECÇÃO";
