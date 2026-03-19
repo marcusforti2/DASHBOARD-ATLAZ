@@ -3,7 +3,6 @@ import { LayoutGrid, List, Plus, Trash2, GripVertical, Inbox, Bot, User, AlertTr
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { WaContactTagBadges } from './WaContactTagBadges';
 import { LeadDetailModal } from './LeadDetailModal';
@@ -14,11 +13,9 @@ import {
   LEAD_STAGES,
   LEAD_STAGE_LABELS,
   CONVERSATION_MODE_LABELS,
-  CONVERSATION_MODES,
-  PRIORITY_LEVELS,
   PRIORITY_LEVEL_LABELS,
 } from '@/domains/conversations/types';
-import type { LeadStage, ConversationMode, PriorityLevel } from '@/domains/conversations/types';
+import type { LeadStage } from '@/domains/conversations/types';
 import type { WaTag } from '@/hooks/use-wa-tags';
 import type { WaConversation, WaInstance } from '@/hooks/use-wa-hub';
 
@@ -53,9 +50,6 @@ export function WaCrmView({ conversations, tags, instances, teamMembers, getTags
   const [view, setView] = useState<'kanban' | 'table'>('kanban');
   const [search, setSearch] = useState('');
   const [filterTag, setFilterTag] = useState<string | null>(null);
-  const [filterStage, setFilterStage] = useState<LeadStage | null>(null);
-  const [filterMode, setFilterMode] = useState<ConversationMode | null>(null);
-  const [filterPriority, setFilterPriority] = useState<PriorityLevel | null>(null);
   const [filterInstanceId, setFilterInstanceId] = useState<string>('all');
   const [filterCloserId, setFilterCloserId] = useState<string>('all');
   const [filterSdrId, setFilterSdrId] = useState<string>('all');
@@ -89,17 +83,9 @@ export function WaCrmView({ conversations, tags, instances, teamMembers, getTags
         return ct.some(t => t.tag_id === filterTag);
       });
     }
-    if (filterStage) {
-      list = list.filter(c => c.lead_stage === filterStage);
-    }
-    if (filterMode) {
-      list = list.filter(c => c.conversation_mode === filterMode);
-    }
-    if (filterPriority) {
-      list = list.filter(c => c.priority_level === filterPriority);
-    }
     return list;
-  }, [conversations, search, filterInstanceId, filterCloserId, filterSdrId, filterTag, filterStage, filterMode, filterPriority, getTagsForContact, instanceMap]);
+    return list;
+  }, [conversations, search, filterInstanceId, filterCloserId, filterSdrId, filterTag, getTagsForContact, instanceMap]);
 
   const getConvsForStage = useCallback(
     (stage: LeadStage) => filteredConversations.filter(c => c.lead_stage === stage),
@@ -215,56 +201,6 @@ export function WaCrmView({ conversations, tags, instances, teamMembers, getTags
           </Select>
         </div>
 
-        {/* Filters row */}
-        <ScrollArea className="w-full">
-          <div className="flex items-center gap-1.5 pb-1">
-            {/* Stage filters */}
-            <span className="text-[9px] text-muted-foreground font-medium mr-1">Etapa:</span>
-            <FilterChip active={!filterStage} onClick={() => setFilterStage(null)}>Todas</FilterChip>
-            {LEAD_STAGES.map(s => (
-              <FilterChip key={s} active={filterStage === s} onClick={() => setFilterStage(filterStage === s ? null : s)} color={STAGE_COLORS[s]}>
-                {LEAD_STAGE_LABELS[s]}
-              </FilterChip>
-            ))}
-
-            <span className="w-px h-4 bg-border mx-1" />
-
-            {/* Mode filters */}
-            <span className="text-[9px] text-muted-foreground font-medium mr-1">Modo:</span>
-            <FilterChip active={!filterMode} onClick={() => setFilterMode(null)}>Todos</FilterChip>
-            {CONVERSATION_MODES.map(m => (
-              <FilterChip key={m} active={filterMode === m} onClick={() => setFilterMode(filterMode === m ? null : m)}>
-                {CONVERSATION_MODE_LABELS[m]}
-              </FilterChip>
-            ))}
-
-            <span className="w-px h-4 bg-border mx-1" />
-
-            {/* Priority filters */}
-            <span className="text-[9px] text-muted-foreground font-medium mr-1">Prioridade:</span>
-            <FilterChip active={!filterPriority} onClick={() => setFilterPriority(null)}>Todas</FilterChip>
-            {PRIORITY_LEVELS.filter(p => p !== 'normal').map(p => (
-              <FilterChip key={p} active={filterPriority === p} onClick={() => setFilterPriority(filterPriority === p ? null : p)}>
-                {PRIORITY_LEVEL_LABELS[p]}
-              </FilterChip>
-            ))}
-
-            {/* Tag filter */}
-            {tags.length > 0 && (
-              <>
-                <span className="w-px h-4 bg-border mx-1" />
-                <span className="text-[9px] text-muted-foreground font-medium mr-1">Tag:</span>
-                <FilterChip active={!filterTag} onClick={() => setFilterTag(null)}>Todas</FilterChip>
-                {tags.map(tag => (
-                  <FilterChip key={tag.id} active={filterTag === tag.id} onClick={() => setFilterTag(filterTag === tag.id ? null : tag.id)} color={tag.color}>
-                    {tag.name}
-                  </FilterChip>
-                ))}
-              </>
-            )}
-          </div>
-          <ScrollBar orientation="horizontal" />
-        </ScrollArea>
       </div>
 
       {/* Kanban View */}
@@ -390,20 +326,6 @@ export function WaCrmView({ conversations, tags, instances, teamMembers, getTags
   );
 }
 
-/* ── Filter Chip ── */
-function FilterChip({ active, onClick, color, children }: { active: boolean; onClick: () => void; color?: string; children: React.ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`text-[10px] px-2.5 py-1 rounded-full font-medium transition-colors whitespace-nowrap ${
-        active ? 'text-white' : 'text-muted-foreground hover:bg-accent'
-      }`}
-      style={active ? { backgroundColor: color || 'hsl(var(--primary))' } : {}}
-    >
-      {children}
-    </button>
-  );
-}
 
 /* ── Kanban Column ── */
 function KanbanColumn({ label, color, count, stageId, dragOverStage, onDragOver, onDragLeave, onDrop, children }: {
