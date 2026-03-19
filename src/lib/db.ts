@@ -15,7 +15,7 @@ export interface DbTeamMember {
   member_role?: string;
   email?: string;
   phone?: string;
-  pipedrive_user_id?: number | null;
+  
 }
 
 /** Check if a member has a specific role (supports comma-separated roles like "sdr,closer") */

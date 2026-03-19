@@ -38,7 +38,7 @@ const colorMap: Record<string, string> = {
   handoffSdr: "border-amber-500 bg-amber-500/10 text-amber-500",
   tag: "border-yellow-500 bg-yellow-500/10 text-yellow-500",
   sentiment: "border-purple-500 bg-purple-500/10 text-purple-500",
-  pipedrive: "border-primary bg-primary/10 text-primary",
+  end: "border-muted-foreground bg-muted text-muted-foreground",
   end: "border-muted-foreground bg-muted text-muted-foreground",
 };
 
