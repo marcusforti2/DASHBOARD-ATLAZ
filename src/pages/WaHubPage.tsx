@@ -43,6 +43,7 @@ import { AiSdrConfigPanel } from '@/components/wa-hub/AiSdrConfigPanel';
 import { AiSdrSummaryCard } from '@/components/wa-hub/AiSdrSummaryCard';
 
 import { AiPromptsTab } from '@/components/wa-hub/AiPromptsTab';
+import { AiCommandCenter } from '@/components/wa-hub/AiCommandCenter';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
