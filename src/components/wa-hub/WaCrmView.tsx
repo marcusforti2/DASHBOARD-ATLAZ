@@ -341,6 +341,17 @@ export function WaCrmView({ conversations, tags, instances, teamMembers, getTags
                   </td>
                   <td className="px-4 py-2.5 text-xs text-muted-foreground truncate max-w-[200px]">{conv.last_message}</td>
                   <td className="px-4 py-2.5 text-xs text-muted-foreground">{formatCrmDate(conv.last_message_at)}</td>
+                  <td className="px-4 py-2.5" onClick={e => e.stopPropagation()}>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="p-1 rounded hover:bg-muted"><MoreVertical className="w-3.5 h-3.5 text-muted-foreground" /></button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openEdit(conv)}><Pencil className="w-3 h-3 mr-2" /> Editar</DropdownMenuItem>
+                        <DropdownMenuItem className="text-destructive" onClick={() => setDeletingConv(conv)}><Trash2 className="w-3 h-3 mr-2" /> Excluir</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </td>
                 </tr>
               ))}
             </tbody>
