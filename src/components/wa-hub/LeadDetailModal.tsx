@@ -288,18 +288,6 @@ export function LeadDetailModal({ open, onOpenChange, conversation, tags, assign
                 <Phone className="w-3 h-3" />
                 {conversation.contact.phone}
               </p>
-              {pipedriveData?.person?.email && (
-                <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
-                  <Mail className="w-3 h-3" />
-                  {pipedriveData.person.email}
-                </p>
-              )}
-              {pipedriveData?.person?.org_name && (
-                <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
-                  <Building2 className="w-3 h-3" />
-                  {pipedriveData.person.org_name}
-                </p>
-              )}
             </div>
           </div>
 
