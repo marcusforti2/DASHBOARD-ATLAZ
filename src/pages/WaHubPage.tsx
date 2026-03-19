@@ -372,9 +372,6 @@ function WaHubPageInner() {
           <AiPromptsTab />
         </TabsContent>
 
-        <TabsContent value="pipedrive" className="mt-4 px-4">
-          <PipedriveTab />
-        </TabsContent>
 
         <TabsContent value="instances" className="mt-4 px-4">
           <InstancesTab mgr={mgr} conversations={allConversations} />
