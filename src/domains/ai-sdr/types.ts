@@ -65,7 +65,7 @@ export interface AiSdrConfig {
   feature_qualification: boolean;
   feature_handoff: boolean;
   feature_sentiment: boolean;
-  feature_pipedrive_sync: boolean;
+  
 
   // Automation
   max_messages_before_handoff: number;
