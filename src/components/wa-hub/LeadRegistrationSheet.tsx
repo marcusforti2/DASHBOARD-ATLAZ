@@ -33,12 +33,12 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
   const [phone, setPhone] = useState('');
   const [linkedinUrl, setLinkedinUrl] = useState('');
   const [selectedSourceId, setSelectedSourceId] = useState<string>('none');
-  const [triggerAi, setTriggerAi] = useState(true);
+  const [triggerAi, setTriggerAi] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const [batchText, setBatchText] = useState('');
   const [batchSourceId, setBatchSourceId] = useState<string>('none');
-  const [batchTriggerAi, setBatchTriggerAi] = useState(true);
+  const [batchTriggerAi, setBatchTriggerAi] = useState(false);
   const [batchSubmitting, setBatchSubmitting] = useState(false);
 
   const [aiParsedLeads, setAiParsedLeads] = useState<LeadInput[] | null>(null);
