@@ -15,7 +15,7 @@ import {
 import {
   Bot, BotOff, CheckCheck, Phone, Mail, Building2, DollarSign,
   Calendar, ExternalLink, Loader2, TrendingUp, AlertTriangle,
-  User, MessageSquare, Clock, Briefcase, History
+  User, MessageSquare, Clock, Briefcase, History, Linkedin, Search, Save
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
