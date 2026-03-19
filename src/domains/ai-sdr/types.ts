@@ -187,7 +187,7 @@ export const DEFAULT_AI_SDR_CONFIG: AiSdrConfig = {
       context:
         'Lead recebeu uma sequência automatizada (Dripify ou similar) e respondeu. O contexto é diferente da prospecção manual — ele pode não lembrar quem você é. Apresente-se brevemente e retome o interesse.',
       color: '#E8A441',
-      pipedrive_label_id: 40,
+      
       automation: { ...DEFAULT_SOURCE_AUTOMATION, follow_up_hours: 48, notification_priority: 'normal' },
     },
     {
