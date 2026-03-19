@@ -157,6 +157,9 @@ export function WaCrmView({ conversations, tags, instances, teamMembers, getTags
           <Input placeholder="Buscar contato..." value={search} onChange={e => setSearch(e.target.value)} className="h-8 text-sm w-56" />
 
           <div className="ml-auto flex items-center gap-2">
+            <Button size="sm" variant="default" className="h-7 text-xs gap-1" onClick={() => setShowLeadRegistration(true)}>
+              <UserPlus className="w-3 h-3" /> Cadastrar Leads
+            </Button>
             <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setShowManageTags(true)}>
               <Plus className="w-3 h-3" /> Gerenciar Tags
             </Button>
