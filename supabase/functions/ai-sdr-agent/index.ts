@@ -1058,11 +1058,6 @@ Responda EXATAMENTE neste formato JSON:
 
       // If no specific context from lead_source config, try matching from instance config
       let finalSourceContext = sourceContext;
-      if (!finalSourceContext && pCtx.label_id) {
-        const leadSources = config.lead_sources || [];
-        const matched = leadSources.find((s: any) => s.active && Number(s.pipedrive_label_id) === Number(pCtx.label_id));
-        if (matched) finalSourceContext = matched.context || "";
-      }
 
       // FIX P5: Replace [NOME_DO_CLOSER] placeholder with actual closer name
       if (finalSourceContext && closerName) {
