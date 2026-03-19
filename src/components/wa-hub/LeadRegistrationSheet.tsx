@@ -350,7 +350,7 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
                       <span className="text-foreground font-medium truncate max-w-[140px]">{l.name}</span>
                       <span className="text-muted-foreground">{l.phone}</span>
                       {l.linkedinUrl && <Linkedin className="w-2.5 h-2.5 text-primary shrink-0" />}
-                      {l.linkedinContext && <MessageSquare className="w-2.5 h-2.5 text-green-500 shrink-0" title={l.linkedinContext} />}
+                      {l.linkedinContext && <MessageSquare className="w-2.5 h-2.5 text-primary shrink-0" />}
                     </div>
                   ))}
                   {batchLeads.length > 30 && (
