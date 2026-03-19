@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,7 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { UserPlus, Users, Loader2, Linkedin, Send, AlertCircle, Sparkles, CheckCircle2, Tag, MessageSquare } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { UserPlus, Users, Loader2, Linkedin, Send, AlertCircle, Sparkles, CheckCircle2, Tag, MessageSquare, Pencil, Trash2, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { WaInstance } from '@/hooks/use-wa-hub';
@@ -43,9 +44,12 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
   const [batchTriggerAi, setBatchTriggerAi] = useState(false);
   const [batchSubmitting, setBatchSubmitting] = useState(false);
   const [batchLinkedinContext, setBatchLinkedinContext] = useState('');
+  const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
 
   const [aiParsedLeads, setAiParsedLeads] = useState<LeadInput[] | null>(null);
   const [aiProcessing, setAiProcessing] = useState(false);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
 
   const sdrInstances = useMemo(() => instances.filter(i => i.sdr_id && i.ai_sdr_enabled), [instances]);
   const defaultInstance = sdrInstances[0] || instances[0];
@@ -86,7 +90,22 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
     } finally { setAiProcessing(false); }
   };
 
-  const handleBatchTextChange = (text: string) => { setBatchText(text); setAiParsedLeads(null); };
+  const handleBatchTextChange = (text: string) => { setBatchText(text); setAiParsedLeads(null); setEditingIndex(null); setExpandedIndex(null); };
+
+  const updateParsedLead = useCallback((index: number, field: keyof LeadInput, value: string) => {
+    if (!aiParsedLeads) return;
+    const updated = [...aiParsedLeads];
+    updated[index] = { ...updated[index], [field]: value };
+    setAiParsedLeads(updated);
+  }, [aiParsedLeads]);
+
+  const removeParsedLead = useCallback((index: number) => {
+    if (!aiParsedLeads) return;
+    const updated = aiParsedLeads.filter((_, i) => i !== index);
+    setAiParsedLeads(updated.length > 0 ? updated : null);
+    setEditingIndex(null);
+    setExpandedIndex(null);
+  }, [aiParsedLeads]);
 
   const normalizePhone = (p: string): string => {
     let clean = p.replace(/[^0-9+]/g, '');
@@ -114,9 +133,18 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
       let contactId: string;
       if (existingContact) {
         contactId = existingContact.id;
+        // Update contact name and linkedin if provided
+        const updateData: any = {};
+        if (lead.name) updateData.name = lead.name;
+        if (lead.linkedinUrl) updateData.linkedin_profile_url = lead.linkedinUrl;
+        if (Object.keys(updateData).length > 0) {
+          await supabase.from('wa_contacts').update(updateData).eq('id', contactId);
+        }
       } else {
+        const insertData: any = { phone: normalizedPhone, name: lead.name, instance_id: inst.id };
+        if (lead.linkedinUrl) insertData.linkedin_profile_url = lead.linkedinUrl;
         const { data: newContact, error: contactErr } = await supabase
-          .from('wa_contacts').insert({ phone: normalizedPhone, name: lead.name, instance_id: inst.id } as any)
+          .from('wa_contacts').insert(insertData)
           .select('id').single();
         if (contactErr) throw contactErr;
         contactId = newContact.id;
@@ -128,11 +156,11 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
       let conversationId: string;
       if (existingConv) {
         conversationId = existingConv.id;
-        // Update linkedin context if provided
-        if (lead.linkedinContext) {
-          await supabase.from('wa_conversations').update({
-            linkedin_context: lead.linkedinContext,
-          } as any).eq('id', existingConv.id);
+        const convUpdate: any = {};
+        if (lead.linkedinContext) convUpdate.linkedin_context = lead.linkedinContext;
+        if (lead.linkedinUrl) convUpdate.linkedin_url = lead.linkedinUrl;
+        if (Object.keys(convUpdate).length > 0) {
+          await supabase.from('wa_conversations').update(convUpdate).eq('id', existingConv.id);
         }
       } else {
         const { data: newConv, error: convErr } = await supabase
@@ -140,6 +168,7 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
             contact_id: contactId, instance_id: inst.id, status: 'active',
             lead_stage: 'novo', conversation_mode: 'ia_ativa', priority_level: 'normal',
             linkedin_context: lead.linkedinContext || '',
+            linkedin_url: lead.linkedinUrl || '',
           } as any).select('id').single();
         if (convErr) throw convErr;
         conversationId = newConv.id;
@@ -190,16 +219,19 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
   const handleSubmitBatch = async () => {
     if (batchLeads.length === 0) { toast.error('Nenhum lead válido encontrado.'); return; }
     setBatchSubmitting(true);
+    setBatchProgress({ current: 0, total: batchLeads.length });
     let ok = 0, fail = 0;
-    for (const lead of batchLeads) {
-      // Apply batch-level linkedin context to each lead if they don't have individual context
+    for (let i = 0; i < batchLeads.length; i++) {
+      const lead = batchLeads[i];
       const leadWithContext = { ...lead, linkedinContext: lead.linkedinContext || batchLinkedinContext };
       const result = await createLeadAndTrigger(leadWithContext, batchSourceId, batchTriggerAi);
       if (result) ok++; else fail++;
+      setBatchProgress({ current: i + 1, total: batchLeads.length });
     }
     setBatchSubmitting(false);
+    setBatchProgress({ current: 0, total: 0 });
     toast.success(`${ok} leads cadastrados${fail > 0 ? `, ${fail} falharam` : ''}${batchTriggerAi ? ' — IA disparada!' : ''}`);
-    if (ok > 0) { setBatchText(''); setAiParsedLeads(null); setBatchLinkedinContext(''); onRefresh?.(); }
+    if (ok > 0) { setBatchText(''); setAiParsedLeads(null); setBatchLinkedinContext(''); setEditingIndex(null); setExpandedIndex(null); onRefresh?.(); }
   };
 
   const SourceSelector = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
@@ -233,6 +265,14 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
       })()}
     </div>
   );
+
+  const leadsWithContext = useMemo(() => {
+    return batchLeads.filter(l => l.linkedinContext).length;
+  }, [batchLeads]);
+
+  const leadsWithLinkedin = useMemo(() => {
+    return batchLeads.filter(l => l.linkedinUrl).length;
+  }, [batchLeads]);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -295,7 +335,7 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
               <Textarea
                 value={linkedinContext}
                 onChange={e => setLinkedinContext(e.target.value)}
-                placeholder="Ex: Conversamos sobre modelo de mentoria no LinkedIn, ele perguntou sobre preço e formato. Demonstrou interesse em consultoria individual..."
+                placeholder="Ex: Conversamos sobre modelo de mentoria no LinkedIn, ele perguntou sobre preço e formato..."
                 className="min-h-[80px] text-xs"
               />
               <p className="text-[10px] text-muted-foreground">
@@ -321,10 +361,10 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
                 value={batchText}
                 onChange={e => handleBatchTextChange(e.target.value)}
                 placeholder={`Cole aqui em qualquer formato:\nJoão Silva 11999998888 linkedin.com/in/joao\nMaria Santos - (21) 98888-7777\nPedro Costa, 31977776666, https://linkedin.com/in/pedro\n\nA IA organiza automaticamente!`}
-                className="min-h-[140px] text-xs font-mono"
+                className="min-h-[120px] text-xs font-mono"
               />
               <p className="text-[10px] text-muted-foreground">
-                Cole em qualquer formato — a IA extrai nomes, telefones e LinkedIn automaticamente.
+                Cole em qualquer formato — a IA extrai nomes, telefones, LinkedIn e contexto automaticamente.
               </p>
             </div>
 
@@ -334,27 +374,97 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
               {aiProcessing ? 'Processando com IA...' : '✨ Processar com IA'}
             </Button>
 
+            {/* Parsed leads preview */}
             {batchLeads.length > 0 && (
-              <div className={`rounded-lg p-2.5 space-y-1.5 ${aiParsedLeads ? 'bg-primary/5 border border-primary/20' : 'bg-muted/50'}`}>
-                <div className="flex items-center gap-2">
-                  {aiParsedLeads && <CheckCircle2 className="w-3.5 h-3.5 text-primary" />}
-                  <p className="text-xs font-medium text-foreground">
-                    {aiParsedLeads ? `✅ ${batchLeads.length} leads organizados pela IA:` : `${batchLeads.length} leads detectados:`}
-                  </p>
+              <div className={`rounded-lg border overflow-hidden ${aiParsedLeads ? 'border-primary/20 bg-primary/5' : 'border-border bg-muted/30'}`}>
+                {/* Header with stats */}
+                <div className="flex items-center justify-between p-2.5 border-b border-border/50">
+                  <div className="flex items-center gap-2">
+                    {aiParsedLeads && <CheckCircle2 className="w-3.5 h-3.5 text-primary" />}
+                    <span className="text-xs font-medium">
+                      {aiParsedLeads ? `${batchLeads.length} leads organizados pela IA` : `${batchLeads.length} leads detectados`}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {leadsWithLinkedin > 0 && (
+                      <Badge variant="secondary" className="text-[9px] h-4 gap-0.5 px-1.5">
+                        <Linkedin className="w-2.5 h-2.5" /> {leadsWithLinkedin}
+                      </Badge>
+                    )}
+                    {leadsWithContext > 0 && (
+                      <Badge variant="secondary" className="text-[9px] h-4 gap-0.5 px-1.5">
+                        <MessageSquare className="w-2.5 h-2.5" /> {leadsWithContext}
+                      </Badge>
+                    )}
+                  </div>
                 </div>
-                <div className="max-h-[150px] overflow-y-auto space-y-1">
+
+                {/* Lead list */}
+                <div className="max-h-[220px] overflow-y-auto divide-y divide-border/30">
                   {batchLeads.slice(0, 30).map((l, i) => (
-                    <div key={i} className="flex items-center gap-2 text-[10px] py-0.5 px-1.5 rounded bg-background/50">
-                      <span className="text-foreground font-medium truncate max-w-[140px]">{l.name}</span>
-                      <span className="text-muted-foreground">{l.phone}</span>
-                      {l.linkedinUrl && <Linkedin className="w-2.5 h-2.5 text-primary shrink-0" />}
-                      {l.linkedinContext && <MessageSquare className="w-2.5 h-2.5 text-primary shrink-0" />}
+                    <div key={i} className="group">
+                      {/* Lead row */}
+                      <div
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-[11px] cursor-pointer hover:bg-background/60 transition-colors"
+                        onClick={() => aiParsedLeads && setExpandedIndex(expandedIndex === i ? null : i)}
+                      >
+                        <span className="text-muted-foreground w-4 text-right text-[9px]">{i + 1}</span>
+                        <span className="font-medium text-foreground truncate flex-1 min-w-0">{l.name}</span>
+                        <span className="text-muted-foreground text-[10px] shrink-0">{l.phone}</span>
+                        {l.linkedinUrl && <Linkedin className="w-2.5 h-2.5 text-primary shrink-0" />}
+                        {l.linkedinContext && <MessageSquare className="w-2.5 h-2.5 text-emerald-500 shrink-0" />}
+                        {aiParsedLeads && (
+                          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={(e) => { e.stopPropagation(); removeParsedLead(i); }}
+                              className="p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive">
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                            {expandedIndex === i
+                              ? <ChevronUp className="w-3 h-3 text-muted-foreground" />
+                              : <ChevronDown className="w-3 h-3 text-muted-foreground" />
+                            }
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Expanded edit view */}
+                      {aiParsedLeads && expandedIndex === i && (
+                        <div className="px-3 pb-2.5 pt-1 space-y-1.5 bg-background/40 border-t border-border/20">
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <Input
+                              value={l.name} onChange={e => updateParsedLead(i, 'name', e.target.value)}
+                              placeholder="Nome" className="h-6 text-[10px] px-2"
+                            />
+                            <Input
+                              value={l.phone} onChange={e => updateParsedLead(i, 'phone', e.target.value)}
+                              placeholder="Telefone" className="h-6 text-[10px] px-2"
+                            />
+                          </div>
+                          <Input
+                            value={l.linkedinUrl} onChange={e => updateParsedLead(i, 'linkedinUrl', e.target.value)}
+                            placeholder="LinkedIn URL" className="h-6 text-[10px] px-2"
+                          />
+                          <Textarea
+                            value={l.linkedinContext} onChange={e => updateParsedLead(i, 'linkedinContext', e.target.value)}
+                            placeholder="Contexto da conversa com este lead..."
+                            className="min-h-[40px] text-[10px] px-2 py-1 resize-none"
+                          />
+                        </div>
+                      )}
                     </div>
                   ))}
                   {batchLeads.length > 30 && (
-                    <p className="text-[10px] text-muted-foreground pl-1.5">...e mais {batchLeads.length - 30}</p>
+                    <p className="text-[10px] text-muted-foreground p-2 text-center">...e mais {batchLeads.length - 30}</p>
                   )}
                 </div>
+
+                {aiParsedLeads && (
+                  <div className="px-2.5 py-1.5 border-t border-border/30 bg-background/30">
+                    <p className="text-[9px] text-muted-foreground text-center">
+                      Clique em um lead para expandir e editar • Passe o mouse para excluir
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
@@ -362,17 +472,25 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
 
             <div className="space-y-1.5">
               <Label className="text-xs flex items-center gap-1.5">
-                <MessageSquare className="w-3 h-3" /> Contexto da conversa (para todos os leads)
+                <MessageSquare className="w-3 h-3" /> Contexto geral (aplicado a leads sem contexto individual)
               </Label>
               <Textarea
                 value={batchLinkedinContext}
                 onChange={e => setBatchLinkedinContext(e.target.value)}
-                placeholder="Ex: 'Conversamos sobre mentoria no LinkedIn, ele já tem modelo rodando, quer escalar...' ou qualquer contexto prévio da conversa."
-                className="min-h-[60px] text-xs"
+                placeholder="Ex: 'Conversamos sobre mentoria no LinkedIn, ele já tem modelo rodando, quer escalar...'"
+                className="min-h-[50px] text-xs"
               />
-              <p className="text-[10px] text-muted-foreground">
-                A IA usará esse contexto para continuar a conversa naturalmente sem repetir assuntos.
-              </p>
+              {leadsWithContext > 0 && (
+                <p className="text-[10px] text-emerald-500">
+                  ✓ {leadsWithContext} lead{leadsWithContext !== 1 ? 's' : ''} já {leadsWithContext !== 1 ? 'possuem' : 'possui'} contexto individual extraído pela IA.
+                  {batchLinkedinContext && ' O contexto geral será aplicado apenas aos demais.'}
+                </p>
+              )}
+              {!leadsWithContext && (
+                <p className="text-[10px] text-muted-foreground">
+                  A IA usará esse contexto para continuar a conversa naturalmente sem repetir assuntos.
+                </p>
+              )}
             </div>
 
             <label className="flex items-center gap-2 text-xs cursor-pointer py-1">
@@ -380,9 +498,24 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
               <Send className="w-3 h-3 text-primary" />
               Disparar IA SDR automaticamente
             </label>
+
+            {/* Progress bar during submission */}
+            {batchSubmitting && batchProgress.total > 0 && (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-[10px]">
+                  <span className="text-muted-foreground">Cadastrando leads...</span>
+                  <span className="text-foreground font-medium">{batchProgress.current}/{batchProgress.total}</span>
+                </div>
+                <Progress value={(batchProgress.current / batchProgress.total) * 100} className="h-1.5" />
+              </div>
+            )}
+
             <Button onClick={handleSubmitBatch} disabled={batchSubmitting || batchLeads.length === 0 || !defaultInstance} className="w-full h-9 text-xs gap-2">
               {batchSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Users className="w-3.5 h-3.5" />}
-              Cadastrar {batchLeads.length} Lead{batchLeads.length !== 1 ? 's' : ''}
+              {batchSubmitting
+                ? `Cadastrando ${batchProgress.current}/${batchProgress.total}...`
+                : `Cadastrar ${batchLeads.length} Lead${batchLeads.length !== 1 ? 's' : ''}`
+              }
             </Button>
           </TabsContent>
         </Tabs>
