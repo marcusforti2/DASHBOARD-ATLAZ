@@ -248,9 +248,6 @@ function WaHubPageInner() {
           <TabsTrigger value="ai-prompts" className="text-xs gap-1.5">
             <Brain className="w-3.5 h-3.5" /> Prompts IA
           </TabsTrigger>
-          <TabsTrigger value="pipedrive" className="text-xs gap-1.5">
-            <ExternalLink className="w-3.5 h-3.5" /> Pipedrive
-          </TabsTrigger>
           <TabsTrigger value="instances" className="text-xs gap-1.5">
             <Wifi className="w-3.5 h-3.5" /> Instâncias
             {connectedCount > 0 && (
