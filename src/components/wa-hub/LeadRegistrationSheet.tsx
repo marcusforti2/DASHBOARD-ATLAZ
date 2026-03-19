@@ -442,7 +442,6 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
     </Sheet>
   );
 }
-      return true;
     } catch (err) {
       console.error('Lead creation error:', err);
       toast.error(`Erro ao criar lead ${lead.name}`);
