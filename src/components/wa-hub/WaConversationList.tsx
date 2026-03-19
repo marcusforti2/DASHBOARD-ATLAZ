@@ -11,8 +11,14 @@ import {
   PRIORITY_LEVELS,
 } from '@/domains/conversations/types';
 import type { ConversationMode, LeadStage, PriorityLevel } from '@/domains/conversations/types';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type { WaTag } from '@/hooks/use-wa-tags';
-
 interface Props {
   conversations: WaConversation[];
   instances: WaInstance[];
@@ -90,45 +96,56 @@ export function WaConversationList({
             className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-secondary text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
-        {/* Instance filter */}
-        <div className="flex gap-1 flex-wrap">
-          <button onClick={() => onInstanceFilter(null)}
-            className={`text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors ${
-              !instanceFilter ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-accent'
-            }`}>Todas</button>
-          {instances.map(inst => (
-            <button key={inst.id} onClick={() => onInstanceFilter(inst.id)}
-              className={`text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors ${
-                instanceFilter === inst.id ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-accent'
-              }`}>{inst.instance_name.replace(/^wpp_/i, '')}</button>
-          ))}
-        </div>
-        {/* Mode filter */}
-        <div className="flex gap-1 flex-wrap">
-          {MODE_FILTERS.map(mf => (
-            <button key={mf.value ?? 'all'} onClick={() => setModeFilter(mf.value)}
-              className={`text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors ${
-                modeFilter === mf.value ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-accent'
-              }`}>{mf.label}</button>
-          ))}
-        </div>
-        {/* Lead stage filter */}
-        <div className="flex gap-1 flex-wrap">
-          {STAGE_FILTERS.slice(0, 6).map(sf => (
-            <button key={sf.value ?? 'all-stage'} onClick={() => setStageFilter(sf.value)}
-              className={`text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors ${
-                stageFilter === sf.value ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-accent'
-              }`}>{sf.label}</button>
-          ))}
-        </div>
-        {/* Priority filter */}
-        <div className="flex gap-1 flex-wrap">
-          {PRIORITY_FILTERS.map(pf => (
-            <button key={pf.value ?? 'all-prio'} onClick={() => setPriorityFilter(pf.value)}
-              className={`text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors ${
-                priorityFilter === pf.value ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-accent'
-              }`}>{pf.label}</button>
-          ))}
+        {/* Compact filters row */}
+        <div className="grid grid-cols-2 gap-1.5">
+          {/* Instance filter */}
+          <Select value={instanceFilter ?? '__all__'} onValueChange={v => onInstanceFilter(v === '__all__' ? null : v)}>
+            <SelectTrigger className="h-7 text-[11px]">
+              <SelectValue placeholder="Instância" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">Todas instâncias</SelectItem>
+              {instances.map(inst => (
+                <SelectItem key={inst.id} value={inst.id}>{inst.instance_name.replace(/^wpp_/i, '')}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Mode filter */}
+          <Select value={modeFilter ?? '__all__'} onValueChange={v => setModeFilter(v === '__all__' ? null : v as ConversationMode)}>
+            <SelectTrigger className="h-7 text-[11px]">
+              <SelectValue placeholder="Modo" />
+            </SelectTrigger>
+            <SelectContent>
+              {MODE_FILTERS.map(mf => (
+                <SelectItem key={mf.value ?? '__all__'} value={mf.value ?? '__all__'}>{mf.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Stage filter */}
+          <Select value={stageFilter ?? '__all__'} onValueChange={v => setStageFilter(v === '__all__' ? null : v as LeadStage)}>
+            <SelectTrigger className="h-7 text-[11px]">
+              <SelectValue placeholder="Etapa" />
+            </SelectTrigger>
+            <SelectContent>
+              {STAGE_FILTERS.map(sf => (
+                <SelectItem key={sf.value ?? '__all__'} value={sf.value ?? '__all__'}>{sf.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Priority filter */}
+          <Select value={priorityFilter ?? '__all__'} onValueChange={v => setPriorityFilter(v === '__all__' ? null : v as PriorityLevel)}>
+            <SelectTrigger className="h-7 text-[11px]">
+              <SelectValue placeholder="Prioridade" />
+            </SelectTrigger>
+            <SelectContent>
+              {PRIORITY_FILTERS.map(pf => (
+                <SelectItem key={pf.value ?? '__all__'} value={pf.value ?? '__all__'}>{pf.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
