@@ -42,6 +42,7 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
   const [batchSourceId, setBatchSourceId] = useState<string>('none');
   const [batchTriggerAi, setBatchTriggerAi] = useState(false);
   const [batchSubmitting, setBatchSubmitting] = useState(false);
+  const [batchLinkedinContext, setBatchLinkedinContext] = useState('');
 
   const [aiParsedLeads, setAiParsedLeads] = useState<LeadInput[] | null>(null);
   const [aiProcessing, setAiProcessing] = useState(false);
@@ -71,7 +72,7 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
       const { data, error } = await supabase.functions.invoke('parse-lead-batch', { body: { text: batchText } });
       if (error) throw error;
       const leads: LeadInput[] = (data?.leads || []).map((l: any) => ({
-        name: l.name || '', phone: l.phone || '', linkedinUrl: l.linkedin_url || l.linkedinUrl || '', linkedinContext: '',
+        name: l.name || '', phone: l.phone || '', linkedinUrl: l.linkedin_url || l.linkedinUrl || '', linkedinContext: l.linkedin_context || '',
       })).filter((l: LeadInput) => l.name && l.phone);
       if (leads.length === 0) {
         toast.error('A IA não conseguiu extrair leads do texto.');
@@ -191,12 +192,14 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
     setBatchSubmitting(true);
     let ok = 0, fail = 0;
     for (const lead of batchLeads) {
-      const result = await createLeadAndTrigger(lead, batchSourceId, batchTriggerAi);
+      // Apply batch-level linkedin context to each lead if they don't have individual context
+      const leadWithContext = { ...lead, linkedinContext: lead.linkedinContext || batchLinkedinContext };
+      const result = await createLeadAndTrigger(leadWithContext, batchSourceId, batchTriggerAi);
       if (result) ok++; else fail++;
     }
     setBatchSubmitting(false);
     toast.success(`${ok} leads cadastrados${fail > 0 ? `, ${fail} falharam` : ''}${batchTriggerAi ? ' — IA disparada!' : ''}`);
-    if (ok > 0) { setBatchText(''); setAiParsedLeads(null); onRefresh?.(); }
+    if (ok > 0) { setBatchText(''); setAiParsedLeads(null); setBatchLinkedinContext(''); onRefresh?.(); }
   };
 
   const SourceSelector = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
@@ -357,6 +360,24 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
             )}
 
             <SourceSelector value={batchSourceId} onChange={setBatchSourceId} />
+
+            {batchSourceId !== 'none' && leadSources.find(s => s.id === batchSourceId)?.name?.toLowerCase().includes('linkedin') && (
+              <div className="space-y-1.5">
+                <Label className="text-xs flex items-center gap-1.5">
+                  <MessageSquare className="w-3 h-3" /> Contexto da conversa no LinkedIn (para todos os leads)
+                </Label>
+                <Textarea
+                  value={batchLinkedinContext}
+                  onChange={e => setBatchLinkedinContext(e.target.value)}
+                  placeholder="Cole aqui o resumo da conversa no LinkedIn. Ex: 'Conversamos sobre mentoria, ele já tem modelo rodando, quer escalar...'"
+                  className="min-h-[60px] text-xs"
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  A IA usará esse contexto para NÃO repetir perguntas já feitas no LinkedIn.
+                </p>
+              </div>
+            )}
+
             <label className="flex items-center gap-2 text-xs cursor-pointer py-1">
               <input type="checkbox" checked={batchTriggerAi} onChange={e => setBatchTriggerAi(e.target.checked)} className="rounded" />
               <Send className="w-3 h-3 text-primary" />

@@ -406,24 +406,36 @@ Deno.serve(async (req) => {
 
             try {
               const aiSdrUrl = `${SUPABASE_URL}/functions/v1/ai-sdr-agent`;
-              const aiSdrResp = await fetch(aiSdrUrl, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-                },
-                body: JSON.stringify({
-                  conversation_id: conversation.id,
-                  instance_id: instance.id,
-                  contact_phone: phone,
-                  instance_name: instanceName,
-                  contact_name: pushName || phone,
-                  incoming_message: batchedMessage || messageText,
-                  incoming_is_audio: hasAudioMsg,
-                }),
-              });
-              const aiResult = await aiSdrResp.json();
+              const callAiSdr = async () => {
+                const resp = await fetch(aiSdrUrl, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                  },
+                  body: JSON.stringify({
+                    conversation_id: conversation.id,
+                    instance_id: instance.id,
+                    contact_phone: phone,
+                    instance_name: instanceName,
+                    contact_name: pushName || phone,
+                    incoming_message: batchedMessage || messageText,
+                    incoming_is_audio: hasAudioMsg,
+                  }),
+                });
+                return resp.json();
+              };
+
+              let aiResult = await callAiSdr();
               console.log('[webhook] AI SDR result:', JSON.stringify(aiResult).substring(0, 200));
+
+              // RETRY: If blocked by concurrency guard, wait and retry once
+              if (aiResult?.skipped === 'concurrency_guard') {
+                console.log('[webhook] Concurrency guard hit — waiting 16s and retrying...');
+                await new Promise(resolve => setTimeout(resolve, 16000));
+                aiResult = await callAiSdr();
+                console.log('[webhook] AI SDR retry result:', JSON.stringify(aiResult).substring(0, 200));
+              }
             } catch (aiErr) {
               console.error('[webhook] AI SDR trigger failed:', aiErr);
             }
