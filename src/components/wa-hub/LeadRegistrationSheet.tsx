@@ -38,7 +38,7 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
 
   const [batchText, setBatchText] = useState('');
   const [batchSourceId, setBatchSourceId] = useState<string>('none');
-  const [batchTriggerAi, setBatchTriggerAi] = useState(true);
+  const [batchTriggerAi, setBatchTriggerAi] = useState(false);
   const [batchSubmitting, setBatchSubmitting] = useState(false);
 
   const [aiParsedLeads, setAiParsedLeads] = useState<LeadInput[] | null>(null);
