@@ -1045,7 +1045,7 @@ function AiSdrPageInner() {
             {renderSection()}
 
             {/* Floating save button */}
-            {activeSection !== "fluxo" && activeSection !== "analytics" && (
+            {activeSection !== "fluxo" && activeSection !== "analytics" && activeSection !== "conhecimento" && (
               <div className="sticky bottom-4 flex justify-end">
                 <Button onClick={handleSave} disabled={saving} size="lg" className="gap-2 shadow-lg">
                   {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
