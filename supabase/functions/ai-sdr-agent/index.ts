@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { conversation_id, instance_id, contact_phone: _contact_phone, instance_name, contact_name: _contact_name, incoming_message, trigger_type, force, incoming_is_audio } = body;
+    const { conversation_id, instance_id, contact_phone: _contact_phone, instance_name, contact_name: _contact_name, incoming_message, trigger_type, force, incoming_is_audio, lead_source_context, lead_source_name, linkedin_url: body_linkedin_url } = body;
     let contact_phone = _contact_phone;
     let contact_name = _contact_name;
     const instName = instance_name || null; // will be resolved after instance fetch
@@ -1064,7 +1064,11 @@ Responda EXATAMENTE neste formato JSON:
     }
     let userMessage: string;
     if (isProactive) {
-      const pCtx: any = {};
+      const pCtx: any = {
+        linkedin_url: body_linkedin_url || "",
+        lead_source_context: lead_source_context || "",
+        lead_source_name: lead_source_name || "PROSPECÇÃO",
+      };
       const linkedinUrl = pCtx.linkedin_url || "";
       const sourceContext = pCtx.lead_source_context || "";
       const sourceName = pCtx.lead_source_name || "PROSPECÇÃO";
