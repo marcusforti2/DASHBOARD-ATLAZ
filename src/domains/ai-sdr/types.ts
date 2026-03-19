@@ -177,7 +177,7 @@ export const DEFAULT_AI_SDR_CONFIG: AiSdrConfig = {
       context:
         'Lead veio de prospecção ativa no LinkedIn. Você já se conectou com ele e agora está dando continuidade à conversa. Seja pessoal, mencione algo do perfil dele. NÃO diga o nome da empresa logo de cara.',
       color: '#4DA6FF',
-      pipedrive_label_id: 43,
+      
       automation: { ...DEFAULT_SOURCE_AUTOMATION, follow_up_hours: 24, notification_priority: 'normal' },
     },
     {
