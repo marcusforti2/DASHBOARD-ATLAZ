@@ -175,7 +175,12 @@ export const DEFAULT_AI_SDR_CONFIG: AiSdrConfig = {
       name: 'PROSPECÇÃO/LINKEDIN',
       active: true,
       context:
-        'Lead veio de prospecção ativa no LinkedIn. Você já se conectou com ele e agora está dando continuidade à conversa. Seja pessoal, mencione algo do perfil dele. NÃO diga o nome da empresa logo de cara.',
+        'Lead veio de prospecção ativa no LinkedIn. Vocês JÁ conversaram por lá e ELE te passou o WhatsApp.\n' +
+        'PRIMEIRA MENSAGEM: Fale que é você (use seu nome), que vocês se conectaram no LinkedIn e conversaram por lá, que ele te passou o WhatsApp e que é mais fácil falar por aqui. Pergunte como ele está, algo casual.\n' +
+        'NÃO faça pitch, NÃO fale de reunião, NÃO fale de negócio ainda. Só faça a ponte casual.\n' +
+        'DEPOIS que ele responder: aí sim puxe assunto, converse naturalmente.\n' +
+        'SÓ DEPOIS de algumas trocas: proponha uma ligação rápida de 15 min pra ver se rola sinergia entre os projetos.\n' +
+        'Tom: casual, como se fosse um colega que acabou de adicionar no WhatsApp.',
       color: '#4DA6FF',
       
       automation: { ...DEFAULT_SOURCE_AUTOMATION, follow_up_hours: 24, notification_priority: 'normal' },
