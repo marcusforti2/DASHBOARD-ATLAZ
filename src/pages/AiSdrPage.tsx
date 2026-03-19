@@ -327,6 +327,44 @@ function AiSdrPageInner() {
 
   const update = (key: keyof AiSdrConfig, value: any) => setLocalConfig(prev => ({ ...prev, [key]: value }));
 
+  const updateKnowledge = (category: string, content: string) => {
+    setKnowledgeFields(prev => ({ ...prev, [category]: { ...prev[category], content } }));
+  };
+
+  const handleSaveKnowledge = async () => {
+    setSavingKnowledge(true);
+    const TITLES: Record<string, string> = {
+      ai_sdr_master_prompt: "Prompt Master — SDR IA",
+      ai_sdr_target_audience: "Público-Alvo (ICP) — SDR IA",
+      ai_sdr_pain_points: "Dores Viscerais — SDR IA",
+      ai_sdr_desires: "Desejos Profundos — SDR IA",
+      ai_sdr_context: "Contexto do Negócio — SDR IA",
+    };
+
+    try {
+      for (const [category, field] of Object.entries(knowledgeFields)) {
+        if (field.id) {
+          await supabase.from("company_knowledge").update({ content: field.content, updated_at: new Date().toISOString() }).eq("id", field.id);
+        } else if (field.content.trim()) {
+          const { data } = await supabase.from("company_knowledge").insert({
+            title: TITLES[category] || category,
+            content: field.content,
+            category,
+            active: true,
+          }).select("id").single();
+          if (data) {
+            setKnowledgeFields(prev => ({ ...prev, [category]: { ...prev[category], id: data.id } }));
+          }
+        }
+      }
+      toast.success("Conhecimento centralizado salvo! ✅");
+    } catch (e: any) {
+      toast.error("Erro ao salvar conhecimento: " + (e.message || ""));
+    } finally {
+      setSavingKnowledge(false);
+    }
+  };
+
   const addQuestion = () => update("qualification_questions", [...(localConfig.qualification_questions || []), ""]);
   const removeQuestion = (i: number) => update("qualification_questions", (localConfig.qualification_questions || []).filter((_: string, idx: number) => idx !== i));
   const updateQuestion = (i: number, v: string) => {
