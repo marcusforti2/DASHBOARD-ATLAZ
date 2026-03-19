@@ -139,7 +139,6 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
         }
       } else {
         const insertData: any = { phone: normalizedPhone, name: lead.name, instance_id: inst.id };
-        if (lead.linkedinUrl) insertData.linkedin_profile_url = lead.linkedinUrl;
         const { data: newContact, error: contactErr } = await supabase
           .from('wa_contacts').insert(insertData)
           .select('id').single();
