@@ -230,7 +230,7 @@ function WaHubPageInner() {
       </div>
 
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
+      <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className={isChatTab ? 'flex-1 flex flex-col min-h-0' : ''}>
         <TabsList>
           <TabsTrigger value="chat" className="text-xs gap-1.5">
             <MessageSquare className="w-3.5 h-3.5" /> Conversas
