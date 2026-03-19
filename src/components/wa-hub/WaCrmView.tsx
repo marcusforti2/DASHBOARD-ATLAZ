@@ -1,9 +1,12 @@
 import { useState, useMemo, useCallback } from 'react';
-import { LayoutGrid, List, Plus, Trash2, GripVertical, Inbox, Bot, User, AlertTriangle, UserPlus } from 'lucide-react';
+import { LayoutGrid, List, Plus, Trash2, GripVertical, Inbox, Bot, User, AlertTriangle, UserPlus, Pencil, MoreVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { WaContactTagBadges } from './WaContactTagBadges';
 import { LeadDetailModal } from './LeadDetailModal';
 import { LeadRegistrationSheet } from './LeadRegistrationSheet';
@@ -61,6 +64,14 @@ export function WaCrmView({ conversations, tags, instances, teamMembers, getTags
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
   const [selectedConv, setSelectedConv] = useState<WaConversation | null>(null);
   const [showLeadRegistration, setShowLeadRegistration] = useState(false);
+
+  // Edit & Delete state
+  const [editingConv, setEditingConv] = useState<WaConversation | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
+  const [deletingConv, setDeletingConv] = useState<WaConversation | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const instanceMap = useMemo(() => new Map(instances.map((inst) => [inst.id, inst])), [instances]);
 
