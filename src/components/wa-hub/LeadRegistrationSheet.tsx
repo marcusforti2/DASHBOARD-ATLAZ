@@ -33,6 +33,7 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [linkedinUrl, setLinkedinUrl] = useState('');
+  const [linkedinContext, setLinkedinContext] = useState('');
   const [selectedSourceId, setSelectedSourceId] = useState<string>('none');
   const [triggerAi, setTriggerAi] = useState(false);
   const [submitting, setSubmitting] = useState(false);
