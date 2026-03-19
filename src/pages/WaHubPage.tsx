@@ -43,6 +43,7 @@ import { AiSdrConfigPanel } from '@/components/wa-hub/AiSdrConfigPanel';
 import { AiSdrSummaryCard } from '@/components/wa-hub/AiSdrSummaryCard';
 
 import { AiPromptsTab } from '@/components/wa-hub/AiPromptsTab';
+import { AiCommandCenter } from '@/components/wa-hub/AiCommandCenter';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
@@ -56,7 +57,7 @@ export default function WaHubPage() {
 type ConnectionFilter = 'all' | 'connected' | 'disconnected';
 
 function WaHubPageInner() {
-  const [tab, setTab] = useState<'chat' | 'dashboard' | 'instances' | 'crm' | 'ai-sdr' | 'ai-prompts'>('chat');
+  const [tab, setTab] = useState<'chat' | 'dashboard' | 'instances' | 'crm' | 'ai-sdr' | 'ai-prompts' | 'ai-center'>('chat');
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
   const [selectedCloserId, setSelectedCloserId] = useState<string>('all');
   const [selectedSdrId, setSelectedSdrId] = useState<string>('all');
@@ -248,6 +249,9 @@ function WaHubPageInner() {
           <TabsTrigger value="ai-prompts" className="text-xs gap-1.5">
             <Brain className="w-3.5 h-3.5" /> Prompts IA
           </TabsTrigger>
+          <TabsTrigger value="ai-center" className="text-xs gap-1.5">
+            <Eye className="w-3.5 h-3.5" /> AI Center
+          </TabsTrigger>
           <TabsTrigger value="instances" className="text-xs gap-1.5">
             <Wifi className="w-3.5 h-3.5" /> Instâncias
             {connectedCount > 0 && (
@@ -372,6 +376,9 @@ function WaHubPageInner() {
           <AiPromptsTab />
         </TabsContent>
 
+        <TabsContent value="ai-center" className="mt-4 px-4">
+          <AiCommandCenter instances={instances} teamMembers={teamMembers} />
+        </TabsContent>
 
         <TabsContent value="instances" className="mt-4 px-4">
           <InstancesTab mgr={mgr} conversations={allConversations} />
