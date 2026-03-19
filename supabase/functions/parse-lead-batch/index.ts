@@ -31,7 +31,7 @@ Para cada lead, extraia:
 - name: Nome completo da pessoa
 - phone: Número de telefone (apenas dígitos, com DDD, sem +55)
 - linkedin_url: URL do LinkedIn (se houver)
-- linkedin_context: Resumo do contexto da conversa prévia com esse lead (se mencionado no texto). Ex: "já conversamos sobre mentoria", "interessado em escalar vendas", "tem empresa de consultoria". Se não houver contexto, retorne string vazia.
+- linkedin_context: MUITO IMPORTANTE - Capture TODO o contexto, descrição, anotações ou informações sobre esse lead que aparecem no texto. Isso inclui: cargo, empresa, área de atuação, como foi a abordagem, o que foi conversado, o que a pessoa respondeu, qualquer detalhe biográfico ou profissional. Copie o texto relevante de forma completa. Se não houver contexto, retorne string vazia.
 
 REGRAS:
 1. Telefones podem estar em qualquer formato: (11) 99999-8888, 11999998888, +55 11 99999-8888, etc. Normalize para apenas dígitos com DDD.
@@ -40,7 +40,8 @@ REGRAS:
 4. Se não encontrar LinkedIn, retorne string vazia.
 5. Ignore linhas que são claramente cabeçalhos, instruções ou texto irrelevante.
 6. Seja generoso na extração — se parece um lead, extraia.
-7. Se houver anotações, comentários ou contexto junto ao lead (ex: "falamos sobre X", "CEO de empresa Y"), capture isso no linkedin_context.
+7. O linkedin_context é CRÍTICO — capture TUDO que descreve o lead: quem é, o que faz, como foi o contato, o que foi dito. Parágrafos inteiros de contexto devem ser capturados. NÃO resuma, copie o máximo possível.
+8. Muitas vezes o contexto aparece como um parágrafo APÓS o nome/telefone/linkedin do lead. Associe esse parágrafo ao lead correto.
 
 RESPONDA APENAS com JSON válido no formato:
 {"leads": [{"name": "...", "phone": "...", "linkedin_url": "...", "linkedin_context": "..."}, ...]}`;
