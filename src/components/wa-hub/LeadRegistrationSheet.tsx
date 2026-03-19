@@ -288,22 +288,20 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
               <Label className="text-xs">LinkedIn URL</Label>
               <Input value={linkedinUrl} onChange={e => setLinkedinUrl(e.target.value)} placeholder="https://linkedin.com/in/..." className="h-8 text-sm" />
             </div>
-            {(selectedSourceId === 'linkedin' || linkedinUrl) && (
-              <div className="space-y-1.5">
-                <Label className="text-xs flex items-center gap-1.5">
-                  <MessageSquare className="w-3 h-3" /> Contexto da conversa no LinkedIn
-                </Label>
-                <Textarea
-                  value={linkedinContext}
-                  onChange={e => setLinkedinContext(e.target.value)}
-                  placeholder="Ex: Conversamos sobre modelo de mentoria, ele perguntou sobre preço e formato. Demonstrou interesse em consultoria individual..."
-                  className="min-h-[80px] text-xs"
-                />
-                <p className="text-[10px] text-muted-foreground">
-                  A IA usará este contexto para não repetir assuntos e continuar a conversa naturalmente.
-                </p>
-              </div>
-            )}
+            <div className="space-y-1.5">
+              <Label className="text-xs flex items-center gap-1.5">
+                <MessageSquare className="w-3 h-3" /> Contexto da conversa prévia
+              </Label>
+              <Textarea
+                value={linkedinContext}
+                onChange={e => setLinkedinContext(e.target.value)}
+                placeholder="Ex: Conversamos sobre modelo de mentoria no LinkedIn, ele perguntou sobre preço e formato. Demonstrou interesse em consultoria individual..."
+                className="min-h-[80px] text-xs"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                A IA usará este contexto para continuar a conversa naturalmente sem repetir assuntos.
+              </p>
+            </div>
             <SourceSelector value={selectedSourceId} onChange={setSelectedSourceId} />
             <label className="flex items-center gap-2 text-xs cursor-pointer py-1">
               <input type="checkbox" checked={triggerAi} onChange={e => setTriggerAi(e.target.checked)} className="rounded" />
@@ -362,22 +360,20 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
 
             <SourceSelector value={batchSourceId} onChange={setBatchSourceId} />
 
-            {batchSourceId !== 'none' && leadSources.find(s => s.id === batchSourceId)?.name?.toLowerCase().includes('linkedin') && (
-              <div className="space-y-1.5">
-                <Label className="text-xs flex items-center gap-1.5">
-                  <MessageSquare className="w-3 h-3" /> Contexto da conversa no LinkedIn (para todos os leads)
-                </Label>
-                <Textarea
-                  value={batchLinkedinContext}
-                  onChange={e => setBatchLinkedinContext(e.target.value)}
-                  placeholder="Cole aqui o resumo da conversa no LinkedIn. Ex: 'Conversamos sobre mentoria, ele já tem modelo rodando, quer escalar...'"
-                  className="min-h-[60px] text-xs"
-                />
-                <p className="text-[10px] text-muted-foreground">
-                  A IA usará esse contexto para NÃO repetir perguntas já feitas no LinkedIn.
-                </p>
-              </div>
-            )}
+            <div className="space-y-1.5">
+              <Label className="text-xs flex items-center gap-1.5">
+                <MessageSquare className="w-3 h-3" /> Contexto da conversa (para todos os leads)
+              </Label>
+              <Textarea
+                value={batchLinkedinContext}
+                onChange={e => setBatchLinkedinContext(e.target.value)}
+                placeholder="Ex: 'Conversamos sobre mentoria no LinkedIn, ele já tem modelo rodando, quer escalar...' ou qualquer contexto prévio da conversa."
+                className="min-h-[60px] text-xs"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                A IA usará esse contexto para continuar a conversa naturalmente sem repetir assuntos.
+              </p>
+            </div>
 
             <label className="flex items-center gap-2 text-xs cursor-pointer py-1">
               <input type="checkbox" checked={batchTriggerAi} onChange={e => setBatchTriggerAi(e.target.checked)} className="rounded" />
