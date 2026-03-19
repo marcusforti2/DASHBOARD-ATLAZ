@@ -58,7 +58,7 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
   const parseBatchLeads = (text: string): LeadInput[] => {
     return text.split('\n').map(l => l.trim()).filter(Boolean).map(line => {
       const parts = line.split(/[,;\t]+/).map(p => p.trim());
-      return { name: parts[0] || '', phone: parts[1] || '', linkedinUrl: parts[2] || '' };
+      return { name: parts[0] || '', phone: parts[1] || '', linkedinUrl: parts[2] || '', linkedinContext: '' };
     }).filter(l => l.name && l.phone);
   };
 
