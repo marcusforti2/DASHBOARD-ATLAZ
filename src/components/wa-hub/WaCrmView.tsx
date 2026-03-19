@@ -1,9 +1,12 @@
 import { useState, useMemo, useCallback } from 'react';
-import { LayoutGrid, List, Plus, Trash2, GripVertical, Inbox, Bot, User, AlertTriangle, UserPlus } from 'lucide-react';
+import { LayoutGrid, List, Plus, Trash2, GripVertical, Inbox, Bot, User, AlertTriangle, UserPlus, Pencil, MoreVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { WaContactTagBadges } from './WaContactTagBadges';
 import { LeadDetailModal } from './LeadDetailModal';
 import { LeadRegistrationSheet } from './LeadRegistrationSheet';
@@ -62,6 +65,14 @@ export function WaCrmView({ conversations, tags, instances, teamMembers, getTags
   const [selectedConv, setSelectedConv] = useState<WaConversation | null>(null);
   const [showLeadRegistration, setShowLeadRegistration] = useState(false);
 
+  // Edit & Delete state
+  const [editingConv, setEditingConv] = useState<WaConversation | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
+  const [deletingConv, setDeletingConv] = useState<WaConversation | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   const instanceMap = useMemo(() => new Map(instances.map((inst) => [inst.id, inst])), [instances]);
 
   const filteredConversations = useMemo(() => {
@@ -85,7 +96,6 @@ export function WaCrmView({ conversations, tags, instances, teamMembers, getTags
         return ct.some(t => t.tag_id === filterTag);
       });
     }
-    return list;
     return list;
   }, [conversations, search, filterInstanceId, filterCloserId, filterSdrId, filterTag, getTagsForContact, instanceMap]);
 
@@ -147,6 +157,59 @@ export function WaCrmView({ conversations, tags, instances, teamMembers, getTags
 
     toast.success(`Lead movido para ${LEAD_STAGE_LABELS[targetStage]}`);
     onRefresh?.();
+  };
+
+  // ── Edit Lead ──
+  const openEdit = (conv: WaConversation) => {
+    setEditingConv(conv);
+    setEditName(conv.contact.name);
+    setEditPhone(conv.contact.phone);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingConv || !editName.trim() || !editPhone.trim()) return;
+    setEditSaving(true);
+    const { error } = await supabase
+      .from('wa_contacts')
+      .update({ name: editName.trim(), phone: editPhone.trim() } as any)
+      .eq('id', editingConv.contact.id);
+    setEditSaving(false);
+    if (error) { toast.error('Erro ao editar lead'); console.error(error); return; }
+    toast.success('Lead atualizado!');
+    setEditingConv(null);
+    onRefresh?.();
+  };
+
+  // ── Delete Lead ──
+  const handleDeleteLead = async () => {
+    if (!deletingConv) return;
+    setDeleteLoading(true);
+    try {
+      // Delete messages first
+      await supabase.from('wa_messages').delete().eq('conversation_id', deletingConv.id);
+      // Delete state events
+      await supabase.from('wa_conversation_state_events' as any).delete().eq('conversation_id', deletingConv.id);
+      // Delete contact tags
+      await supabase.from('wa_contact_tags' as any).delete().eq('contact_id', deletingConv.contact.id);
+      // Delete conversation
+      await supabase.from('wa_conversations').delete().eq('id', deletingConv.id);
+      // Delete contact (only if no other conversations reference it)
+      const { data: otherConvs } = await supabase
+        .from('wa_conversations')
+        .select('id')
+        .eq('contact_id', deletingConv.contact.id)
+        .limit(1);
+      if (!otherConvs || otherConvs.length === 0) {
+        await supabase.from('wa_contacts').delete().eq('id', deletingConv.contact.id);
+      }
+      toast.success(`Lead "${deletingConv.contact.name}" excluído`);
+      onRefresh?.();
+    } catch (err) {
+      console.error('Delete error:', err);
+      toast.error('Erro ao excluir lead');
+    }
+    setDeleteLoading(false);
+    setDeletingConv(null);
   };
 
   return (
@@ -224,7 +287,7 @@ export function WaCrmView({ conversations, tags, instances, teamMembers, getTags
                   <EmptyColumn />
                 ) : (
                   stageConvs.map(conv => (
-                    <KanbanCard key={conv.id} conv={conv} stageColor={color} tags={tags} assignedTagIds={getTagsForContact(conv.contact.id).map(t => t.tag_id)} onAddTag={onAddTag} onRemoveTag={onRemoveTag} onDragStart={handleDragStart} onClick={() => setSelectedConv(conv)} instanceLabel={instanceMap.get(conv.instance_id)?.instance_name?.replace(/^wpp_/i, '') || 'Sem instância'} sdrLabel={teamMembers.find(member => member.id === instanceMap.get(conv.instance_id)?.sdr_id)?.name || 'Não vinculado'} closerLabel={teamMembers.find(member => member.id === instanceMap.get(conv.instance_id)?.closer_id)?.name || 'Não vinculado'} />
+                    <KanbanCard key={conv.id} conv={conv} stageColor={color} tags={tags} assignedTagIds={getTagsForContact(conv.contact.id).map(t => t.tag_id)} onAddTag={onAddTag} onRemoveTag={onRemoveTag} onDragStart={handleDragStart} onClick={() => setSelectedConv(conv)} onEdit={() => openEdit(conv)} onDelete={() => setDeletingConv(conv)} instanceLabel={instanceMap.get(conv.instance_id)?.instance_name?.replace(/^wpp_/i, '') || 'Sem instância'} sdrLabel={teamMembers.find(member => member.id === instanceMap.get(conv.instance_id)?.sdr_id)?.name || 'Não vinculado'} closerLabel={teamMembers.find(member => member.id === instanceMap.get(conv.instance_id)?.closer_id)?.name || 'Não vinculado'} />
                   ))
                 )}
               </KanbanColumn>
@@ -248,6 +311,7 @@ export function WaCrmView({ conversations, tags, instances, teamMembers, getTags
                 <th className="text-left text-xs font-medium text-muted-foreground px-4 py-2">Tags</th>
                 <th className="text-left text-xs font-medium text-muted-foreground px-4 py-2">Última Mensagem</th>
                 <th className="text-left text-xs font-medium text-muted-foreground px-4 py-2">Data</th>
+                <th className="text-left text-xs font-medium text-muted-foreground px-4 py-2 w-10"></th>
               </tr>
             </thead>
             <tbody>
@@ -276,6 +340,17 @@ export function WaCrmView({ conversations, tags, instances, teamMembers, getTags
                   </td>
                   <td className="px-4 py-2.5 text-xs text-muted-foreground truncate max-w-[200px]">{conv.last_message}</td>
                   <td className="px-4 py-2.5 text-xs text-muted-foreground">{formatCrmDate(conv.last_message_at)}</td>
+                  <td className="px-4 py-2.5" onClick={e => e.stopPropagation()}>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="p-1 rounded hover:bg-muted"><MoreVertical className="w-3.5 h-3.5 text-muted-foreground" /></button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openEdit(conv)}><Pencil className="w-3 h-3 mr-2" /> Editar</DropdownMenuItem>
+                        <DropdownMenuItem className="text-destructive" onClick={() => setDeletingConv(conv)}><Trash2 className="w-3 h-3 mr-2" /> Excluir</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -336,6 +411,49 @@ export function WaCrmView({ conversations, tags, instances, teamMembers, getTags
         teamMembers={teamMembers}
         onRefresh={onRefresh}
       />
+
+      {/* Edit Lead Dialog */}
+      <Dialog open={!!editingConv} onOpenChange={(open) => { if (!open) setEditingConv(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-sm">Editar Lead</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Nome</Label>
+              <Input value={editName} onChange={e => setEditName(e.target.value)} className="h-8 text-sm mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">Telefone</Label>
+              <Input value={editPhone} onChange={e => setEditPhone(e.target.value)} className="h-8 text-sm mt-1" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button size="sm" variant="outline" onClick={() => setEditingConv(null)}>Cancelar</Button>
+            <Button size="sm" onClick={handleSaveEdit} disabled={editSaving}>
+              {editSaving ? 'Salvando...' : 'Salvar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Lead Confirm */}
+      <AlertDialog open={!!deletingConv} onOpenChange={(open) => { if (!open) setDeletingConv(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir lead?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Isso vai excluir permanentemente <strong>{deletingConv?.contact.name}</strong> e todo o histórico de mensagens. Essa ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteLoading}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteLead} disabled={deleteLoading} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {deleteLoading ? 'Excluindo...' : 'Excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -377,11 +495,12 @@ function EmptyColumn() {
 }
 
 /* ── Kanban Card ── */
-function KanbanCard({ conv, stageColor, tags, assignedTagIds, onAddTag, onRemoveTag, onDragStart, onClick, instanceLabel, sdrLabel, closerLabel }: {
+function KanbanCard({ conv, stageColor, tags, assignedTagIds, onAddTag, onRemoveTag, onDragStart, onClick, onEdit, onDelete, instanceLabel, sdrLabel, closerLabel }: {
   conv: WaConversation; stageColor: string; tags: WaTag[]; assignedTagIds: string[];
   onAddTag: (contactId: string, tagId: string) => Promise<void>;
   onRemoveTag: (contactId: string, tagId: string) => Promise<void>;
   onDragStart: (convId: string) => void; onClick?: () => void;
+  onEdit?: () => void; onDelete?: () => void;
   instanceLabel: string; sdrLabel: string; closerLabel: string;
 }) {
   const avatarColor = getAvatarColor(conv.contact.name);
@@ -401,7 +520,7 @@ function KanbanCard({ conv, stageColor, tags, assignedTagIds, onAddTag, onRemove
       draggable
       onDragStart={() => onDragStart(conv.id)}
       onClick={(e) => {
-        if ((e.target as HTMLElement).closest('[data-tag-badge]')) return;
+        if ((e.target as HTMLElement).closest('[data-tag-badge]') || (e.target as HTMLElement).closest('[data-action-menu]')) return;
         onClick?.();
       }}
       className="rounded-lg border border-border bg-card p-3 space-y-2 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer active:cursor-grabbing active:opacity-70 active:scale-[0.98]"
@@ -423,6 +542,17 @@ function KanbanCard({ conv, stageColor, tags, assignedTagIds, onAddTag, onRemove
             ⏰ {timeSince}
           </span>
         )}
+        <div data-action-menu>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="p-1 rounded hover:bg-muted"><MoreVertical className="w-3.5 h-3.5 text-muted-foreground" /></button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit?.(); }}><Pencil className="w-3 h-3 mr-2" /> Editar</DropdownMenuItem>
+              <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); onDelete?.(); }}><Trash2 className="w-3 h-3 mr-2" /> Excluir</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
       {conv.last_message && (
         <p className="text-[10px] text-muted-foreground truncate pl-5">{conv.last_message}</p>
