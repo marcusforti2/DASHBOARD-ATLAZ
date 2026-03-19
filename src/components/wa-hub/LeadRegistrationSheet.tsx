@@ -133,16 +133,12 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
       let contactId: string;
       if (existingContact) {
         contactId = existingContact.id;
-        // Update contact name and linkedin if provided
-        const updateData: any = {};
-        if (lead.name) updateData.name = lead.name;
-        if (lead.linkedinUrl) updateData.linkedin_profile_url = lead.linkedinUrl;
-        if (Object.keys(updateData).length > 0) {
-          await supabase.from('wa_contacts').update(updateData).eq('id', contactId);
+        // Update contact name if provided
+        if (lead.name) {
+          await supabase.from('wa_contacts').update({ name: lead.name }).eq('id', contactId);
         }
       } else {
         const insertData: any = { phone: normalizedPhone, name: lead.name, instance_id: inst.id };
-        if (lead.linkedinUrl) insertData.linkedin_profile_url = lead.linkedinUrl;
         const { data: newContact, error: contactErr } = await supabase
           .from('wa_contacts').insert(insertData)
           .select('id').single();
