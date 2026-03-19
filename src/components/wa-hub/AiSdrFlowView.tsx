@@ -105,7 +105,7 @@ export function AiSdrFlowView({ config, closerName }: Props) {
     };
 
     // 1 — Trigger
-    n.push({ id: "trigger", type: "flowNode", position: { x, y: Y }, data: { nodeType: "trigger", label: "Trigger", desc: "Pipedrive / Mensagem recebida" } });
+    n.push({ id: "trigger", type: "flowNode", position: { x, y: Y }, data: { nodeType: "trigger", label: "Trigger", desc: "Mensagem recebida" } });
 
     // 2 — Incoming
     x += GAP;
