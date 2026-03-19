@@ -710,18 +710,6 @@ ${lp.summary ? `- Resumo: ${lp.summary.substring(0, 300)}` : ""}\n`;
     const scoreThresholds = config.score_thresholds || { a_min: 80, b_min: 50 };
     const followUpHours = config.follow_up_hours || 24;
 
-    // ===== ORGANIC CONTACT DETECTION =====
-    const sourceTagNames = ["linkedin", "dripify", "indicação", "indicacao", "prospecção", "prospeccao"];
-    const hasSourceTag = currentTagNames.some((t: string) =>
-      sourceTagNames.some(s => t.toLowerCase().includes(s))
-    );
-    const isOrganicContact = !isProactive && !hasSourceTag;
-    // BUG FIX #2: Organic mode must be OPT-IN (=== true), not opt-out (!== false)
-    const organicModeEnabled = config.organic_mode_enabled === true;
-
-    if (isOrganicContact && organicModeEnabled) {
-      console.log("[ai-sdr] Organic contact detected — switching to receptive assistant mode");
-    }
 
     // Build the master system prompt (masterPrompt already resolved from company_knowledge above)
 
