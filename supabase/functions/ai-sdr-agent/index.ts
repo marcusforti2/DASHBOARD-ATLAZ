@@ -676,7 +676,30 @@ Deno.serve(async (req) => {
     }
 
 
+    // Build LinkedIn context from conversation data (saved during lead registration or CRM edit)
     let linkedinContext = "";
+    const savedLinkedinContext = conversation?.linkedin_context;
+    const savedLinkedinProfile = conversation?.linkedin_profile as Record<string, any> | null;
+    
+    if (savedLinkedinContext && savedLinkedinContext.trim()) {
+      linkedinContext += `\nCONTEXTO DA CONVERSA NO LINKEDIN (CRÍTICO — use como base para continuar a conversa no WhatsApp):
+${savedLinkedinContext}
+
+IMPORTANTE: Você JÁ conversou com esse lead no LinkedIn. NÃO repita perguntas que já foram respondidas lá. 
+O lead veio pro WhatsApp pra AVANÇAR a conversa, não pra recomeçar do zero.
+Use o contexto acima para dar continuidade natural e ir direto ao ponto de marcar uma ligação/reunião.\n`;
+    }
+    
+    if (savedLinkedinProfile && Object.keys(savedLinkedinProfile).length > 0) {
+      const lp = savedLinkedinProfile;
+      linkedinContext += `\nPERFIL LINKEDIN DO LEAD:
+- Nome: ${lp.full_name || contact_name}
+- Cargo: ${lp.company_role || lp.headline || "N/A"}
+- Empresa: ${lp.company || "N/A"}
+- Setor: ${lp.industry || "N/A"}
+- Localização: ${lp.location || "N/A"}
+${lp.summary ? `- Resumo: ${lp.summary.substring(0, 300)}` : ""}\n`;
+    }
 
     const qualificationQuestions = config.qualification_questions || [
       "Como posso te chamar?",
