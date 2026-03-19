@@ -481,18 +481,32 @@ Deno.serve(async (req) => {
       closerName = closerMember?.name || "";
     }
 
-    // Get ALL knowledge
+    // Get ALL knowledge (including centralized SDR knowledge)
     const { data: knowledge } = await supabase
       .from("company_knowledge")
       .select("title, content, category")
       .eq("active", true)
-      .limit(10);
+      .limit(50);
 
-    const generalKnowledge = (knowledge || []).filter(k => k.category !== "ai_prompt")
+    const generalKnowledge = (knowledge || [])
+      .filter(k => !k.category.startsWith("ai_sdr_") && k.category !== "ai_prompt")
       .map(k => `[${k.title}]: ${k.content.substring(0, 500)}`).join("\n\n");
 
     const aiPrompts = (knowledge || []).filter(k => k.category === "ai_prompt")
       .map(k => `[${k.title}]: ${k.content}`).join("\n\n");
+
+    // Centralized SDR knowledge — overrides instance config if present
+    const sdrKnowledge: Record<string, string> = {};
+    for (const k of (knowledge || [])) {
+      if (k.category.startsWith("ai_sdr_")) {
+        sdrKnowledge[k.category] = k.content;
+      }
+    }
+    const masterPrompt = sdrKnowledge["ai_sdr_master_prompt"] || config.master_prompt || "";
+    const targetAudience = sdrKnowledge["ai_sdr_target_audience"] || config.target_audience || "";
+    const painPoints = sdrKnowledge["ai_sdr_pain_points"] || config.pain_points || "";
+    const desires = sdrKnowledge["ai_sdr_desires"] || config.desires || "";
+    const promptContext = sdrKnowledge["ai_sdr_context"] || config.prompt_context || "";
 
     // Build conversation history text
     const agentLabel = closerName || "SDR IA";
@@ -679,7 +693,6 @@ Deno.serve(async (req) => {
       sourceTagNames.some(s => t.toLowerCase().includes(s))
     );
     const isOrganicContact = !isProactive && !hasSourceTag;
-    const organicModeEnabled = config.organic_mode_enabled === true;
     // BUG FIX #2: Organic mode must be OPT-IN (=== true), not opt-out (!== false)
     const organicModeEnabled = config.organic_mode_enabled === true;
 
@@ -687,8 +700,8 @@ Deno.serve(async (req) => {
       console.log("[ai-sdr] Organic contact detected — switching to receptive assistant mode");
     }
 
-    // Build the master system prompt
-    const masterPrompt = config.master_prompt || "";
+    // Build the master system prompt (masterPrompt already resolved from company_knowledge above)
+
     const identityLine = closerName
       ? `Você é ${closerName}, especialista comercial. O lead DEVE acreditar que está falando diretamente com ${closerName}. Use primeira pessoa. NUNCA mencione que é IA, assistente virtual ou bot.`
       : `Você é uma SDR (Sales Development Representative) virtual de IA integrada ao WhatsApp.`;
@@ -823,7 +836,7 @@ ${aiPrompts || ""}
 
 ${generalKnowledge ? `INFORMAÇÕES DA EMPRESA:\n${generalKnowledge}` : ""}
 
-${config.prompt_context ? `CONTEXTO ADICIONAL:\n${config.prompt_context}` : ""}
+${promptContext ? `CONTEXTO ADICIONAL:\n${promptContext}` : ""}
 
 SEU COMPORTAMENTO COMO ASSISTENTE RECEPTIVO:
 1. RESPONDA dúvidas sobre a empresa, produtos e serviços de forma clara e prestativa
@@ -895,13 +908,13 @@ ${aiPrompts || ""}
 
 ${generalKnowledge ? `INFORMAÇÕES DA EMPRESA:\n${generalKnowledge}` : ""}
 
-${config.prompt_context ? `INSTRUÇÕES ADICIONAIS:\n${config.prompt_context}` : ""}
+${promptContext ? `INSTRUÇÕES ADICIONAIS:\n${promptContext}` : ""}
 
-${config.target_audience ? `PÚBLICO-ALVO (ICP):\n${config.target_audience}` : ""}
+${targetAudience ? `PÚBLICO-ALVO (ICP):\n${targetAudience}` : ""}
 
-${config.pain_points ? `DORES VISCERAIS DO PÚBLICO (use para gerar rapport e quebrar objeções):\n${config.pain_points}` : ""}
+${painPoints ? `DORES VISCERAIS DO PÚBLICO (use para gerar rapport e quebrar objeções):\n${painPoints}` : ""}
 
-${config.desires ? `DESEJOS PROFUNDOS DO PÚBLICO (use para criar urgência e motivação):\n${config.desires}` : ""}
+${desires ? `DESEJOS PROFUNDOS DO PÚBLICO (use para criar urgência e motivação):\n${desires}` : ""}
 
 SEU OBJETIVO PRINCIPAL:
 - QUALIFICAR RÁPIDO e CHAMAR PARA UMA LIGAÇÃO/REUNIÃO com ${closerName || "o especialista"}
