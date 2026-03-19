@@ -51,7 +51,6 @@ export function WaCrmView({ conversations, tags, instances, teamMembers, getTags
   const [search, setSearch] = useState('');
   const [filterTag, setFilterTag] = useState<string | null>(null);
   const [filterInstanceId, setFilterInstanceId] = useState<string>('all');
-  const [filterInstanceId, setFilterInstanceId] = useState<string>('all');
   const [filterCloserId, setFilterCloserId] = useState<string>('all');
   const [filterSdrId, setFilterSdrId] = useState<string>('all');
   const [showManageTags, setShowManageTags] = useState(false);
