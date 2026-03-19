@@ -193,7 +193,7 @@ function WaHubPageInner() {
 
   return (
     <div className={isChatTab ? "flex flex-col h-[calc(100vh-3rem)]" : "space-y-4"}>
-      <div className={`flex items-center gap-4 flex-wrap ${isChatTab ? 'px-4 py-2 shrink-0' : ''}`}
+      <div className={`flex items-center gap-4 flex-wrap ${isChatTab ? 'px-4 py-2 shrink-0' : ''}`}>
         <div className="flex items-center gap-2">
           <Shield className="w-5 h-5 text-primary" />
           <span className="text-lg font-bold text-foreground">WhatsApp Hub</span>
