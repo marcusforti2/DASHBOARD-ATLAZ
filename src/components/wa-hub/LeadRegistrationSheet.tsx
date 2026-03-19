@@ -360,6 +360,24 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
             )}
 
             <SourceSelector value={batchSourceId} onChange={setBatchSourceId} />
+
+            {batchSourceId !== 'none' && leadSources.find(s => s.id === batchSourceId)?.name?.toLowerCase().includes('linkedin') && (
+              <div className="space-y-1.5">
+                <Label className="text-xs flex items-center gap-1.5">
+                  <MessageSquare className="w-3 h-3" /> Contexto da conversa no LinkedIn (para todos os leads)
+                </Label>
+                <Textarea
+                  value={batchLinkedinContext}
+                  onChange={e => setBatchLinkedinContext(e.target.value)}
+                  placeholder="Cole aqui o resumo da conversa no LinkedIn. Ex: 'Conversamos sobre mentoria, ele já tem modelo rodando, quer escalar...'"
+                  className="min-h-[60px] text-xs"
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  A IA usará esse contexto para NÃO repetir perguntas já feitas no LinkedIn.
+                </p>
+              </div>
+            )}
+
             <label className="flex items-center gap-2 text-xs cursor-pointer py-1">
               <input type="checkbox" checked={batchTriggerAi} onChange={e => setBatchTriggerAi(e.target.checked)} className="rounded" />
               <Send className="w-3 h-3 text-primary" />
