@@ -197,7 +197,7 @@ export const DEFAULT_AI_SDR_CONFIG: AiSdrConfig = {
       context:
         'Lead veio por indicação de alguém. Mencione quem indicou (se disponível) e use isso como ponte de confiança. Tom mais próximo e caloroso.',
       color: '#3B82F6',
-      pipedrive_label_id: 27,
+      
       automation: {
         ...DEFAULT_SOURCE_AUTOMATION,
         follow_up_hours: 12,
