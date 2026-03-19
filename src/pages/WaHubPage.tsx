@@ -189,9 +189,11 @@ function WaHubPageInner() {
     }
   };
 
+  const isChatTab = tab === 'chat';
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-4 flex-wrap">
+    <div className={isChatTab ? "flex flex-col h-[calc(100vh-3rem)]" : "space-y-4"}>
+      <div className={`flex items-center gap-4 flex-wrap ${isChatTab ? 'px-4 py-2 shrink-0' : ''}`}>
         <div className="flex items-center gap-2">
           <Shield className="w-5 h-5 text-primary" />
           <span className="text-lg font-bold text-foreground">WhatsApp Hub</span>
@@ -228,8 +230,8 @@ function WaHubPageInner() {
       </div>
 
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
-        <TabsList>
+      <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className={isChatTab ? 'flex-1 flex flex-col min-h-0' : ''}>
+        <TabsList className={isChatTab ? 'mx-4 shrink-0' : ''}>
           <TabsTrigger value="chat" className="text-xs gap-1.5">
             <MessageSquare className="w-3.5 h-3.5" /> Conversas
           </TabsTrigger>
@@ -259,8 +261,8 @@ function WaHubPageInner() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="chat" className="mt-4">
-          <div className="flex rounded-xl border border-border bg-card overflow-hidden" style={{ height: 'calc(100vh - 280px)' }}>
+        <TabsContent value="chat" className="mt-0 flex-1 min-h-0">
+          <div className="flex bg-card overflow-hidden h-full border-t border-border">
             <WaConversationList
               conversations={conversations}
               instances={visibleInstances}
@@ -340,11 +342,11 @@ function WaHubPageInner() {
           </div>
         </TabsContent>
 
-        <TabsContent value="dashboard" className="mt-4">
+        <TabsContent value="dashboard" className="mt-4 px-4">
           <WaDashboard />
         </TabsContent>
 
-        <TabsContent value="crm" className="mt-4">
+        <TabsContent value="crm" className="mt-4 px-4">
           <WaCrmView
             conversations={conversations}
             tags={tags}
@@ -359,7 +361,7 @@ function WaHubPageInner() {
           />
         </TabsContent>
 
-        <TabsContent value="ai-sdr" className="mt-4">
+        <TabsContent value="ai-sdr" className="mt-4 px-4">
           <AiSdrSummaryCard
             instances={visibleInstances as any}
             teamMembers={teamMembers}
@@ -369,15 +371,15 @@ function WaHubPageInner() {
           />
         </TabsContent>
 
-        <TabsContent value="ai-prompts" className="mt-4">
+        <TabsContent value="ai-prompts" className="mt-4 px-4">
           <AiPromptsTab />
         </TabsContent>
 
-        <TabsContent value="pipedrive" className="mt-4">
+        <TabsContent value="pipedrive" className="mt-4 px-4">
           <PipedriveTab />
         </TabsContent>
 
-        <TabsContent value="instances" className="mt-4">
+        <TabsContent value="instances" className="mt-4 px-4">
           <InstancesTab mgr={mgr} conversations={allConversations} />
         </TabsContent>
       </Tabs>
