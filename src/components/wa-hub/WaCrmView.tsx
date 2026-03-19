@@ -412,6 +412,49 @@ export function WaCrmView({ conversations, tags, instances, teamMembers, getTags
         teamMembers={teamMembers}
         onRefresh={onRefresh}
       />
+
+      {/* Edit Lead Dialog */}
+      <Dialog open={!!editingConv} onOpenChange={(open) => { if (!open) setEditingConv(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-sm">Editar Lead</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Nome</Label>
+              <Input value={editName} onChange={e => setEditName(e.target.value)} className="h-8 text-sm mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">Telefone</Label>
+              <Input value={editPhone} onChange={e => setEditPhone(e.target.value)} className="h-8 text-sm mt-1" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button size="sm" variant="outline" onClick={() => setEditingConv(null)}>Cancelar</Button>
+            <Button size="sm" onClick={handleSaveEdit} disabled={editSaving}>
+              {editSaving ? 'Salvando...' : 'Salvar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Lead Confirm */}
+      <AlertDialog open={!!deletingConv} onOpenChange={(open) => { if (!open) setDeletingConv(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir lead?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Isso vai excluir permanentemente <strong>{deletingConv?.contact.name}</strong> e todo o histórico de mensagens. Essa ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteLoading}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteLead} disabled={deleteLoading} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {deleteLoading ? 'Excluindo...' : 'Excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
