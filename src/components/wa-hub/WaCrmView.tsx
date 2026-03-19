@@ -53,9 +53,7 @@ export function WaCrmView({ conversations, tags, instances, teamMembers, getTags
   const [view, setView] = useState<'kanban' | 'table'>('kanban');
   const [search, setSearch] = useState('');
   const [filterTag, setFilterTag] = useState<string | null>(null);
-  const [filterStage, setFilterStage] = useState<LeadStage | null>(null);
-  const [filterMode, setFilterMode] = useState<ConversationMode | null>(null);
-  const [filterPriority, setFilterPriority] = useState<PriorityLevel | null>(null);
+  const [filterInstanceId, setFilterInstanceId] = useState<string>('all');
   const [filterInstanceId, setFilterInstanceId] = useState<string>('all');
   const [filterCloserId, setFilterCloserId] = useState<string>('all');
   const [filterSdrId, setFilterSdrId] = useState<string>('all');
