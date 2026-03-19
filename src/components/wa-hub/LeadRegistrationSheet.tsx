@@ -192,7 +192,9 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
     setBatchSubmitting(true);
     let ok = 0, fail = 0;
     for (const lead of batchLeads) {
-      const result = await createLeadAndTrigger(lead, batchSourceId, batchTriggerAi);
+      // Apply batch-level linkedin context to each lead if they don't have individual context
+      const leadWithContext = { ...lead, linkedinContext: lead.linkedinContext || batchLinkedinContext };
+      const result = await createLeadAndTrigger(leadWithContext, batchSourceId, batchTriggerAi);
       if (result) ok++; else fail++;
     }
     setBatchSubmitting(false);
