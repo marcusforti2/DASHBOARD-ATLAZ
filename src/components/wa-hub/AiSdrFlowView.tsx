@@ -79,7 +79,7 @@ interface Props {
     feature_qualification?: boolean;
     feature_handoff?: boolean;
     feature_sentiment?: boolean;
-    feature_pipedrive_sync?: boolean;
+    
     qualification_questions?: string[];
     score_thresholds?: { a_min: number; b_min: number };
     master_prompt?: string;
