@@ -97,7 +97,6 @@ export function WaCrmView({ conversations, tags, instances, teamMembers, getTags
       });
     }
     return list;
-    return list;
   }, [conversations, search, filterInstanceId, filterCloserId, filterSdrId, filterTag, getTagsForContact, instanceMap]);
 
   const getConvsForStage = useCallback(
