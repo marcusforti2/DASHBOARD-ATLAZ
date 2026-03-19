@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { UserPlus, Users, Loader2, Linkedin, Send, AlertCircle, Sparkles, CheckCircle2, Tag } from 'lucide-react';
+import { UserPlus, Users, Loader2, Linkedin, Send, AlertCircle, Sparkles, CheckCircle2, Tag, MessageSquare } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { WaInstance } from '@/hooks/use-wa-hub';
@@ -26,12 +26,14 @@ interface LeadInput {
   name: string;
   phone: string;
   linkedinUrl: string;
+  linkedinContext: string;
 }
 
 export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, teamMembers, onRefresh }: Props) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [linkedinUrl, setLinkedinUrl] = useState('');
+  const [linkedinContext, setLinkedinContext] = useState('');
   const [selectedSourceId, setSelectedSourceId] = useState<string>('none');
   const [triggerAi, setTriggerAi] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -56,7 +58,7 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
   const parseBatchLeads = (text: string): LeadInput[] => {
     return text.split('\n').map(l => l.trim()).filter(Boolean).map(line => {
       const parts = line.split(/[,;\t]+/).map(p => p.trim());
-      return { name: parts[0] || '', phone: parts[1] || '', linkedinUrl: parts[2] || '' };
+      return { name: parts[0] || '', phone: parts[1] || '', linkedinUrl: parts[2] || '', linkedinContext: '' };
     }).filter(l => l.name && l.phone);
   };
 
@@ -69,7 +71,7 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
       const { data, error } = await supabase.functions.invoke('parse-lead-batch', { body: { text: batchText } });
       if (error) throw error;
       const leads: LeadInput[] = (data?.leads || []).map((l: any) => ({
-        name: l.name || '', phone: l.phone || '', linkedinUrl: l.linkedin_url || l.linkedinUrl || '',
+        name: l.name || '', phone: l.phone || '', linkedinUrl: l.linkedin_url || l.linkedinUrl || '', linkedinContext: '',
       })).filter((l: LeadInput) => l.name && l.phone);
       if (leads.length === 0) {
         toast.error('A IA não conseguiu extrair leads do texto.');
@@ -125,11 +127,18 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
       let conversationId: string;
       if (existingConv) {
         conversationId = existingConv.id;
+        // Update linkedin context if provided
+        if (lead.linkedinContext) {
+          await supabase.from('wa_conversations').update({
+            linkedin_context: lead.linkedinContext,
+          } as any).eq('id', existingConv.id);
+        }
       } else {
         const { data: newConv, error: convErr } = await supabase
           .from('wa_conversations').insert({
             contact_id: contactId, instance_id: inst.id, status: 'active',
             lead_stage: 'novo', conversation_mode: 'ia_ativa', priority_level: 'normal',
+            linkedin_context: lead.linkedinContext || '',
           } as any).select('id').single();
         if (convErr) throw convErr;
         conversationId = newConv.id;
@@ -152,6 +161,7 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
               lead_source_name: selectedSource?.name || 'PROSPECÇÃO',
               lead_source_context: selectedSource?.context || '',
               linkedin_url: lead.linkedinUrl || '',
+              linkedin_context: lead.linkedinContext || '',
             },
           });
         } catch (aiErr) { console.error('AI SDR trigger error:', aiErr); }
@@ -167,11 +177,11 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
   const handleSubmitSingle = async () => {
     if (!name.trim() || !phone.trim()) { toast.error('Nome e telefone são obrigatórios'); return; }
     setSubmitting(true);
-    const ok = await createLeadAndTrigger({ name: name.trim(), phone: phone.trim(), linkedinUrl: linkedinUrl.trim() }, selectedSourceId, triggerAi);
+    const ok = await createLeadAndTrigger({ name: name.trim(), phone: phone.trim(), linkedinUrl: linkedinUrl.trim(), linkedinContext: linkedinContext.trim() }, selectedSourceId, triggerAi);
     setSubmitting(false);
     if (ok) {
       toast.success(`Lead "${name}" cadastrado${triggerAi ? ' e IA disparada!' : '!'}`);
-      setName(''); setPhone(''); setLinkedinUrl(''); setSelectedSourceId('none');
+      setName(''); setPhone(''); setLinkedinUrl(''); setLinkedinContext(''); setSelectedSourceId('none');
       onRefresh?.();
     }
   };
@@ -275,6 +285,22 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
               <Label className="text-xs">LinkedIn URL</Label>
               <Input value={linkedinUrl} onChange={e => setLinkedinUrl(e.target.value)} placeholder="https://linkedin.com/in/..." className="h-8 text-sm" />
             </div>
+            {(selectedSourceId === 'linkedin' || linkedinUrl) && (
+              <div className="space-y-1.5">
+                <Label className="text-xs flex items-center gap-1.5">
+                  <MessageSquare className="w-3 h-3" /> Contexto da conversa no LinkedIn
+                </Label>
+                <Textarea
+                  value={linkedinContext}
+                  onChange={e => setLinkedinContext(e.target.value)}
+                  placeholder="Ex: Conversamos sobre modelo de mentoria, ele perguntou sobre preço e formato. Demonstrou interesse em consultoria individual..."
+                  className="min-h-[80px] text-xs"
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  A IA usará este contexto para não repetir assuntos e continuar a conversa naturalmente.
+                </p>
+              </div>
+            )}
             <SourceSelector value={selectedSourceId} onChange={setSelectedSourceId} />
             <label className="flex items-center gap-2 text-xs cursor-pointer py-1">
               <input type="checkbox" checked={triggerAi} onChange={e => setTriggerAi(e.target.checked)} className="rounded" />

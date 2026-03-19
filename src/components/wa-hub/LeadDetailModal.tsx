@@ -4,6 +4,7 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -14,7 +15,7 @@ import {
 import {
   Bot, BotOff, CheckCheck, Phone, Mail, Building2, DollarSign,
   Calendar, ExternalLink, Loader2, TrendingUp, AlertTriangle,
-  User, MessageSquare, Clock, Briefcase, History
+  User, MessageSquare, Clock, Briefcase, History, Linkedin, Search, Save
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -70,6 +71,10 @@ export function LeadDetailModal({ open, onOpenChange, conversation, tags, assign
   const [doubleChecking, setDoubleChecking] = useState(false);
   const [msgStats, setMsgStats] = useState({ contact: 0, agent: 0, first: '', last: '' });
   const [stateEvents, setStateEvents] = useState<WaConversationStateEvent[]>([]);
+  const [linkedinContext, setLinkedinContext] = useState('');
+  const [linkedinProfile, setLinkedinProfile] = useState<any>(null);
+  const [savingContext, setSavingContext] = useState(false);
+  const [enriching, setEnriching] = useState(false);
   const [convSnapshot, setConvSnapshot] = useState<{
     conversation_mode: ConversationMode;
     lead_stage: LeadStage;
@@ -85,7 +90,7 @@ export function LeadDetailModal({ open, onOpenChange, conversation, tags, assign
       const [scoreResult, msgsResult, convResult, eventsResult] = await Promise.all([
         supabase.from('wa_lead_scores').select('*').eq('contact_id', contactId).maybeSingle(),
         supabase.from('wa_messages').select('sender, created_at').eq('conversation_id', conversation.id).order('created_at', { ascending: true }),
-        supabase.from('wa_conversations').select('conversation_mode, lead_stage, priority_level').eq('id', conversation.id).single(),
+        supabase.from('wa_conversations').select('conversation_mode, lead_stage, priority_level, linkedin_context, linkedin_profile').eq('id', conversation.id).single(),
         supabase.from('wa_conversation_state_events').select('*').eq('conversation_id', conversation.id).order('created_at', { ascending: false }).limit(20),
       ]);
 
@@ -96,6 +101,8 @@ export function LeadDetailModal({ open, onOpenChange, conversation, tags, assign
         priority_level: (convData?.priority_level as PriorityLevel) || 'normal',
       };
       setConvSnapshot(snapshot);
+      setLinkedinContext((convData as any)?.linkedin_context || '');
+      setLinkedinProfile((convData as any)?.linkedin_profile && Object.keys((convData as any).linkedin_profile).length > 0 ? (convData as any).linkedin_profile : null);
       setAiEnabled(snapshot.conversation_mode === 'ia_ativa' || snapshot.conversation_mode === 'compartilhado');
 
       setStateEvents((eventsResult.data || []) as unknown as WaConversationStateEvent[]);
@@ -252,6 +259,58 @@ export function LeadDetailModal({ open, onOpenChange, conversation, tags, assign
     }
   };
 
+  const handleSaveLinkedinContext = async () => {
+    setSavingContext(true);
+    try {
+      await supabase.from('wa_conversations').update({
+        linkedin_context: linkedinContext,
+      } as any).eq('id', conversation.id);
+      toast.success('Contexto LinkedIn salvo!');
+    } catch {
+      toast.error('Erro ao salvar contexto');
+    } finally {
+      setSavingContext(false);
+    }
+  };
+
+  const handleEnrichPiloterr = async () => {
+    setEnriching(true);
+    try {
+      // Find LinkedIn URL from messages or use contact name for search
+      const { data: msgs } = await supabase.from('wa_messages')
+        .select('text').eq('conversation_id', conversation.id)
+        .like('text', '%linkedin.com%').limit(1);
+      
+      const linkedinMsg = msgs?.[0]?.text || '';
+      const urlMatch = linkedinMsg.match(/https?:\/\/(www\.)?linkedin\.com\/in\/[^\s]+/);
+      
+      const body: any = {};
+      if (urlMatch) {
+        body.linkedin_url = urlMatch[0];
+      } else {
+        body.query = conversation.contact.name;
+      }
+      
+      const { data, error } = await supabase.functions.invoke('linkedin-scraper', { body });
+      if (error) throw error;
+      
+      if (data?.found && data?.profile) {
+        await supabase.from('wa_conversations').update({
+          linkedin_profile: data.profile,
+        } as any).eq('id', conversation.id);
+        setLinkedinProfile(data.profile);
+        toast.success(`Perfil LinkedIn enriquecido: ${data.profile.full_name}`);
+      } else {
+        toast.info('Perfil não encontrado no LinkedIn');
+      }
+    } catch (err) {
+      console.error('Piloterr error:', err);
+      toast.error('Erro ao buscar perfil LinkedIn');
+    } finally {
+      setEnriching(false);
+    }
+  };
+
   const formatCurrency = (val: number | null, cur: string | null) => {
     if (!val) return '—';
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: cur || 'BRL' }).format(val);
@@ -390,6 +449,67 @@ export function LeadDetailModal({ open, onOpenChange, conversation, tags, assign
         {/* Tags */}
         <div className="px-5 py-2.5">
           <WaContactTagBadges contactId={contactId} assignedTagIds={assignedTagIds} allTags={tags} onAdd={onAddTag} onRemove={onRemoveTag} />
+        </div>
+
+        <Separator />
+
+        {/* LinkedIn Context & Profile */}
+        <div className="px-5 py-3 space-y-3">
+          <div className="flex items-center gap-2">
+            <Linkedin className="w-3.5 h-3.5 text-primary" />
+            <span className="text-xs font-semibold text-foreground">LinkedIn & Contexto</span>
+            <Button size="sm" variant="outline" className="ml-auto h-7 text-[10px] gap-1" onClick={handleEnrichPiloterr} disabled={enriching}>
+              {enriching ? <Loader2 className="w-3 h-3 animate-spin" /> : <Search className="w-3 h-3" />}
+              Enriquecer Perfil
+            </Button>
+          </div>
+
+          {linkedinProfile && (
+            <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 space-y-1.5">
+              <p className="text-xs font-semibold text-foreground">{linkedinProfile.full_name}</p>
+              {linkedinProfile.headline && <p className="text-[10px] text-muted-foreground">{linkedinProfile.headline}</p>}
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                {linkedinProfile.company && (
+                  <Badge variant="secondary" className="text-[9px] gap-1">
+                    <Building2 className="w-2.5 h-2.5" />{linkedinProfile.company}
+                  </Badge>
+                )}
+                {linkedinProfile.company_role && (
+                  <Badge variant="outline" className="text-[9px] gap-1">
+                    <Briefcase className="w-2.5 h-2.5" />{linkedinProfile.company_role}
+                  </Badge>
+                )}
+                {linkedinProfile.location && (
+                  <Badge variant="outline" className="text-[9px]">{linkedinProfile.location}</Badge>
+                )}
+              </div>
+              {linkedinProfile.summary && (
+                <p className="text-[10px] text-muted-foreground mt-1 line-clamp-3">{linkedinProfile.summary}</p>
+              )}
+              {linkedinProfile.linkedin_url && (
+                <a href={linkedinProfile.linkedin_url} target="_blank" rel="noopener noreferrer"
+                  className="text-[10px] text-primary hover:underline flex items-center gap-1 mt-1">
+                  <ExternalLink className="w-2.5 h-2.5" /> Ver no LinkedIn
+                </a>
+              )}
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+              Contexto da conversa no LinkedIn
+            </label>
+            <Textarea
+              value={linkedinContext}
+              onChange={e => setLinkedinContext(e.target.value)}
+              placeholder="Ex: Conversamos sobre modelo de mentoria, ele perguntou sobre preço e formato..."
+              className="min-h-[60px] text-xs resize-none"
+            />
+            <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1 w-full" onClick={handleSaveLinkedinContext} disabled={savingContext}>
+              {savingContext ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+              Salvar Contexto
+            </Button>
+          </div>
         </div>
 
         <Separator />
