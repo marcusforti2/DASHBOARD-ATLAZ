@@ -177,11 +177,11 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
   const handleSubmitSingle = async () => {
     if (!name.trim() || !phone.trim()) { toast.error('Nome e telefone são obrigatórios'); return; }
     setSubmitting(true);
-    const ok = await createLeadAndTrigger({ name: name.trim(), phone: phone.trim(), linkedinUrl: linkedinUrl.trim() }, selectedSourceId, triggerAi);
+    const ok = await createLeadAndTrigger({ name: name.trim(), phone: phone.trim(), linkedinUrl: linkedinUrl.trim(), linkedinContext: linkedinContext.trim() }, selectedSourceId, triggerAi);
     setSubmitting(false);
     if (ok) {
       toast.success(`Lead "${name}" cadastrado${triggerAi ? ' e IA disparada!' : '!'}`);
-      setName(''); setPhone(''); setLinkedinUrl(''); setSelectedSourceId('none');
+      setName(''); setPhone(''); setLinkedinUrl(''); setLinkedinContext(''); setSelectedSourceId('none');
       onRefresh?.();
     }
   };
