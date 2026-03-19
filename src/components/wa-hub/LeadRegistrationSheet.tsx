@@ -11,7 +11,7 @@ import { UserPlus, Users, Loader2, Linkedin, Send, AlertCircle, Sparkles, CheckC
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { WaInstance } from '@/hooks/use-wa-hub';
-import type { LeadSource } from '@/domains/ai-sdr/types';
+import { type LeadSource, DEFAULT_AI_SDR_CONFIG } from '@/domains/ai-sdr/types';
 
 interface Props {
   open: boolean;
@@ -49,8 +49,8 @@ export function LeadRegistrationSheet({ open, onOpenChange, instances, tags, tea
 
   const leadSources: LeadSource[] = useMemo(() => {
     const config = (defaultInstance as any)?.ai_sdr_config;
-    if (!config) return [];
-    return ((config as any).lead_sources || []).filter((s: LeadSource) => s.active);
+    const sources = (config?.lead_sources || DEFAULT_AI_SDR_CONFIG.lead_sources || []);
+    return sources.filter((s: LeadSource) => s.active);
   }, [defaultInstance]);
 
   const parseBatchLeads = (text: string): LeadInput[] => {
