@@ -99,7 +99,6 @@ export function AiSdrConfigPanel({ instanceId, instanceName, aiSdrEnabled, aiSdr
     localConfig.feature_qualification,
     localConfig.feature_handoff,
     localConfig.feature_sentiment,
-    localConfig.feature_pipedrive_sync,
     localConfig.call_focus_mode,
     localConfig.follow_up_enabled,
     localConfig.split_messages,
