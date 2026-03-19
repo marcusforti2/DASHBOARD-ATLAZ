@@ -43,7 +43,7 @@ REGRAS:
 RESPONDA APENAS com JSON válido no formato:
 {"leads": [{"name": "...", "phone": "...", "linkedin_url": "..."}, ...]}`;
 
-    const response = await fetch("https://ai.lovable.dev/chat/v1", {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
