@@ -83,6 +83,7 @@ RESPONDA APENAS com JSON válido no formato:
       name: String(l.name || "").trim(),
       phone: String(l.phone || "").replace(/[^0-9]/g, ""),
       linkedin_url: String(l.linkedin_url || "").trim(),
+      linkedin_context: String(l.linkedin_context || "").trim(),
     })).filter((l: any) => l.name && l.phone && l.phone.length >= 8);
 
     return new Response(JSON.stringify({ leads, count: leads.length }), {
