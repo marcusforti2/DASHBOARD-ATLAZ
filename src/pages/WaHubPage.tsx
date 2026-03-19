@@ -198,17 +198,27 @@ function WaHubPageInner() {
           <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">Visão Total</span>
         </div>
         <div className="ml-auto flex items-center gap-4 flex-wrap">
+          <HubScopeFilters
+            instances={instances}
+            teamMembers={teamMembers}
+            selectedInstanceId={selectedInstanceId}
+            selectedCloserId={selectedCloserId}
+            selectedSdrId={selectedSdrId}
+            connectionFilter={connectionFilter}
+            scopedInstances={scopeBaseInstances}
+            onInstanceChange={setSelectedInstanceId}
+            onCloserChange={setSelectedCloserId}
+            onSdrChange={setSelectedSdrId}
+            onConnectionChange={setConnectionFilter}
+            onClear={clearScopeFilters}
+          />
           <div className="flex items-center gap-1.5">
             <Eye className="w-3.5 h-3.5 text-primary" />
-            <span className="text-xs text-muted-foreground">{totalConvs} conversas no recorte</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-            <span className="text-xs text-muted-foreground">{activeCount} ativas</span>
+            <span className="text-xs text-muted-foreground">{totalConvs} conversas</span>
           </div>
           <div className="flex items-center gap-1.5">
             <Users className="w-3.5 h-3.5 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">{visibleInstances.length} instâncias visíveis</span>
+            <span className="text-xs text-muted-foreground">{visibleInstances.length} instâncias</span>
           </div>
           <div className="flex items-center gap-1.5">
             <Wifi className="w-3.5 h-3.5 text-emerald-500" />
@@ -216,21 +226,6 @@ function WaHubPageInner() {
           </div>
         </div>
       </div>
-
-      <HubScopeFilters
-        instances={instances}
-        teamMembers={teamMembers}
-        selectedInstanceId={selectedInstanceId}
-        selectedCloserId={selectedCloserId}
-        selectedSdrId={selectedSdrId}
-        connectionFilter={connectionFilter}
-        scopedInstances={scopeBaseInstances}
-        onInstanceChange={setSelectedInstanceId}
-        onCloserChange={setSelectedCloserId}
-        onSdrChange={setSelectedSdrId}
-        onConnectionChange={setConnectionFilter}
-        onClear={clearScopeFilters}
-      />
 
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
