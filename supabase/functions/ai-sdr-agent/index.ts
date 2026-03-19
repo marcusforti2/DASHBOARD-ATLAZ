@@ -789,7 +789,7 @@ REGRA DE RITMO: Se a conversa JÁ começou (tem msgs anteriores), NUNCA mande ma
       }
     }
 
-    // ===== BUILD SYSTEM PROMPT — branch between Campaign, SDR and Organic/Receptive mode =====
+    // ===== BUILD SYSTEM PROMPT — branch between Campaign and SDR mode =====
     let systemPrompt: string;
 
     if (activeCampaign) {
