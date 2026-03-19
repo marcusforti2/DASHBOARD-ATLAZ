@@ -481,18 +481,32 @@ Deno.serve(async (req) => {
       closerName = closerMember?.name || "";
     }
 
-    // Get ALL knowledge
+    // Get ALL knowledge (including centralized SDR knowledge)
     const { data: knowledge } = await supabase
       .from("company_knowledge")
       .select("title, content, category")
       .eq("active", true)
-      .limit(10);
+      .limit(50);
 
-    const generalKnowledge = (knowledge || []).filter(k => k.category !== "ai_prompt")
+    const generalKnowledge = (knowledge || [])
+      .filter(k => !k.category.startsWith("ai_sdr_") && k.category !== "ai_prompt")
       .map(k => `[${k.title}]: ${k.content.substring(0, 500)}`).join("\n\n");
 
     const aiPrompts = (knowledge || []).filter(k => k.category === "ai_prompt")
       .map(k => `[${k.title}]: ${k.content}`).join("\n\n");
+
+    // Centralized SDR knowledge — overrides instance config if present
+    const sdrKnowledge: Record<string, string> = {};
+    for (const k of (knowledge || [])) {
+      if (k.category.startsWith("ai_sdr_")) {
+        sdrKnowledge[k.category] = k.content;
+      }
+    }
+    const masterPrompt = sdrKnowledge["ai_sdr_master_prompt"] || config.master_prompt || "";
+    const targetAudience = sdrKnowledge["ai_sdr_target_audience"] || config.target_audience || "";
+    const painPoints = sdrKnowledge["ai_sdr_pain_points"] || config.pain_points || "";
+    const desires = sdrKnowledge["ai_sdr_desires"] || config.desires || "";
+    const promptContext = sdrKnowledge["ai_sdr_context"] || config.prompt_context || "";
 
     // Build conversation history text
     const agentLabel = closerName || "SDR IA";
