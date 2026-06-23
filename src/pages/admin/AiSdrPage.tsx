@@ -17,8 +17,8 @@ import { Badge } from "@/components/ui/badge";
 import { AiSdrFlowView } from "@/components/wa-hub/AiSdrFlowView";
 import { AiPromptsTab } from "@/components/wa-hub/AiPromptsTab";
 
-import type { AiSdrConfig, LeadSource, LeadSourceAutomation } from '@/domains/ai-sdr/types';
-import { DEFAULT_AI_SDR_CONFIG, DEFAULT_SOURCE_AUTOMATION, AI_SDR_TONES } from '@/domains/ai-sdr/types';
+import type { AiSdrConfig, LeadSource, LeadSourceAutomation } from '@/types/ai-sdr';
+import { DEFAULT_AI_SDR_CONFIG, DEFAULT_SOURCE_AUTOMATION, AI_SDR_TONES } from '@/types/ai-sdr';
 
 interface Instance {
   id: string;

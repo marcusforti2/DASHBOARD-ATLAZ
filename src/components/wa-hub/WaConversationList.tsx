@@ -9,8 +9,8 @@ import {
   PRIORITY_LEVEL_LABELS,
   LEAD_STAGES,
   PRIORITY_LEVELS,
-} from '@/domains/conversations/types';
-import type { ConversationMode, LeadStage, PriorityLevel } from '@/domains/conversations/types';
+} from '@/types/conversations';
+import type { ConversationMode, LeadStage, PriorityLevel } from '@/types/conversations';
 import {
   Select,
   SelectContent,

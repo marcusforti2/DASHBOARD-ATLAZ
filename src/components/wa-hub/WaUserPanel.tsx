@@ -8,7 +8,7 @@ import { WaLeadProfilePanel } from './WaLeadProfilePanel';
 import { WaAiTools } from './WaAiTools';
 import { WaCrmView } from './WaCrmView';
 import { toast } from 'sonner';
-import { sendMedia, sendAudio } from '@/lib/evolutionApi';
+import { sendMedia, sendAudio } from '@/lib/evolution-api';
 import {
   MessageSquare, BarChart3, Tag, Shield, Bell, Loader2, Clock, CheckCircle2, TrendingUp, AlertTriangle,
 } from 'lucide-react';

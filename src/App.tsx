@@ -4,12 +4,12 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
-import Auth from "./pages/Auth";
-import ResetPassword from "./pages/ResetPassword";
+import Auth from "./pages/auth/Auth";
+import ResetPassword from "./pages/auth/ResetPassword";
 import NotFound from "./pages/NotFound";
-import RegisterAdmin from "./pages/RegisterAdmin";
-import PublicTestPage from "./pages/PublicTestPage";
-import ProcessoPublico from "./pages/ProcessoPublico";
+import RegisterAdmin from "./pages/auth/RegisterAdmin";
+import PublicTestPage from "./pages/public/PublicTestPage";
+import ProcessoPublico from "./pages/public/ProcessoPublico";
 
 const queryClient = new QueryClient();
 
