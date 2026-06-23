@@ -21,14 +21,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/use-auth';
 import type { WaConversation } from '@/hooks/use-wa-hub';
-import type { ConversationMode, LeadStage, PriorityLevel, WaConversationStateEvent } from '@/domains/conversations/types';
+import type { ConversationMode, LeadStage, PriorityLevel, WaConversationStateEvent } from '@/types/conversations';
 import {
   LEAD_STAGES,
   LEAD_STAGE_LABELS,
   PRIORITY_LEVELS,
   PRIORITY_LEVEL_LABELS,
   CONVERSATION_MODE_LABELS,
-} from '@/domains/conversations/types';
+} from '@/types/conversations';
 import { WaContactTagBadges } from './WaContactTagBadges';
 import type { WaTag } from '@/hooks/use-wa-tags';
 import { getAvatarColor } from '@/lib/wa-utils';

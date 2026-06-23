@@ -32,7 +32,7 @@ import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { sendMedia, sendAudio, sendSticker } from '@/lib/evolutionApi';
+import { sendMedia, sendAudio, sendSticker } from '@/lib/evolution-api';
 import { WaConversationList } from '@/components/wa-hub/WaConversationList';
 import WaChatView from '@/components/wa-hub/WaChatView';
 import { WaDashboard } from '@/components/wa-hub/WaDashboard';

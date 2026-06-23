@@ -8,7 +8,7 @@ import {
   disconnectInstance,
   restartInstance,
   QrCodeResponse,
-} from '@/lib/evolutionApi';
+} from '@/lib/evolution-api';
 
 interface Props {
   instanceName: string;

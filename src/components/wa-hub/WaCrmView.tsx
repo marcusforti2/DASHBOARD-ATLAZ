@@ -18,8 +18,8 @@ import {
   LEAD_STAGE_LABELS,
   CONVERSATION_MODE_LABELS,
   PRIORITY_LEVEL_LABELS,
-} from '@/domains/conversations/types';
-import type { LeadStage } from '@/domains/conversations/types';
+} from '@/types/conversations';
+import type { LeadStage } from '@/types/conversations';
 import type { WaTag } from '@/hooks/use-wa-tags';
 import type { WaConversation, WaInstance } from '@/hooks/use-wa-hub';
 

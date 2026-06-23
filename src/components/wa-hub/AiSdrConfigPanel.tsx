@@ -10,8 +10,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 
-import type { AiSdrConfig } from '@/domains/ai-sdr/types';
-import { DEFAULT_AI_SDR_CONFIG, AI_SDR_TONES } from '@/domains/ai-sdr/types';
+import type { AiSdrConfig } from '@/types/ai-sdr';
+import { DEFAULT_AI_SDR_CONFIG, AI_SDR_TONES } from '@/types/ai-sdr';
 
 const DEFAULT_CONFIG = DEFAULT_AI_SDR_CONFIG;
 const TONES = AI_SDR_TONES;

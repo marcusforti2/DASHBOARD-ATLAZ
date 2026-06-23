@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { createInstance, setWebhook, getWebhookUrl, restartInstance } from '@/lib/evolutionApi';
+import { createInstance, setWebhook, getWebhookUrl, restartInstance } from '@/lib/evolution-api';
 import { useWaInstances } from '@/hooks/use-wa-hub';
 
 export function useWaInstanceManager() {
@@ -38,7 +38,7 @@ export function useWaInstanceManager() {
       let changed = false;
       for (const inst of instances) {
         try {
-          const { getInstanceStatus } = await import('@/lib/evolutionApi');
+          const { getInstanceStatus } = await import('@/lib/evolution-api');
           const data = await getInstanceStatus(inst.instance_name);
           const isConn = data?.state === 'open';
           if (inst.is_connected !== isConn) {

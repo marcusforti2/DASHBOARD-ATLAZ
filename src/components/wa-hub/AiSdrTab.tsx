@@ -15,8 +15,8 @@ import { Badge } from "@/components/ui/badge";
 import { AiSdrFlowView } from "./AiSdrFlowView";
 import { RoutingPanel } from "./RoutingPanel";
 
-import type { AiSdrConfig } from '@/domains/ai-sdr/types';
-import { DEFAULT_AI_SDR_CONFIG, AI_SDR_TONES } from '@/domains/ai-sdr/types';
+import type { AiSdrConfig } from '@/types/ai-sdr';
+import { DEFAULT_AI_SDR_CONFIG, AI_SDR_TONES } from '@/types/ai-sdr';
 
 interface Instance {
   id: string;

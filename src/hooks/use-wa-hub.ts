@@ -6,7 +6,7 @@ import type {
   PriorityLevel,
   ConversationStatus,
   AssignmentRole,
-} from '@/domains/conversations/types';
+} from '@/types/conversations';
 
 export type { LeadStage, ConversationMode, PriorityLevel, ConversationStatus, AssignmentRole };
 

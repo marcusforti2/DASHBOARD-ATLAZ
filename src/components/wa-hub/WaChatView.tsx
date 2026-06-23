@@ -8,7 +8,7 @@ import {
   LEAD_STAGE_LABELS,
   CONVERSATION_MODE_LABELS,
   PRIORITY_LEVEL_LABELS,
-} from '@/domains/conversations/types';
+} from '@/types/conversations';
 import type { WaTag } from '@/hooks/use-wa-tags';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
