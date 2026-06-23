@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMonths, useTeamMembers } from "@/hooks/use-metrics";
 import { METRIC_KEYS, METRIC_LABELS, DbMonth, DbWeeklyGoal, DbMonthlyGoal, DbTeamMember, ALL_WEEKDAYS, DEFAULT_WORKING_DAYS, getWorkingDaysCount, SDR_METRIC_KEYS, CLOSER_METRIC_KEYS } from "@/lib/db";
 import { getWeeksOfMonth, getNextMonth, CalendarWeek } from "@/lib/calendar-utils";
-import { MiniCalendar } from "@/components/dashboard/MiniCalendar";
+import { MiniCalendar } from "@/components/dashboard/panels/MiniCalendar";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {

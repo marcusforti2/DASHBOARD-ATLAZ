@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Target, Bot, LayoutDashboard, LogOut, BarChart3, Trophy, GraduationCap, Calendar, MessageSquare } from "lucide-react";
-import { CloserDailyDashboard } from "@/components/dashboard/CloserDailyDashboard";
+import { CloserDailyDashboard } from "@/components/dashboard/panels/CloserDailyDashboard";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import { AiChat } from "./AiChat";
 import { AiToolsPanel } from "./AiToolsPanel";
