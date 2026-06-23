@@ -16,7 +16,7 @@ import TrainingAdminPage from "@/pages/admin/TrainingAdminPage";
 import AiSdrPage from "@/pages/admin/AiSdrPage";
 import EmailMarketingPage from "@/pages/admin/EmailMarketingPage";
 import { AppSidebar, AdminView } from "@/components/shared/AppSidebar";
-import { AiReportPanel } from "@/components/dashboard/AiReportPanel";
+import { AiReportPanel } from "@/components/dashboard/panels/AiReportPanel";
 import { UserHub } from "@/components/user/UserHub";
 import { JarvisOverlay } from "@/components/user/JarvisOverlay";
 import { MotivationalPopup } from "@/components/user/MotivationalPopup";
